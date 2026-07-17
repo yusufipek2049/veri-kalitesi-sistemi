@@ -24,6 +24,7 @@ from veri_kalitesi.issues.errors import (
     IssueNotFoundError,
     IssueNotificationConfigurationError,
     IssueNotificationTechnicalError,
+    IssueRelationshipError,
     IssueTechnicalError,
     IssueValidationError,
 )
@@ -35,7 +36,10 @@ from veri_kalitesi.issues.models import (
     IssueHistoryEntry,
     IssueResolutionDraft,
     IssueResolutionRecord,
+    IssueRelationship,
+    IssueRelationshipType,
     IssueScopeType,
+    IssueSourceEventType,
     IssueStatus,
     IssueTrigger,
     IssueTriggerType,
@@ -87,6 +91,10 @@ class IssueVerificationResolver(Protocol):
     ) -> TrustedIssueVerificationResult | None: ...
 
 
+class IssueRelationshipResolver(Protocol):
+    def resolve_predecessor(self, trigger: IssueTrigger) -> str | None: ...
+
+
 class IssueNotificationPublisher(Protocol):
     def create_for_event(
         self,
@@ -107,6 +115,7 @@ class IssueService:
         assignee_directory: IssueAssigneeDirectory | None = None,
         resolution_protector: IssueResolutionProtector | None = None,
         verification_resolver: IssueVerificationResolver | None = None,
+        relationship_resolver: IssueRelationshipResolver | None = None,
         notification_actor_context_provider: Callable[[], ActorContext] | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ) -> None:
@@ -119,6 +128,7 @@ class IssueService:
         self.assignee_directory = assignee_directory
         self.resolution_protector = resolution_protector
         self.verification_resolver = verification_resolver
+        self.relationship_resolver = relationship_resolver
         self.notification_actor_context_provider = notification_actor_context_provider
         self.clock = clock
 
@@ -149,6 +159,7 @@ class IssueService:
         validate_assignment(assignment)
 
         issue_id = str(uuid5(_ISSUE_NAMESPACE, _digest_text(trigger.deduplication_key)))
+        predecessor_issue_id = self._resolve_predecessor(trigger)
         issue = DataQualityIssue(
             issue_id=issue_id,
             issue_no=f"DQI-{issue_id.replace('-', '')[:12].upper()}",
@@ -173,6 +184,28 @@ class IssueService:
             old_status=None,
             new_status=IssueStatus.ASSIGNED,
             occurred_at=now,
+        )
+        relationship = (
+            IssueRelationship(
+                predecessor_issue_id=predecessor_issue_id,
+                successor_issue_id=issue.issue_id,
+                relationship_type=IssueRelationshipType.RECURRENCE,
+                created_at=now,
+            )
+            if predecessor_issue_id is not None
+            else None
+        )
+        relationship_history = (
+            IssueHistoryEntry(
+                issue_id=predecessor_issue_id,
+                action="ISSUE_LINKED_TO_NEW_QUALITY_FAILURE",
+                actor_id=context.actor_id,
+                old_status=IssueStatus.CLOSED,
+                new_status=IssueStatus.CLOSED,
+                occurred_at=now,
+            )
+            if predecessor_issue_id is not None
+            else None
         )
         audit_event = self._prepare_audit(
             AuditEventInput(
@@ -220,14 +253,42 @@ class IssueService:
             ),
             trigger.correlation_id,
         )
+        relationship_audit_event = (
+            self._prepare_audit(
+                AuditEventInput(
+                    actor_id=context.actor_id,
+                    actor_type=context.actor_type.value,
+                    correlation_id=trigger.correlation_id,
+                    action="DATA_QUALITY_ISSUE_LINKED",
+                    object_type="DataQualityIssue",
+                    object_id=issue.issue_id,
+                    result=AuditResult.SUCCESS,
+                    reason_code="NEW_RELATED_QUALITY_FAILURE",
+                    old_values={},
+                    new_values={
+                        "relationship_type": IssueRelationshipType.RECURRENCE.value,
+                        "source_event_type": issue.source_event_type.value,
+                        "status": issue.status.value,
+                    },
+                    occurred_at=now,
+                    session_id=context.session_id,
+                ),
+                trigger.correlation_id,
+            )
+            if relationship is not None
+            else None
+        )
         try:
             stored = self.repository.add_or_increment(
                 issue,
                 history,
                 payload_digest=_payload_digest(trigger, assignment),
                 source_event_occurred_at=trigger.occurred_at,
+                relationship=relationship,
+                relationship_history=relationship_history,
                 audit_event=audit_event,
                 reopen_audit_event=reopen_audit_event,
+                relationship_audit_event=relationship_audit_event,
                 audit_outbox=self.transactional_audit,
             )
         except IssueConflictError:
@@ -239,6 +300,28 @@ class IssueService:
         self.transactional_audit.publish_pending()
         self._publish_notification(trigger, context, stored)
         return stored
+
+    def _resolve_predecessor(self, trigger: IssueTrigger) -> str | None:
+        if (
+            issue_source_event_type(trigger.trigger_type) is not IssueSourceEventType.QUALITY
+            or self.relationship_resolver is None
+        ):
+            return None
+        try:
+            predecessor_issue_id = self.relationship_resolver.resolve_predecessor(trigger)
+        except IssueError:
+            raise
+        except Exception as exc:
+            raise IssueTechnicalError(
+                "Issue relationship resolution failed.", trigger.correlation_id
+            ) from exc
+        if predecessor_issue_id is None:
+            return None
+        try:
+            UUID(predecessor_issue_id)
+        except (AttributeError, TypeError, ValueError) as exc:
+            raise IssueRelationshipError("Trusted predecessor issue ID is invalid.") from exc
+        return predecessor_issue_id
 
     def start_investigation(
         self,

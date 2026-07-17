@@ -64,6 +64,10 @@ class IssueVerificationOutcome(str, Enum):
     QUALITY_PASSED = "QUALITY_PASSED"
 
 
+class IssueRelationshipType(str, Enum):
+    RECURRENCE = "RECURRENCE"
+
+
 @dataclass(frozen=True)
 class IssueTrigger:
     trigger_type: IssueTriggerType
@@ -143,6 +147,15 @@ class IssueVerificationRecord:
     recorded_by: str
     recorded_at: datetime
     verification_id: str = field(default_factory=lambda: str(uuid4()))
+
+
+@dataclass(frozen=True)
+class IssueRelationship:
+    predecessor_issue_id: str
+    successor_issue_id: str
+    relationship_type: IssueRelationshipType
+    created_at: datetime
+    relationship_id: str = field(default_factory=lambda: str(uuid4()))
 
 
 @dataclass(frozen=True)

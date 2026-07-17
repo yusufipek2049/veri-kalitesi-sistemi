@@ -24,6 +24,8 @@ from veri_kalitesi.issues import (
     IssueNotificationTechnicalError,
     IssueNotFoundError,
     IssuePriority,
+    IssueRelationshipError,
+    IssueRelationshipType,
     IssueResolutionDraft,
     IssueScopeType,
     IssueService,
@@ -1347,6 +1349,217 @@ def test_fr_069_nfr_rel_006_reopen_audit_failure_rolls_back(
     assert len(fixture.repository.list_history(issue.issue_id)) == initial_history_count
 
 
+def test_fr_064_fr_069_uc_014_new_quality_failure_links_closed_issue() -> None:
+    fixture = _fixture(
+        verification_result=_verification_result(outcome=IssueVerificationOutcome.QUALITY_PASSED)
+    )
+    predecessor = _closed_issue(fixture)
+    fixture.relationship_resolver.predecessor_issue_id = predecessor.issue_id
+    fixture.assignment_resolver.assignment = IssueAssignment(
+        OTHER_USER_ID,
+        IssuePriority.HIGH,
+    )
+
+    successor = _create(
+        fixture.service,
+        _trigger(
+            IssueTriggerType.QUALITY_THRESHOLD,
+            deduplication_key="QUALITY.ISSUE.NEW.FAILURE",
+            occurred_at=NOW,
+        ),
+    )
+
+    assert successor.issue_id != predecessor.issue_id
+    assert successor.status is IssueStatus.ASSIGNED
+    assert fixture.repository.get(predecessor.issue_id).status is IssueStatus.CLOSED
+    relationships = fixture.repository.list_relationships(predecessor.issue_id)
+    assert len(relationships) == 1
+    assert relationships[0].predecessor_issue_id == predecessor.issue_id
+    assert relationships[0].successor_issue_id == successor.issue_id
+    assert relationships[0].relationship_type is IssueRelationshipType.RECURRENCE
+    history = fixture.repository.list_history(predecessor.issue_id)[-1]
+    assert history.action == "ISSUE_LINKED_TO_NEW_QUALITY_FAILURE"
+    assert history.old_status is IssueStatus.CLOSED
+    assert history.new_status is IssueStatus.CLOSED
+    audit = fixture.issue_audit_repository.list_events()[-1]
+    assert audit.action == "DATA_QUALITY_ISSUE_LINKED"
+    assert audit.reason_code == "NEW_RELATED_QUALITY_FAILURE"
+    assert audit.new_value_summary == {
+        "relationship_type": "RECURRENCE",
+        "source_event_type": "QUALITY",
+        "status": "ASSIGNED",
+    }
+    serialized_audit = repr(audit)
+    assert predecessor.issue_id not in serialized_audit
+    assert DATASET_ID not in serialized_audit
+    assert "QUALITY.ISSUE.NEW.FAILURE" not in serialized_audit
+
+
+def test_rule_011_nfr_rel_005_replays_keep_one_successor_relationship() -> None:
+    fixture = _fixture(
+        verification_result=_verification_result(outcome=IssueVerificationOutcome.QUALITY_PASSED)
+    )
+    predecessor = _closed_issue(fixture)
+    fixture.relationship_resolver.predecessor_issue_id = predecessor.issue_id
+    trigger = _trigger(
+        IssueTriggerType.QUALITY_THRESHOLD,
+        deduplication_key="QUALITY.ISSUE.RELATED.REPLAY",
+        occurred_at=NOW,
+    )
+
+    successors = [_create(fixture.service, trigger) for _ in range(100)]
+
+    assert len({item.issue_id for item in successors}) == 1
+    assert successors[-1].occurrence_count == 100
+    assert fixture.repository.count() == 2
+    assert len(fixture.repository.list_relationships(predecessor.issue_id)) == 1
+    assert (
+        sum(
+            item.action == "ISSUE_LINKED_TO_NEW_QUALITY_FAILURE"
+            for item in fixture.repository.list_history(predecessor.issue_id)
+        )
+        == 1
+    )
+
+
+def test_fr_069_open_predecessor_relation_is_rejected_atomically() -> None:
+    fixture = _fixture()
+    predecessor = _create(
+        fixture.service,
+        _trigger(IssueTriggerType.QUALITY_THRESHOLD),
+    )
+    fixture.relationship_resolver.predecessor_issue_id = predecessor.issue_id
+    initial_history_count = len(fixture.repository.list_history(predecessor.issue_id))
+
+    with pytest.raises(IssueRelationshipError, match="closed"):
+        _create(
+            fixture.service,
+            _trigger(
+                IssueTriggerType.QUALITY_THRESHOLD,
+                deduplication_key="QUALITY.ISSUE.INVALID.OPEN.RELATION",
+                occurred_at=NOW,
+            ),
+        )
+
+    assert fixture.repository.count() == 1
+    assert fixture.repository.list_relationships(predecessor.issue_id) == ()
+    assert len(fixture.repository.list_history(predecessor.issue_id)) == initial_history_count
+
+
+@pytest.mark.parametrize(
+    ("trigger_type", "scope_id", "occurred_at", "message"),
+    [
+        (
+            IssueTriggerType.CRITICAL_RULE_FAILURE,
+            DATASET_ID,
+            NOW,
+            "scope or trigger",
+        ),
+        (
+            IssueTriggerType.QUALITY_THRESHOLD,
+            OTHER_DATASET_ID,
+            NOW,
+            "scope or trigger",
+        ),
+        (
+            IssueTriggerType.QUALITY_THRESHOLD,
+            DATASET_ID,
+            NOW - timedelta(minutes=1),
+            "predates",
+        ),
+    ],
+)
+def test_fr_069_invalid_predecessor_relation_is_rejected(
+    trigger_type: IssueTriggerType,
+    scope_id: str,
+    occurred_at: datetime,
+    message: str,
+) -> None:
+    fixture = _fixture(
+        verification_result=_verification_result(outcome=IssueVerificationOutcome.QUALITY_PASSED)
+    )
+    predecessor = _closed_issue(fixture)
+    fixture.relationship_resolver.predecessor_issue_id = predecessor.issue_id
+
+    with pytest.raises(IssueRelationshipError, match=message):
+        _create(
+            fixture.service,
+            _trigger(
+                trigger_type,
+                scope_id=scope_id,
+                deduplication_key=f"QUALITY.ISSUE.INVALID.{trigger_type.value}",
+                occurred_at=occurred_at,
+            ),
+        )
+
+    assert fixture.repository.count() == 1
+    assert fixture.repository.list_relationships(predecessor.issue_id) == ()
+
+
+def test_rule_003_technical_event_bypasses_quality_relationship_resolver() -> None:
+    resolver = StaticRelationshipResolver(
+        predecessor_issue_id="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    )
+    fixture = _fixture(relationship_resolver=resolver)
+
+    issue = _create(
+        fixture.service,
+        _trigger(
+            IssueTriggerType.TECHNICAL_ERROR,
+            deduplication_key="TECHNICAL.ISSUE.UNRELATED",
+        ),
+    )
+
+    assert issue.source_event_type is IssueSourceEventType.TECHNICAL
+    assert resolver.calls == 0
+    assert fixture.repository.list_relationships(issue.issue_id) == ()
+
+
+def test_fr_069_relationship_resolver_failure_is_redacted_technical_error() -> None:
+    fixture = _fixture(
+        relationship_resolver=StaticRelationshipResolver(error=RuntimeError("sensitive"))
+    )
+
+    with pytest.raises(IssueTechnicalError) as exc_info:
+        _create(fixture.service, _trigger(IssueTriggerType.QUALITY_THRESHOLD))
+
+    assert "sensitive" not in str(exc_info.value)
+    assert fixture.repository.count() == 0
+
+
+def test_fr_069_nfr_rel_006_relationship_audit_failure_rolls_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _fixture(
+        verification_result=_verification_result(outcome=IssueVerificationOutcome.QUALITY_PASSED)
+    )
+    predecessor = _closed_issue(fixture)
+    fixture.relationship_resolver.predecessor_issue_id = predecessor.issue_id
+    initial_history_count = len(fixture.repository.list_history(predecessor.issue_id))
+
+    def fail_second_stage(event: object) -> None:
+        if getattr(event, "action", None) == "DATA_QUALITY_ISSUE_LINKED":
+            raise sqlite3.OperationalError("audit outbox unavailable")
+        original_stage(event)
+
+    original_stage = fixture.service.transactional_audit.stage
+    monkeypatch.setattr(fixture.service.transactional_audit, "stage", fail_second_stage)
+
+    with pytest.raises(IssueTechnicalError):
+        _create(
+            fixture.service,
+            _trigger(
+                IssueTriggerType.QUALITY_THRESHOLD,
+                deduplication_key="QUALITY.ISSUE.AUDIT.ROLLBACK",
+                occurred_at=NOW,
+            ),
+        )
+
+    assert fixture.repository.count() == 1
+    assert fixture.repository.list_relationships(predecessor.issue_id) == ()
+    assert len(fixture.repository.list_history(predecessor.issue_id)) == initial_history_count
+
+
 class StaticAssignmentResolver:
     def __init__(
         self,
@@ -1436,6 +1649,24 @@ class StaticVerificationResolver:
         return self.result
 
 
+class StaticRelationshipResolver:
+    def __init__(
+        self,
+        predecessor_issue_id: str | None = None,
+        *,
+        error: Exception | None = None,
+    ) -> None:
+        self.predecessor_issue_id = predecessor_issue_id
+        self.error = error
+        self.calls = 0
+
+    def resolve_predecessor(self, trigger: IssueTrigger) -> str | None:
+        self.calls += 1
+        if self.error is not None:
+            raise self.error
+        return self.predecessor_issue_id
+
+
 class IssueAwareNotificationRecipientResolver:
     def __init__(self, issue_repository: SQLiteIssueRepository) -> None:
         self.issue_repository = issue_repository
@@ -1472,6 +1703,7 @@ class IssueFixture:
         assignee_directory: StaticAssigneeDirectory,
         resolution_protector: StaticResolutionProtector,
         verification_resolver: StaticVerificationResolver,
+        relationship_resolver: StaticRelationshipResolver,
         issue_audit_repository: SQLiteAuditRepository,
         notification_repository: SQLiteNotificationRepository,
     ) -> None:
@@ -1481,6 +1713,7 @@ class IssueFixture:
         self.assignee_directory = assignee_directory
         self.resolution_protector = resolution_protector
         self.verification_resolver = verification_resolver
+        self.relationship_resolver = relationship_resolver
         self.issue_audit_repository = issue_audit_repository
         self.notification_repository = notification_repository
 
@@ -1502,6 +1735,7 @@ def _fixture(
     resolution_protector: StaticResolutionProtector | None = None,
     verification_result: TrustedIssueVerificationResult | None = None,
     verification_resolver: StaticVerificationResolver | None = None,
+    relationship_resolver: StaticRelationshipResolver | None = None,
     notification_publisher: CountingNotificationPublisher | None = None,
 ) -> IssueFixture:
     issue_repository = SQLiteIssueRepository()
@@ -1530,6 +1764,9 @@ def _fixture(
                     "DATA_QUALITY_ISSUE_CLOSED": frozenset({"status", "verification_outcome"}),
                     "DATA_QUALITY_ISSUE_REOPENED": frozenset(
                         {"status", "source_event_type", "trigger_type"}
+                    ),
+                    "DATA_QUALITY_ISSUE_LINKED": frozenset(
+                        {"relationship_type", "source_event_type", "status"}
                     ),
                 },
             )
@@ -1570,6 +1807,7 @@ def _fixture(
     actual_verification_resolver = verification_resolver or StaticVerificationResolver(
         verification_result
     )
+    actual_relationship_resolver = relationship_resolver or StaticRelationshipResolver()
     service = IssueService(
         issue_repository,
         resolver,
@@ -1582,6 +1820,7 @@ def _fixture(
         assignee_directory=directory,
         resolution_protector=protector,
         verification_resolver=actual_verification_resolver,
+        relationship_resolver=actual_relationship_resolver,
         notification_actor_context_provider=_producer_context,
         clock=lambda: NOW,
     )
@@ -1592,6 +1831,7 @@ def _fixture(
         directory,
         protector,
         actual_verification_resolver,
+        actual_relationship_resolver,
         issue_audit_repository,
         notification_repository,
     )

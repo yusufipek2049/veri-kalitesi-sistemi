@@ -10,12 +10,15 @@ from veri_kalitesi.audit import PreparedAuditEvent, SQLiteTransactionalAudit
 from veri_kalitesi.issues.errors import (
     IssueConflictError,
     IssueNotFoundError,
+    IssueRelationshipError,
     IssueValidationError,
 )
 from veri_kalitesi.issues.models import (
     DataQualityIssue,
     IssueHistoryEntry,
     IssuePriority,
+    IssueRelationship,
+    IssueRelationshipType,
     IssueResolutionRecord,
     IssueScopeType,
     IssueSourceEventType,
@@ -130,6 +133,18 @@ class SQLiteIssueRepository:
                 FOREIGN KEY (issue_id) REFERENCES data_quality_issues(issue_id)
             );
 
+            CREATE TABLE IF NOT EXISTS issue_relationships (
+                sequence_no INTEGER PRIMARY KEY AUTOINCREMENT,
+                relationship_id TEXT NOT NULL UNIQUE,
+                predecessor_issue_id TEXT NOT NULL,
+                successor_issue_id TEXT NOT NULL,
+                relationship_type TEXT NOT NULL CHECK (relationship_type IN ('RECURRENCE')),
+                created_at TEXT NOT NULL,
+                UNIQUE (predecessor_issue_id, successor_issue_id, relationship_type),
+                FOREIGN KEY (predecessor_issue_id) REFERENCES data_quality_issues(issue_id),
+                FOREIGN KEY (successor_issue_id) REFERENCES data_quality_issues(issue_id)
+            );
+
             CREATE INDEX IF NOT EXISTS idx_issues_assignee_status_time
             ON data_quality_issues(assignee_user_id, status, updated_at DESC);
 
@@ -141,6 +156,9 @@ class SQLiteIssueRepository:
 
             CREATE INDEX IF NOT EXISTS idx_issue_verifications_issue_time
             ON issue_verifications(issue_id, sequence_no);
+
+            CREATE INDEX IF NOT EXISTS idx_issue_relationships_predecessor_time
+            ON issue_relationships(predecessor_issue_id, sequence_no);
             """
         )
         self._ensure_history_assignment_columns()
@@ -172,8 +190,11 @@ class SQLiteIssueRepository:
         *,
         payload_digest: str,
         source_event_occurred_at: datetime,
+        relationship: IssueRelationship | None,
+        relationship_history: IssueHistoryEntry | None,
         audit_event: PreparedAuditEvent,
         reopen_audit_event: PreparedAuditEvent,
+        relationship_audit_event: PreparedAuditEvent | None,
         audit_outbox: SQLiteTransactionalAudit,
     ) -> DataQualityIssue:
         self._require_shared_audit_transaction(audit_outbox)
@@ -264,7 +285,20 @@ class SQLiteIssueRepository:
                 )
                 self._insert_history(history)
                 issue_id = issue.issue_id
+                if relationship is not None:
+                    if relationship_history is None or relationship_audit_event is None:
+                        raise IssueValidationError(
+                            "Issue relationship history and audit event are required."
+                        )
+                    self._insert_relationship(
+                        issue,
+                        relationship,
+                        relationship_history,
+                        source_event_occurred_at,
+                    )
             audit_outbox.stage(audit_event)
+            if existing is None and relationship_audit_event is not None:
+                audit_outbox.stage(relationship_audit_event)
         return self.get(issue_id)
 
     def transition_status(
@@ -529,6 +563,18 @@ class SQLiteIssueRepository:
             raise IssueNotFoundError("Issue verification not found.")
         return _row_to_verification(row)
 
+    def list_relationships(self, issue_id: str) -> tuple[IssueRelationship, ...]:
+        with self._lock:
+            rows = self.connection.execute(
+                """
+                SELECT * FROM issue_relationships
+                WHERE predecessor_issue_id = ? OR successor_issue_id = ?
+                ORDER BY sequence_no
+                """,
+                (issue_id, issue_id),
+            ).fetchall()
+        return tuple(_row_to_relationship(row) for row in rows)
+
     def count(self) -> int:
         with self._lock:
             return self.connection.execute("SELECT COUNT(*) FROM data_quality_issues").fetchone()[0]
@@ -559,6 +605,65 @@ class SQLiteIssueRepository:
                 history.verification_id,
             ),
         )
+
+    def _insert_relationship(
+        self,
+        successor: DataQualityIssue,
+        relationship: IssueRelationship,
+        history: IssueHistoryEntry,
+        source_event_occurred_at: datetime,
+    ) -> None:
+        if (
+            relationship.successor_issue_id != successor.issue_id
+            or relationship.predecessor_issue_id == successor.issue_id
+            or relationship.relationship_type is not IssueRelationshipType.RECURRENCE
+            or history.issue_id != relationship.predecessor_issue_id
+            or history.old_status is not IssueStatus.CLOSED
+            or history.new_status is not IssueStatus.CLOSED
+        ):
+            raise IssueRelationshipError("Issue relationship is inconsistent.")
+        predecessor = self.connection.execute(
+            """
+            SELECT source_event_type, trigger_type, scope_type, scope_id, status, updated_at
+            FROM data_quality_issues
+            WHERE issue_id = ?
+            """,
+            (relationship.predecessor_issue_id,),
+        ).fetchone()
+        if predecessor is None:
+            raise IssueRelationshipError("Predecessor issue was not found.")
+        if IssueStatus(predecessor["status"]) is not IssueStatus.CLOSED:
+            raise IssueRelationshipError("Predecessor issue must be closed.")
+        if (
+            IssueSourceEventType(predecessor["source_event_type"])
+            is not IssueSourceEventType.QUALITY
+            or successor.source_event_type is not IssueSourceEventType.QUALITY
+        ):
+            raise IssueRelationshipError("Only quality issues can be related as recurrence.")
+        if (
+            IssueTriggerType(predecessor["trigger_type"]) is not successor.trigger_type
+            or IssueScopeType(predecessor["scope_type"]) is not successor.scope_type
+            or predecessor["scope_id"] != successor.scope_id
+        ):
+            raise IssueRelationshipError("Predecessor issue scope or trigger does not match.")
+        if source_event_occurred_at < datetime.fromisoformat(predecessor["updated_at"]):
+            raise IssueRelationshipError("Related quality event predates issue closure.")
+        self.connection.execute(
+            """
+            INSERT INTO issue_relationships (
+                relationship_id, predecessor_issue_id, successor_issue_id,
+                relationship_type, created_at
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                relationship.relationship_id,
+                relationship.predecessor_issue_id,
+                relationship.successor_issue_id,
+                relationship.relationship_type.value,
+                relationship.created_at.isoformat(),
+            ),
+        )
+        self._insert_history(history)
 
     def _require_shared_audit_transaction(self, audit_outbox: SQLiteTransactionalAudit) -> None:
         if audit_outbox.connection is not self.connection:
@@ -630,4 +735,14 @@ def _row_to_verification(row: sqlite3.Row) -> IssueVerificationRecord:
         completed_at=datetime.fromisoformat(row["completed_at"]),
         recorded_by=row["recorded_by"],
         recorded_at=datetime.fromisoformat(row["recorded_at"]),
+    )
+
+
+def _row_to_relationship(row: sqlite3.Row) -> IssueRelationship:
+    return IssueRelationship(
+        relationship_id=row["relationship_id"],
+        predecessor_issue_id=row["predecessor_issue_id"],
+        successor_issue_id=row["successor_issue_id"],
+        relationship_type=IssueRelationshipType(row["relationship_type"]),
+        created_at=datetime.fromisoformat(row["created_at"]),
     )

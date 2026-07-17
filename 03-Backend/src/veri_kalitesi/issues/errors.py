@@ -17,6 +17,10 @@ class IssueConflictError(IssueError):
     """An idempotency key was reused with a different payload."""
 
 
+class IssueRelationshipError(IssueError):
+    """A trusted predecessor cannot be linked to the new issue."""
+
+
 class IssueAuthorizationError(IssueError):
     """The actor cannot perform the requested issue operation."""
 
