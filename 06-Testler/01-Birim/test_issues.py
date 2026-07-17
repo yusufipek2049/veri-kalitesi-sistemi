@@ -33,8 +33,10 @@ from veri_kalitesi.issues import (
     IssueTrigger,
     IssueTriggerType,
     IssueValidationError,
+    IssueVerificationOutcome,
     ProtectedIssueResolution,
     SQLiteIssueRepository,
+    TrustedIssueVerificationResult,
 )
 from veri_kalitesi.notifications import (
     NotificationAccessPolicy,
@@ -56,6 +58,26 @@ DATASET_ID = "33333333-3333-4333-8333-333333333333"
 OTHER_DATASET_ID = "44444444-4444-4444-8444-444444444444"
 SERVICE_ID = "55555555-5555-4555-8555-555555555555"
 EVIDENCE_ID = "66666666-6666-4666-8666-666666666666"
+VERIFICATION_REFERENCE_ID = "77777777-7777-4777-8777-777777777777"
+EXECUTION_ID = "88888888-8888-4888-8888-888888888888"
+SCORE_ID = "99999999-9999-4999-8999-999999999999"
+
+
+def _verification_result(
+    *,
+    outcome: IssueVerificationOutcome = IssueVerificationOutcome.QUALITY_FAILED,
+    score_id: str | None = SCORE_ID,
+    scope_id: str = DATASET_ID,
+) -> TrustedIssueVerificationResult:
+    return TrustedIssueVerificationResult(
+        verification_reference_id=VERIFICATION_REFERENCE_ID,
+        execution_id=EXECUTION_ID,
+        score_id=score_id,
+        scope_type=IssueScopeType.DATASET,
+        scope_id=scope_id,
+        outcome=outcome,
+        completed_at=NOW,
+    )
 
 
 def test_fr_064_fr_065_ac_015_creates_assigned_issue_and_notification_within_five_minutes() -> None:
@@ -764,6 +786,418 @@ def test_fr_068_nfr_rel_006_resolution_audit_failure_rolls_back(
         fixture.repository.get_latest_resolution(issue.issue_id)
 
 
+@pytest.mark.parametrize(
+    "outcome",
+    [IssueVerificationOutcome.QUALITY_FAILED, IssueVerificationOutcome.PARTIAL],
+)
+def test_fr_066_fr_069_uc_014_ac_018_failed_verification_returns_issue_to_waiting(
+    outcome: IssueVerificationOutcome,
+) -> None:
+    fixture = _fixture(verification_result=_verification_result(outcome=outcome))
+    issue = _resolved_issue(fixture)
+
+    waiting = fixture.service.record_verification_result(
+        issue.issue_id,
+        VERIFICATION_REFERENCE_ID,
+        _user_context(OTHER_USER_ID, dataset_ids={DATASET_ID}),
+    )
+
+    assert waiting.status is IssueStatus.WAITING_FOR_RESOLUTION
+    verification = fixture.repository.get_latest_verification(issue.issue_id)
+    assert verification.execution_id == EXECUTION_ID
+    assert verification.score_id == SCORE_ID
+    assert verification.outcome is outcome
+    history = fixture.repository.list_history(issue.issue_id)[-1]
+    assert history.action == "ISSUE_VERIFICATION_FAILED"
+    assert history.old_status is IssueStatus.RESOLVED
+    assert history.new_status is IssueStatus.WAITING_FOR_RESOLUTION
+    assert history.verification_id == verification.verification_id
+    audit = fixture.issue_audit_repository.list_events()[-1]
+    assert audit.action == "DATA_QUALITY_ISSUE_VERIFICATION_RECORDED"
+    assert audit.old_value_summary == {"status": "RESOLVED"}
+    assert audit.new_value_summary == {
+        "has_score_reference": True,
+        "status": "WAITING_FOR_RESOLUTION",
+        "verification_outcome": outcome.value,
+    }
+    serialized_audit = repr(audit)
+    assert EXECUTION_ID not in serialized_audit
+    assert SCORE_ID not in serialized_audit
+    assert DATASET_ID not in serialized_audit
+
+
+def test_fr_066_fr_069_uc_014_successful_verification_moves_issue_to_verified() -> None:
+    fixture = _fixture(
+        verification_result=_verification_result(outcome=IssueVerificationOutcome.QUALITY_PASSED)
+    )
+    issue = _resolved_issue(fixture)
+
+    verified = fixture.service.record_verification_result(
+        issue.issue_id,
+        VERIFICATION_REFERENCE_ID,
+        _user_context(OTHER_USER_ID, dataset_ids={DATASET_ID}, roles={"DATA_OWNER"}),
+    )
+
+    assert verified.status is IssueStatus.VERIFIED
+    verification = fixture.repository.get_latest_verification(issue.issue_id)
+    assert verification.outcome is IssueVerificationOutcome.QUALITY_PASSED
+    assert verification.score_id == SCORE_ID
+    assert verification.recorded_by == OTHER_USER_ID
+    history = fixture.repository.list_history(issue.issue_id)[-1]
+    assert history.action == "ISSUE_VERIFIED"
+    assert history.old_status is IssueStatus.RESOLVED
+    assert history.new_status is IssueStatus.VERIFIED
+    assert history.verification_id == verification.verification_id
+    audit = fixture.issue_audit_repository.list_events()[-1]
+    assert audit.action == "DATA_QUALITY_ISSUE_VERIFICATION_RECORDED"
+    assert audit.reason_code == "QUALITY_PASSED"
+    assert audit.old_value_summary == {"status": "RESOLVED"}
+    assert audit.new_value_summary == {
+        "has_score_reference": True,
+        "status": "VERIFIED",
+        "verification_outcome": "QUALITY_PASSED",
+    }
+    serialized_audit = repr(audit)
+    assert EXECUTION_ID not in serialized_audit
+    assert SCORE_ID not in serialized_audit
+    assert DATASET_ID not in serialized_audit
+
+
+def test_fr_069_rule_013_resolution_creator_cannot_verify_own_resolution() -> None:
+    fixture = _fixture(
+        verification_result=_verification_result(outcome=IssueVerificationOutcome.QUALITY_PASSED)
+    )
+    issue = _resolved_issue(fixture)
+
+    with pytest.raises(IssueAuthorizationError, match="creator"):
+        fixture.service.record_verification_result(
+            issue.issue_id,
+            VERIFICATION_REFERENCE_ID,
+            _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
+        )
+
+    assert fixture.repository.get(issue.issue_id).status is IssueStatus.RESOLVED
+    assert fixture.verification_resolver.calls == 1
+    with pytest.raises(IssueNotFoundError):
+        fixture.repository.get_latest_verification(issue.issue_id)
+
+
+def test_rule_003_uc_014_technical_verification_error_does_not_fail_quality() -> None:
+    fixture = _fixture(
+        verification_result=_verification_result(
+            outcome=IssueVerificationOutcome.TECHNICAL_ERROR,
+            score_id=None,
+        )
+    )
+    issue = _resolved_issue(fixture)
+
+    stored = fixture.service.record_verification_result(
+        issue.issue_id,
+        VERIFICATION_REFERENCE_ID,
+        _user_context(OTHER_USER_ID, dataset_ids={DATASET_ID}, roles={"DATA_OWNER"}),
+    )
+
+    assert stored.status is IssueStatus.RESOLVED
+    verification = fixture.repository.get_latest_verification(issue.issue_id)
+    assert verification.outcome is IssueVerificationOutcome.TECHNICAL_ERROR
+    assert verification.score_id is None
+    history = fixture.repository.list_history(issue.issue_id)[-1]
+    assert history.action == "ISSUE_VERIFICATION_TECHNICAL_ERROR"
+    assert history.old_status is IssueStatus.RESOLVED
+    assert history.new_status is IssueStatus.RESOLVED
+    audit = fixture.issue_audit_repository.list_events()[-1]
+    assert audit.reason_code == "TECHNICAL_ERROR"
+    assert audit.new_value_summary["has_score_reference"] is False
+
+
+@pytest.mark.parametrize(
+    "context_kind",
+    ["missing", "service", "privileged", "role-escalation", "scope-manipulation"],
+)
+def test_fr_069_nfr_sec_001_unauthorized_actor_cannot_record_verification(
+    context_kind: str,
+) -> None:
+    fixture = _fixture()
+    issue = _resolved_issue(fixture)
+    contexts = {
+        "missing": None,
+        "service": _producer_context(),
+        "privileged": _user_context(OTHER_USER_ID, dataset_ids={DATASET_ID}, privileged=True),
+        "role-escalation": _user_context(OTHER_USER_ID, dataset_ids={DATASET_ID}, roles={"VIEWER"}),
+        "scope-manipulation": _user_context(OTHER_USER_ID),
+    }
+
+    with pytest.raises(IssueAuthorizationError):
+        fixture.service.record_verification_result(
+            issue.issue_id,
+            VERIFICATION_REFERENCE_ID,
+            contexts[context_kind],
+        )
+
+    assert fixture.repository.get(issue.issue_id).status is IssueStatus.RESOLVED
+    assert fixture.verification_resolver.calls == 0
+    with pytest.raises(IssueNotFoundError):
+        fixture.repository.get_latest_verification(issue.issue_id)
+
+
+def test_fr_069_verification_must_match_trusted_reference_and_issue_scope() -> None:
+    result = _verification_result(scope_id=OTHER_DATASET_ID)
+    fixture = _fixture(verification_result=result)
+    issue = _resolved_issue(fixture)
+
+    with pytest.raises(IssueAuthorizationError, match="outside"):
+        fixture.service.record_verification_result(
+            issue.issue_id,
+            VERIFICATION_REFERENCE_ID,
+            _user_context(OTHER_USER_ID, dataset_ids={DATASET_ID}),
+        )
+
+    assert fixture.repository.get(issue.issue_id).status is IssueStatus.RESOLVED
+    with pytest.raises(IssueNotFoundError):
+        fixture.repository.get_latest_verification(issue.issue_id)
+
+
+@pytest.mark.parametrize(
+    "result",
+    [
+        _verification_result(score_id=None),
+        _verification_result(
+            outcome=IssueVerificationOutcome.TECHNICAL_ERROR,
+            score_id=SCORE_ID,
+        ),
+    ],
+    ids=["failed-without-score", "technical-with-score"],
+)
+def test_fr_069_rule_003_invalid_or_out_of_scope_verification_result_is_rejected(
+    result: TrustedIssueVerificationResult,
+) -> None:
+    fixture = _fixture(verification_result=result)
+    issue = _resolved_issue(fixture)
+
+    with pytest.raises(IssueValidationError):
+        fixture.service.record_verification_result(
+            issue.issue_id,
+            VERIFICATION_REFERENCE_ID,
+            _user_context(OTHER_USER_ID, dataset_ids={DATASET_ID}),
+        )
+
+    assert fixture.repository.get(issue.issue_id).status is IssueStatus.RESOLVED
+    with pytest.raises(IssueNotFoundError):
+        fixture.repository.get_latest_verification(issue.issue_id)
+
+
+def test_fr_069_verification_resolver_failure_is_redacted_technical_error() -> None:
+    resolver = StaticVerificationResolver(error=OSError("execution token=unsafe"))
+    fixture = _fixture(verification_resolver=resolver)
+    issue = _resolved_issue(fixture)
+
+    with pytest.raises(IssueTechnicalError) as error:
+        fixture.service.record_verification_result(
+            issue.issue_id,
+            VERIFICATION_REFERENCE_ID,
+            _user_context(OTHER_USER_ID, dataset_ids={DATASET_ID}),
+        )
+
+    assert "token" not in str(error.value)
+    assert fixture.repository.get(issue.issue_id).status is IssueStatus.RESOLVED
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    [IssueVerificationOutcome.QUALITY_FAILED, IssueVerificationOutcome.QUALITY_PASSED],
+)
+def test_fr_069_nfr_rel_006_verification_audit_failure_rolls_back(
+    monkeypatch: pytest.MonkeyPatch,
+    outcome: IssueVerificationOutcome,
+) -> None:
+    fixture = _fixture(verification_result=_verification_result(outcome=outcome))
+    issue = _resolved_issue(fixture)
+    initial_history_count = len(fixture.repository.list_history(issue.issue_id))
+
+    def fail_stage(*args: object) -> None:
+        raise sqlite3.OperationalError("audit outbox unavailable")
+
+    monkeypatch.setattr(fixture.service.transactional_audit, "stage", fail_stage)
+
+    with pytest.raises(IssueTechnicalError):
+        fixture.service.record_verification_result(
+            issue.issue_id,
+            VERIFICATION_REFERENCE_ID,
+            _user_context(OTHER_USER_ID, dataset_ids={DATASET_ID}),
+        )
+
+    assert fixture.repository.get(issue.issue_id).status is IssueStatus.RESOLVED
+    assert len(fixture.repository.list_history(issue.issue_id)) == initial_history_count
+    with pytest.raises(IssueNotFoundError):
+        fixture.repository.get_latest_verification(issue.issue_id)
+
+
+def test_fr_066_unresolved_issue_cannot_receive_verification_result() -> None:
+    fixture = _fixture()
+    issue = _investigating_issue(fixture)
+
+    with pytest.raises(IssueValidationError, match="resolved"):
+        fixture.service.record_verification_result(
+            issue.issue_id,
+            VERIFICATION_REFERENCE_ID,
+            _user_context(OTHER_USER_ID, dataset_ids={DATASET_ID}),
+        )
+
+    assert fixture.verification_resolver.calls == 0
+
+
+def test_fr_066_fr_069_fr_070_uc_014_verified_issue_is_closed_with_history_and_audit() -> None:
+    fixture = _fixture(
+        verification_result=_verification_result(outcome=IssueVerificationOutcome.QUALITY_PASSED)
+    )
+    issue = _verified_issue(fixture)
+    verification = fixture.repository.get_latest_verification(issue.issue_id)
+
+    closed = fixture.service.close(
+        issue.issue_id,
+        _user_context(OTHER_USER_ID, dataset_ids={DATASET_ID}, roles={"DATA_OWNER"}),
+    )
+
+    assert closed.status is IssueStatus.CLOSED
+    history = fixture.repository.list_history(issue.issue_id)[-1]
+    assert history.action == "ISSUE_CLOSED"
+    assert history.old_status is IssueStatus.VERIFIED
+    assert history.new_status is IssueStatus.CLOSED
+    assert history.verification_id == verification.verification_id
+    audit = fixture.issue_audit_repository.list_events()[-1]
+    assert audit.action == "DATA_QUALITY_ISSUE_CLOSED"
+    assert audit.reason_code == "SUCCESSFUL_VERIFICATION_CONFIRMED"
+    assert audit.old_value_summary == {"status": "VERIFIED"}
+    assert audit.new_value_summary == {
+        "status": "CLOSED",
+        "verification_outcome": "QUALITY_PASSED",
+    }
+    serialized_audit = repr(audit)
+    assert EXECUTION_ID not in serialized_audit
+    assert SCORE_ID not in serialized_audit
+    assert DATASET_ID not in serialized_audit
+
+
+@pytest.mark.parametrize(
+    "context_kind",
+    ["missing", "service", "privileged", "role-escalation", "scope-manipulation"],
+)
+def test_fr_069_nfr_sec_001_unauthorized_actor_cannot_close_verified_issue(
+    context_kind: str,
+) -> None:
+    fixture = _fixture(
+        verification_result=_verification_result(outcome=IssueVerificationOutcome.QUALITY_PASSED)
+    )
+    issue = _verified_issue(fixture)
+    contexts = {
+        "missing": None,
+        "service": _producer_context(),
+        "privileged": _user_context(OTHER_USER_ID, dataset_ids={DATASET_ID}, privileged=True),
+        "role-escalation": _user_context(OTHER_USER_ID, dataset_ids={DATASET_ID}, roles={"VIEWER"}),
+        "scope-manipulation": _user_context(OTHER_USER_ID),
+    }
+    initial_history_count = len(fixture.repository.list_history(issue.issue_id))
+
+    with pytest.raises(IssueAuthorizationError):
+        fixture.service.close(issue.issue_id, contexts[context_kind])
+
+    assert fixture.repository.get(issue.issue_id).status is IssueStatus.VERIFIED
+    assert len(fixture.repository.list_history(issue.issue_id)) == initial_history_count
+
+
+def test_fr_069_ac_018_resolved_issue_cannot_bypass_verification_to_closed() -> None:
+    fixture = _fixture()
+    issue = _resolved_issue(fixture)
+
+    with pytest.raises(IssueValidationError, match="verified"):
+        fixture.service.close(
+            issue.issue_id,
+            _user_context(OTHER_USER_ID, dataset_ids={DATASET_ID}),
+        )
+
+    assert fixture.repository.get(issue.issue_id).status is IssueStatus.RESOLVED
+
+
+def test_rule_013_verified_status_without_persisted_result_cannot_be_closed() -> None:
+    fixture = _fixture()
+    issue = _resolved_issue(fixture)
+    with fixture.repository.connection:
+        fixture.repository.connection.execute(
+            "UPDATE data_quality_issues SET status = ? WHERE issue_id = ?",
+            (IssueStatus.VERIFIED.value, issue.issue_id),
+        )
+
+    with pytest.raises(IssueValidationError, match="persisted verification"):
+        fixture.service.close(
+            issue.issue_id,
+            _user_context(OTHER_USER_ID, dataset_ids={DATASET_ID}),
+        )
+
+    assert fixture.repository.get(issue.issue_id).status is IssueStatus.VERIFIED
+
+
+def test_fr_069_closure_verification_lookup_failure_is_redacted_technical_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _fixture(
+        verification_result=_verification_result(outcome=IssueVerificationOutcome.QUALITY_PASSED)
+    )
+    issue = _verified_issue(fixture)
+
+    def fail_lookup(issue_id: str) -> None:
+        raise sqlite3.OperationalError("verification score token=unsafe")
+
+    monkeypatch.setattr(fixture.repository, "get_latest_verification", fail_lookup)
+
+    with pytest.raises(IssueTechnicalError) as error:
+        fixture.service.close(
+            issue.issue_id,
+            _user_context(OTHER_USER_ID, dataset_ids={DATASET_ID}),
+        )
+
+    assert "token" not in str(error.value)
+    assert fixture.repository.get(issue.issue_id).status is IssueStatus.VERIFIED
+
+
+def test_fr_069_nfr_rel_006_closure_audit_failure_rolls_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _fixture(
+        verification_result=_verification_result(outcome=IssueVerificationOutcome.QUALITY_PASSED)
+    )
+    issue = _verified_issue(fixture)
+    initial_history_count = len(fixture.repository.list_history(issue.issue_id))
+
+    def fail_stage(*args: object) -> None:
+        raise sqlite3.OperationalError("audit outbox unavailable")
+
+    monkeypatch.setattr(fixture.service.transactional_audit, "stage", fail_stage)
+
+    with pytest.raises(IssueTechnicalError):
+        fixture.service.close(
+            issue.issue_id,
+            _user_context(OTHER_USER_ID, dataset_ids={DATASET_ID}),
+        )
+
+    assert fixture.repository.get(issue.issue_id).status is IssueStatus.VERIFIED
+    assert len(fixture.repository.list_history(issue.issue_id)) == initial_history_count
+
+
+def test_fr_066_repeated_close_transition_is_rejected() -> None:
+    fixture = _fixture(
+        verification_result=_verification_result(outcome=IssueVerificationOutcome.QUALITY_PASSED)
+    )
+    issue = _verified_issue(fixture)
+    context = _user_context(OTHER_USER_ID, dataset_ids={DATASET_ID})
+    fixture.service.close(issue.issue_id, context)
+
+    with pytest.raises(IssueValidationError, match="verified"):
+        fixture.service.close(issue.issue_id, context)
+
+    assert fixture.repository.get(issue.issue_id).status is IssueStatus.CLOSED
+    assert fixture.repository.list_history(issue.issue_id)[-1].action == "ISSUE_CLOSED"
+
+
 class StaticAssignmentResolver:
     def __init__(
         self,
@@ -832,6 +1266,27 @@ class StaticResolutionProtector:
         )
 
 
+class StaticVerificationResolver:
+    def __init__(
+        self,
+        result: TrustedIssueVerificationResult | None = None,
+        *,
+        error: Exception | None = None,
+    ) -> None:
+        self.result = result or _verification_result()
+        self.error = error
+        self.calls = 0
+
+    def resolve_verification(
+        self,
+        verification_reference_id: str,
+    ) -> TrustedIssueVerificationResult | None:
+        self.calls += 1
+        if self.error is not None:
+            raise self.error
+        return self.result
+
+
 class IssueAwareNotificationRecipientResolver:
     def __init__(self, issue_repository: SQLiteIssueRepository) -> None:
         self.issue_repository = issue_repository
@@ -867,6 +1322,7 @@ class IssueFixture:
         assignment_resolver: StaticAssignmentResolver,
         assignee_directory: StaticAssigneeDirectory,
         resolution_protector: StaticResolutionProtector,
+        verification_resolver: StaticVerificationResolver,
         issue_audit_repository: SQLiteAuditRepository,
         notification_repository: SQLiteNotificationRepository,
     ) -> None:
@@ -875,6 +1331,7 @@ class IssueFixture:
         self.assignment_resolver = assignment_resolver
         self.assignee_directory = assignee_directory
         self.resolution_protector = resolution_protector
+        self.verification_resolver = verification_resolver
         self.issue_audit_repository = issue_audit_repository
         self.notification_repository = notification_repository
 
@@ -894,6 +1351,8 @@ def _fixture(
     ),
     assignee_directory: StaticAssigneeDirectory | None = None,
     resolution_protector: StaticResolutionProtector | None = None,
+    verification_result: TrustedIssueVerificationResult | None = None,
+    verification_resolver: StaticVerificationResolver | None = None,
     notification_publisher: CountingNotificationPublisher | None = None,
 ) -> IssueFixture:
     issue_repository = SQLiteIssueRepository()
@@ -916,6 +1375,10 @@ def _fixture(
                             "protection_policy_version",
                         }
                     ),
+                    "DATA_QUALITY_ISSUE_VERIFICATION_RECORDED": frozenset(
+                        {"status", "verification_outcome", "has_score_reference"}
+                    ),
+                    "DATA_QUALITY_ISSUE_CLOSED": frozenset({"status", "verification_outcome"}),
                 },
             )
         ),
@@ -952,6 +1415,9 @@ def _fixture(
     resolver = assignment_resolver or StaticAssignmentResolver(assignment)
     directory = assignee_directory or StaticAssigneeDirectory(assignee_profile)
     protector = resolution_protector or StaticResolutionProtector()
+    actual_verification_resolver = verification_resolver or StaticVerificationResolver(
+        verification_result
+    )
     service = IssueService(
         issue_repository,
         resolver,
@@ -963,6 +1429,7 @@ def _fixture(
         ),
         assignee_directory=directory,
         resolution_protector=protector,
+        verification_resolver=actual_verification_resolver,
         notification_actor_context_provider=_producer_context,
         clock=lambda: NOW,
     )
@@ -972,6 +1439,7 @@ def _fixture(
         resolver,
         directory,
         protector,
+        actual_verification_resolver,
         issue_audit_repository,
         notification_repository,
     )
@@ -1002,6 +1470,24 @@ def _investigating_issue(fixture: IssueFixture) -> DataQualityIssue:
     return fixture.service.start_investigation(
         issue.issue_id,
         _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
+    )
+
+
+def _resolved_issue(fixture: IssueFixture) -> DataQualityIssue:
+    issue = _investigating_issue(fixture)
+    return fixture.service.resolve(
+        issue.issue_id,
+        _resolution_draft(),
+        _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
+    )
+
+
+def _verified_issue(fixture: IssueFixture) -> DataQualityIssue:
+    issue = _resolved_issue(fixture)
+    return fixture.service.record_verification_result(
+        issue.issue_id,
+        VERIFICATION_REFERENCE_ID,
+        _user_context(OTHER_USER_ID, dataset_ids={DATASET_ID}, roles={"DATA_OWNER"}),
     )
 
 

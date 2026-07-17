@@ -57,6 +57,13 @@ class IssueStatus(str, Enum):
     CANCELLED = "CANCELLED"
 
 
+class IssueVerificationOutcome(str, Enum):
+    QUALITY_FAILED = "QUALITY_FAILED"
+    PARTIAL = "PARTIAL"
+    TECHNICAL_ERROR = "TECHNICAL_ERROR"
+    QUALITY_PASSED = "QUALITY_PASSED"
+
+
 @dataclass(frozen=True)
 class IssueTrigger:
     trigger_type: IssueTriggerType
@@ -113,6 +120,32 @@ class IssueResolutionRecord:
 
 
 @dataclass(frozen=True)
+class TrustedIssueVerificationResult:
+    verification_reference_id: str
+    execution_id: str
+    score_id: str | None
+    scope_type: IssueScopeType
+    scope_id: str
+    outcome: IssueVerificationOutcome
+    completed_at: datetime
+
+
+@dataclass(frozen=True)
+class IssueVerificationRecord:
+    issue_id: str
+    verification_reference_id: str
+    execution_id: str
+    score_id: str | None
+    scope_type: IssueScopeType
+    scope_id: str
+    outcome: IssueVerificationOutcome
+    completed_at: datetime
+    recorded_by: str
+    recorded_at: datetime
+    verification_id: str = field(default_factory=lambda: str(uuid4()))
+
+
+@dataclass(frozen=True)
 class DataQualityIssue:
     issue_no: str
     source_event_id: str
@@ -144,6 +177,7 @@ class IssueHistoryEntry:
     old_priority: IssuePriority | None = None
     new_priority: IssuePriority | None = None
     resolution_id: str | None = None
+    verification_id: str | None = None
     history_id: str = field(default_factory=lambda: str(uuid4()))
 
 
@@ -201,6 +235,25 @@ def validate_protected_resolution(resolution: ProtectedIssueResolution) -> None:
     if not _is_aware(resolution.completed_at):
         raise IssueValidationError("completed_at must be timezone-aware.")
     _validate_code("protection_policy_version", resolution.protection_policy_version)
+
+
+def validate_trusted_verification_result(result: TrustedIssueVerificationResult) -> None:
+    _validate_uuid("verification_reference_id", result.verification_reference_id)
+    _validate_uuid("execution_id", result.execution_id)
+    if result.score_id is not None:
+        _validate_uuid("score_id", result.score_id)
+    if not isinstance(result.scope_type, IssueScopeType):
+        raise IssueValidationError("verification scope_type is invalid.")
+    _validate_uuid("verification scope_id", result.scope_id)
+    if not isinstance(result.outcome, IssueVerificationOutcome):
+        raise IssueValidationError("verification outcome is invalid.")
+    if result.outcome is IssueVerificationOutcome.TECHNICAL_ERROR:
+        if result.score_id is not None:
+            raise IssueValidationError("Technical verification cannot have a quality score.")
+    elif result.score_id is None:
+        raise IssueValidationError("Quality verification must have a score reference.")
+    if not _is_aware(result.completed_at):
+        raise IssueValidationError("verification completed_at must be timezone-aware.")
 
 
 def validate_access_policy(policy: IssueAccessPolicy) -> None:

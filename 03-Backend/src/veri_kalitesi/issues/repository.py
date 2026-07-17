@@ -21,6 +21,8 @@ from veri_kalitesi.issues.models import (
     IssueSourceEventType,
     IssueStatus,
     IssueTriggerType,
+    IssueVerificationOutcome,
+    IssueVerificationRecord,
 )
 
 
@@ -84,6 +86,7 @@ class SQLiteIssueRepository:
                     'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'
                 )),
                 resolution_id TEXT,
+                verification_id TEXT,
                 occurred_at TEXT NOT NULL,
                 FOREIGN KEY (issue_id) REFERENCES data_quality_issues(issue_id)
             );
@@ -109,6 +112,24 @@ class SQLiteIssueRepository:
                 FOREIGN KEY (issue_id) REFERENCES data_quality_issues(issue_id)
             );
 
+            CREATE TABLE IF NOT EXISTS issue_verifications (
+                sequence_no INTEGER PRIMARY KEY AUTOINCREMENT,
+                verification_id TEXT NOT NULL UNIQUE,
+                issue_id TEXT NOT NULL,
+                verification_reference_id TEXT NOT NULL UNIQUE,
+                execution_id TEXT NOT NULL,
+                score_id TEXT,
+                scope_type TEXT NOT NULL CHECK (scope_type IN ('DATASET', 'SOURCE')),
+                scope_id TEXT NOT NULL,
+                outcome TEXT NOT NULL CHECK (outcome IN (
+                    'QUALITY_FAILED', 'PARTIAL', 'TECHNICAL_ERROR', 'QUALITY_PASSED'
+                )),
+                completed_at TEXT NOT NULL,
+                recorded_by TEXT NOT NULL,
+                recorded_at TEXT NOT NULL,
+                FOREIGN KEY (issue_id) REFERENCES data_quality_issues(issue_id)
+            );
+
             CREATE INDEX IF NOT EXISTS idx_issues_assignee_status_time
             ON data_quality_issues(assignee_user_id, status, updated_at DESC);
 
@@ -117,6 +138,9 @@ class SQLiteIssueRepository:
 
             CREATE INDEX IF NOT EXISTS idx_issue_resolutions_issue_time
             ON issue_resolutions(issue_id, sequence_no);
+
+            CREATE INDEX IF NOT EXISTS idx_issue_verifications_issue_time
+            ON issue_verifications(issue_id, sequence_no);
             """
         )
         self._ensure_history_assignment_columns()
@@ -133,6 +157,7 @@ class SQLiteIssueRepository:
             "old_priority": "TEXT",
             "new_priority": "TEXT",
             "resolution_id": "TEXT",
+            "verification_id": "TEXT",
         }
         for column, column_type in additions.items():
             if column not in existing:
@@ -361,6 +386,67 @@ class SQLiteIssueRepository:
             audit_outbox.stage(audit_event)
         return self.get(issue_id)
 
+    def record_verification(
+        self,
+        issue_id: str,
+        *,
+        expected_status: IssueStatus,
+        target_status: IssueStatus,
+        verification: IssueVerificationRecord,
+        updated_at: datetime,
+        history: IssueHistoryEntry,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: SQLiteTransactionalAudit,
+    ) -> DataQualityIssue:
+        self._require_shared_audit_transaction(audit_outbox)
+        with self._lock, self.connection:
+            cursor = self.connection.execute(
+                """
+                UPDATE data_quality_issues
+                SET status = ?, updated_at = ?
+                WHERE issue_id = ? AND status = ?
+                """,
+                (
+                    target_status.value,
+                    updated_at.isoformat(),
+                    issue_id,
+                    expected_status.value,
+                ),
+            )
+            if cursor.rowcount != 1:
+                exists = self.connection.execute(
+                    "SELECT 1 FROM data_quality_issues WHERE issue_id = ?",
+                    (issue_id,),
+                ).fetchone()
+                if exists is None:
+                    raise IssueNotFoundError("Issue not found.")
+                raise IssueValidationError("Issue verification is no longer valid.")
+            self.connection.execute(
+                """
+                INSERT INTO issue_verifications (
+                    verification_id, issue_id, verification_reference_id,
+                    execution_id, score_id, scope_type, scope_id, outcome,
+                    completed_at, recorded_by, recorded_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    verification.verification_id,
+                    verification.issue_id,
+                    verification.verification_reference_id,
+                    verification.execution_id,
+                    verification.score_id,
+                    verification.scope_type.value,
+                    verification.scope_id,
+                    verification.outcome.value,
+                    verification.completed_at.isoformat(),
+                    verification.recorded_by,
+                    verification.recorded_at.isoformat(),
+                ),
+            )
+            self._insert_history(history)
+            audit_outbox.stage(audit_event)
+        return self.get(issue_id)
+
     def get(self, issue_id: str) -> DataQualityIssue:
         with self._lock:
             row = self.connection.execute(
@@ -408,6 +494,21 @@ class SQLiteIssueRepository:
             raise IssueNotFoundError("Issue resolution not found.")
         return _row_to_resolution(row)
 
+    def get_latest_verification(self, issue_id: str) -> IssueVerificationRecord:
+        with self._lock:
+            row = self.connection.execute(
+                """
+                SELECT * FROM issue_verifications
+                WHERE issue_id = ?
+                ORDER BY sequence_no DESC
+                LIMIT 1
+                """,
+                (issue_id,),
+            ).fetchone()
+        if row is None:
+            raise IssueNotFoundError("Issue verification not found.")
+        return _row_to_verification(row)
+
     def count(self) -> int:
         with self._lock:
             return self.connection.execute("SELECT COUNT(*) FROM data_quality_issues").fetchone()[0]
@@ -419,8 +520,8 @@ class SQLiteIssueRepository:
                 history_id, issue_id, action, actor_id,
                 old_status, new_status, old_assignee_user_id,
                 new_assignee_user_id, old_priority, new_priority,
-                occurred_at, resolution_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                occurred_at, resolution_id, verification_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 history.history_id,
@@ -435,6 +536,7 @@ class SQLiteIssueRepository:
                 history.new_priority.value if history.new_priority else None,
                 history.occurred_at.isoformat(),
                 history.resolution_id,
+                history.verification_id,
             ),
         )
 
@@ -477,6 +579,7 @@ def _row_to_history(row: sqlite3.Row) -> IssueHistoryEntry:
         old_priority=IssuePriority(row["old_priority"]) if row["old_priority"] else None,
         new_priority=IssuePriority(row["new_priority"]) if row["new_priority"] else None,
         resolution_id=row["resolution_id"],
+        verification_id=row["verification_id"],
     )
 
 
@@ -491,4 +594,20 @@ def _row_to_resolution(row: sqlite3.Row) -> IssueResolutionRecord:
         protection_policy_version=row["protection_policy_version"],
         created_by=row["created_by"],
         created_at=datetime.fromisoformat(row["created_at"]),
+    )
+
+
+def _row_to_verification(row: sqlite3.Row) -> IssueVerificationRecord:
+    return IssueVerificationRecord(
+        verification_id=row["verification_id"],
+        issue_id=row["issue_id"],
+        verification_reference_id=row["verification_reference_id"],
+        execution_id=row["execution_id"],
+        score_id=row["score_id"],
+        scope_type=IssueScopeType(row["scope_type"]),
+        scope_id=row["scope_id"],
+        outcome=IssueVerificationOutcome(row["outcome"]),
+        completed_at=datetime.fromisoformat(row["completed_at"]),
+        recorded_by=row["recorded_by"],
+        recorded_at=datetime.fromisoformat(row["recorded_at"]),
     )

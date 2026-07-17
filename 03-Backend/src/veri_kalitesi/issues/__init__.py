@@ -26,7 +26,10 @@ from veri_kalitesi.issues.models import (
     IssueStatus,
     IssueTrigger,
     IssueTriggerType,
+    IssueVerificationOutcome,
+    IssueVerificationRecord,
     ProtectedIssueResolution,
+    TrustedIssueVerificationResult,
 )
 from veri_kalitesi.issues.repository import SQLiteIssueRepository
 from veri_kalitesi.issues.service import (
@@ -35,6 +38,7 @@ from veri_kalitesi.issues.service import (
     IssueNotificationPublisher,
     IssueResolutionProtector,
     IssueService,
+    IssueVerificationResolver,
 )
 
 __all__ = [
@@ -65,7 +69,11 @@ __all__ = [
     "IssueTechnicalError",
     "IssueTrigger",
     "IssueTriggerType",
+    "IssueVerificationOutcome",
+    "IssueVerificationRecord",
+    "IssueVerificationResolver",
     "IssueValidationError",
     "ProtectedIssueResolution",
     "SQLiteIssueRepository",
+    "TrustedIssueVerificationResult",
 ]

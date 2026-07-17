@@ -21,6 +21,7 @@ from veri_kalitesi.issues.errors import (
     IssueAuthorizationError,
     IssueConflictError,
     IssueError,
+    IssueNotFoundError,
     IssueNotificationConfigurationError,
     IssueNotificationTechnicalError,
     IssueTechnicalError,
@@ -38,7 +39,10 @@ from veri_kalitesi.issues.models import (
     IssueStatus,
     IssueTrigger,
     IssueTriggerType,
+    IssueVerificationOutcome,
+    IssueVerificationRecord,
     ProtectedIssueResolution,
+    TrustedIssueVerificationResult,
     issue_source_event_type,
     validate_access_policy,
     validate_assignment,
@@ -46,6 +50,7 @@ from veri_kalitesi.issues.models import (
     validate_issue_trigger,
     validate_protected_resolution,
     validate_resolution_draft,
+    validate_trusted_verification_result,
 )
 from veri_kalitesi.issues.repository import SQLiteIssueRepository
 from veri_kalitesi.notifications import (
@@ -75,6 +80,13 @@ class IssueResolutionProtector(Protocol):
     ) -> ProtectedIssueResolution: ...
 
 
+class IssueVerificationResolver(Protocol):
+    def resolve_verification(
+        self,
+        verification_reference_id: str,
+    ) -> TrustedIssueVerificationResult | None: ...
+
+
 class IssueNotificationPublisher(Protocol):
     def create_for_event(
         self,
@@ -94,6 +106,7 @@ class IssueService:
         *,
         assignee_directory: IssueAssigneeDirectory | None = None,
         resolution_protector: IssueResolutionProtector | None = None,
+        verification_resolver: IssueVerificationResolver | None = None,
         notification_actor_context_provider: Callable[[], ActorContext] | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ) -> None:
@@ -105,6 +118,7 @@ class IssueService:
         self.access_policy = access_policy
         self.assignee_directory = assignee_directory
         self.resolution_protector = resolution_protector
+        self.verification_resolver = verification_resolver
         self.notification_actor_context_provider = notification_actor_context_provider
         self.clock = clock
 
@@ -462,6 +476,226 @@ class IssueService:
         self.transactional_audit.publish_pending()
         return stored
 
+    def record_verification_result(
+        self,
+        issue_id: str,
+        verification_reference_id: str,
+        actor_context: ActorContext | None,
+    ) -> DataQualityIssue:
+        _validate_uuid_reference("verification_reference_id", verification_reference_id)
+        context = self._authorize_actor(
+            actor_context,
+            self.access_policy.allowed_reader_actor_types,
+            "verify issues",
+        )
+        if not context.roles.intersection(_VERIFIER_ROLES):
+            raise IssueAuthorizationError("Actor cannot verify issues.")
+        now = self._now()
+        try:
+            issue = self.repository.get(issue_id)
+        except (sqlite3.Error, OSError) as exc:
+            raise IssueTechnicalError("Issue could not be read.", context.correlation_id) from exc
+        if not _has_scope(context, issue):
+            raise IssueAuthorizationError("Actor cannot verify this issue.")
+        if issue.status is not IssueStatus.RESOLVED:
+            raise IssueValidationError("Only a resolved issue can receive verification results.")
+
+        result = self._resolve_verification(verification_reference_id, context)
+        if result.verification_reference_id != verification_reference_id:
+            raise IssueValidationError("Verification resolver returned a different reference.")
+        if result.scope_type is not issue.scope_type or result.scope_id != issue.scope_id:
+            raise IssueAuthorizationError("Verification result is outside the issue scope.")
+        if result.completed_at < issue.updated_at or result.completed_at > now:
+            raise IssueValidationError("Verification completion is outside the resolved lifetime.")
+        if result.outcome is IssueVerificationOutcome.QUALITY_PASSED:
+            try:
+                resolution = self.repository.get_latest_resolution(issue.issue_id)
+            except (sqlite3.Error, OSError) as exc:
+                raise IssueTechnicalError(
+                    "Issue resolution could not be read.", context.correlation_id
+                ) from exc
+            if resolution.created_by == context.actor_id:
+                raise IssueAuthorizationError(
+                    "Resolution creator cannot verify the same issue resolution."
+                )
+
+        target_status = {
+            IssueVerificationOutcome.QUALITY_PASSED: IssueStatus.VERIFIED,
+            IssueVerificationOutcome.TECHNICAL_ERROR: IssueStatus.RESOLVED,
+            IssueVerificationOutcome.QUALITY_FAILED: IssueStatus.WAITING_FOR_RESOLUTION,
+            IssueVerificationOutcome.PARTIAL: IssueStatus.WAITING_FOR_RESOLUTION,
+        }[result.outcome]
+        verification = IssueVerificationRecord(
+            issue_id=issue.issue_id,
+            verification_reference_id=result.verification_reference_id,
+            execution_id=result.execution_id,
+            score_id=result.score_id,
+            scope_type=result.scope_type,
+            scope_id=result.scope_id,
+            outcome=result.outcome,
+            completed_at=result.completed_at,
+            recorded_by=context.actor_id,
+            recorded_at=now,
+        )
+        history = IssueHistoryEntry(
+            issue_id=issue.issue_id,
+            action={
+                IssueVerificationOutcome.QUALITY_PASSED: "ISSUE_VERIFIED",
+                IssueVerificationOutcome.TECHNICAL_ERROR: "ISSUE_VERIFICATION_TECHNICAL_ERROR",
+                IssueVerificationOutcome.QUALITY_FAILED: "ISSUE_VERIFICATION_FAILED",
+                IssueVerificationOutcome.PARTIAL: "ISSUE_VERIFICATION_FAILED",
+            }[result.outcome],
+            actor_id=context.actor_id,
+            old_status=IssueStatus.RESOLVED,
+            new_status=target_status,
+            occurred_at=now,
+            verification_id=verification.verification_id,
+        )
+        audit_event = self._prepare_audit(
+            AuditEventInput(
+                actor_id=context.actor_id,
+                actor_type=context.actor_type.value,
+                correlation_id=context.correlation_id,
+                action="DATA_QUALITY_ISSUE_VERIFICATION_RECORDED",
+                object_type="DataQualityIssue",
+                object_id=issue.issue_id,
+                result=AuditResult.SUCCESS,
+                reason_code=result.outcome.value,
+                old_values={"status": IssueStatus.RESOLVED.value},
+                new_values={
+                    "status": target_status.value,
+                    "verification_outcome": result.outcome.value,
+                    "has_score_reference": result.score_id is not None,
+                },
+                occurred_at=now,
+                session_id=context.session_id,
+            ),
+            context.correlation_id,
+        )
+        try:
+            stored = self.repository.record_verification(
+                issue.issue_id,
+                expected_status=IssueStatus.RESOLVED,
+                target_status=target_status,
+                verification=verification,
+                updated_at=now,
+                history=history,
+                audit_event=audit_event,
+                audit_outbox=self.transactional_audit,
+            )
+        except (sqlite3.Error, OSError) as exc:
+            raise IssueTechnicalError(
+                "Issue verification could not be persisted.", context.correlation_id
+            ) from exc
+        self.transactional_audit.publish_pending()
+        return stored
+
+    def close(
+        self,
+        issue_id: str,
+        actor_context: ActorContext | None,
+    ) -> DataQualityIssue:
+        context = self._authorize_actor(
+            actor_context,
+            self.access_policy.allowed_reader_actor_types,
+            "close issues",
+        )
+        if not context.roles.intersection(_CLOSER_ROLES):
+            raise IssueAuthorizationError("Actor cannot close issues.")
+        now = self._now()
+        try:
+            issue = self.repository.get(issue_id)
+        except (sqlite3.Error, OSError) as exc:
+            raise IssueTechnicalError("Issue could not be read.", context.correlation_id) from exc
+        if not _has_scope(context, issue):
+            raise IssueAuthorizationError("Actor cannot close this issue.")
+        if issue.status is not IssueStatus.VERIFIED:
+            raise IssueValidationError("Only a verified issue can be closed.")
+
+        try:
+            verification = self.repository.get_latest_verification(issue.issue_id)
+        except IssueNotFoundError as exc:
+            raise IssueValidationError(
+                "Verified issue must have a persisted verification result."
+            ) from exc
+        except (sqlite3.Error, OSError) as exc:
+            raise IssueTechnicalError(
+                "Issue verification could not be read.", context.correlation_id
+            ) from exc
+        if (
+            verification.outcome is not IssueVerificationOutcome.QUALITY_PASSED
+            or verification.score_id is None
+        ):
+            raise IssueValidationError(
+                "Issue closure requires a successful scored verification result."
+            )
+
+        history = IssueHistoryEntry(
+            issue_id=issue.issue_id,
+            action="ISSUE_CLOSED",
+            actor_id=context.actor_id,
+            old_status=IssueStatus.VERIFIED,
+            new_status=IssueStatus.CLOSED,
+            occurred_at=now,
+            verification_id=verification.verification_id,
+        )
+        audit_event = self._prepare_audit(
+            AuditEventInput(
+                actor_id=context.actor_id,
+                actor_type=context.actor_type.value,
+                correlation_id=context.correlation_id,
+                action="DATA_QUALITY_ISSUE_CLOSED",
+                object_type="DataQualityIssue",
+                object_id=issue.issue_id,
+                result=AuditResult.SUCCESS,
+                reason_code="SUCCESSFUL_VERIFICATION_CONFIRMED",
+                old_values={"status": IssueStatus.VERIFIED.value},
+                new_values={
+                    "status": IssueStatus.CLOSED.value,
+                    "verification_outcome": verification.outcome.value,
+                },
+                occurred_at=now,
+                session_id=context.session_id,
+            ),
+            context.correlation_id,
+        )
+        try:
+            stored = self.repository.transition_status(
+                issue.issue_id,
+                IssueStatus.VERIFIED,
+                IssueStatus.CLOSED,
+                now,
+                history,
+                audit_event=audit_event,
+                audit_outbox=self.transactional_audit,
+            )
+        except (sqlite3.Error, OSError) as exc:
+            raise IssueTechnicalError(
+                "Issue closure could not be persisted.", context.correlation_id
+            ) from exc
+        self.transactional_audit.publish_pending()
+        return stored
+
+    def _resolve_verification(
+        self,
+        verification_reference_id: str,
+        context: ActorContext,
+    ) -> TrustedIssueVerificationResult:
+        if self.verification_resolver is None:
+            raise IssueValidationError("Trusted verification resolver is not configured.")
+        try:
+            result = self.verification_resolver.resolve_verification(verification_reference_id)
+        except IssueError:
+            raise
+        except Exception as exc:
+            raise IssueTechnicalError(
+                "Issue verification lookup failed.", context.correlation_id
+            ) from exc
+        if result is None:
+            raise IssueValidationError("Verification result was not found.")
+        validate_trusted_verification_result(result)
+        return result
+
     def _protect_resolution(
         self,
         draft: IssueResolutionDraft,
@@ -659,6 +893,15 @@ def _digest_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def _validate_uuid_reference(field_name: str, value: str) -> None:
+    try:
+        UUID(value)
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise IssueValidationError(f"{field_name} must be a UUID.") from exc
+
+
 _ISSUE_NAMESPACE = UUID("7f1f9e1e-fd18-47f1-900c-a3060efbbeca")
 _ASSIGNER_ROLES = frozenset({"DATA_STEWARD", "DATA_GOVERNANCE_SPECIALIST"})
 _RESOLVER_ROLES = frozenset({"DATA_STEWARD", "DATA_ENGINEER"})
+_VERIFIER_ROLES = frozenset({"DATA_OWNER", "DATA_STEWARD"})
+_CLOSER_ROLES = frozenset({"DATA_OWNER", "DATA_STEWARD"})
