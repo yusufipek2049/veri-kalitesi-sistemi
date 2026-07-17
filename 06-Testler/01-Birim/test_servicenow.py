@@ -24,6 +24,7 @@ from veri_kalitesi.servicenow import (
     ServiceNowExportPolicy,
     ServiceNowIssueProjection,
     ServiceNowPolicyError,
+    ServiceNowRetryPolicy,
     ServiceNowService,
     ServiceNowTechnicalError,
     ServiceNowTicketCommand,
@@ -68,9 +69,11 @@ class IdempotentFakeServiceNowAdapter:
         *,
         error: Exception | None = None,
         response: ServiceNowTicketResponse | None = None,
+        outcomes: list[Exception | ServiceNowTicketResponse] | None = None,
     ) -> None:
         self.error = error
         self.response = response or ServiceNowTicketResponse("SYS0000001", "INC0000001")
+        self.outcomes = outcomes or []
         self.calls = 0
         self.requests: list[ServiceNowTicketRequest] = []
         self.created_by_request_id: dict[str, ServiceNowTicketResponse] = {}
@@ -78,6 +81,11 @@ class IdempotentFakeServiceNowAdapter:
     def create_ticket(self, request: ServiceNowTicketRequest) -> ServiceNowTicketResponse:
         self.calls += 1
         self.requests.append(request)
+        if self.calls <= len(self.outcomes):
+            outcome = self.outcomes[self.calls - 1]
+            if isinstance(outcome, Exception):
+                raise outcome
+            return self.created_by_request_id.setdefault(request.client_request_id, outcome)
         if self.error is not None:
             raise self.error
         return self.created_by_request_id.setdefault(request.client_request_id, self.response)
@@ -91,12 +99,14 @@ class ServiceNowFixture:
         resolver: StaticIssueResolver,
         adapter: IdempotentFakeServiceNowAdapter,
         audit_repository: SQLiteAuditRepository,
+        delays: list[float],
     ) -> None:
         self.service = service
         self.repository = repository
         self.resolver = resolver
         self.adapter = adapter
         self.audit_repository = audit_repository
+        self.delays = delays
 
 
 def test_fr_071_fr_087_creates_allowlisted_ticket_link_and_history() -> None:
@@ -270,9 +280,13 @@ def test_bfr_ext_002_untrusted_projection_is_rejected_before_adapter() -> None:
 
 @pytest.mark.parametrize(
     "error_kind",
-    [ServiceNowAdapterErrorKind.AUTHENTICATION, ServiceNowAdapterErrorKind.RATE_LIMIT],
+    [
+        ServiceNowAdapterErrorKind.AUTHENTICATION,
+        ServiceNowAdapterErrorKind.PERMANENT,
+        ServiceNowAdapterErrorKind.UNKNOWN,
+    ],
 )
-def test_fr_087_adapter_error_is_classified_without_sensitive_detail(
+def test_fr_087_non_retryable_adapter_error_stops_after_first_attempt(
     error_kind: ServiceNowAdapterErrorKind,
 ) -> None:
     fixture = _fixture(adapter_error=ServiceNowAdapterError(error_kind))
@@ -281,8 +295,101 @@ def test_fr_087_adapter_error_is_classified_without_sensitive_detail(
         fixture.service.create_ticket(_command(), _service_context())
 
     assert exc_info.value.error_kind is error_kind
+    assert exc_info.value.attempt_count == 1
     assert "credential" not in str(exc_info.value).lower()
+    assert fixture.adapter.calls == 1
+    assert fixture.delays == []
     assert fixture.repository.count() == 0
+
+
+def test_fr_087_nfr_rel_001_temporary_errors_use_bounded_exponential_backoff() -> None:
+    fixture = _fixture(
+        adapter_outcomes=[
+            ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY),
+            ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY),
+            ServiceNowTicketResponse("SYS0000001", "INC0000001"),
+        ]
+    )
+
+    link = fixture.service.create_ticket(_command(), _service_context())
+
+    assert link.ticket_number == "INC0000001"
+    assert fixture.adapter.calls == 3
+    assert fixture.delays == [1.0, 2.0]
+    assert fixture.repository.count() == 1
+
+
+def test_fr_087_rate_limit_uses_retry_after_exactly() -> None:
+    fixture = _fixture(
+        adapter_outcomes=[
+            ServiceNowAdapterError(
+                ServiceNowAdapterErrorKind.RATE_LIMIT,
+                retry_after_seconds=17,
+            ),
+            ServiceNowTicketResponse("SYS0000001", "INC0000001"),
+        ]
+    )
+
+    fixture.service.create_ticket(_command(), _service_context())
+
+    assert fixture.adapter.calls == 2
+    assert fixture.delays == [17.0]
+
+
+def test_fr_087_rate_limit_without_valid_retry_after_is_not_retried() -> None:
+    fixture = _fixture(adapter_error=ServiceNowAdapterError(ServiceNowAdapterErrorKind.RATE_LIMIT))
+
+    with pytest.raises(ServiceNowTechnicalError) as exc_info:
+        fixture.service.create_ticket(_command(), _service_context())
+
+    assert exc_info.value.error_kind is ServiceNowAdapterErrorKind.RATE_LIMIT
+    assert exc_info.value.attempt_count == 1
+    assert fixture.adapter.calls == 1
+    assert fixture.delays == []
+
+
+def test_fr_087_nfr_rel_001_retry_exhaustion_stops_at_three_attempts() -> None:
+    fixture = _fixture(adapter_error=ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY))
+
+    with pytest.raises(ServiceNowTechnicalError) as exc_info:
+        fixture.service.create_ticket(_command(), _service_context())
+
+    assert exc_info.value.error_kind is ServiceNowAdapterErrorKind.TEMPORARY
+    assert exc_info.value.attempt_count == 3
+    assert fixture.adapter.calls == 3
+    assert fixture.delays == [1.0, 2.0]
+    assert fixture.repository.count() == 0
+
+
+@pytest.mark.parametrize(
+    "retry_policy",
+    [
+        ServiceNowRetryPolicy(max_attempts=4),
+        ServiceNowRetryPolicy(base_delay_seconds=float("nan")),
+    ],
+)
+def test_nfr_rel_001_invalid_retry_policy_is_rejected(
+    retry_policy: ServiceNowRetryPolicy,
+) -> None:
+    with pytest.raises(ServiceNowValidationError, match="Retry"):
+        _fixture(retry_policy=retry_policy)
+
+
+def test_ac_019_success_after_retry_remains_idempotent() -> None:
+    fixture = _fixture(
+        adapter_outcomes=[
+            ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY),
+            ServiceNowTicketResponse("SYS0000001", "INC0000001"),
+        ]
+    )
+
+    first = fixture.service.create_ticket(_command(), _service_context())
+    repeated = fixture.service.create_ticket(_command(), _service_context())
+
+    assert repeated.link_id == first.link_id
+    assert fixture.adapter.calls == 2
+    assert len(fixture.adapter.created_by_request_id) == 1
+    assert fixture.repository.count() == 1
 
 
 def test_fr_087_invalid_adapter_response_is_permanent_technical_error() -> None:
@@ -357,6 +464,8 @@ def _fixture(
     resolver_error: Exception | None = None,
     adapter_error: Exception | None = None,
     adapter_response: ServiceNowTicketResponse | None = None,
+    adapter_outcomes: list[Exception | ServiceNowTicketResponse] | None = None,
+    retry_policy: ServiceNowRetryPolicy = ServiceNowRetryPolicy(),
 ) -> ServiceNowFixture:
     repository = SQLiteServiceNowRepository()
     audit_repository = SQLiteAuditRepository()
@@ -379,7 +488,9 @@ def _fixture(
     adapter = IdempotentFakeServiceNowAdapter(
         error=adapter_error,
         response=adapter_response,
+        outcomes=adapter_outcomes,
     )
+    delays: list[float] = []
     service = ServiceNowService(
         repository,
         resolver,
@@ -397,9 +508,11 @@ def _fixture(
             ),
             eligible_priorities=frozenset({IssuePriority.HIGH, IssuePriority.CRITICAL}),
         ),
+        retry_policy=retry_policy,
         clock=lambda: NOW,
+        sleeper=delays.append,
     )
-    return ServiceNowFixture(service, repository, resolver, adapter, audit_repository)
+    return ServiceNowFixture(service, repository, resolver, adapter, audit_repository, delays)
 
 
 def _projection(

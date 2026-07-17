@@ -6,6 +6,7 @@ import hashlib
 import json
 import sqlite3
 from datetime import datetime, timezone
+from time import sleep
 from typing import Callable, Protocol
 from uuid import uuid4
 
@@ -30,6 +31,7 @@ from veri_kalitesi.servicenow.errors import (
 from veri_kalitesi.servicenow.models import (
     ServiceNowExportPolicy,
     ServiceNowIssueProjection,
+    ServiceNowRetryPolicy,
     ServiceNowTicketCommand,
     ServiceNowTicketHistoryEntry,
     ServiceNowTicketLink,
@@ -40,6 +42,7 @@ from veri_kalitesi.servicenow.models import (
     validate_policy,
     validate_projection,
     validate_response,
+    validate_retry_policy,
 )
 from veri_kalitesi.servicenow.repository import SQLiteServiceNowRepository
 
@@ -61,15 +64,20 @@ class ServiceNowService:
         transactional_audit: SQLiteTransactionalAudit,
         export_policy: ServiceNowExportPolicy,
         *,
+        retry_policy: ServiceNowRetryPolicy = ServiceNowRetryPolicy(),
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+        sleeper: Callable[[float], None] = sleep,
     ) -> None:
         validate_policy(export_policy)
+        validate_retry_policy(retry_policy)
         self.repository = repository
         self.issue_resolver = issue_resolver
         self.adapter = adapter
         self.transactional_audit = transactional_audit
         self.export_policy = export_policy
+        self.retry_policy = retry_policy
         self.clock = clock
+        self.sleeper = sleeper
 
     def create_ticket(
         self,
@@ -216,26 +224,59 @@ class ServiceNowService:
         request: ServiceNowTicketRequest,
         correlation_id: str,
     ) -> ServiceNowTicketResponse:
-        try:
-            response = self.adapter.create_ticket(request)
-            validate_response(response)
-            return response
-        except ServiceNowAdapterError as exc:
-            raise ServiceNowTechnicalError(
-                "ServiceNow adapter request failed.",
-                correlation_id,
-                exc.error_kind,
-            ) from exc
-        except ServiceNowValidationError as exc:
-            raise ServiceNowTechnicalError(
-                "ServiceNow adapter returned an invalid response.",
-                correlation_id,
-                ServiceNowAdapterErrorKind.PERMANENT,
-            ) from exc
-        except Exception as exc:
-            raise ServiceNowTechnicalError(
-                "ServiceNow adapter request failed.", correlation_id
-            ) from exc
+        for attempt_no in range(1, self.retry_policy.max_attempts + 1):
+            try:
+                response = self.adapter.create_ticket(request)
+                validate_response(response)
+                return response
+            except ServiceNowAdapterError as exc:
+                delay = self._retry_delay(exc, attempt_no)
+                if delay is None:
+                    raise ServiceNowTechnicalError(
+                        "ServiceNow adapter request failed.",
+                        correlation_id,
+                        exc.error_kind,
+                        attempt_count=attempt_no,
+                    ) from exc
+                try:
+                    self.sleeper(delay)
+                except Exception as sleep_error:
+                    raise ServiceNowTechnicalError(
+                        "ServiceNow retry scheduling failed.",
+                        correlation_id,
+                        ServiceNowAdapterErrorKind.UNKNOWN,
+                        attempt_count=attempt_no,
+                    ) from sleep_error
+            except ServiceNowValidationError as exc:
+                raise ServiceNowTechnicalError(
+                    "ServiceNow adapter returned an invalid response.",
+                    correlation_id,
+                    ServiceNowAdapterErrorKind.PERMANENT,
+                    attempt_count=attempt_no,
+                ) from exc
+            except Exception as exc:
+                raise ServiceNowTechnicalError(
+                    "ServiceNow adapter request failed.",
+                    correlation_id,
+                    attempt_count=attempt_no,
+                ) from exc
+        raise AssertionError("ServiceNow retry loop completed without a result.")
+
+    def _retry_delay(
+        self,
+        error: ServiceNowAdapterError,
+        attempt_no: int,
+    ) -> float | None:
+        if attempt_no >= self.retry_policy.max_attempts:
+            return None
+        if error.error_kind is ServiceNowAdapterErrorKind.TEMPORARY:
+            return self.retry_policy.base_delay_seconds * (2 ** (attempt_no - 1))
+        if error.error_kind is not ServiceNowAdapterErrorKind.RATE_LIMIT:
+            return None
+        retry_after = error.retry_after_seconds
+        if isinstance(retry_after, bool) or not isinstance(retry_after, int) or retry_after < 0:
+            return None
+        return float(retry_after)
 
     def _authorize_actor(self, context: ActorContext | None) -> ActorContext:
         now = self._now()

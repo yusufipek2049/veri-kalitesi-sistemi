@@ -53,7 +53,10 @@ class ServiceNowTechnicalError(ServiceNowError):
         message: str,
         correlation_id: str,
         error_kind: ServiceNowAdapterErrorKind = ServiceNowAdapterErrorKind.UNKNOWN,
+        *,
+        attempt_count: int = 1,
     ) -> None:
         super().__init__(message)
         self.correlation_id = correlation_id
         self.error_kind = error_kind
+        self.attempt_count = attempt_count

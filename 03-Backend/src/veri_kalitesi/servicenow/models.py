@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import math
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -96,6 +97,12 @@ class ServiceNowExportPolicy:
     )
 
 
+@dataclass(frozen=True)
+class ServiceNowRetryPolicy:
+    max_attempts: int = 3
+    base_delay_seconds: float = 1.0
+
+
 def validate_command(command: ServiceNowTicketCommand) -> None:
     _validate_uuid("issue_id", command.issue_id)
     _validate_code("idempotency_key", command.idempotency_key)
@@ -132,6 +139,22 @@ def validate_policy(policy: ServiceNowExportPolicy) -> None:
         raise ServiceNowValidationError("policy.eligible_priorities is invalid.")
     if policy.allowed_producer_actor_types != frozenset({ActorType.SERVICE}):
         raise ServiceNowValidationError("Only service actors can produce ServiceNow tickets.")
+
+
+def validate_retry_policy(policy: ServiceNowRetryPolicy) -> None:
+    if (
+        isinstance(policy.max_attempts, bool)
+        or not isinstance(policy.max_attempts, int)
+        or not 1 <= policy.max_attempts <= 3
+    ):
+        raise ServiceNowValidationError("Retry policy must allow between 1 and 3 attempts.")
+    if (
+        isinstance(policy.base_delay_seconds, bool)
+        or not isinstance(policy.base_delay_seconds, (int, float))
+        or not math.isfinite(policy.base_delay_seconds)
+        or policy.base_delay_seconds < 0
+    ):
+        raise ServiceNowValidationError("Retry base delay must be a finite non-negative number.")
 
 
 def _validate_uuid(field_name: str, value: str) -> None:
