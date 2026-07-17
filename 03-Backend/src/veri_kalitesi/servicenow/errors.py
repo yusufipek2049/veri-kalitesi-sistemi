@@ -55,8 +55,10 @@ class ServiceNowTechnicalError(ServiceNowError):
         error_kind: ServiceNowAdapterErrorKind = ServiceNowAdapterErrorKind.UNKNOWN,
         *,
         attempt_count: int = 1,
+        retry_job_id: str | None = None,
     ) -> None:
         super().__init__(message)
         self.correlation_id = correlation_id
         self.error_kind = error_kind
         self.attempt_count = attempt_count
+        self.retry_job_id = retry_job_id

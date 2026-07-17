@@ -13,6 +13,8 @@ from veri_kalitesi.servicenow.errors import (
 from veri_kalitesi.servicenow.models import (
     ServiceNowExportPolicy,
     ServiceNowIssueProjection,
+    ServiceNowRetryJob,
+    ServiceNowRetryJobStatus,
     ServiceNowRetryPolicy,
     ServiceNowTicketCommand,
     ServiceNowTicketHistoryEntry,
@@ -39,6 +41,8 @@ __all__ = [
     "ServiceNowExportPolicy",
     "ServiceNowIssueProjection",
     "ServiceNowIssueResolver",
+    "ServiceNowRetryJob",
+    "ServiceNowRetryJobStatus",
     "ServiceNowRetryPolicy",
     "ServiceNowPolicyError",
     "ServiceNowService",

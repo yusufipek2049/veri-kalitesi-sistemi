@@ -24,6 +24,7 @@ from veri_kalitesi.servicenow import (
     ServiceNowExportPolicy,
     ServiceNowIssueProjection,
     ServiceNowPolicyError,
+    ServiceNowRetryJobStatus,
     ServiceNowRetryPolicy,
     ServiceNowService,
     ServiceNowTechnicalError,
@@ -73,7 +74,7 @@ class IdempotentFakeServiceNowAdapter:
     ) -> None:
         self.error = error
         self.response = response or ServiceNowTicketResponse("SYS0000001", "INC0000001")
-        self.outcomes = outcomes or []
+        self.outcomes = list(outcomes or [])
         self.calls = 0
         self.requests: list[ServiceNowTicketRequest] = []
         self.created_by_request_id: dict[str, ServiceNowTicketResponse] = {}
@@ -81,8 +82,8 @@ class IdempotentFakeServiceNowAdapter:
     def create_ticket(self, request: ServiceNowTicketRequest) -> ServiceNowTicketResponse:
         self.calls += 1
         self.requests.append(request)
-        if self.calls <= len(self.outcomes):
-            outcome = self.outcomes[self.calls - 1]
+        if self.outcomes:
+            outcome = self.outcomes.pop(0)
             if isinstance(outcome, Exception):
                 raise outcome
             return self.created_by_request_id.setdefault(request.client_request_id, outcome)
@@ -100,6 +101,7 @@ class ServiceNowFixture:
         adapter: IdempotentFakeServiceNowAdapter,
         audit_repository: SQLiteAuditRepository,
         delays: list[float],
+        clock: MutableClock,
     ) -> None:
         self.service = service
         self.repository = repository
@@ -107,6 +109,18 @@ class ServiceNowFixture:
         self.adapter = adapter
         self.audit_repository = audit_repository
         self.delays = delays
+        self.clock = clock
+
+
+class MutableClock:
+    def __init__(self, current: datetime = NOW) -> None:
+        self.current = current
+
+    def __call__(self) -> datetime:
+        return self.current
+
+    def advance(self, seconds: float) -> None:
+        self.current += timedelta(seconds=seconds)
 
 
 def test_fr_071_fr_087_creates_allowlisted_ticket_link_and_history() -> None:
@@ -300,6 +314,7 @@ def test_fr_087_non_retryable_adapter_error_stops_after_first_attempt(
     assert fixture.adapter.calls == 1
     assert fixture.delays == []
     assert fixture.repository.count() == 0
+    assert fixture.repository.count_retry_jobs() == 0
 
 
 def test_fr_087_nfr_rel_001_temporary_errors_use_bounded_exponential_backoff() -> None:
@@ -392,6 +407,202 @@ def test_ac_019_success_after_retry_remains_idempotent() -> None:
     assert fixture.repository.count() == 1
 
 
+def test_uc_013_nfr_rel_007_retry_exhaustion_enqueues_one_data_minimum_job() -> None:
+    fixture = _fixture(adapter_error=ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY))
+
+    first_job = _enqueue_retry_job(fixture)
+    with pytest.raises(ServiceNowTechnicalError) as repeated_error:
+        fixture.service.create_ticket(_command(), _service_context())
+
+    assert repeated_error.value.retry_job_id == first_job.job_id
+    assert fixture.adapter.calls == 3
+    assert fixture.repository.count_retry_jobs() == 1
+    assert first_job.status is ServiceNowRetryJobStatus.PENDING
+    assert first_job.attempt_count == 0
+    assert first_job.request.client_request_id != _command().idempotency_key
+    serialized = repr(first_job).lower()
+    for forbidden in ("customer", "tckn", "account", "sql", "password", "secret", "token"):
+        assert forbidden not in serialized
+    audit = fixture.audit_repository.list_events()[-1]
+    assert audit.action == "SERVICENOW_RETRY_ENQUEUED"
+    assert audit.new_value_summary == {
+        "attempt_count": 0,
+        "error_kind": "TEMPORARY",
+        "status": "PENDING",
+    }
+    assert ISSUE_ID not in repr(audit)
+
+
+def test_nfr_rel_007_claim_allows_only_one_worker() -> None:
+    fixture = _fixture(adapter_error=ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY))
+    queued = _enqueue_retry_job(fixture)
+
+    first_claim = fixture.repository.claim_next_retry(NOW)
+    second_claim = fixture.repository.claim_next_retry(NOW)
+
+    assert first_claim is not None
+    assert first_claim.job_id == queued.job_id
+    assert first_claim.status is ServiceNowRetryJobStatus.PROCESSING
+    assert first_claim.attempt_count == 1
+    assert second_claim is None
+
+
+@pytest.mark.parametrize("context_kind", ["user", "privileged-service"])
+def test_bfr_ext_001_retry_worker_rejects_untrusted_execution_context(
+    context_kind: str,
+) -> None:
+    fixture = _fixture(adapter_error=ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY))
+    queued = _enqueue_retry_job(fixture)
+    context = _user_context() if context_kind == "user" else _service_context(privileged=True)
+
+    with pytest.raises(ServiceNowAuthorizationError):
+        fixture.service.process_next_retry(context)
+
+    unchanged = fixture.repository.get_retry_job(queued.job_id)
+    assert unchanged.status is ServiceNowRetryJobStatus.PENDING
+    assert unchanged.attempt_count == 0
+    assert fixture.adapter.calls == 3
+
+
+def test_fr_087_retry_worker_completes_ticket_and_job_atomically() -> None:
+    fixture = _fixture(adapter_error=ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY))
+    queued = _enqueue_retry_job(fixture)
+    fixture.adapter.error = None
+
+    completed = fixture.service.process_next_retry(_service_context())
+
+    assert completed is not None
+    assert completed.job_id == queued.job_id
+    assert completed.status is ServiceNowRetryJobStatus.COMPLETED
+    assert completed.link_id is not None
+    assert fixture.repository.count() == 1
+    assert fixture.adapter.calls == 4
+    assert fixture.audit_repository.list_events()[-1].action == "SERVICENOW_TICKET_CREATED"
+
+
+def test_nfr_rel_001_retry_worker_reschedules_then_completes_when_due() -> None:
+    fixture = _fixture(adapter_error=ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY))
+    _enqueue_retry_job(fixture)
+    fixture.adapter.error = None
+    fixture.adapter.outcomes = [
+        ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY),
+        ServiceNowTicketResponse("SYS0000001", "INC0000001"),
+    ]
+
+    pending = fixture.service.process_next_retry(_service_context())
+
+    assert pending is not None
+    assert pending.status is ServiceNowRetryJobStatus.PENDING
+    assert pending.attempt_count == 1
+    assert pending.next_attempt_at == NOW + timedelta(seconds=1)
+    assert fixture.service.process_next_retry(_service_context()) is None
+
+    fixture.clock.advance(1)
+    completed = fixture.service.process_next_retry(_service_context())
+
+    assert completed is not None
+    assert completed.status is ServiceNowRetryJobStatus.COMPLETED
+    assert completed.attempt_count == 2
+
+
+def test_nfr_rel_007_exhausted_async_job_moves_to_dead_letter() -> None:
+    fixture = _fixture(adapter_error=ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY))
+    queued = _enqueue_retry_job(fixture)
+
+    first = fixture.service.process_next_retry(_service_context())
+    assert first is not None and first.status is ServiceNowRetryJobStatus.PENDING
+    fixture.clock.advance(1)
+    second = fixture.service.process_next_retry(_service_context())
+    assert second is not None and second.status is ServiceNowRetryJobStatus.PENDING
+    fixture.clock.advance(2)
+    dead = fixture.service.process_next_retry(_service_context())
+
+    assert dead is not None
+    assert dead.job_id == queued.job_id
+    assert dead.status is ServiceNowRetryJobStatus.DEAD_LETTER
+    assert dead.attempt_count == 3
+    assert fixture.repository.count_retry_jobs(ServiceNowRetryJobStatus.DEAD_LETTER) == 1
+    assert fixture.audit_repository.list_events()[-1].action == ("SERVICENOW_RETRY_DEAD_LETTERED")
+
+
+def test_fr_087_non_retryable_async_error_moves_directly_to_dead_letter() -> None:
+    fixture = _fixture(adapter_error=ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY))
+    _enqueue_retry_job(fixture)
+    fixture.adapter.error = ServiceNowAdapterError(ServiceNowAdapterErrorKind.AUTHENTICATION)
+
+    dead = fixture.service.process_next_retry(_service_context())
+
+    assert dead is not None
+    assert dead.status is ServiceNowRetryJobStatus.DEAD_LETTER
+    assert dead.attempt_count == 1
+    assert dead.last_error_kind == "AUTHENTICATION"
+
+
+def test_nfr_rel_007_dead_letter_requeue_requires_trusted_service_and_is_audited() -> None:
+    fixture = _fixture(adapter_error=ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY))
+    queued = _enqueue_retry_job(fixture)
+    fixture.adapter.error = ServiceNowAdapterError(ServiceNowAdapterErrorKind.PERMANENT)
+    fixture.service.process_next_retry(_service_context())
+
+    with pytest.raises(ServiceNowAuthorizationError):
+        fixture.service.requeue_dead_letter(queued.job_id, _user_context())
+
+    requeued = fixture.service.requeue_dead_letter(queued.job_id, _service_context())
+
+    assert requeued.status is ServiceNowRetryJobStatus.PENDING
+    assert requeued.attempt_count == 0
+    assert requeued.last_error_kind == "REQUEUED"
+    assert fixture.audit_repository.list_events()[-1].action == "SERVICENOW_RETRY_REQUEUED"
+
+
+def test_nfr_rel_007_enqueue_audit_failure_does_not_leave_untracked_job(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _fixture(adapter_error=ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY))
+
+    def fail_stage(event: object) -> None:
+        raise sqlite3.OperationalError("audit outbox unavailable")
+
+    monkeypatch.setattr(fixture.service.transactional_audit, "stage", fail_stage)
+
+    with pytest.raises(ServiceNowTechnicalError):
+        fixture.service.create_ticket(_command(), _service_context())
+
+    assert fixture.repository.count_retry_jobs() == 0
+    assert fixture.repository.count() == 0
+
+
+def test_nfr_rel_006_worker_audit_failure_releases_claim_for_idempotent_replay(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _fixture(adapter_error=ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY))
+    queued = _enqueue_retry_job(fixture)
+    fixture.adapter.error = None
+    original_stage = fixture.service.transactional_audit.stage
+
+    def fail_stage(event: object) -> None:
+        raise sqlite3.OperationalError("audit outbox unavailable")
+
+    monkeypatch.setattr(fixture.service.transactional_audit, "stage", fail_stage)
+
+    with pytest.raises(ServiceNowTechnicalError):
+        fixture.service.process_next_retry(_service_context())
+
+    released = fixture.repository.get_retry_job(queued.job_id)
+    assert released.status is ServiceNowRetryJobStatus.PENDING
+    assert released.attempt_count == 0
+    assert fixture.repository.count() == 0
+    assert len(fixture.adapter.created_by_request_id) == 1
+
+    monkeypatch.setattr(fixture.service.transactional_audit, "stage", original_stage)
+    completed = fixture.service.process_next_retry(_service_context())
+
+    assert completed is not None
+    assert completed.status is ServiceNowRetryJobStatus.COMPLETED
+    assert len(fixture.adapter.created_by_request_id) == 1
+    assert fixture.repository.count() == 1
+
+
 def test_fr_087_invalid_adapter_response_is_permanent_technical_error() -> None:
     fixture = _fixture(adapter_response=ServiceNowTicketResponse("SYS0000001", "SECRET.TICKET"))
 
@@ -477,7 +688,19 @@ def _fixture(
                 allowed_fields_by_action={
                     "SERVICENOW_TICKET_CREATED": frozenset(
                         {"status", "source_event_type", "priority", "adapter_result"}
-                    )
+                    ),
+                    "SERVICENOW_RETRY_ENQUEUED": frozenset(
+                        {"status", "attempt_count", "error_kind"}
+                    ),
+                    "SERVICENOW_RETRY_SCHEDULED": frozenset(
+                        {"status", "attempt_count", "error_kind"}
+                    ),
+                    "SERVICENOW_RETRY_DEAD_LETTERED": frozenset(
+                        {"status", "attempt_count", "error_kind"}
+                    ),
+                    "SERVICENOW_RETRY_REQUEUED": frozenset(
+                        {"status", "attempt_count", "error_kind"}
+                    ),
                 },
             )
         ),
@@ -491,6 +714,7 @@ def _fixture(
         outcomes=adapter_outcomes,
     )
     delays: list[float] = []
+    clock = MutableClock()
     service = ServiceNowService(
         repository,
         resolver,
@@ -509,10 +733,25 @@ def _fixture(
             eligible_priorities=frozenset({IssuePriority.HIGH, IssuePriority.CRITICAL}),
         ),
         retry_policy=retry_policy,
-        clock=lambda: NOW,
+        clock=clock,
         sleeper=delays.append,
     )
-    return ServiceNowFixture(service, repository, resolver, adapter, audit_repository, delays)
+    return ServiceNowFixture(
+        service,
+        repository,
+        resolver,
+        adapter,
+        audit_repository,
+        delays,
+        clock,
+    )
+
+
+def _enqueue_retry_job(fixture: ServiceNowFixture):
+    with pytest.raises(ServiceNowTechnicalError) as exc_info:
+        fixture.service.create_ticket(_command(), _service_context())
+    assert exc_info.value.retry_job_id is not None
+    return fixture.repository.get_retry_job(exc_info.value.retry_job_id)
 
 
 def _projection(
