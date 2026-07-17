@@ -171,14 +171,16 @@ class SQLiteIssueRepository:
         history: IssueHistoryEntry,
         *,
         payload_digest: str,
+        source_event_occurred_at: datetime,
         audit_event: PreparedAuditEvent,
+        reopen_audit_event: PreparedAuditEvent,
         audit_outbox: SQLiteTransactionalAudit,
     ) -> DataQualityIssue:
         self._require_shared_audit_transaction(audit_outbox)
         with self._lock, self.connection:
             existing = self.connection.execute(
                 """
-                SELECT issue_id, payload_digest, status
+                SELECT issue_id, payload_digest, status, updated_at
                 FROM data_quality_issues
                 WHERE deduplication_key_digest = ?
                 """,
@@ -189,30 +191,48 @@ class SQLiteIssueRepository:
                     raise IssueConflictError(
                         "Deduplication key was reused with a different issue payload."
                     )
+                current_status = IssueStatus(existing["status"])
+                reopened = (
+                    current_status is IssueStatus.CLOSED
+                    and issue.source_event_type is IssueSourceEventType.QUALITY
+                    and source_event_occurred_at >= datetime.fromisoformat(existing["updated_at"])
+                )
+                target_status = IssueStatus.WAITING_FOR_RESOLUTION if reopened else current_status
+                updated_at = (
+                    issue.updated_at
+                    if reopened or current_status is not IssueStatus.CLOSED
+                    else datetime.fromisoformat(existing["updated_at"])
+                )
                 self.connection.execute(
                     """
                     UPDATE data_quality_issues
                     SET occurrence_count = occurrence_count + 1,
-                        last_seen_at = ?, updated_at = ?, source_event_id = ?
+                        last_seen_at = ?, updated_at = ?, source_event_id = ?, status = ?
                     WHERE issue_id = ?
                     """,
                     (
                         issue.last_seen_at.isoformat(),
-                        issue.updated_at.isoformat(),
+                        updated_at.isoformat(),
                         issue.source_event_id,
+                        target_status.value,
                         existing["issue_id"],
                     ),
                 )
                 repeated_history = IssueHistoryEntry(
                     issue_id=existing["issue_id"],
-                    action="ISSUE_REPEATED",
+                    action=(
+                        "ISSUE_REOPENED_BY_RECURRING_QUALITY_FAILURE"
+                        if reopened
+                        else "ISSUE_REPEATED"
+                    ),
                     actor_id=history.actor_id,
-                    old_status=IssueStatus(existing["status"]),
-                    new_status=IssueStatus(existing["status"]),
+                    old_status=current_status,
+                    new_status=target_status,
                     occurred_at=history.occurred_at,
                 )
                 self._insert_history(repeated_history)
                 issue_id = existing["issue_id"]
+                audit_event = reopen_audit_event if reopened else audit_event
             else:
                 self.connection.execute(
                     """

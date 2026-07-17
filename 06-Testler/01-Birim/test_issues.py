@@ -1198,6 +1198,155 @@ def test_fr_066_repeated_close_transition_is_rejected() -> None:
     assert fixture.repository.list_history(issue.issue_id)[-1].action == "ISSUE_CLOSED"
 
 
+def test_fr_064_fr_069_uc_014_closed_issue_reopens_for_recurring_quality_failure() -> None:
+    fixture = _fixture(
+        verification_result=_verification_result(outcome=IssueVerificationOutcome.QUALITY_PASSED)
+    )
+    issue = _closed_issue(fixture)
+
+    reopened = _create(
+        fixture.service,
+        _trigger(IssueTriggerType.QUALITY_THRESHOLD, occurred_at=NOW),
+    )
+
+    assert reopened.issue_id == issue.issue_id
+    assert reopened.status is IssueStatus.WAITING_FOR_RESOLUTION
+    assert reopened.occurrence_count == 2
+    history = fixture.repository.list_history(issue.issue_id)[-1]
+    assert history.action == "ISSUE_REOPENED_BY_RECURRING_QUALITY_FAILURE"
+    assert history.old_status is IssueStatus.CLOSED
+    assert history.new_status is IssueStatus.WAITING_FOR_RESOLUTION
+    audit = fixture.issue_audit_repository.list_events()[-1]
+    assert audit.action == "DATA_QUALITY_ISSUE_REOPENED"
+    assert audit.reason_code == "RECURRING_QUALITY_FAILURE"
+    assert audit.old_value_summary == {"status": "CLOSED"}
+    assert audit.new_value_summary == {
+        "source_event_type": "QUALITY",
+        "status": "WAITING_FOR_RESOLUTION",
+        "trigger_type": "QUALITY_THRESHOLD",
+    }
+    serialized_audit = repr(audit)
+    assert DATASET_ID not in serialized_audit
+    assert "QUALITY.ISSUE.1" not in serialized_audit
+
+
+def test_fr_069_stale_quality_event_does_not_reopen_closed_issue() -> None:
+    fixture = _fixture(
+        verification_result=_verification_result(outcome=IssueVerificationOutcome.QUALITY_PASSED)
+    )
+    issue = _closed_issue(fixture)
+
+    repeated = _create(fixture.service, _trigger(IssueTriggerType.QUALITY_THRESHOLD))
+
+    assert repeated.status is IssueStatus.CLOSED
+    assert repeated.occurrence_count == 2
+    history = fixture.repository.list_history(issue.issue_id)[-1]
+    assert history.action == "ISSUE_REPEATED"
+    assert history.old_status is IssueStatus.CLOSED
+    assert history.new_status is IssueStatus.CLOSED
+
+    reopened = _create(
+        fixture.service,
+        _trigger(IssueTriggerType.QUALITY_THRESHOLD, occurred_at=NOW),
+    )
+
+    assert reopened.status is IssueStatus.WAITING_FOR_RESOLUTION
+    assert reopened.occurrence_count == 3
+
+
+def test_rule_003_technical_event_does_not_reopen_closed_issue_as_quality_failure() -> None:
+    fixture = _fixture(
+        verification_result=_verification_result(outcome=IssueVerificationOutcome.QUALITY_PASSED)
+    )
+    trigger = _trigger(
+        IssueTriggerType.TECHNICAL_ERROR,
+        deduplication_key="TECHNICAL.ISSUE.REOPEN",
+    )
+    issue = _closed_issue(fixture, trigger)
+
+    repeated = _create(
+        fixture.service,
+        _trigger(
+            IssueTriggerType.TECHNICAL_ERROR,
+            deduplication_key="TECHNICAL.ISSUE.REOPEN",
+            occurred_at=NOW,
+        ),
+    )
+
+    assert repeated.status is IssueStatus.CLOSED
+    assert fixture.repository.list_history(issue.issue_id)[-1].action == "ISSUE_REPEATED"
+
+
+def test_rule_011_closed_issue_reopen_rejects_same_key_with_different_payload() -> None:
+    fixture = _fixture(
+        verification_result=_verification_result(outcome=IssueVerificationOutcome.QUALITY_PASSED)
+    )
+    issue = _closed_issue(fixture)
+
+    with pytest.raises(IssueConflictError):
+        _create(
+            fixture.service,
+            _trigger(
+                IssueTriggerType.QUALITY_THRESHOLD,
+                scope_id=OTHER_DATASET_ID,
+                occurred_at=NOW,
+            ),
+        )
+
+    assert fixture.repository.get(issue.issue_id).status is IssueStatus.CLOSED
+    assert fixture.repository.get(issue.issue_id).occurrence_count == 1
+
+
+def test_rule_011_nfr_rel_005_one_hundred_closed_replays_reopen_single_issue_once() -> None:
+    fixture = _fixture(
+        verification_result=_verification_result(outcome=IssueVerificationOutcome.QUALITY_PASSED)
+    )
+    issue = _closed_issue(fixture)
+
+    results = [
+        _create(
+            fixture.service,
+            _trigger(IssueTriggerType.QUALITY_THRESHOLD, occurred_at=NOW),
+        )
+        for _ in range(100)
+    ]
+
+    assert {result.issue_id for result in results} == {issue.issue_id}
+    assert results[-1].status is IssueStatus.WAITING_FOR_RESOLUTION
+    assert results[-1].occurrence_count == 101
+    assert fixture.repository.count() == 1
+    history = fixture.repository.list_history(issue.issue_id)
+    assert (
+        sum(item.action == "ISSUE_REOPENED_BY_RECURRING_QUALITY_FAILURE" for item in history) == 1
+    )
+
+
+def test_fr_069_nfr_rel_006_reopen_audit_failure_rolls_back(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _fixture(
+        verification_result=_verification_result(outcome=IssueVerificationOutcome.QUALITY_PASSED)
+    )
+    issue = _closed_issue(fixture)
+    initial_history_count = len(fixture.repository.list_history(issue.issue_id))
+
+    def fail_stage(*args: object) -> None:
+        raise sqlite3.OperationalError("audit outbox unavailable")
+
+    monkeypatch.setattr(fixture.service.transactional_audit, "stage", fail_stage)
+
+    with pytest.raises(IssueTechnicalError):
+        _create(
+            fixture.service,
+            _trigger(IssueTriggerType.QUALITY_THRESHOLD, occurred_at=NOW),
+        )
+
+    stored = fixture.repository.get(issue.issue_id)
+    assert stored.status is IssueStatus.CLOSED
+    assert stored.occurrence_count == 1
+    assert len(fixture.repository.list_history(issue.issue_id)) == initial_history_count
+
+
 class StaticAssignmentResolver:
     def __init__(
         self,
@@ -1379,6 +1528,9 @@ def _fixture(
                         {"status", "verification_outcome", "has_score_reference"}
                     ),
                     "DATA_QUALITY_ISSUE_CLOSED": frozenset({"status", "verification_outcome"}),
+                    "DATA_QUALITY_ISSUE_REOPENED": frozenset(
+                        {"status", "source_event_type", "trigger_type"}
+                    ),
                 },
             )
         ),
@@ -1450,13 +1602,14 @@ def _trigger(
     *,
     scope_id: str = DATASET_ID,
     deduplication_key: str = "QUALITY.ISSUE.1",
+    occurred_at: datetime = NOW - timedelta(minutes=1),
 ) -> IssueTrigger:
     return IssueTrigger(
         trigger_type=trigger_type,
         scope_type=IssueScopeType.DATASET,
         scope_id=scope_id,
         deduplication_key=deduplication_key,
-        occurred_at=NOW - timedelta(minutes=1),
+        occurred_at=occurred_at,
         correlation_id="correlation-issue",
     )
 
@@ -1465,16 +1618,25 @@ def _create(service: IssueService, trigger: IssueTrigger) -> DataQualityIssue:
     return service.create_for_trigger(trigger, _producer_context())
 
 
-def _investigating_issue(fixture: IssueFixture) -> DataQualityIssue:
-    issue = _create(fixture.service, _trigger(IssueTriggerType.QUALITY_THRESHOLD))
+def _investigating_issue(
+    fixture: IssueFixture,
+    trigger: IssueTrigger | None = None,
+) -> DataQualityIssue:
+    issue = _create(
+        fixture.service,
+        trigger or _trigger(IssueTriggerType.QUALITY_THRESHOLD),
+    )
     return fixture.service.start_investigation(
         issue.issue_id,
         _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
     )
 
 
-def _resolved_issue(fixture: IssueFixture) -> DataQualityIssue:
-    issue = _investigating_issue(fixture)
+def _resolved_issue(
+    fixture: IssueFixture,
+    trigger: IssueTrigger | None = None,
+) -> DataQualityIssue:
+    issue = _investigating_issue(fixture, trigger)
     return fixture.service.resolve(
         issue.issue_id,
         _resolution_draft(),
@@ -1482,11 +1644,25 @@ def _resolved_issue(fixture: IssueFixture) -> DataQualityIssue:
     )
 
 
-def _verified_issue(fixture: IssueFixture) -> DataQualityIssue:
-    issue = _resolved_issue(fixture)
+def _verified_issue(
+    fixture: IssueFixture,
+    trigger: IssueTrigger | None = None,
+) -> DataQualityIssue:
+    issue = _resolved_issue(fixture, trigger)
     return fixture.service.record_verification_result(
         issue.issue_id,
         VERIFICATION_REFERENCE_ID,
+        _user_context(OTHER_USER_ID, dataset_ids={DATASET_ID}, roles={"DATA_OWNER"}),
+    )
+
+
+def _closed_issue(
+    fixture: IssueFixture,
+    trigger: IssueTrigger | None = None,
+) -> DataQualityIssue:
+    issue = _verified_issue(fixture, trigger)
+    return fixture.service.close(
+        issue.issue_id,
         _user_context(OTHER_USER_ID, dataset_ids={DATASET_ID}, roles={"DATA_OWNER"}),
     )
 

@@ -199,12 +199,35 @@ class IssueService:
             ),
             trigger.correlation_id,
         )
+        reopen_audit_event = self._prepare_audit(
+            AuditEventInput(
+                actor_id=context.actor_id,
+                actor_type=context.actor_type.value,
+                correlation_id=trigger.correlation_id,
+                action="DATA_QUALITY_ISSUE_REOPENED",
+                object_type="DataQualityIssue",
+                object_id=issue.issue_id,
+                result=AuditResult.SUCCESS,
+                reason_code="RECURRING_QUALITY_FAILURE",
+                old_values={"status": IssueStatus.CLOSED.value},
+                new_values={
+                    "status": IssueStatus.WAITING_FOR_RESOLUTION.value,
+                    "source_event_type": issue.source_event_type.value,
+                    "trigger_type": issue.trigger_type.value,
+                },
+                occurred_at=now,
+                session_id=context.session_id,
+            ),
+            trigger.correlation_id,
+        )
         try:
             stored = self.repository.add_or_increment(
                 issue,
                 history,
                 payload_digest=_payload_digest(trigger, assignment),
+                source_event_occurred_at=trigger.occurred_at,
                 audit_event=audit_event,
+                reopen_audit_event=reopen_audit_event,
                 audit_outbox=self.transactional_audit,
             )
         except IssueConflictError:
