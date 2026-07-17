@@ -29,6 +29,7 @@ class ServiceNowAdapterErrorKind(str, Enum):
     TEMPORARY = "TEMPORARY"
     PERMANENT = "PERMANENT"
     UNKNOWN = "UNKNOWN"
+    CIRCUIT_OPEN = "CIRCUIT_OPEN"
 
 
 class ServiceNowAdapterError(ServiceNowError):

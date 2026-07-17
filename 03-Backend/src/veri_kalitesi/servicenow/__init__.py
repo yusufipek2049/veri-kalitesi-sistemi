@@ -11,6 +11,9 @@ from veri_kalitesi.servicenow.errors import (
     ServiceNowValidationError,
 )
 from veri_kalitesi.servicenow.models import (
+    ServiceNowCircuitBreakerPolicy,
+    ServiceNowCircuitSnapshot,
+    ServiceNowCircuitState,
     ServiceNowExportPolicy,
     ServiceNowIssueProjection,
     ServiceNowRetryJob,
@@ -37,6 +40,9 @@ __all__ = [
     "ServiceNowAdapterErrorKind",
     "ServiceNowAuthorizationError",
     "ServiceNowConflictError",
+    "ServiceNowCircuitBreakerPolicy",
+    "ServiceNowCircuitSnapshot",
+    "ServiceNowCircuitState",
     "ServiceNowError",
     "ServiceNowExportPolicy",
     "ServiceNowIssueProjection",

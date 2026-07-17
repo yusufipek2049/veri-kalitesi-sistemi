@@ -7,8 +7,10 @@ import sqlite3
 import pytest
 
 from veri_kalitesi.audit import (
+    AuditEventInput,
     AuditRedactionPolicy,
     AuditRedactor,
+    AuditResult,
     AuditValidationError,
     SQLiteAuditRepository,
     SQLiteTransactionalAudit,
@@ -20,6 +22,8 @@ from veri_kalitesi.servicenow import (
     ServiceNowAdapterError,
     ServiceNowAdapterErrorKind,
     ServiceNowAuthorizationError,
+    ServiceNowCircuitBreakerPolicy,
+    ServiceNowCircuitState,
     ServiceNowConflictError,
     ServiceNowExportPolicy,
     ServiceNowIssueProjection,
@@ -42,6 +46,7 @@ SERVICE_ID = "11111111-1111-4111-8111-111111111111"
 USER_ID = "22222222-2222-4222-8222-222222222222"
 ISSUE_ID = "33333333-3333-4333-8333-333333333333"
 OTHER_ISSUE_ID = "44444444-4444-4444-8444-444444444444"
+THIRD_ISSUE_ID = "77777777-7777-4777-8777-777777777777"
 DETAIL_REFERENCE_ID = "55555555-5555-4555-8555-555555555555"
 OTHER_DETAIL_REFERENCE_ID = "66666666-6666-4666-8666-666666666666"
 
@@ -390,6 +395,196 @@ def test_nfr_rel_001_invalid_retry_policy_is_rejected(
         _fixture(retry_policy=retry_policy)
 
 
+@pytest.mark.parametrize(
+    "circuit_policy",
+    [
+        ServiceNowCircuitBreakerPolicy(failure_threshold=0),
+        ServiceNowCircuitBreakerPolicy(open_seconds=0),
+    ],
+)
+def test_nfr_rel_003_invalid_circuit_policy_is_rejected(
+    circuit_policy: ServiceNowCircuitBreakerPolicy,
+) -> None:
+    with pytest.raises(ServiceNowValidationError, match="Circuit"):
+        _fixture(circuit_breaker_policy=circuit_policy)
+
+
+def test_nfr_rel_003_five_consecutive_transient_failures_open_circuit() -> None:
+    fixture = _fixture(adapter_error=ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY))
+
+    _open_circuit(fixture)
+
+    snapshot = fixture.repository.get_circuit_snapshot()
+    assert snapshot.state is ServiceNowCircuitState.OPEN
+    assert snapshot.consecutive_failures == 5
+    assert snapshot.opened_at == NOW
+    assert fixture.adapter.calls == 5
+    events = fixture.audit_repository.list_events()
+    opened = [event for event in events if event.action == "SERVICENOW_CIRCUIT_OPENED"]
+    assert len(opened) == 1
+    assert opened[0].new_value_summary == {
+        "error_kind": "TEMPORARY",
+        "policy_version": "SERVICENOW_CIRCUIT_V1",
+        "state": "OPEN",
+    }
+    assert ISSUE_ID not in repr(opened[0])
+    assert DETAIL_REFERENCE_ID not in repr(opened[0])
+
+
+def test_nfr_rel_003_open_circuit_queues_without_calling_adapter() -> None:
+    fixture = _fixture(adapter_error=ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY))
+    _open_circuit(fixture)
+    fixture.resolver.projection = _projection(issue_id=THIRD_ISSUE_ID)
+
+    with pytest.raises(ServiceNowTechnicalError) as exc_info:
+        fixture.service.create_ticket(
+            _command(issue_id=THIRD_ISSUE_ID, idempotency_key="SERVICENOW.ISSUE.3"),
+            _service_context(),
+        )
+
+    assert exc_info.value.error_kind is ServiceNowAdapterErrorKind.CIRCUIT_OPEN
+    assert exc_info.value.retry_job_id is not None
+    assert fixture.adapter.calls == 5
+    assert fixture.repository.count_retry_jobs(ServiceNowRetryJobStatus.PENDING) == 3
+
+
+def test_nfr_rel_003_open_circuit_releases_worker_claim_before_timeout() -> None:
+    fixture = _fixture(adapter_error=ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY))
+    first_job = _open_circuit(fixture)
+    fixture.clock.advance(299)
+
+    with pytest.raises(ServiceNowTechnicalError) as exc_info:
+        fixture.service.process_next_retry(_service_context())
+
+    released = fixture.repository.get_retry_job(first_job.job_id)
+    assert exc_info.value.error_kind is ServiceNowAdapterErrorKind.CIRCUIT_OPEN
+    assert released.status is ServiceNowRetryJobStatus.PENDING
+    assert released.attempt_count == 0
+    assert fixture.adapter.calls == 5
+
+
+def test_nfr_rel_003_only_one_half_open_probe_is_acquired() -> None:
+    fixture = _fixture(adapter_error=ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY))
+    _open_circuit(fixture)
+    fixture.clock.advance(300)
+    audit = fixture.service.transactional_audit.prepare(
+        AuditEventInput(
+            actor_id=SERVICE_ID,
+            actor_type="SERVICE",
+            correlation_id="correlation-servicenow",
+            action="SERVICENOW_CIRCUIT_HALF_OPENED",
+            object_type="ServiceNowCircuitBreaker",
+            object_id="SERVICENOW_DEFAULT",
+            result=AuditResult.SUCCESS,
+            reason_code="NONE",
+            old_values={},
+            new_values={
+                "state": "HALF_OPEN",
+                "error_kind": "NONE",
+                "policy_version": "SERVICENOW_CIRCUIT_V1",
+            },
+            occurred_at=fixture.clock(),
+        )
+    )
+
+    first_allowed, first_snapshot = fixture.repository.try_acquire_circuit(
+        fixture.clock(),
+        ServiceNowCircuitBreakerPolicy(),
+        half_open_audit_event=audit,
+        audit_outbox=fixture.service.transactional_audit,
+    )
+    second_allowed, second_snapshot = fixture.repository.try_acquire_circuit(
+        fixture.clock(),
+        ServiceNowCircuitBreakerPolicy(),
+        half_open_audit_event=audit,
+        audit_outbox=fixture.service.transactional_audit,
+    )
+
+    assert first_allowed is True
+    assert second_allowed is False
+    assert first_snapshot.state is ServiceNowCircuitState.HALF_OPEN
+    assert second_snapshot.state is ServiceNowCircuitState.HALF_OPEN
+
+
+def test_nfr_rel_003_successful_half_open_probe_closes_circuit() -> None:
+    fixture = _fixture(adapter_error=ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY))
+    _open_circuit(fixture)
+    fixture.clock.advance(300)
+    fixture.adapter.error = None
+
+    completed = fixture.service.process_next_retry(_service_context())
+
+    assert completed is not None
+    assert completed.status is ServiceNowRetryJobStatus.COMPLETED
+    snapshot = fixture.repository.get_circuit_snapshot()
+    assert snapshot.state is ServiceNowCircuitState.CLOSED
+    assert snapshot.consecutive_failures == 0
+    assert snapshot.opened_at is None
+    actions = [event.action for event in fixture.audit_repository.list_events()]
+    assert actions.count("SERVICENOW_CIRCUIT_HALF_OPENED") == 1
+    assert actions.count("SERVICENOW_CIRCUIT_CLOSED") == 1
+    assert fixture.adapter.calls == 6
+
+
+def test_nfr_rel_003_transient_half_open_probe_reopens_circuit() -> None:
+    fixture = _fixture(adapter_error=ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY))
+    _open_circuit(fixture)
+    fixture.clock.advance(300)
+
+    pending = fixture.service.process_next_retry(_service_context())
+
+    assert pending is not None
+    assert pending.status is ServiceNowRetryJobStatus.PENDING
+    assert pending.attempt_count == 1
+    snapshot = fixture.repository.get_circuit_snapshot()
+    assert snapshot.state is ServiceNowCircuitState.OPEN
+    assert snapshot.opened_at == NOW + timedelta(seconds=300)
+    actions = [event.action for event in fixture.audit_repository.list_events()]
+    assert actions.count("SERVICENOW_CIRCUIT_HALF_OPENED") == 1
+    assert actions.count("SERVICENOW_CIRCUIT_OPENED") == 2
+    assert fixture.adapter.calls == 6
+
+
+def test_nfr_rel_003_non_transient_error_breaks_failure_sequence() -> None:
+    fixture = _fixture(
+        adapter_outcomes=[
+            ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY),
+            ServiceNowAdapterError(ServiceNowAdapterErrorKind.AUTHENTICATION),
+        ]
+    )
+
+    with pytest.raises(ServiceNowTechnicalError) as exc_info:
+        fixture.service.create_ticket(_command(), _service_context())
+
+    snapshot = fixture.repository.get_circuit_snapshot()
+    assert exc_info.value.error_kind is ServiceNowAdapterErrorKind.AUTHENTICATION
+    assert snapshot.state is ServiceNowCircuitState.CLOSED
+    assert snapshot.consecutive_failures == 0
+    assert fixture.repository.count_retry_jobs() == 0
+
+
+def test_nfr_rel_003_circuit_audit_failure_rolls_back_transition(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _fixture(
+        adapter_error=ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY),
+        circuit_breaker_policy=ServiceNowCircuitBreakerPolicy(failure_threshold=1),
+    )
+
+    def fail_stage(event: object) -> None:
+        raise sqlite3.OperationalError("audit outbox unavailable")
+
+    monkeypatch.setattr(fixture.service.transactional_audit, "stage", fail_stage)
+
+    with pytest.raises(ServiceNowTechnicalError):
+        fixture.service.create_ticket(_command(), _service_context())
+
+    snapshot = fixture.repository.get_circuit_snapshot()
+    assert snapshot.state is ServiceNowCircuitState.CLOSED
+    assert snapshot.consecutive_failures == 0
+    assert fixture.repository.count_retry_jobs() == 0
+
+
 def test_ac_019_success_after_retry_remains_idempotent() -> None:
     fixture = _fixture(
         adapter_outcomes=[
@@ -506,7 +701,10 @@ def test_nfr_rel_001_retry_worker_reschedules_then_completes_when_due() -> None:
 
 
 def test_nfr_rel_007_exhausted_async_job_moves_to_dead_letter() -> None:
-    fixture = _fixture(adapter_error=ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY))
+    fixture = _fixture(
+        adapter_error=ServiceNowAdapterError(ServiceNowAdapterErrorKind.TEMPORARY),
+        circuit_breaker_policy=ServiceNowCircuitBreakerPolicy(failure_threshold=100),
+    )
     queued = _enqueue_retry_job(fixture)
 
     first = fixture.service.process_next_retry(_service_context())
@@ -677,6 +875,7 @@ def _fixture(
     adapter_response: ServiceNowTicketResponse | None = None,
     adapter_outcomes: list[Exception | ServiceNowTicketResponse] | None = None,
     retry_policy: ServiceNowRetryPolicy = ServiceNowRetryPolicy(),
+    circuit_breaker_policy: ServiceNowCircuitBreakerPolicy = ServiceNowCircuitBreakerPolicy(),
 ) -> ServiceNowFixture:
     repository = SQLiteServiceNowRepository()
     audit_repository = SQLiteAuditRepository()
@@ -700,6 +899,15 @@ def _fixture(
                     ),
                     "SERVICENOW_RETRY_REQUEUED": frozenset(
                         {"status", "attempt_count", "error_kind"}
+                    ),
+                    "SERVICENOW_CIRCUIT_HALF_OPENED": frozenset(
+                        {"state", "error_kind", "policy_version"}
+                    ),
+                    "SERVICENOW_CIRCUIT_OPENED": frozenset(
+                        {"state", "error_kind", "policy_version"}
+                    ),
+                    "SERVICENOW_CIRCUIT_CLOSED": frozenset(
+                        {"state", "error_kind", "policy_version"}
                     ),
                 },
             )
@@ -733,6 +941,7 @@ def _fixture(
             eligible_priorities=frozenset({IssuePriority.HIGH, IssuePriority.CRITICAL}),
         ),
         retry_policy=retry_policy,
+        circuit_breaker_policy=circuit_breaker_policy,
         clock=clock,
         sleeper=delays.append,
     )
@@ -752,6 +961,19 @@ def _enqueue_retry_job(fixture: ServiceNowFixture):
         fixture.service.create_ticket(_command(), _service_context())
     assert exc_info.value.retry_job_id is not None
     return fixture.repository.get_retry_job(exc_info.value.retry_job_id)
+
+
+def _open_circuit(fixture: ServiceNowFixture):
+    first_job = _enqueue_retry_job(fixture)
+    fixture.resolver.projection = _projection(issue_id=OTHER_ISSUE_ID)
+    with pytest.raises(ServiceNowTechnicalError) as exc_info:
+        fixture.service.create_ticket(
+            _command(issue_id=OTHER_ISSUE_ID, idempotency_key="SERVICENOW.ISSUE.2"),
+            _service_context(),
+        )
+    assert exc_info.value.error_kind is ServiceNowAdapterErrorKind.CIRCUIT_OPEN
+    assert exc_info.value.retry_job_id is not None
+    return first_job
 
 
 def _projection(

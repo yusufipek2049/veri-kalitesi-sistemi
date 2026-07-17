@@ -36,6 +36,12 @@ class ServiceNowRetryJobStatus(str, Enum):
     DEAD_LETTER = "DEAD_LETTER"
 
 
+class ServiceNowCircuitState(str, Enum):
+    CLOSED = "CLOSED"
+    OPEN = "OPEN"
+    HALF_OPEN = "HALF_OPEN"
+
+
 @dataclass(frozen=True)
 class ServiceNowTicketCommand:
     issue_id: str
@@ -111,6 +117,21 @@ class ServiceNowRetryPolicy:
 
 
 @dataclass(frozen=True)
+class ServiceNowCircuitBreakerPolicy:
+    version: str = "SERVICENOW_CIRCUIT_V1"
+    failure_threshold: int = 5
+    open_seconds: int = 5 * 60
+
+
+@dataclass(frozen=True)
+class ServiceNowCircuitSnapshot:
+    state: ServiceNowCircuitState
+    consecutive_failures: int
+    opened_at: datetime | None
+    updated_at: datetime
+
+
+@dataclass(frozen=True)
 class ServiceNowRetryJob:
     issue_id: str
     request: ServiceNowTicketRequest
@@ -177,6 +198,22 @@ def validate_retry_policy(policy: ServiceNowRetryPolicy) -> None:
         or policy.base_delay_seconds < 0
     ):
         raise ServiceNowValidationError("Retry base delay must be a finite non-negative number.")
+
+
+def validate_circuit_breaker_policy(policy: ServiceNowCircuitBreakerPolicy) -> None:
+    _validate_code("circuit_policy.version", policy.version)
+    if (
+        isinstance(policy.failure_threshold, bool)
+        or not isinstance(policy.failure_threshold, int)
+        or policy.failure_threshold <= 0
+    ):
+        raise ServiceNowValidationError("Circuit failure threshold must be positive.")
+    if (
+        isinstance(policy.open_seconds, bool)
+        or not isinstance(policy.open_seconds, int)
+        or policy.open_seconds <= 0
+    ):
+        raise ServiceNowValidationError("Circuit open duration must be positive.")
 
 
 def validate_retry_job(job: ServiceNowRetryJob) -> None:

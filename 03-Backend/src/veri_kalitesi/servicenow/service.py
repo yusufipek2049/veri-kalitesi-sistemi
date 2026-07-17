@@ -29,6 +29,9 @@ from veri_kalitesi.servicenow.errors import (
     ServiceNowValidationError,
 )
 from veri_kalitesi.servicenow.models import (
+    ServiceNowCircuitBreakerPolicy,
+    ServiceNowCircuitSnapshot,
+    ServiceNowCircuitState,
     ServiceNowExportPolicy,
     ServiceNowIssueProjection,
     ServiceNowRetryJob,
@@ -41,6 +44,7 @@ from veri_kalitesi.servicenow.models import (
     ServiceNowTicketResponse,
     ServiceNowTicketStatus,
     validate_command,
+    validate_circuit_breaker_policy,
     validate_policy,
     validate_projection,
     validate_response,
@@ -67,17 +71,20 @@ class ServiceNowService:
         export_policy: ServiceNowExportPolicy,
         *,
         retry_policy: ServiceNowRetryPolicy = ServiceNowRetryPolicy(),
+        circuit_breaker_policy: ServiceNowCircuitBreakerPolicy = ServiceNowCircuitBreakerPolicy(),
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
         sleeper: Callable[[float], None] = sleep,
     ) -> None:
         validate_policy(export_policy)
         validate_retry_policy(retry_policy)
+        validate_circuit_breaker_policy(circuit_breaker_policy)
         self.repository = repository
         self.issue_resolver = issue_resolver
         self.adapter = adapter
         self.transactional_audit = transactional_audit
         self.export_policy = export_policy
         self.retry_policy = retry_policy
+        self.circuit_breaker_policy = circuit_breaker_policy
         self.clock = clock
         self.sleeper = sleeper
 
@@ -151,13 +158,16 @@ class ServiceNowService:
             now,
         )
         try:
-            response = self._call_adapter(request, command.correlation_id)
+            response = self._call_adapter(request, command.correlation_id, context)
         except ServiceNowTechnicalError as exc:
             if (
                 exc.error_kind
-                in {ServiceNowAdapterErrorKind.TEMPORARY, ServiceNowAdapterErrorKind.RATE_LIMIT}
+                in {
+                    ServiceNowAdapterErrorKind.TEMPORARY,
+                    ServiceNowAdapterErrorKind.RATE_LIMIT,
+                }
                 and exc.attempt_count >= self.retry_policy.max_attempts
-            ):
+            ) or exc.error_kind is ServiceNowAdapterErrorKind.CIRCUIT_OPEN:
                 queued_job = self._enqueue_retry(
                     command.issue_id,
                     request,
@@ -167,7 +177,7 @@ class ServiceNowService:
                     now,
                 )
                 raise ServiceNowTechnicalError(
-                    "ServiceNow ticket request was queued after retry exhaustion.",
+                    "ServiceNow ticket request was queued for deferred delivery.",
                     command.correlation_id,
                     exc.error_kind,
                     attempt_count=exc.attempt_count,
@@ -227,18 +237,58 @@ class ServiceNowService:
             return None
 
         try:
+            self._acquire_circuit(context, job.request.correlation_id, job.attempt_count)
+        except ServiceNowTechnicalError:
+            self._release_retry_claim(job, now)
+            raise
+
+        try:
             response = self.adapter.create_ticket(job.request)
             validate_response(response)
+            self._record_circuit_non_transient(context, job.request.correlation_id, now)
         except ServiceNowAdapterError as exc:
+            try:
+                if exc.error_kind in {
+                    ServiceNowAdapterErrorKind.TEMPORARY,
+                    ServiceNowAdapterErrorKind.RATE_LIMIT,
+                }:
+                    self._record_circuit_failure(
+                        context,
+                        job.request.correlation_id,
+                        exc.error_kind,
+                        now,
+                    )
+                else:
+                    self._record_circuit_non_transient(
+                        context,
+                        job.request.correlation_id,
+                        now,
+                    )
+            except ServiceNowTechnicalError:
+                self._release_retry_claim(job, now)
+                raise
             return self._record_retry_failure(job, exc, context, now)
         except ServiceNowValidationError:
+            try:
+                self._record_circuit_non_transient(context, job.request.correlation_id, now)
+            except ServiceNowTechnicalError:
+                self._release_retry_claim(job, now)
+                raise
             return self._record_retry_failure(
                 job,
                 ServiceNowAdapterError(ServiceNowAdapterErrorKind.PERMANENT),
                 context,
                 now,
             )
+        except ServiceNowTechnicalError:
+            self._release_retry_claim(job, now)
+            raise
         except Exception:
+            try:
+                self._record_circuit_non_transient(context, job.request.correlation_id, now)
+            except ServiceNowTechnicalError:
+                self._release_retry_claim(job, now)
+                raise
             return self._record_retry_failure(
                 job,
                 ServiceNowAdapterError(ServiceNowAdapterErrorKind.UNKNOWN),
@@ -559,13 +609,35 @@ class ServiceNowService:
         self,
         request: ServiceNowTicketRequest,
         correlation_id: str,
+        context: ActorContext,
     ) -> ServiceNowTicketResponse:
         for attempt_no in range(1, self.retry_policy.max_attempts + 1):
+            self._acquire_circuit(context, correlation_id, attempt_no)
             try:
                 response = self.adapter.create_ticket(request)
                 validate_response(response)
+                self._record_circuit_non_transient(context, correlation_id, self._now())
                 return response
             except ServiceNowAdapterError as exc:
+                if exc.error_kind in {
+                    ServiceNowAdapterErrorKind.TEMPORARY,
+                    ServiceNowAdapterErrorKind.RATE_LIMIT,
+                }:
+                    snapshot = self._record_circuit_failure(
+                        context,
+                        correlation_id,
+                        exc.error_kind,
+                        self._now(),
+                    )
+                    if snapshot.state is ServiceNowCircuitState.OPEN:
+                        raise ServiceNowTechnicalError(
+                            "ServiceNow circuit opened after temporary failures.",
+                            correlation_id,
+                            ServiceNowAdapterErrorKind.CIRCUIT_OPEN,
+                            attempt_count=attempt_no,
+                        ) from exc
+                else:
+                    self._record_circuit_non_transient(context, correlation_id, self._now())
                 delay = self._retry_delay(exc, attempt_no)
                 if delay is None:
                     raise ServiceNowTechnicalError(
@@ -584,19 +656,152 @@ class ServiceNowService:
                         attempt_count=attempt_no,
                     ) from sleep_error
             except ServiceNowValidationError as exc:
+                self._record_circuit_non_transient(context, correlation_id, self._now())
                 raise ServiceNowTechnicalError(
                     "ServiceNow adapter returned an invalid response.",
                     correlation_id,
                     ServiceNowAdapterErrorKind.PERMANENT,
                     attempt_count=attempt_no,
                 ) from exc
+            except ServiceNowTechnicalError:
+                raise
             except Exception as exc:
+                self._record_circuit_non_transient(context, correlation_id, self._now())
                 raise ServiceNowTechnicalError(
                     "ServiceNow adapter request failed.",
                     correlation_id,
                     attempt_count=attempt_no,
                 ) from exc
         raise AssertionError("ServiceNow retry loop completed without a result.")
+
+    def _acquire_circuit(
+        self,
+        context: ActorContext,
+        correlation_id: str,
+        attempt_count: int,
+    ) -> None:
+        now = self._now()
+        audit_event = self._prepare_circuit_audit(
+            action="SERVICENOW_CIRCUIT_HALF_OPENED",
+            context=context,
+            state=ServiceNowCircuitState.HALF_OPEN,
+            correlation_id=correlation_id,
+            occurred_at=now,
+        )
+        try:
+            allowed, snapshot = self.repository.try_acquire_circuit(
+                now,
+                self.circuit_breaker_policy,
+                half_open_audit_event=audit_event,
+                audit_outbox=self.transactional_audit,
+            )
+        except (sqlite3.Error, OSError) as exc:
+            raise ServiceNowTechnicalError(
+                "ServiceNow circuit state could not be acquired.",
+                correlation_id,
+            ) from exc
+        self.transactional_audit.publish_pending()
+        if not allowed:
+            raise ServiceNowTechnicalError(
+                "ServiceNow circuit is open.",
+                correlation_id,
+                ServiceNowAdapterErrorKind.CIRCUIT_OPEN,
+                attempt_count=attempt_count,
+            )
+
+    def _record_circuit_failure(
+        self,
+        context: ActorContext,
+        correlation_id: str,
+        error_kind: ServiceNowAdapterErrorKind,
+        now: datetime,
+    ) -> ServiceNowCircuitSnapshot:
+        audit_event = self._prepare_circuit_audit(
+            action="SERVICENOW_CIRCUIT_OPENED",
+            context=context,
+            state=ServiceNowCircuitState.OPEN,
+            correlation_id=correlation_id,
+            occurred_at=now,
+            error_kind=error_kind.value,
+        )
+        try:
+            snapshot = self.repository.record_circuit_failure(
+                now,
+                self.circuit_breaker_policy,
+                opened_audit_event=audit_event,
+                audit_outbox=self.transactional_audit,
+            )
+        except (sqlite3.Error, OSError) as exc:
+            raise ServiceNowTechnicalError(
+                "ServiceNow circuit failure state could not be persisted.",
+                correlation_id,
+            ) from exc
+        self.transactional_audit.publish_pending()
+        return snapshot
+
+    def _record_circuit_non_transient(
+        self,
+        context: ActorContext,
+        correlation_id: str,
+        now: datetime,
+    ) -> ServiceNowCircuitSnapshot:
+        audit_event = self._prepare_circuit_audit(
+            action="SERVICENOW_CIRCUIT_CLOSED",
+            context=context,
+            state=ServiceNowCircuitState.CLOSED,
+            correlation_id=correlation_id,
+            occurred_at=now,
+        )
+        try:
+            snapshot = self.repository.record_circuit_non_transient_result(
+                now,
+                closed_audit_event=audit_event,
+                audit_outbox=self.transactional_audit,
+            )
+        except (sqlite3.Error, OSError) as exc:
+            raise ServiceNowTechnicalError(
+                "ServiceNow circuit success state could not be persisted.",
+                correlation_id,
+            ) from exc
+        self.transactional_audit.publish_pending()
+        return snapshot
+
+    def _prepare_circuit_audit(
+        self,
+        *,
+        action: str,
+        context: ActorContext,
+        state: ServiceNowCircuitState,
+        correlation_id: str,
+        occurred_at: datetime,
+        error_kind: str = "NONE",
+    ) -> PreparedAuditEvent:
+        try:
+            return self.transactional_audit.prepare(
+                AuditEventInput(
+                    actor_id=context.actor_id,
+                    actor_type=context.actor_type.value,
+                    correlation_id=correlation_id,
+                    action=action,
+                    object_type="ServiceNowCircuitBreaker",
+                    object_id="SERVICENOW_DEFAULT",
+                    result=AuditResult.SUCCESS,
+                    reason_code=error_kind,
+                    old_values={},
+                    new_values={
+                        "state": state.value,
+                        "error_kind": error_kind,
+                        "policy_version": self.circuit_breaker_policy.version,
+                    },
+                    occurred_at=occurred_at,
+                    session_id=context.session_id,
+                )
+            )
+        except AuditError as exc:
+            raise ServiceNowTechnicalError(
+                "ServiceNow circuit audit event could not be prepared.",
+                correlation_id,
+            ) from exc
 
     def _retry_delay(
         self,

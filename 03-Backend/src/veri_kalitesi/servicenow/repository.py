@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from threading import RLock
 
 from veri_kalitesi.audit import PreparedAuditEvent, SQLiteTransactionalAudit
@@ -12,6 +12,9 @@ from veri_kalitesi.servicenow.errors import (
     ServiceNowValidationError,
 )
 from veri_kalitesi.servicenow.models import (
+    ServiceNowCircuitBreakerPolicy,
+    ServiceNowCircuitSnapshot,
+    ServiceNowCircuitState,
     ServiceNowRetryJob,
     ServiceNowRetryJobStatus,
     ServiceNowTicketHistoryEntry,
@@ -84,6 +87,21 @@ class SQLiteServiceNowRepository:
 
             CREATE INDEX IF NOT EXISTS idx_servicenow_retry_claim
             ON servicenow_retry_jobs(status, next_attempt_at, created_at);
+
+            CREATE TABLE IF NOT EXISTS servicenow_circuit_breaker (
+                target_key TEXT PRIMARY KEY,
+                state TEXT NOT NULL CHECK (state IN ('CLOSED', 'OPEN', 'HALF_OPEN')),
+                consecutive_failures INTEGER NOT NULL CHECK (consecutive_failures >= 0),
+                opened_at TEXT,
+                updated_at TEXT NOT NULL
+            );
+
+            INSERT OR IGNORE INTO servicenow_circuit_breaker (
+                target_key, state, consecutive_failures, opened_at, updated_at
+            ) VALUES (
+                'SERVICENOW_DEFAULT', 'CLOSED', 0, NULL,
+                '1970-01-01T00:00:00+00:00'
+            );
             """
         )
         self.connection.commit()
@@ -423,6 +441,111 @@ class SQLiteServiceNowRepository:
                 ).fetchone()
         return row[0]
 
+    def try_acquire_circuit(
+        self,
+        now: datetime,
+        policy: ServiceNowCircuitBreakerPolicy,
+        *,
+        half_open_audit_event: PreparedAuditEvent,
+        audit_outbox: SQLiteTransactionalAudit,
+    ) -> tuple[bool, ServiceNowCircuitSnapshot]:
+        self._require_shared_audit_transaction(audit_outbox)
+        with self._lock, self.connection:
+            row = self._get_circuit_row()
+            state = ServiceNowCircuitState(row["state"])
+            if state is ServiceNowCircuitState.CLOSED:
+                return True, _row_to_circuit_snapshot(row)
+            if state is ServiceNowCircuitState.HALF_OPEN:
+                return False, _row_to_circuit_snapshot(row)
+            opened_at = datetime.fromisoformat(row["opened_at"])
+            if now < opened_at + timedelta(seconds=policy.open_seconds):
+                return False, _row_to_circuit_snapshot(row)
+            acquired = self.connection.execute(
+                """
+                UPDATE servicenow_circuit_breaker
+                SET state = 'HALF_OPEN', updated_at = ?
+                WHERE target_key = 'SERVICENOW_DEFAULT' AND state = 'OPEN'
+                """,
+                (now.isoformat(),),
+            )
+            if acquired.rowcount != 1:
+                return False, _row_to_circuit_snapshot(self._get_circuit_row())
+            audit_outbox.stage(half_open_audit_event)
+            updated = self._get_circuit_row()
+        return True, _row_to_circuit_snapshot(updated)
+
+    def record_circuit_failure(
+        self,
+        now: datetime,
+        policy: ServiceNowCircuitBreakerPolicy,
+        *,
+        opened_audit_event: PreparedAuditEvent,
+        audit_outbox: SQLiteTransactionalAudit,
+    ) -> ServiceNowCircuitSnapshot:
+        self._require_shared_audit_transaction(audit_outbox)
+        with self._lock, self.connection:
+            row = self._get_circuit_row()
+            state = ServiceNowCircuitState(row["state"])
+            failures = int(row["consecutive_failures"])
+            should_open = state is ServiceNowCircuitState.HALF_OPEN
+            failures = max(failures + 1, policy.failure_threshold if should_open else 0)
+            if state is ServiceNowCircuitState.CLOSED and failures >= policy.failure_threshold:
+                should_open = True
+            if should_open:
+                self.connection.execute(
+                    """
+                    UPDATE servicenow_circuit_breaker
+                    SET state = 'OPEN', consecutive_failures = ?, opened_at = ?, updated_at = ?
+                    WHERE target_key = 'SERVICENOW_DEFAULT'
+                    """,
+                    (failures, now.isoformat(), now.isoformat()),
+                )
+                audit_outbox.stage(opened_audit_event)
+            elif state is ServiceNowCircuitState.CLOSED:
+                self.connection.execute(
+                    """
+                    UPDATE servicenow_circuit_breaker
+                    SET consecutive_failures = ?, updated_at = ?
+                    WHERE target_key = 'SERVICENOW_DEFAULT'
+                    """,
+                    (failures, now.isoformat()),
+                )
+            updated = self._get_circuit_row()
+        return _row_to_circuit_snapshot(updated)
+
+    def record_circuit_non_transient_result(
+        self,
+        now: datetime,
+        *,
+        closed_audit_event: PreparedAuditEvent,
+        audit_outbox: SQLiteTransactionalAudit,
+    ) -> ServiceNowCircuitSnapshot:
+        self._require_shared_audit_transaction(audit_outbox)
+        with self._lock, self.connection:
+            row = self._get_circuit_row()
+            if (
+                row["state"] == ServiceNowCircuitState.CLOSED.value
+                and int(row["consecutive_failures"]) == 0
+            ):
+                return _row_to_circuit_snapshot(row)
+            self.connection.execute(
+                """
+                UPDATE servicenow_circuit_breaker
+                SET state = 'CLOSED', consecutive_failures = 0,
+                    opened_at = NULL, updated_at = ?
+                WHERE target_key = 'SERVICENOW_DEFAULT'
+                """,
+                (now.isoformat(),),
+            )
+            audit_outbox.stage(closed_audit_event)
+            updated = self._get_circuit_row()
+        return _row_to_circuit_snapshot(updated)
+
+    def get_circuit_snapshot(self) -> ServiceNowCircuitSnapshot:
+        with self._lock:
+            row = self._get_circuit_row()
+        return _row_to_circuit_snapshot(row)
+
     def get(self, link_id: str) -> ServiceNowTicketLink:
         with self._lock:
             row = self.connection.execute(
@@ -497,6 +620,17 @@ class SQLiteServiceNowRepository:
             ),
         )
 
+    def _get_circuit_row(self) -> sqlite3.Row:
+        row = self.connection.execute(
+            """
+            SELECT * FROM servicenow_circuit_breaker
+            WHERE target_key = 'SERVICENOW_DEFAULT'
+            """
+        ).fetchone()
+        if row is None:
+            raise ServiceNowValidationError("ServiceNow circuit state was not found.")
+        return row
+
 
 def _row_to_link(row: sqlite3.Row) -> ServiceNowTicketLink:
     return ServiceNowTicketLink(
@@ -543,5 +677,14 @@ def _row_to_retry_job(row: sqlite3.Row) -> ServiceNowRetryJob:
         last_error_kind=row["last_error_kind"],
         link_id=row["link_id"],
         created_at=datetime.fromisoformat(row["created_at"]),
+        updated_at=datetime.fromisoformat(row["updated_at"]),
+    )
+
+
+def _row_to_circuit_snapshot(row: sqlite3.Row) -> ServiceNowCircuitSnapshot:
+    return ServiceNowCircuitSnapshot(
+        state=ServiceNowCircuitState(row["state"]),
+        consecutive_failures=row["consecutive_failures"],
+        opened_at=(datetime.fromisoformat(row["opened_at"]) if row["opened_at"] else None),
         updated_at=datetime.fromisoformat(row["updated_at"]),
     )
