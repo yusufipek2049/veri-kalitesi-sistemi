@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import sqlite3
 
@@ -9,11 +9,17 @@ import pytest
 
 from veri_kalitesi.audit import (
     GENESIS_HASH,
+    AuditAccessPolicy,
     AuditEvent,
     AuditEventInput,
     AuditFailureMode,
     AuditFailurePolicy,
     AuditMigrationTechnicalError,
+    AuditQuery,
+    AuditQueryAuthorizationError,
+    AuditQueryService,
+    AuditQueryTechnicalError,
+    AuditQueryValidationError,
     AuditRedactionPolicy,
     AuditRedactor,
     AuditResult,
@@ -25,7 +31,7 @@ from veri_kalitesi.audit import (
     SQLiteAuditRepository,
     build_default_redaction_policy,
 )
-from veri_kalitesi.identity import ActorType
+from veri_kalitesi.identity import ActorContext, ActorContextIssuer, ActorType
 
 
 NOW = datetime(2026, 7, 16, 15, 0, tzinfo=timezone.utc)
@@ -33,6 +39,8 @@ ACTION = "DASHBOARD_SCOPE_AUTHORIZATION"
 ALLOWED_FIELDS = frozenset(
     {"policy_version", "permitted_source_count", "can_view_enterprise", "reason_code"}
 )
+ACTOR_POLICY_VERSION = "BANK_ACTOR_V1"
+AUDIT_ACCESS_POLICY_VERSION = "AUDIT_ACCESS_V1"
 
 
 def test_fr_077_bfr_aud_001_common_versioned_envelope_is_append_only() -> None:
@@ -206,6 +214,178 @@ def test_fr_077_event_time_must_be_timezone_aware() -> None:
         service.append(invalid)
 
 
+def test_fr_078_uc_016_authorized_auditor_filters_records_and_audits_view() -> None:
+    repository, query_service, audit_service = _query_fixture()
+    first = audit_service.append(_event("correlation-first"))
+    audit_service.append(
+        replace(
+            _event("correlation-second"),
+            actor_id="other-synthetic-user",
+            result=AuditResult.DENIED,
+        )
+    )
+    assert first is not None
+
+    page = query_service.query(
+        _query(
+            actor_id="synthetic-user",
+            action=ACTION,
+            object_type="AuthorizationDecision",
+            object_id="synthetic-user",
+            result=AuditResult.SUCCESS,
+            correlation_id="correlation-first",
+        ),
+        _audit_viewer_context(),
+    )
+
+    assert page.events == (first,)
+    assert page.integrity.valid is True
+    assert page.integrity.checked_count == 2
+    assert page.next_after_sequence_no is None
+    assert page.policy_version == AUDIT_ACCESS_POLICY_VERSION
+    view_event = repository.list_events()[-1]
+    assert view_event.action == "AUDIT_RECORDS_VIEWED"
+    assert view_event.new_value_summary == {
+        "filter_count": 6,
+        "integrity_valid": True,
+        "page_size": 50,
+        "policy_version": AUDIT_ACCESS_POLICY_VERSION,
+        "query_reason_code": "CONTROL_REVIEW",
+        "returned_count": 1,
+    }
+    assert "synthetic-user" not in repr(view_event.new_value_summary)
+
+
+def test_fr_078_uc_016_cursor_pagination_uses_stable_snapshot() -> None:
+    repository, query_service, audit_service = _query_fixture()
+    for index in range(3):
+        audit_service.append(_event(f"correlation-page-{index}"))
+
+    first = query_service.query(_query(page_size=2), _audit_viewer_context())
+    second = query_service.query(
+        _query(
+            page_size=2,
+            after_sequence_no=first.next_after_sequence_no or 0,
+            through_sequence_no=first.through_sequence_no,
+        ),
+        _audit_viewer_context(),
+    )
+
+    assert [event.correlation_id for event in first.events] == [
+        "correlation-page-0",
+        "correlation-page-1",
+    ]
+    assert [event.correlation_id for event in second.events] == ["correlation-page-2"]
+    assert second.next_after_sequence_no is None
+    assert second.through_sequence_no == first.through_sequence_no == 3
+    assert len(repository.list_events()) == 5
+
+
+@pytest.mark.parametrize(
+    ("context_kind", "reason_code"),
+    [
+        ("missing", "UNTRUSTED_CONTEXT"),
+        ("forged", "UNTRUSTED_CONTEXT"),
+        ("roles-missing", "AUDIT_ROLE_REQUIRED"),
+        ("privileged", "PRIVILEGED_CONTEXT_NOT_ALLOWED"),
+        ("service", "ACTOR_TYPE_NOT_ALLOWED"),
+    ],
+)
+def test_fr_078_nfr_sec_001_unauthorized_audit_queries_are_denied_and_audited(
+    context_kind: str,
+    reason_code: str,
+) -> None:
+    repository, query_service, _ = _query_fixture()
+    contexts = {
+        "missing": None,
+        "forged": replace(_audit_viewer_context(), _trust_marker=object()),
+        "roles-missing": _audit_viewer_context(roles=frozenset()),
+        "privileged": _audit_viewer_context(privileged=True),
+        "service": _audit_viewer_context(actor_type=ActorType.SERVICE),
+    }
+
+    with pytest.raises(AuditQueryAuthorizationError) as exc_info:
+        query_service.query(_query(), contexts[context_kind])
+
+    assert exc_info.value.reason_code == reason_code
+    denied = repository.list_events()[-1]
+    assert denied.action == "AUDIT_RECORDS_VIEW_AUTHORIZATION"
+    assert denied.result is AuditResult.DENIED
+    assert denied.reason_code == reason_code
+    assert denied.new_value_summary == {
+        "policy_version": AUDIT_ACCESS_POLICY_VERSION,
+        "reason_code": reason_code,
+    }
+
+
+@pytest.mark.parametrize(
+    "invalid_kind",
+    [
+        "window",
+        "page-size",
+        "reason",
+        "action",
+    ],
+)
+def test_fr_078_uc_016_invalid_or_overbroad_query_is_rejected(invalid_kind: str) -> None:
+    _, query_service, _ = _query_fixture()
+    queries = {
+        "window": _query(start_at=NOW - timedelta(days=32)),
+        "page-size": _query(page_size=101),
+        "reason": _query(reason_code="free text reason"),
+        "action": _query(action="INVALID ACTION"),
+    }
+
+    with pytest.raises(AuditQueryValidationError):
+        query_service.query(queries[invalid_kind], _audit_viewer_context())
+
+
+def test_fr_079_uc_016_query_reports_integrity_failure_without_changing_record() -> None:
+    repository, query_service, audit_service = _query_fixture()
+    stored = audit_service.append(_event("correlation-tamper-query"))
+    assert stored is not None
+    repository.connection.execute(
+        "UPDATE audit_events SET reason_code = 'TAMPERED' WHERE event_id = ?",
+        (stored.event_id,),
+    )
+    repository.connection.commit()
+
+    page = query_service.query(_query(), _audit_viewer_context())
+
+    assert page.integrity.valid is False
+    assert page.integrity.first_invalid_event_id == stored.event_id
+    assert page.events[0].reason_code == "TAMPERED"
+    unchanged = repository.find_event(stored.event_id)
+    assert unchanged is not None
+    assert unchanged.reason_code == "TAMPERED"
+    assert repository.list_events()[-1].new_value_summary["integrity_valid"] is False
+
+
+def test_fr_078_uc_016_repository_failure_is_separate_technical_error() -> None:
+    repository, query_service, _ = _query_fixture()
+    repository.connection.close()
+
+    with pytest.raises(AuditQueryTechnicalError) as exc_info:
+        query_service.query(_query(), _audit_viewer_context())
+
+    assert exc_info.value.correlation_id == "correlation-audit-viewer"
+
+
+def test_bfr_aud_005_view_audit_failure_is_fail_closed() -> None:
+    repository = SQLiteAuditRepository()
+    query_service = AuditQueryService(
+        repository,
+        FailingAuditSink(),
+        _audit_access_policy(),
+        clock=lambda: NOW,
+    )
+
+    with pytest.raises(AuditQueryTechnicalError):
+        query_service.query(_query(), _audit_viewer_context())
+
+    assert repository.list_events() == []
+
+
 def test_fr_077_fr_079_uc_016_legacy_audit_migration_is_read_only_and_idempotent() -> None:
     source = _legacy_audit_connection()
     _insert_legacy_audit(
@@ -316,13 +496,18 @@ def test_bfr_aud_004_legacy_migration_separates_central_repository_technical_err
 
 
 class FailingRepository:
-    def append(self, prepared: PreparedAuditEvent) -> None:
+    def append(self, prepared: PreparedAuditEvent) -> AuditEvent:
         raise sqlite3.OperationalError("audit database unavailable")
 
 
 class FailingMigrationRepository(SQLiteAuditRepository):
     def append(self, prepared: PreparedAuditEvent) -> AuditEvent:
         raise sqlite3.OperationalError("synthetic central audit outage")
+
+
+class FailingAuditSink:
+    def append(self, event: AuditEventInput) -> None:
+        raise sqlite3.OperationalError("synthetic audit sink outage")
 
 
 class InMemoryDurableBuffer:
@@ -384,6 +569,89 @@ def _event(
             }
         ),
         occurred_at=NOW,
+    )
+
+
+def _query_fixture() -> tuple[SQLiteAuditRepository, AuditQueryService, AuditService]:
+    repository = SQLiteAuditRepository()
+    audit_service = AuditService(
+        repository,
+        AuditRedactor(build_default_redaction_policy()),
+        AuditFailurePolicy(
+            version="AUDIT_FAILURE_V1",
+            default_mode=AuditFailureMode.FAIL_CLOSED,
+        ),
+    )
+    return (
+        repository,
+        AuditQueryService(
+            repository,
+            audit_service,
+            _audit_access_policy(),
+            clock=lambda: NOW,
+        ),
+        audit_service,
+    )
+
+
+def _audit_access_policy() -> AuditAccessPolicy:
+    return AuditAccessPolicy(
+        version=AUDIT_ACCESS_POLICY_VERSION,
+        context_policy_version=ACTOR_POLICY_VERSION,
+    )
+
+
+def _query(
+    *,
+    start_at: datetime = NOW - timedelta(days=1),
+    end_at: datetime = NOW + timedelta(days=1),
+    reason_code: str = "CONTROL_REVIEW",
+    actor_id: str | None = None,
+    action: str | None = None,
+    object_type: str | None = None,
+    object_id: str | None = None,
+    result: AuditResult | None = None,
+    correlation_id: str | None = None,
+    after_sequence_no: int = 0,
+    through_sequence_no: int | None = None,
+    page_size: int = 50,
+) -> AuditQuery:
+    return AuditQuery(
+        start_at=start_at,
+        end_at=end_at,
+        reason_code=reason_code,
+        actor_id=actor_id,
+        action=action,
+        object_type=object_type,
+        object_id=object_id,
+        result=result,
+        correlation_id=correlation_id,
+        after_sequence_no=after_sequence_no,
+        through_sequence_no=through_sequence_no,
+        page_size=page_size,
+    )
+
+
+def _audit_viewer_context(
+    *,
+    roles: frozenset[str] = frozenset({"AUDIT_VIEWER"}),
+    privileged: bool = False,
+    actor_type: ActorType = ActorType.USER,
+) -> ActorContext:
+    return ActorContextIssuer().issue(
+        actor_id="audit-viewer-user",
+        actor_type=actor_type,
+        authentication_source="synthetic-identity-adapter",
+        session_id="synthetic-audit-session",
+        roles=roles,
+        permitted_source_ids=frozenset(),
+        permitted_dataset_ids=frozenset(),
+        can_view_enterprise=False,
+        privileged=privileged,
+        issued_at=NOW - timedelta(minutes=5),
+        expires_at=NOW + timedelta(hours=1),
+        policy_version=ACTOR_POLICY_VERSION,
+        correlation_id="correlation-audit-viewer",
     )
 
 

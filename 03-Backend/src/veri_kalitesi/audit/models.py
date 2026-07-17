@@ -153,3 +153,37 @@ class AuditIntegrityResult:
     valid: bool
     checked_count: int
     first_invalid_event_id: str | None = None
+
+
+@dataclass(frozen=True)
+class AuditAccessPolicy:
+    version: str
+    context_policy_version: str
+    required_role: str = "AUDIT_VIEWER"
+    max_sync_window_days: int = 31
+    max_page_size: int = 100
+
+
+@dataclass(frozen=True)
+class AuditQuery:
+    start_at: datetime
+    end_at: datetime
+    reason_code: str
+    actor_id: str | None = None
+    action: str | None = None
+    object_type: str | None = None
+    object_id: str | None = None
+    result: AuditResult | None = None
+    correlation_id: str | None = None
+    after_sequence_no: int = 0
+    through_sequence_no: int | None = None
+    page_size: int = 50
+
+
+@dataclass(frozen=True)
+class AuditQueryPage:
+    events: tuple[AuditEvent, ...]
+    integrity: AuditIntegrityResult
+    next_after_sequence_no: int | None
+    through_sequence_no: int
+    policy_version: str

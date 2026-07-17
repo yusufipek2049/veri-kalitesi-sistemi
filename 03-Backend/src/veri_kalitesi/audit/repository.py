@@ -13,6 +13,7 @@ from veri_kalitesi.audit.errors import AuditValidationError
 from veri_kalitesi.audit.models import (
     AuditEvent,
     AuditIntegrityResult,
+    AuditQuery,
     AuditResult,
     PreparedAuditEvent,
 )
@@ -92,7 +93,9 @@ class SQLiteAuditRepository:
                 """,
                 _insert_values(prepared, previous_hash, event_hash),
             )
-            sequence_no = int(cursor.lastrowid)
+            if cursor.lastrowid is None:
+                raise AuditValidationError("Audit event sequence could not be assigned.")
+            sequence_no = cursor.lastrowid
         return _to_event(prepared, sequence_no, previous_hash, event_hash)
 
     def list_events(self) -> list[AuditEvent]:
@@ -108,6 +111,51 @@ class SQLiteAuditRepository:
                 "SELECT * FROM audit_events WHERE event_id = ?", (event_id,)
             ).fetchone()
         return _row_to_event(row) if row is not None else None
+
+    def query_events(self, query: AuditQuery) -> tuple[tuple[AuditEvent, ...], bool]:
+        clauses = [
+            "sequence_no > ?",
+            "julianday(occurred_at) >= julianday(?)",
+            "julianday(occurred_at) <= julianday(?)",
+        ]
+        parameters: list[object] = [
+            query.after_sequence_no,
+            query.start_at.isoformat(),
+            query.end_at.isoformat(),
+        ]
+        if query.through_sequence_no is not None:
+            clauses.append("sequence_no <= ?")
+            parameters.append(query.through_sequence_no)
+        optional_filters = (
+            ("actor_id", query.actor_id),
+            ("action", query.action),
+            ("object_type", query.object_type),
+            ("object_id", query.object_id),
+            ("correlation_id", query.correlation_id),
+            ("result", query.result.value if query.result is not None else None),
+        )
+        for column, value in optional_filters:
+            if value is not None:
+                clauses.append(f"{column} = ?")
+                parameters.append(value)
+        parameters.append(query.page_size + 1)
+        statement = f"""
+            SELECT * FROM audit_events
+            WHERE {" AND ".join(clauses)}
+            ORDER BY sequence_no
+            LIMIT ?
+        """
+        with self._lock:
+            rows = self.connection.execute(statement, parameters).fetchall()
+        has_more = len(rows) > query.page_size
+        return tuple(_row_to_event(row) for row in rows[: query.page_size]), has_more
+
+    def latest_sequence_no(self) -> int:
+        with self._lock:
+            row = self.connection.execute(
+                "SELECT COALESCE(MAX(sequence_no), 0) FROM audit_events"
+            ).fetchone()
+        return int(row[0])
 
     def verify_integrity(self) -> AuditIntegrityResult:
         with self._lock:

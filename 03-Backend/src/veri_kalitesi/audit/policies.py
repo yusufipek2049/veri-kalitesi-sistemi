@@ -37,6 +37,22 @@ def build_default_redaction_policy() -> AuditRedactionPolicy:
                     "reason_code",
                 }
             ),
+            "AUDIT_RECORDS_VIEW_AUTHORIZATION": frozenset(
+                {
+                    "policy_version",
+                    "reason_code",
+                }
+            ),
+            "AUDIT_RECORDS_VIEWED": frozenset(
+                {
+                    "policy_version",
+                    "query_reason_code",
+                    "filter_count",
+                    "page_size",
+                    "returned_count",
+                    "integrity_valid",
+                }
+            ),
             "DATA_SOURCE_CREATED": frozenset({"source_type", "status"}),
             "DATA_SOURCE_CONNECTION_TESTED": frozenset({"succeeded", "duration_ms", "error_class"}),
             "DATA_SOURCE_METADATA_DISCOVERED": frozenset(

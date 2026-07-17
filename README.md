@@ -2,10 +2,6 @@
 type: vault-index
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
 generated_at: 2026-07-16
-tags:
-  - proje
-  - obsidian
-  - index
 ---
 
 # Veri Kalitesi İzleme ve Skorlama Sistemi
@@ -34,12 +30,7 @@ Bu vault, SRS dokümanını görev bazında küçük bağlam parçalarıyla kull
 - [[08-Uyum-Kanitlari/KANIT-INDEX|Uyum Kanıtları]]
 - [[09-Iterasyonlar/ITERASYON-INDEX|Bankacılık Geçiş İterasyonları]]
 
-## Ajan Kullanım Kuralı
-
-> Varsayılan olarak en fazla 6 ilgili not oku. Gereksinimin kabul kriterleri görülmeden kod üretme. Tam dokümanı ancak kapsamlı denetim veya baseline revizyonu için kullan.
-
 
 ## Güncel Geliştirme Baseline'ı
 
-İterasyon 1–15 tamamlanmış, 129 birim testi geçmektedir. Bankacılık geçişinde sıradaki iş:
-[[09-Iterasyonlar/Iterasyon-16-Guvenilir-Aktor-Baglami|İterasyon 16 — Güvenilir Aktör Bağlamı]].
+İterasyon 1–16 ile bankacılık geçişindeki 17A–24A teknik dikeyleri tamamlanmış, 441 birim testi geçmektedir. Sıradaki hazır aday, dışa aktarma açmadan yetki filtreli ve maskeli rapor önizleme domain dilimidir.
