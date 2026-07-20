@@ -131,6 +131,7 @@ archive tier ve performans benchmark'ı yoktur. 20 milyon satırlık kabul hedef
 | Enumda kullanılmayan durumlar | Issue `NEW`, `CANCELLED` servis akışında yok | Model ve gerçek state machine farklı |
 | Dimension weight semantiği | Configte var, dimension/enterprise formülünde kullanılmıyor | İş beklentisiyle sapma riski |
 | Paketleme eksik | `[build-system]` ve script yok | Kurulum/dağıtım standart değil |
+| Frontend toolchain yok | Tasarım sistemi ve görsel test stratejisi belgelendi; runtime, Storybook ve Playwright proje kurulumu yok | Referans ekran henüz çalışan ürün veya otomatik regression kanıtı değil |
 
 Belirgin dairesel paket bağımlılığı saptanmamıştır. Ancak bazı domain servisleri
 concrete SQLite repository sınıfı aldığı için port/adapter ayrımı tutarlı değildir.

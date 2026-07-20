@@ -1,6 +1,8 @@
 # Documentation: keep README and its directly/transitively linked document graph.
 **/*.md
 !/README.md
+!/AGENTS.md
+!/CODEX-KULLANIM.md
 
 !/docs/
 !/docs/technical/
@@ -21,6 +23,11 @@
 !/03-Backend/*/AGENTS.md
 
 !/04-Frontend/FRONTEND-INDEX.md
+!/04-Frontend/AGENTS.md
+!/04-Frontend/Gorsel-Tasarim-Sistemi.md
+!/04-Frontend/03-Dashboard/AGENTS.md
+!/04-Frontend/03-Dashboard/Dashboard-Ekran-Sozlesmesi.md
+!/06-Testler/03-Uctan-Uca/Gorsel-Dogrulama-Stratejisi.md
 !/05-Veritabani/VERITABANI-INDEX.md
 !/06-Testler/TEST-INDEX.md
 
@@ -44,6 +51,7 @@
 
 !/09-Iterasyonlar/*.md
 /09-Iterasyonlar/AGENTS.md
+!/09-Iterasyonlar/AGENTS.md
 
 /.obsidian/
 /manifest.json

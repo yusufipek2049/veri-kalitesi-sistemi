@@ -55,6 +55,27 @@ Mevcut 16 iterasyonun, Iterasyon 17A–17E audit, Iterasyon 18A–18C veri korum
 | Bildirim ve issue yaşam döngüsü | İterasyon 22 | Veri minimizasyonu ve merkezi auditten sonra |
 | Raporlama ve audit inceleme | İterasyon 24 | Dışa aktarma kontrolüyle birlikte |
 
+## Frontend Tasarım Backlogu
+
+Bu kimlikler teslimat backlog kimlikleridir; yeni SRS gereksinimi değildir. Tüm
+uygulama maddeleri geçiş kapısı ve ilgili güvenli API sözleşmesine bağlıdır.
+
+| ID | Ürün artımı | Öncelik | Bağımlılık | Durum |
+| --- | --- | --- | --- | --- |
+| FE-DS-001 | Kurumsal design token sistemi | Must | Frontend stack ve dependency onayı | Planlı / engelli |
+| FE-DS-002 | Açık ve koyu tema tanımları | Should | FE-DS-001, koyu tema kapsam kararı | Planlı / engelli |
+| FE-DS-003 | Ortak KPI kartı | Must | FE-DS-001 | Planlı / engelli |
+| FE-DS-004 | Ortak status badge ve status mapper | Must | FE-DS-001 | Planlı / engelli |
+| FE-DS-005 | Ortak alarm bileşeni | Must | FE-DS-004 | Planlı / engelli |
+| FE-DS-006 | Ortak chart wrapper ve formatter | Must | FE-DS-001, chart kütüphanesi onayı | Planlı / engelli |
+| FE-DS-007 | Ortak data table standardı | Must | FE-DS-001, API sayfalama sözleşmesi | Planlı / engelli |
+| FE-DS-008 | Kurumsal dashboard referans ekranı | Must | 21B, FE-DS-003–007 | Planlı / engelli |
+| FE-DS-009 | Storybook story altyapısı | Must | Toolchain/dependency onayı, FE-DS-001 | Planlı / engelli |
+| FE-DS-010 | Playwright görsel regression altyapısı | Must | Toolchain/dependency onayı, çalışan frontend | Planlı / engelli |
+| FE-DS-011 | Grafik erişilebilirlik kontrolleri | Must | FE-DS-006, FE-DS-010 | Planlı / engelli |
+| FE-DS-012 | Teknik hata ve kalite ihlali görsel ayrım testleri | Must | FE-DS-004, FE-DS-009/010 | Planlı / engelli |
+| FE-DS-013 | Marka rengi token kullanım lint/review kapısı | Should | FE-DS-001, lint yaklaşımı kararı | Planlı / engelli |
+
 ## Önerilen Sonraki İterasyon
 
 **İterasyon 28D — Yerel bağımlılık zafiyet bulgu zarfı ve sürüm kapısı sözleşmesi.**

@@ -24,6 +24,7 @@ Bu vault, SRS dokümanını görev bazında küçük bağlam parçalarıyla kull
 - [[08-Uyum-Kanitlari/KANIT-INDEX|Uyum Kanıtları]]
 - [[09-Iterasyonlar/ITERASYON-INDEX|Bankacılık Geçiş İterasyonları]]
 - [Teknik Mimari ve Sistem Analizi](docs/technical/README.md)
+- [[CODEX-KULLANIM|Codex Kullanım ve Frontend Görev Şablonu]]
 
 
 ## Güncel Geliştirme Baseline'ı

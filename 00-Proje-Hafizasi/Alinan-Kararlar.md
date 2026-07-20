@@ -132,6 +132,15 @@ tags:
 | 2026-07-20 | Yerel `28C-v1` politika yalnız `CRITICAL` önem derecesini bloklayacak; diğer eşikler ve istisna/risk kabulü tahmin edilmeyecektir. | `BFR-SDLC-003` kritik bulguyu açıkça engeller; banka onaylı ek eşikler ve istisna süreci henüz yoktur. | HIGH ve üstünü varsayılan engellemek veya kullanıcı tanımlı istisna eklemek. | Kritik olmayan bulgular sayılır ve digest'e bağlanır; banka eşik/istisna/release onayı `ComplianceReviewRequired` kalır. |
 | 2026-07-20 | Sürüm kanıtı bulgu listesini açık metin taşımayacak; PEP 621 proje sürümü ve kanonik bulgu SHA-256 digest'iyle ilişki kuracaktır. | Kanıt sürümle doğrulanabilir olmalı, fakat source konumu ve rule detayını gereksiz yere çoğaltmamalıdır. | Tüm bulgu yollarını release artifact'ına yazmak veya yalnız toplam sayı tutmak. | Kanıt deterministik ve veri-minimumdur; ayrıntılı bulgu raporu scanner güven sınırında kalır. |
 
+## 2026-07-20 İterasyon 30A Frontend Tasarım Kararları
+
+| Tarih | Karar | Gerekçe | Alternatif | Sonuç |
+| --- | --- | --- | --- | --- |
+| 2026-07-20 | Tüm frontend görsel değerleri semantik design token üzerinden kullanılacak; component dosyasında ham HEX, spacing, radius veya shadow bulunmayacak. | Açık/koyu tema ve ekranlar arası tutarlılık tek kaynakla yönetilmelidir. | Her componentin kendi renk/ölçü değerini tanımlaması. | `04-Frontend/Gorsel-Tasarim-Sistemi.md` görsel doğruluk kaynağıdır; component altyapısı henüz uygulanmadı. |
+| 2026-07-20 | Ana marka rengi `#FDB813` olacak; ana aksiyon, aktif seçim, focus ve küçük marka vurgularıyla sınırlı kullanılacaktır. | Marka görünürlüğü ile operasyonel durum anlamının karışması önlenmelidir. | Sarıyı uyarı veya tüm yüzeylerin baskın rengi yapmak. | Sarı üzerinde koyu metin kullanılır; marka sarısı semantik uyarı değildir. |
+| 2026-07-20 | Kritik veri kalitesi ihlali kırmızı, teknik hata mor, uyarı turuncu, başarı yeşil, bilgi mavi ve veri yok gri gösterilecektir; renk tek bilgi taşıyıcısı olmayacaktır. | Teknik hata kalite başarısızlığından ayrılmalı ve erişilebilirlik korunmalıdır. | Tüm olumsuz durumları kırmızı göstermek veya yalnız renge güvenmek. | İkon, yazılı etiket, badge, tooltip/açıklama ve uygun ARIA adı zorunludur. |
+| 2026-07-20 | İlk görsel ekran kurumsal dashboard; component doğrulama aracı Storybook ve ekran/görsel doğrulama aracı Playwright olacaktır. | Ortak component durumları ile responsive ekran sapmaları farklı test katmanları gerektirir. | Yalnız manuel inceleme veya yalnız pixel screenshot kullanmak. | Toolchain kurulumu ayrı onaylı artımdır; minimum viewport'lar ve iki iyileştirme turu Definition of Done'a bağlandı. |
+
 ## İlişkili Notlar
 
 - [[01-SRS/02-Sistem-Aciklamasi|Sistem Açıklaması]]

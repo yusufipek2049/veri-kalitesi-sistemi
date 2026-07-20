@@ -10,6 +10,16 @@ tags:
 
 # Frontend Ekran Haritası
 
+## Tasarım ve Uygulama Kaynakları
+
+- [[04-Frontend/Gorsel-Tasarim-Sistemi|Görsel Tasarım Sistemi]]
+- [[04-Frontend/03-Dashboard/Dashboard-Ekran-Sozlesmesi|Dashboard Ekran Sözleşmesi]]
+- [Kurumsal dashboard referansı](references/reference-dashboard.png)
+- [[06-Testler/03-Uctan-Uca/Gorsel-Dogrulama-Stratejisi|Görsel Doğrulama Stratejisi]]
+- [[CODEX-KULLANIM|Codex Frontend Görev Şablonu]]
+
+## Ekranlar
+
 - Giriş ve oturum: [[01-SRS/04-Fonksiyonel-Gereksinimler/04.01-Kullanici-ve-Yetki]]
 - Veri kaynağı listesi, formu ve bağlantı testi: [[01-SRS/04-Fonksiyonel-Gereksinimler/04.02-Veri-Kaynagi-Yonetimi]]
 - Metadata keşfi ve profil sonuçları: [[01-SRS/04-Fonksiyonel-Gereksinimler/04.03-Metadata-ve-Profilleme]]

@@ -17,6 +17,7 @@ tags:
 - [[01-SRS/11-Izlenebilirlik-Matrisi|İzlenebilirlik Matrisi]]
 - [[01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/INDEX|NFR Doğrulama Yöntemleri]]
 - [[01-SRS/16-Kalite-Kontrolu|SRS Kalite Kontrolü]]
+- [[06-Testler/03-Uctan-Uca/Gorsel-Dogrulama-Stratejisi|Frontend Görsel Doğrulama Stratejisi]]
 
 ## Önerilen Test Katmanları
 
@@ -26,13 +27,17 @@ tags:
 4. 20 milyon satırlık anonim/sentetik performans veri setiyle profil ve kural testleri.
 5. Salt okunurluk, SQL injection, XSS/CSRF, secret ve audit bütünlüğü güvenlik testleri.
 6. Yedek geri yükleme ve felaket kurtarma tatbikatı.
+7. Storybook component durumları ve Playwright responsive/görsel regression testleri.
 
 ## Güncel Otomasyon Baseline'ı
 
-- 530 birim testi geçmektedir.
+- 556 birim testi geçmektedir.
 - `incident_response` hedef grubu, güvenlik olayı/ihlal ayrımı, 72 saat hedefi, veri işleyen kanıtı, maker-checker kararı, yetki/scope redleri, veri-minimum timeline görünümü, audit minimizasyonu ve rollback için 39 sentetik vaka içerir.
 - `secure_sdlc` hedef grubu; gerçek pozitif/yanlış pozitif, binary/büyük/dışlanan
   dosya, sembolik bağlantı, salt okunurluk, deterministik sıra, teknik hata ve
   veri-minimum CLI çıktısına ek olarak PEP 621 bağımlılık beyanı, tam sürüm pini,
   dinamik/URL/yinelenen bağımlılık redleri, salt okunurluk ve deterministik
-  CycloneDX 1.5 çıktısı için toplam 32 sentetik vaka içerir.
+  CycloneDX 1.5 çıktısı ile veri-minimum SAST bulgu/sürüm kapısı için toplam 58
+  sentetik vaka içerir.
+- Frontend runtime, Storybook ve Playwright otomasyonu henüz kurulmamıştır; görsel
+  doğrulama stratejisi `Proposed` durumundadır.

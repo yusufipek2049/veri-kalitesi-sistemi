@@ -17,5 +17,6 @@
 6. [[Kalan-Iterasyonlar-Banka-Yol-Haritasi]]
 7. [[Iterasyon-26-Olay-Mudahale-ve-Ihlal-Kaniti]] - 26A–26B `TechnicallyVerified`
 8. [[Iterasyon-28-Guvenli-SDLC]] - 28A–28C `TechnicallyVerified`
+9. [[Iterasyon-30-Frontend-Tasarim-Sistemi]] - 30A dokümantasyon tabanı tamamlandı; uygulama geçiş kapısına bağlı
 
 Her iterasyon [[Iterasyon-Kapanis-Sablonu]] ile kapatılır.

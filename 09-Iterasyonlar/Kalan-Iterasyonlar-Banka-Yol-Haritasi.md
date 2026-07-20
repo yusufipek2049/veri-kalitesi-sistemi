@@ -11,6 +11,7 @@
 | 27 | Ortam ayrılığı, backup/restore ve DR tatbikatı | Altyapı kararı |
 | 28 | Güvenli SDLC, SBOM, taramalar ve pentest hazırlığı (`28A` secret, `28B` doğrudan bağımlılık SBOM'u, `28C` yerel SAST kapısı tamamlandı) | CI/CD kararı |
 | 29 | Teknik kontrol ve banka kabul kanıt paketi | Tümü |
+| 30 | Frontend tasarım sistemi ve kurumsal dashboard (`30A` dokümantasyon tabanı tamamlandı) | Geçiş kapısı, 21B güvenli API ve frontend toolchain kararı |
 
 ## Pilot Kapısı
 

@@ -679,6 +679,27 @@ tags:
 - Kanıt `08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28C-Yerel-SAST-Surum-Kapisi-Kaniti.md` içinde `TechnicallyVerified` olarak kaydedildi.
 - Gerçek SAST scanner/repository taraması, CI/CD zorlaması, kritik olmayan eşikler, istisna/risk kabulü, release maker-checker, DAST ve pentest kapsam dışıdır ve `ComplianceReviewRequired` kalır.
 
+### 2026-07-20 — İterasyon 30A: Frontend görsel tasarım dokümantasyon tabanı
+
+- Frontend görsel doğruluk kaynağı `04-Frontend/Gorsel-Tasarim-Sistemi.md`, ilk ekran
+  sözleşmesi `04-Frontend/03-Dashboard/Dashboard-Ekran-Sozlesmesi.md` ve görsel test
+  stratejisi `06-Testler/03-Uctan-Uca/Gorsel-Dogrulama-Stratejisi.md` altında kuruldu.
+- Bankanın ana tema rengi `#FDB813` olarak kaydedildi; marka rengi semantik uyarı
+  değildir. Kritik veri kalitesi ihlali kırmızı, teknik hata mor, operasyonel uyarı
+  turuncu, başarı yeşil, bilgi mavi ve veri yok gri olarak ayrıldı.
+- Koyu lacivert navigasyon, açık gri çalışma alanı, beyaz düşük gölgeli yüzey, yoğun
+  dashboard, grafik/tablo/KPI/alarm/heatmap, responsive ve erişilebilirlik kuralları
+  token tabanlı tek tasarım sistemi belgesinde toplandı.
+- `04-Frontend/references/reference-dashboard.png` 1440×900 sentetik dashboard
+  referansı olarak oluşturuldu. İki görsel iyileştirme turunda KPI yerleşimi ve alarm
+  satırı taşması giderildi; görsel gerçek banka veya müşteri verisi içermez.
+- Storybook component durumları ve Playwright ekran görüntüsü süreci frontend
+  Definition of Done'a eklendi; araçlar proje bağımlılığı olarak henüz kurulmadı.
+- İlk uygulanacak görsel ekran kurumsal dashboard olarak belirlendi. Uygulama 21B
+  güvenli HTTP/API sınırı, bankacılık geçiş kapısı ve frontend toolchain onayına bağlıdır.
+- Kaynak kodu, frontend componenti, dependency ve build yapılandırması değişmedi;
+  556 birim test baseline'ı ve sıradaki hazır İterasyon 28D korunmuştur.
+
 ## İlgili Notlar
 
 - [[00-Proje-Hafizasi/Alinan-Kararlar|Alınan Kararlar]]

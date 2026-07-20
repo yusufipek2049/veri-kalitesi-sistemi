@@ -143,7 +143,7 @@ iteratif çalışma sırasıyla uyumludur.
 
 | İş | Kabul kriteri |
 | --- | --- |
-| Yönetim ve dashboard frontend'i | Responsive, scope güvenli, erişilebilir ve E2E testli |
+| Yönetim ve dashboard frontend'i | Belgelenen token/screen sözleşmesine uygun, responsive, scope güvenli, erişilebilir, Storybook ve Playwright ile doğrulanmış |
 | Genel cron | Onaylı parser/gramer, DST ve invalid expression testleri |
 | E-posta/ek kanal bildirimleri | Veri-minimum template, opt-out/suppression/retry/DLQ |
 | SLA ve eskalasyon | Policy version, business calendar ve auditli eskalasyon |
@@ -153,7 +153,7 @@ iteratif çalışma sırasıyla uyumludur.
 
 ## Önerilen Teslim Sırası
 
-1. Mevcut backlog sırasıyla 28C ve kalan güvenli SDLC kapıları.
+1. Mevcut backlog sırasıyla 28D ve kalan güvenli SDLC kapıları.
 2. Güvenli read-only API composition root.
 3. Üretim DB/broker migration omurgası.
 4. LDAP/vault ve PostgreSQL gerçek adaptörleri.
