@@ -9,14 +9,14 @@
 
 ## Sıra
 
-1. [[Iterasyon-16-Guvenilir-Aktor-Baglami]] - TechnicallyVerified
-2. [[Iterasyon-17-Merkezi-Audit-Butunlugu]] - 17A–17E `TechnicallyVerified`
-3. [[Iterasyon-18-Veri-Siniflandirma-ve-Maskeleme]] - 18A–18C `TechnicallyVerified`
-4. [[Iterasyon-19-Maker-Checker]] - 19A–19C `TechnicallyVerified`, 19D engelli
-5. [[Iterasyon-20-LDAP-RBAC-Entegrasyonu]] - 20A–20C `TechnicallyVerified`; üretim kararları açık
-6. [[Kalan-Iterasyonlar-Banka-Yol-Haritasi]]
-7. [[Iterasyon-26-Olay-Mudahale-ve-Ihlal-Kaniti]] - 26A–26B `TechnicallyVerified`
-8. [[Iterasyon-28-Guvenli-SDLC]] - 28A–28D `TechnicallyVerified`
-9. [[Iterasyon-30-Frontend-Tasarim-Sistemi]] - 30A dokümantasyon tabanı tamamlandı; uygulama geçiş kapısına bağlı
+1. [Iterasyon-16-Guvenilir-Aktor-Baglami](Iterasyon-16-Guvenilir-Aktor-Baglami.md) - TechnicallyVerified
+2. [Iterasyon-17-Merkezi-Audit-Butunlugu](Iterasyon-17-Merkezi-Audit-Butunlugu.md) - 17A–17E `TechnicallyVerified`
+3. [Iterasyon-18-Veri-Siniflandirma-ve-Maskeleme](Iterasyon-18-Veri-Siniflandirma-ve-Maskeleme.md) - 18A–18C `TechnicallyVerified`
+4. [Iterasyon-19-Maker-Checker](Iterasyon-19-Maker-Checker.md) - 19A–19C `TechnicallyVerified`, 19D engelli
+5. [Iterasyon-20-LDAP-RBAC-Entegrasyonu](Iterasyon-20-LDAP-RBAC-Entegrasyonu.md) - 20A–20C `TechnicallyVerified`; üretim kararları açık
+6. [Kalan-Iterasyonlar-Banka-Yol-Haritasi](Kalan-Iterasyonlar-Banka-Yol-Haritasi.md)
+7. [Iterasyon-26-Olay-Mudahale-ve-Ihlal-Kaniti](Iterasyon-26-Olay-Mudahale-ve-Ihlal-Kaniti.md) - 26A–26B `TechnicallyVerified`
+8. [Iterasyon-28-Guvenli-SDLC](Iterasyon-28-Guvenli-SDLC.md) - 28A–28D `TechnicallyVerified`
+9. [Iterasyon-30-Frontend-Tasarim-Sistemi](Iterasyon-30-Frontend-Tasarim-Sistemi.md) - 30A dokümantasyon tabanı tamamlandı; uygulama geçiş kapısına bağlı
 
-Her iterasyon [[Iterasyon-Kapanis-Sablonu]] ile kapatılır.
+Her iterasyon [Iterasyon-Kapanis-Sablonu](Iterasyon-Kapanis-Sablonu.md) ile kapatılır.

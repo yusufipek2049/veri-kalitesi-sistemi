@@ -16,15 +16,15 @@ tags:
 
 ## Belgeler
 
-- [[17.01-Kapsam-ve-Kontrol-Durumlari|Kapsam ve Kontrol Durumları]]
-- [[17.02-Bankacilik-Kontrol-Gereksinimleri|Bankacılık Kontrol Gereksinimleri]]
-- [[17.03-BDDK-Kontrol-Matrisi|BDDK Kontrol Matrisi]]
-- [[17.04-KVKK-Kontrol-Matrisi|KVKK Kontrol Matrisi]]
-- [[17.05-Veri-Siniflandirma-ve-Isleme-Envanteri|Veri Sınıflandırma ve İşleme Envanteri]]
-- [[17.06-Saklama-Imha-ve-Legal-Hold|Saklama, İmha ve Legal Hold]]
-- [[17.07-Ucuncu-Taraf-ve-ServiceNow|Üçüncü Taraf ve ServiceNow]]
-- [[17.08-Uyum-Izlenebilirlik-Matrisi|Uyum İzlenebilirlik Matrisi]]
-- [[17.09-Acik-Uyum-Konulari|Açık Uyum Konuları]]
+- [Kapsam ve Kontrol Durumları](17.01-Kapsam-ve-Kontrol-Durumlari.md)
+- [Bankacılık Kontrol Gereksinimleri](17.02-Bankacilik-Kontrol-Gereksinimleri.md)
+- [BDDK Kontrol Matrisi](17.03-BDDK-Kontrol-Matrisi.md)
+- [KVKK Kontrol Matrisi](17.04-KVKK-Kontrol-Matrisi.md)
+- [Veri Sınıflandırma ve İşleme Envanteri](17.05-Veri-Siniflandirma-ve-Isleme-Envanteri.md)
+- [Saklama, İmha ve Legal Hold](17.06-Saklama-Imha-ve-Legal-Hold.md)
+- [Üçüncü Taraf ve ServiceNow](17.07-Ucuncu-Taraf-ve-ServiceNow.md)
+- [Uyum İzlenebilirlik Matrisi](17.08-Uyum-Izlenebilirlik-Matrisi.md)
+- [Açık Uyum Konuları](17.09-Acik-Uyum-Konulari.md)
 
 ## Resmî referans başlangıç seti
 

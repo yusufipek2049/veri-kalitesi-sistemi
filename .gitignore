@@ -20,7 +20,7 @@
 /02-Mimari/Guvenlik/AGENTS.md
 
 !/03-Backend/BACKEND-INDEX.md
-!/03-Backend/*/AGENTS.md
+!/03-Backend/01-Kimlik-ve-Yetki/AGENTS.md
 
 !/04-Frontend/FRONTEND-INDEX.md
 !/04-Frontend/AGENTS.md
@@ -53,16 +53,11 @@
 /09-Iterasyonlar/AGENTS.md
 !/09-Iterasyonlar/AGENTS.md
 
-# Newly added documents outside the README link graph.
+# Agent instructions outside the README link graph.
 /04-Frontend/AGENTS.md
-/04-Frontend/Gorsel-Tasarim-Sistemi.md
 /04-Frontend/03-Dashboard/AGENTS.md
-/04-Frontend/03-Dashboard/Dashboard-Ekran-Sozlesmesi.md
-/06-Testler/03-Uctan-Uca/Gorsel-Dogrulama-Stratejisi.md
 /09-Iterasyonlar/AGENTS.md
-/09-Iterasyonlar/Iterasyon-30-Frontend-Tasarim-Sistemi.md
 /AGENTS.md
-/CODEX-KULLANIM.md
 
 /.obsidian/
 /manifest.json

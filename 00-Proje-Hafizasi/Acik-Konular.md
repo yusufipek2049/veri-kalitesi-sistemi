@@ -11,7 +11,7 @@ tags:
 
 # Açık Konular
 
-Ayrıntılı ve bağlayıcı liste: [[01-SRS/15-Acik-Konular|SRS — Açık Konular ve Varsayımlar]].
+Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../01-SRS/15-Acik-Konular.md).
 
 ## Geliştirmeyi En Çok Etkileyen Kararlar
 
@@ -98,4 +98,4 @@ Ayrıntılı ve bağlayıcı liste: [[01-SRS/15-Acik-Konular|SRS — Açık Konu
 
 ## Kullanım
 
-Bir teknik karar kesinleştiğinde ilgili `OPEN-xxx` maddesini güncelle ve sonucu [[00-Proje-Hafizasi/Alinan-Kararlar|Alınan Kararlar]] notuna taşı.
+Bir teknik karar kesinleştiğinde ilgili `OPEN-xxx` maddesini güncelle ve sonucu [Alınan Kararlar](Alinan-Kararlar.md) notuna taşı.

@@ -16,14 +16,14 @@ tags:
 
 | Kategori | ID Öneki | Dosya |
 | --- | --- | --- |
-| Performans | NFR-PERF | [[01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.01-Performans|Aç]] |
-| Ölçeklenebilirlik | NFR-SCL | [[01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.02-Olceklenebilirlik|Aç]] |
-| Kullanılabilirlik / Erişilebilirlik | NFR-AVL | [[01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.03-Erisilebilirlik|Aç]] |
-| Güvenilirlik ve Hata Toleransı | NFR-REL | [[01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.04-Guvenilirlik-ve-Hata-Toleransi|Aç]] |
-| Güvenlik | NFR-SEC | [[01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.05-Guvenlik|Aç]] |
-| Gizlilik ve KVKK | NFR-PRV | [[01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.06-Gizlilik-ve-KVKK|Aç]] |
-| Kullanılabilirlik ve Kullanıcı Deneyimi | NFR-USA | [[01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.07-Kullanici-Deneyimi|Aç]] |
-| Bakım Yapılabilirlik | NFR-MNT | [[01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.08-Bakim-Yapilabilirlik|Aç]] |
-| Gözlemlenebilirlik | NFR-OBS | [[01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.09-Gozlemlenebilirlik|Aç]] |
-| Yedekleme ve Felaket Kurtarma | NFR-DR | [[01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.10-Yedekleme-ve-Felaket-Kurtarma|Aç]] |
-| Uyumluluk | NFR-CMP | [[01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.11-Uyumluluk|Aç]] |
+| Performans | NFR-PERF | [Aç](09.01-Performans.md) |
+| Ölçeklenebilirlik | NFR-SCL | [Aç](09.02-Olceklenebilirlik.md) |
+| Kullanılabilirlik / Erişilebilirlik | NFR-AVL | [Aç](09.03-Erisilebilirlik.md) |
+| Güvenilirlik ve Hata Toleransı | NFR-REL | [Aç](09.04-Guvenilirlik-ve-Hata-Toleransi.md) |
+| Güvenlik | NFR-SEC | [Aç](09.05-Guvenlik.md) |
+| Gizlilik ve KVKK | NFR-PRV | [Aç](09.06-Gizlilik-ve-KVKK.md) |
+| Kullanılabilirlik ve Kullanıcı Deneyimi | NFR-USA | [Aç](09.07-Kullanici-Deneyimi.md) |
+| Bakım Yapılabilirlik | NFR-MNT | [Aç](09.08-Bakim-Yapilabilirlik.md) |
+| Gözlemlenebilirlik | NFR-OBS | [Aç](09.09-Gozlemlenebilirlik.md) |
+| Yedekleme ve Felaket Kurtarma | NFR-DR | [Aç](09.10-Yedekleme-ve-Felaket-Kurtarma.md) |
+| Uyumluluk | NFR-CMP | [Aç](09.11-Uyumluluk.md) |

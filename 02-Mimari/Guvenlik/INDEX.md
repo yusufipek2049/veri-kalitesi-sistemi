@@ -5,9 +5,9 @@ status: proposed
 
 # Bankacılık Güvenlik Mimarisi
 
-- [[Guven-Sinirlari-ve-Veri-Akislari|Güven Sınırları ve Veri Akışları]]
-- [[Kimlik-Yetki-ve-Guvenilir-Aktor|Kimlik, Yetki ve Güvenilir Aktör]]
-- [[Maker-Checker|Maker-Checker]]
-- [[Audit-Butunlugu|Audit Bütünlüğü]]
-- [[Veri-Koruma-ve-Maskeleme|Veri Koruma ve Maskeleme]]
-- [[Ortam-Ayrimi-ve-Guvenli-SDLC|Ortam Ayrımı ve Güvenli SDLC]]
+- [Güven Sınırları ve Veri Akışları](Guven-Sinirlari-ve-Veri-Akislari.md)
+- [Kimlik, Yetki ve Güvenilir Aktör](Kimlik-Yetki-ve-Guvenilir-Aktor.md)
+- [Maker-Checker](Maker-Checker.md)
+- [Audit Bütünlüğü](Audit-Butunlugu.md)
+- [Veri Koruma ve Maskeleme](Veri-Koruma-ve-Maskeleme.md)
+- [Ortam Ayrımı ve Güvenli SDLC](Ortam-Ayrimi-ve-Guvenli-SDLC.md)

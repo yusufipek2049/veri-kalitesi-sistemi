@@ -40,7 +40,7 @@ Renk her zaman ikon ve yazılı etiketle desteklenir.
 
 **Sonuç:** Component dosyalarında ham görsel değerler yasaktır; açık/koyu tema aynı
 semantik token sözleşmesini kullanır. Ayrıntılar
-[[04-Frontend/Gorsel-Tasarim-Sistemi|Görsel Tasarım Sistemi]] içindedir. Bu karar
+[Görsel Tasarım Sistemi](../04-Frontend/Gorsel-Tasarim-Sistemi.md) içindedir. Bu karar
 frontend runtime veya component kütüphanesinin uygulandığı anlamına gelmez.
 
 ## ADR-013 — Storybook ve Playwright Görsel Doğrulaması
@@ -57,7 +57,7 @@ turu yapılır.
 **Sonuç:** Frontend Definition of Done görsel ve erişilebilirlik kanıtı gerektirir.
 Paket seçimi ve kurulumu ayrı onaylı frontend artımında yapılacaktır; bu ADR yeni
 dependency eklemez. Ayrıntılar
-[[06-Testler/03-Uctan-Uca/Gorsel-Dogrulama-Stratejisi|Görsel Doğrulama Stratejisi]]
+[Görsel Doğrulama Stratejisi](../06-Testler/03-Uctan-Uca/Gorsel-Dogrulama-Stratejisi.md)
 içindedir.
 
-Ayrıntılar: [[00-Proje-Hafizasi/Alinan-Kararlar|Alınan Kararlar]] ve [[01-SRS/15-Acik-Konular|Açık Konular]].
+Ayrıntılar: [Alınan Kararlar](../00-Proje-Hafizasi/Alinan-Kararlar.md) ve [Açık Konular](../01-SRS/15-Acik-Konular.md).

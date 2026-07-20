@@ -724,14 +724,14 @@ tags:
 
 ## İlgili Notlar
 
-- [[00-Proje-Hafizasi/Alinan-Kararlar|Alınan Kararlar]]
-- [[00-Proje-Hafizasi/Acik-Konular|Açık Konular]]
-- [[00-Proje-Hafizasi/Sonraki-Adimlar|Sonraki Adımlar]]
+- [Alınan Kararlar](Alinan-Kararlar.md)
+- [Açık Konular](Acik-Konular.md)
+- [Sonraki Adımlar](Sonraki-Adimlar.md)
 
 ## Bankacılık Geçiş Baseline'ı
 
 - Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B ve Iterasyon 28A–28D dikeylerinin kodu korunacaktır.
 - `pytest` ile 593 testin geçtiği doğrulanmıştır.
 - İterasyon 19D, 21B, hassas dışa aktarma, saklama/DR ve gerçek SIEM banka kararları nedeniyle engellidir; sıradaki hazır aday veri-minimum sızma testi bulgu takip sözleşmesidir.
-- Geçiş ayrıntıları için [[00-Proje-Hafizasi/Bankacilik-Gecis-Durumu|Bankacılık Geçiş Durumu]] esas alınır.
+- Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

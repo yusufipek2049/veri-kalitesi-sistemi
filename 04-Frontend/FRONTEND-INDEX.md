@@ -12,27 +12,26 @@ tags:
 
 ## Tasarım ve Uygulama Kaynakları
 
-- [[04-Frontend/Gorsel-Tasarim-Sistemi|Görsel Tasarım Sistemi]]
-- [[04-Frontend/03-Dashboard/Dashboard-Ekran-Sozlesmesi|Dashboard Ekran Sözleşmesi]]
+- [Görsel Tasarım Sistemi](Gorsel-Tasarim-Sistemi.md)
+- [Dashboard Ekran Sözleşmesi](03-Dashboard/Dashboard-Ekran-Sozlesmesi.md)
 - [Kurumsal dashboard referansı](references/reference-dashboard.png)
-- [[06-Testler/03-Uctan-Uca/Gorsel-Dogrulama-Stratejisi|Görsel Doğrulama Stratejisi]]
-- [[CODEX-KULLANIM|Codex Frontend Görev Şablonu]]
+- [Görsel Doğrulama Stratejisi](../06-Testler/03-Uctan-Uca/Gorsel-Dogrulama-Stratejisi.md)
 
 ## Ekranlar
 
-- Giriş ve oturum: [[01-SRS/04-Fonksiyonel-Gereksinimler/04.01-Kullanici-ve-Yetki]]
-- Veri kaynağı listesi, formu ve bağlantı testi: [[01-SRS/04-Fonksiyonel-Gereksinimler/04.02-Veri-Kaynagi-Yonetimi]]
-- Metadata keşfi ve profil sonuçları: [[01-SRS/04-Fonksiyonel-Gereksinimler/04.03-Metadata-ve-Profilleme]]
-- Kural oluşturma, test, sürüm ve onay: [[01-SRS/04-Fonksiyonel-Gereksinimler/04.04-Kural-Yonetimi]]
-- Çalıştırma, zamanlama ve geçmiş: [[01-SRS/04-Fonksiyonel-Gereksinimler/04.05-Calistirma-ve-Zamanlama]]
-- Dashboard ve drill-down: [[01-SRS/04-Fonksiyonel-Gereksinimler/04.07-Dashboard]]
-- Bildirim merkezi: [[01-SRS/04-Fonksiyonel-Gereksinimler/04.08-Bildirim]]
-- Sorun yönetimi: [[01-SRS/04-Fonksiyonel-Gereksinimler/04.09-Sorun-Yonetimi]]
-- Rapor ve dışa aktarma: [[01-SRS/04-Fonksiyonel-Gereksinimler/04.10-Raporlama]]
-- Audit inceleme: [[01-SRS/04-Fonksiyonel-Gereksinimler/04.11-Audit]]
+- Giriş ve oturum: [04.01-Kullanici-ve-Yetki](../01-SRS/04-Fonksiyonel-Gereksinimler/04.01-Kullanici-ve-Yetki.md)
+- Veri kaynağı listesi, formu ve bağlantı testi: [04.02-Veri-Kaynagi-Yonetimi](../01-SRS/04-Fonksiyonel-Gereksinimler/04.02-Veri-Kaynagi-Yonetimi.md)
+- Metadata keşfi ve profil sonuçları: [04.03-Metadata-ve-Profilleme](../01-SRS/04-Fonksiyonel-Gereksinimler/04.03-Metadata-ve-Profilleme.md)
+- Kural oluşturma, test, sürüm ve onay: [04.04-Kural-Yonetimi](../01-SRS/04-Fonksiyonel-Gereksinimler/04.04-Kural-Yonetimi.md)
+- Çalıştırma, zamanlama ve geçmiş: [04.05-Calistirma-ve-Zamanlama](../01-SRS/04-Fonksiyonel-Gereksinimler/04.05-Calistirma-ve-Zamanlama.md)
+- Dashboard ve drill-down: [04.07-Dashboard](../01-SRS/04-Fonksiyonel-Gereksinimler/04.07-Dashboard.md)
+- Bildirim merkezi: [04.08-Bildirim](../01-SRS/04-Fonksiyonel-Gereksinimler/04.08-Bildirim.md)
+- Sorun yönetimi: [04.09-Sorun-Yonetimi](../01-SRS/04-Fonksiyonel-Gereksinimler/04.09-Sorun-Yonetimi.md)
+- Rapor ve dışa aktarma: [04.10-Raporlama](../01-SRS/04-Fonksiyonel-Gereksinimler/04.10-Raporlama.md)
+- Audit inceleme: [04.11-Audit](../01-SRS/04-Fonksiyonel-Gereksinimler/04.11-Audit.md)
 
 ## UI Kuralları
 
-- [[01-SRS/08-Harici-Arayuzler|Harici Arayüz Gereksinimleri]]
-- [[01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.07-Kullanici-Deneyimi|Kullanıcı Deneyimi NFR]]
-- [[01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.05-Guvenlik|Frontend Güvenliği]]
+- [Harici Arayüz Gereksinimleri](../01-SRS/08-Harici-Arayuzler.md)
+- [Kullanıcı Deneyimi NFR](../01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.07-Kullanici-Deneyimi.md)
+- [Frontend Güvenliği](../01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.05-Guvenlik.md)

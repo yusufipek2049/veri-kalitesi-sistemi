@@ -4,27 +4,27 @@ Bu vault, SRS dokümanını görev bazında küçük bağlam parçalarıyla kull
 
 ## Başlangıç
 
-1. Önce [[00-Proje-Hafizasi/Proje-Ozeti|Proje Özeti]] ve [[00-Proje-Hafizasi/Mevcut-Durum|Mevcut Durum]] notlarını oku.
-2. Gereksinim aramak için [[01-SRS/SRS-INDEX|SRS Yönlendirme İndeksi]] üzerinden ilgili modüle git.
+1. Önce [Proje Özeti](00-Proje-Hafizasi/Proje-Ozeti.md) ve [Mevcut Durum](00-Proje-Hafizasi/Mevcut-Durum.md) notlarını oku.
+2. Gereksinim aramak için [SRS Yönlendirme İndeksi](01-SRS/SRS-INDEX.md) üzerinden ilgili modüle git.
 3. Bir geliştirme görevinde yalnız ilgili fonksiyonel gereksinim, kullanım senaryosu, veri varlığı ve NFR dosyalarını bağlama ekle.
 4. Tam SRS yerine modül dosyalarını kullan.
 
 ## Ana Alanlar
 
-- [[00-Proje-Hafizasi/Proje-Ozeti|Proje Hafızası]]
-- [[01-SRS/SRS-INDEX|SRS]]
-- [[02-Mimari/MIMARI-INDEX|Mimari]]
-- [[03-Backend/BACKEND-INDEX|Backend]]
-- [[04-Frontend/FRONTEND-INDEX|Frontend]]
-- [[05-Veritabani/VERITABANI-INDEX|Veritabanı]]
-- [[06-Testler/TEST-INDEX|Testler]]
-- [[01-SRS/17-Bankacilik-Uyum/INDEX|Bankacılık Uyum Kontrolleri]]
-- [[02-Mimari/Guvenlik/INDEX|Güvenlik Mimarisi]]
-- [[07-Operasyon/OPERASYON-INDEX|Operasyon]]
-- [[08-Uyum-Kanitlari/KANIT-INDEX|Uyum Kanıtları]]
-- [[09-Iterasyonlar/ITERASYON-INDEX|Bankacılık Geçiş İterasyonları]]
+- [Proje Hafızası](00-Proje-Hafizasi/Proje-Ozeti.md)
+- [SRS](01-SRS/SRS-INDEX.md)
+- [Mimari](02-Mimari/MIMARI-INDEX.md)
+- [Backend](03-Backend/BACKEND-INDEX.md)
+- [Frontend](04-Frontend/FRONTEND-INDEX.md)
+- [Veritabanı](05-Veritabani/VERITABANI-INDEX.md)
+- [Testler](06-Testler/TEST-INDEX.md)
+- [Bankacılık Uyum Kontrolleri](01-SRS/17-Bankacilik-Uyum/INDEX.md)
+- [Güvenlik Mimarisi](02-Mimari/Guvenlik/INDEX.md)
+- [Operasyon](07-Operasyon/OPERASYON-INDEX.md)
+- [Uyum Kanıtları](08-Uyum-Kanitlari/KANIT-INDEX.md)
+- [Bankacılık Geçiş İterasyonları](09-Iterasyonlar/ITERASYON-INDEX.md)
 - [Teknik Mimari ve Sistem Analizi](docs/technical/README.md)
-- [[CODEX-KULLANIM|Codex Kullanım ve Frontend Görev Şablonu]]
+- [Codex Kullanım ve Frontend Görev Şablonu](CODEX-KULLANIM.md)
 
 
 ## Güncel Geliştirme Baseline'ı

@@ -15,41 +15,41 @@ Bu dosya ajanın bütün SRS'yi okumadan doğru bağlamı seçmesi için hazırl
 
 ## Temel Bölümler
 
-- [[01-SRS/00-Dokuman-Kunyesi|Doküman Künyesi]]
-- [[01-SRS/01-Amac-ve-Kapsam|Amaç ve Kapsam]]
-- [[01-SRS/02-Sistem-Aciklamasi|Genel Sistem Açıklaması]]
-- [[01-SRS/03-Is-Gereksinimleri|İş Gereksinimleri]]
-- [[01-SRS/04-Fonksiyonel-Gereksinimler/INDEX|Fonksiyonel Gereksinimler]]
-- [[01-SRS/05-Kullanim-Senaryolari/INDEX|Kullanım Senaryoları]]
-- [[01-SRS/06-Is-Kurallari|İş Kuralları]]
-- [[01-SRS/07-Veri-Modeli/Veri-Modeli-Genel|Veri Modeli]]
-- [[01-SRS/08-Harici-Arayuzler|Harici Arayüzler]]
-- [[01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/INDEX|Fonksiyonel Olmayan Gereksinimler]]
-- [[01-SRS/10-Kabul-Kriterleri|Kabul Kriterleri]]
-- [[01-SRS/11-Izlenebilirlik-Matrisi|İzlenebilirlik Matrisi]]
-- [[01-SRS/12-MVP|MVP ve Önceliklendirme]]
-- [[01-SRS/13-Riskler|Riskler]]
-- [[01-SRS/14-Sistem-Evrimi|Sistem Evrimi]]
-- [[01-SRS/15-Acik-Konular|Açık Konular]]
-- [[01-SRS/16-Kalite-Kontrolu|Kalite Kontrolü]]
-- [[01-SRS/17-Bankacilik-Uyum/INDEX|Bankacılık Uyum Kontrol Modülü]]
+- [Doküman Künyesi](00-Dokuman-Kunyesi.md)
+- [Amaç ve Kapsam](01-Amac-ve-Kapsam.md)
+- [Genel Sistem Açıklaması](02-Sistem-Aciklamasi.md)
+- [İş Gereksinimleri](03-Is-Gereksinimleri.md)
+- [Fonksiyonel Gereksinimler](04-Fonksiyonel-Gereksinimler/INDEX.md)
+- [Kullanım Senaryoları](05-Kullanim-Senaryolari/INDEX.md)
+- [İş Kuralları](06-Is-Kurallari.md)
+- [Veri Modeli](07-Veri-Modeli/Veri-Modeli-Genel.md)
+- [Harici Arayüzler](08-Harici-Arayuzler.md)
+- [Fonksiyonel Olmayan Gereksinimler](09-Fonksiyonel-Olmayan-Gereksinimler/INDEX.md)
+- [Kabul Kriterleri](10-Kabul-Kriterleri.md)
+- [İzlenebilirlik Matrisi](11-Izlenebilirlik-Matrisi.md)
+- [MVP ve Önceliklendirme](12-MVP.md)
+- [Riskler](13-Riskler.md)
+- [Sistem Evrimi](14-Sistem-Evrimi.md)
+- [Açık Konular](15-Acik-Konular.md)
+- [Kalite Kontrolü](16-Kalite-Kontrolu.md)
+- [Bankacılık Uyum Kontrol Modülü](17-Bankacilik-Uyum/INDEX.md)
 
 ## Göreve Göre Yönlendirme
 
 | Görev | Öncelikle okunacak notlar |
 | --- | --- |
-| Giriş, LDAP, rol ve izin | [[01-SRS/04-Fonksiyonel-Gereksinimler/04.01-Kullanici-ve-Yetki]], [[01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.05-Guvenlik]], [[01-SRS/07-Veri-Modeli/Kimlik-ve-Yetki-Varliklari]], [[01-SRS/05-Kullanim-Senaryolari/UC-001-Sisteme-giris-yapilmasi]] |
-| Veri kaynağı bağlantısı | [[01-SRS/04-Fonksiyonel-Gereksinimler/04.02-Veri-Kaynagi-Yonetimi]], [[01-SRS/07-Veri-Modeli/Kaynak-ve-Metadata-Varliklari]], UC-002 ve UC-003 |
-| Profilleme | [[01-SRS/04-Fonksiyonel-Gereksinimler/04.03-Metadata-ve-Profilleme]], [[01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.01-Performans]], UC-004 |
-| Kural tasarımı | [[01-SRS/04-Fonksiyonel-Gereksinimler/04.04-Kural-Yonetimi]], [[01-SRS/06-Is-Kurallari]], UC-005 ve UC-006 |
-| Scheduler / worker | [[01-SRS/04-Fonksiyonel-Gereksinimler/04.05-Calistirma-ve-Zamanlama]], [[01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.04-Guvenilirlik-ve-Hata-Toleransi]], UC-007 ve UC-008 |
-| Skorlama | [[01-SRS/04-Fonksiyonel-Gereksinimler/04.06-Skorlama]], [[01-SRS/06-Is-Kurallari]], [[01-SRS/07-Veri-Modeli/Kural-ve-Calistirma-Varliklari]], UC-009 |
-| Dashboard | [[01-SRS/04-Fonksiyonel-Gereksinimler/04.07-Dashboard]], [[01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.07-Kullanici-Deneyimi]], UC-010 |
-| Bildirim ve issue | [[01-SRS/04-Fonksiyonel-Gereksinimler/04.08-Bildirim]], [[01-SRS/04-Fonksiyonel-Gereksinimler/04.09-Sorun-Yonetimi]], [[01-SRS/07-Veri-Modeli/Sorun-Bildirim-ve-Audit-Varliklari]], UC-011–UC-014 |
-| Raporlama | [[01-SRS/04-Fonksiyonel-Gereksinimler/04.10-Raporlama]], [[01-SRS/08-Harici-Arayuzler]], UC-015 |
-| Audit | [[01-SRS/04-Fonksiyonel-Gereksinimler/04.11-Audit]], [[01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.05-Guvenlik]], UC-016 |
-| API / ServiceNow | [[01-SRS/04-Fonksiyonel-Gereksinimler/04.12-API-ve-Entegrasyon]], [[01-SRS/08-Harici-Arayuzler]], [[01-SRS/15-Acik-Konular]], [[01-SRS/17-Bankacilik-Uyum/17.07-Ucuncu-Taraf-ve-ServiceNow]] |
-| Bankacılık güven sınırı / BDDK / KVKK | [[01-SRS/17-Bankacilik-Uyum/INDEX]], [[00-Proje-Hafizasi/Bankacilik-Gecis-Durumu]], [[02-Mimari/Guvenlik/INDEX]] |
+| Giriş, LDAP, rol ve izin | [04.01-Kullanici-ve-Yetki](04-Fonksiyonel-Gereksinimler/04.01-Kullanici-ve-Yetki.md), [09.05-Guvenlik](09-Fonksiyonel-Olmayan-Gereksinimler/09.05-Guvenlik.md), [Kimlik-ve-Yetki-Varliklari](07-Veri-Modeli/Kimlik-ve-Yetki-Varliklari.md), [UC-001-Sisteme-giris-yapilmasi](05-Kullanim-Senaryolari/UC-001-Sisteme-giris-yapilmasi.md) |
+| Veri kaynağı bağlantısı | [04.02-Veri-Kaynagi-Yonetimi](04-Fonksiyonel-Gereksinimler/04.02-Veri-Kaynagi-Yonetimi.md), [Kaynak-ve-Metadata-Varliklari](07-Veri-Modeli/Kaynak-ve-Metadata-Varliklari.md), UC-002 ve UC-003 |
+| Profilleme | [04.03-Metadata-ve-Profilleme](04-Fonksiyonel-Gereksinimler/04.03-Metadata-ve-Profilleme.md), [09.01-Performans](09-Fonksiyonel-Olmayan-Gereksinimler/09.01-Performans.md), UC-004 |
+| Kural tasarımı | [04.04-Kural-Yonetimi](04-Fonksiyonel-Gereksinimler/04.04-Kural-Yonetimi.md), [06-Is-Kurallari](06-Is-Kurallari.md), UC-005 ve UC-006 |
+| Scheduler / worker | [04.05-Calistirma-ve-Zamanlama](04-Fonksiyonel-Gereksinimler/04.05-Calistirma-ve-Zamanlama.md), [09.04-Guvenilirlik-ve-Hata-Toleransi](09-Fonksiyonel-Olmayan-Gereksinimler/09.04-Guvenilirlik-ve-Hata-Toleransi.md), UC-007 ve UC-008 |
+| Skorlama | [04.06-Skorlama](04-Fonksiyonel-Gereksinimler/04.06-Skorlama.md), [06-Is-Kurallari](06-Is-Kurallari.md), [Kural-ve-Calistirma-Varliklari](07-Veri-Modeli/Kural-ve-Calistirma-Varliklari.md), UC-009 |
+| Dashboard | [04.07-Dashboard](04-Fonksiyonel-Gereksinimler/04.07-Dashboard.md), [09.07-Kullanici-Deneyimi](09-Fonksiyonel-Olmayan-Gereksinimler/09.07-Kullanici-Deneyimi.md), UC-010 |
+| Bildirim ve issue | [04.08-Bildirim](04-Fonksiyonel-Gereksinimler/04.08-Bildirim.md), [04.09-Sorun-Yonetimi](04-Fonksiyonel-Gereksinimler/04.09-Sorun-Yonetimi.md), [Sorun-Bildirim-ve-Audit-Varliklari](07-Veri-Modeli/Sorun-Bildirim-ve-Audit-Varliklari.md), UC-011–UC-014 |
+| Raporlama | [04.10-Raporlama](04-Fonksiyonel-Gereksinimler/04.10-Raporlama.md), [08-Harici-Arayuzler](08-Harici-Arayuzler.md), UC-015 |
+| Audit | [04.11-Audit](04-Fonksiyonel-Gereksinimler/04.11-Audit.md), [09.05-Guvenlik](09-Fonksiyonel-Olmayan-Gereksinimler/09.05-Guvenlik.md), UC-016 |
+| API / ServiceNow | [04.12-API-ve-Entegrasyon](04-Fonksiyonel-Gereksinimler/04.12-API-ve-Entegrasyon.md), [08-Harici-Arayuzler](08-Harici-Arayuzler.md), [15-Acik-Konular](15-Acik-Konular.md), [17.07-Ucuncu-Taraf-ve-ServiceNow](17-Bankacilik-Uyum/17.07-Ucuncu-Taraf-ve-ServiceNow.md) |
+| Bankacılık güven sınırı / BDDK / KVKK | [INDEX](17-Bankacilik-Uyum/INDEX.md), [Bankacilik-Gecis-Durumu](../00-Proje-Hafizasi/Bankacilik-Gecis-Durumu.md), [INDEX](../02-Mimari/Guvenlik/INDEX.md) |
 
 ## Context Bütçesi
 

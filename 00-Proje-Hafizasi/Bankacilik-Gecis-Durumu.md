@@ -72,15 +72,15 @@ Aşağıdaki davranışlar geriye dönük bozulmamalıdır:
 
 Aşağıdaki maddeler tamamlanmadan yeni HTTP yüzeyi, hassas dışa aktarma veya banka pilotu açılmamalıdır:
 
-- [x] Güvenilir `ActorContext` / `AuthorizationContext` sözleşmesi uygulanmış ve negatif testleri geçmiştir. Kanıt: [[08-Uyum-Kanitlari/Erisim/Iterasyon-16-Guvenilir-Aktor-Kaniti]]
-- [x] Public dashboard erişim kapsamı yalnız güvenilir authorization adaptöründen üretilmektedir. Kanıt: [[08-Uyum-Kanitlari/Erisim/Iterasyon-16-Guvenilir-Aktor-Kaniti]]
-- [x] Merkezi audit olay sözleşmesi uygulanmıştır. Kanıt: [[08-Uyum-Kanitlari/Audit/Iterasyon-17A-Merkezi-Audit-Kaniti]]
-- [x] Audit bütünlük ve audit-yazma-hatası politikası banka kararı için açıkça modellenmiştir. Kanıt: [[08-Uyum-Kanitlari/Audit/Iterasyon-17A-Merkezi-Audit-Kaniti]]
-- [x] Tarihsel audit için kaynak kaydı değiştirmeyen, redaksiyonlu ve idempotent aktarım sözleşmesi sentetik verilerle doğrulanmıştır. Kanıt: [[08-Uyum-Kanitlari/Audit/Iterasyon-17E-Tarihsel-Audit-Aktarim-Kaniti]]
-- [x] Teknik veri sınıflandırma sözlüğü ve varsayılan profil minimizasyon politikası uygulanmıştır; banka etiket eşlemesi açık kalır. Kanıt: [[08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18A-Siniflandirma-ve-Profil-Minimizasyonu-Kaniti]]
-- [x] Kişisel ve özel nitelikli kişisel alanlar için işleme envanteri kapsam/tamlık kontrolü uygulanmıştır; banka etiket eşlemesi açık kalır. Kanıt: [[08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18C-Envanter-Tamlik-Kaniti]]
-- [ ] Kritik konfigürasyonlarda maker-checker uygulanmıştır. Kritik kural, skor konfigürasyonu ve kural isteği geri çekme alt kapsamları teknik olarak doğrulanmıştır; süre aşımı, kalan kritik işlem listesi ve banka rol eşlemesi açıktır. Kanıtlar: [[08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19A-Kural-Maker-Checker-Kaniti]], [[08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19B-Skorlama-Maker-Checker-Kaniti]], [[08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19C-Kural-Onay-Geri-Cekme-Kaniti]]
-- [ ] LDAP grup-rol eşleme ve ayrıcalıklı erişim kararları kayıt altındadır. Sürümlü eşleme, fail-closed adaptör, kullanıcı/istemci giriş sınırı ve normal kullanıcı session yaşam döngüsü teknik olarak doğrulanmıştır; banka değerleri, ayrıcalıklı/servis oturumu ve üretim bağlantısı açık kalır. Kanıtlar: [[08-Uyum-Kanitlari/Erisim/Iterasyon-20A-LDAP-RBAC-Sozlesme-Kaniti]], [[08-Uyum-Kanitlari/Erisim/Iterasyon-20B-Basarisiz-Giris-Sinirlandirma-Kaniti]], [[08-Uyum-Kanitlari/Erisim/Iterasyon-20C-Guvenli-Oturum-Yasam-Dongusu-Kaniti]]
+- [x] Güvenilir `ActorContext` / `AuthorizationContext` sözleşmesi uygulanmış ve negatif testleri geçmiştir. Kanıt: [Iterasyon-16-Guvenilir-Aktor-Kaniti](../08-Uyum-Kanitlari/Erisim/Iterasyon-16-Guvenilir-Aktor-Kaniti.md)
+- [x] Public dashboard erişim kapsamı yalnız güvenilir authorization adaptöründen üretilmektedir. Kanıt: [Iterasyon-16-Guvenilir-Aktor-Kaniti](../08-Uyum-Kanitlari/Erisim/Iterasyon-16-Guvenilir-Aktor-Kaniti.md)
+- [x] Merkezi audit olay sözleşmesi uygulanmıştır. Kanıt: [Iterasyon-17A-Merkezi-Audit-Kaniti](../08-Uyum-Kanitlari/Audit/Iterasyon-17A-Merkezi-Audit-Kaniti.md)
+- [x] Audit bütünlük ve audit-yazma-hatası politikası banka kararı için açıkça modellenmiştir. Kanıt: [Iterasyon-17A-Merkezi-Audit-Kaniti](../08-Uyum-Kanitlari/Audit/Iterasyon-17A-Merkezi-Audit-Kaniti.md)
+- [x] Tarihsel audit için kaynak kaydı değiştirmeyen, redaksiyonlu ve idempotent aktarım sözleşmesi sentetik verilerle doğrulanmıştır. Kanıt: [Iterasyon-17E-Tarihsel-Audit-Aktarim-Kaniti](../08-Uyum-Kanitlari/Audit/Iterasyon-17E-Tarihsel-Audit-Aktarim-Kaniti.md)
+- [x] Teknik veri sınıflandırma sözlüğü ve varsayılan profil minimizasyon politikası uygulanmıştır; banka etiket eşlemesi açık kalır. Kanıt: [Iterasyon-18A-Siniflandirma-ve-Profil-Minimizasyonu-Kaniti](../08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18A-Siniflandirma-ve-Profil-Minimizasyonu-Kaniti.md)
+- [x] Kişisel ve özel nitelikli kişisel alanlar için işleme envanteri kapsam/tamlık kontrolü uygulanmıştır; banka etiket eşlemesi açık kalır. Kanıt: [Iterasyon-18C-Envanter-Tamlik-Kaniti](../08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18C-Envanter-Tamlik-Kaniti.md)
+- [ ] Kritik konfigürasyonlarda maker-checker uygulanmıştır. Kritik kural, skor konfigürasyonu ve kural isteği geri çekme alt kapsamları teknik olarak doğrulanmıştır; süre aşımı, kalan kritik işlem listesi ve banka rol eşlemesi açıktır. Kanıtlar: [Iterasyon-19A-Kural-Maker-Checker-Kaniti](../08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19A-Kural-Maker-Checker-Kaniti.md), [Iterasyon-19B-Skorlama-Maker-Checker-Kaniti](../08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19B-Skorlama-Maker-Checker-Kaniti.md), [Iterasyon-19C-Kural-Onay-Geri-Cekme-Kaniti](../08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19C-Kural-Onay-Geri-Cekme-Kaniti.md)
+- [ ] LDAP grup-rol eşleme ve ayrıcalıklı erişim kararları kayıt altındadır. Sürümlü eşleme, fail-closed adaptör, kullanıcı/istemci giriş sınırı ve normal kullanıcı session yaşam döngüsü teknik olarak doğrulanmıştır; banka değerleri, ayrıcalıklı/servis oturumu ve üretim bağlantısı açık kalır. Kanıtlar: [Iterasyon-20A-LDAP-RBAC-Sozlesme-Kaniti](../08-Uyum-Kanitlari/Erisim/Iterasyon-20A-LDAP-RBAC-Sozlesme-Kaniti.md), [Iterasyon-20B-Basarisiz-Giris-Sinirlandirma-Kaniti](../08-Uyum-Kanitlari/Erisim/Iterasyon-20B-Basarisiz-Giris-Sinirlandirma-Kaniti.md), [Iterasyon-20C-Guvenli-Oturum-Yasam-Dongusu-Kaniti](../08-Uyum-Kanitlari/Erisim/Iterasyon-20C-Guvenli-Oturum-Yasam-Dongusu-Kaniti.md)
 
 ## Kontrol Durumu
 
@@ -92,7 +92,7 @@ Aşağıdaki maddeler tamamlanmadan yeni HTTP yüzeyi, hassas dışa aktarma vey
 
 ## İlgili Belgeler
 
-- [[01-SRS/17-Bankacilik-Uyum/INDEX|Bankacılık Uyum Modülü]]
-- [[02-Mimari/Guvenlik/INDEX|Güvenlik Mimarisi]]
-- [[09-Iterasyonlar/ITERASYON-INDEX|Bankacılık Geçiş İterasyonları]]
-- [[08-Uyum-Kanitlari/KANIT-INDEX|Uyum Kanıtları]]
+- [Bankacılık Uyum Modülü](../01-SRS/17-Bankacilik-Uyum/INDEX.md)
+- [Güvenlik Mimarisi](../02-Mimari/Guvenlik/INDEX.md)
+- [Bankacılık Geçiş İterasyonları](../09-Iterasyonlar/ITERASYON-INDEX.md)
+- [Uyum Kanıtları](../08-Uyum-Kanitlari/KANIT-INDEX.md)

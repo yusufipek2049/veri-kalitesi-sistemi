@@ -6,7 +6,7 @@ Gerçek banka verisi veya secret eklenmez.
 
 ## Teknik Doğrulamalar
 
-- [[Iterasyon-28A-Yerel-Veri-Minimum-Secret-Tarama-Kaniti|İterasyon 28A - Yerel Veri Minimum Secret Tarama Kanıtı]] - `TechnicallyVerified`
-- [[Iterasyon-28B-Deterministik-Bagimlilik-SBOM-Kaniti|İterasyon 28B - Deterministik Bağımlılık ve SBOM Kanıtı]] - `TechnicallyVerified`
-- [[Iterasyon-28C-Yerel-SAST-Surum-Kapisi-Kaniti|İterasyon 28C - Yerel SAST Sürüm Kapısı Kanıtı]] - `TechnicallyVerified`
-- [[Iterasyon-28D-Bagimlilik-Zafiyet-Surum-Kapisi-Kaniti|İterasyon 28D - Bağımlılık Zafiyet Sürüm Kapısı Kanıtı]] - `TechnicallyVerified`
+- [İterasyon 28A - Yerel Veri Minimum Secret Tarama Kanıtı](Iterasyon-28A-Yerel-Veri-Minimum-Secret-Tarama-Kaniti.md) - `TechnicallyVerified`
+- [İterasyon 28B - Deterministik Bağımlılık ve SBOM Kanıtı](Iterasyon-28B-Deterministik-Bagimlilik-SBOM-Kaniti.md) - `TechnicallyVerified`
+- [İterasyon 28C - Yerel SAST Sürüm Kapısı Kanıtı](Iterasyon-28C-Yerel-SAST-Surum-Kapisi-Kaniti.md) - `TechnicallyVerified`
+- [İterasyon 28D - Bağımlılık Zafiyet Sürüm Kapısı Kanıtı](Iterasyon-28D-Bagimlilik-Zafiyet-Surum-Kapisi-Kaniti.md) - `TechnicallyVerified`

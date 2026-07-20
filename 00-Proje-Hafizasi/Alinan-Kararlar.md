@@ -152,6 +152,6 @@ tags:
 
 ## İlişkili Notlar
 
-- [[01-SRS/02-Sistem-Aciklamasi|Sistem Açıklaması]]
-- [[01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.05-Guvenlik|Güvenlik NFR]]
-- [[01-SRS/15-Acik-Konular|Açık Konular ve Varsayımlar]]
+- [Sistem Açıklaması](../01-SRS/02-Sistem-Aciklamasi.md)
+- [Güvenlik NFR](../01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.05-Guvenlik.md)
+- [Açık Konular ve Varsayımlar](../01-SRS/15-Acik-Konular.md)

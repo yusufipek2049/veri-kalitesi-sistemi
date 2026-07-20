@@ -12,12 +12,12 @@ tags:
 
 ## Ana Kaynaklar
 
-- [[01-SRS/10-Kabul-Kriterleri|Sistem Kabul Kriterleri]]
-- [[01-SRS/05-Kullanim-Senaryolari/INDEX|Kullanım Senaryoları]]
-- [[01-SRS/11-Izlenebilirlik-Matrisi|İzlenebilirlik Matrisi]]
-- [[01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/INDEX|NFR Doğrulama Yöntemleri]]
-- [[01-SRS/16-Kalite-Kontrolu|SRS Kalite Kontrolü]]
-- [[06-Testler/03-Uctan-Uca/Gorsel-Dogrulama-Stratejisi|Frontend Görsel Doğrulama Stratejisi]]
+- [Sistem Kabul Kriterleri](../01-SRS/10-Kabul-Kriterleri.md)
+- [Kullanım Senaryoları](../01-SRS/05-Kullanim-Senaryolari/INDEX.md)
+- [İzlenebilirlik Matrisi](../01-SRS/11-Izlenebilirlik-Matrisi.md)
+- [NFR Doğrulama Yöntemleri](../01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/INDEX.md)
+- [SRS Kalite Kontrolü](../01-SRS/16-Kalite-Kontrolu.md)
+- [Frontend Görsel Doğrulama Stratejisi](03-Uctan-Uca/Gorsel-Dogrulama-Stratejisi.md)
 
 ## Önerilen Test Katmanları
 
