@@ -28,4 +28,4 @@ Bu vault, SRS dokümanını görev bazında küçük bağlam parçalarıyla kull
 
 ## Güncel Geliştirme Baseline'ı
 
-İterasyon 1–16 ile bankacılık geçişindeki 17A–24B, 26A–26B, 28A–28E ve 29A teknik dikeyleri tamamlanmış, 667 birim testi geçmektedir. Repository için veri-minimum güvenli SDLC kontrolleri ve 15 BDDK/KVKK kontrolünü eksik/engelli/inceleme bekleyen durumlarıyla ayıran deterministik teknik kanıt manifesti uygulanmıştır; sıradaki hazır aday manifest drift doğrulama kapısıdır.
+İterasyon 1–16 ile bankacılık geçişindeki 17A–24B, 26A–26B, 28A–28E ve 29A–29B teknik dikeyleri tamamlanmış, 682 birim testi geçmektedir. Repository için veri-minimum güvenli SDLC kontrolleri, 15 BDDK/KVKK kontrolünü eksik/engelli/inceleme bekleyen durumlarıyla ayıran deterministik teknik kanıt manifesti ve saklanan manifesti byte düzeyinde fail-closed doğrulayan drift kapısı uygulanmıştır; sıradaki hazır aday birleşik yerel sürüm ön kontrolüdür.

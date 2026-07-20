@@ -762,6 +762,24 @@ tags:
 - Elektronik imza, WORM/HSM, kurumsal kanıt deposu, CI/CD drift kapısı, eksik
   kontrollerin uygulanması ve banka kabul iş akışı kapsam dışıdır.
 
+### 2026-07-20 — İterasyon 29B: Teknik kanıt manifesti drift doğrulama kapısı
+
+- `BFR-SDLC-002`, `BRULE-004/005` ve `NFR-CMP-002/005` için `29B-v1`
+  fail-closed manifest drift kapısı eklendi.
+- Kapı 29A katalog/kanıtlarından manifesti kanonik baytlarla yeniden üretir ve
+  depodaki sürüm manifestiyle byte düzeyinde karşılaştırır.
+- `MATCH` çıkış kodu `0`, `DRIFT` çıkış kodu `1`, doğrulama veya teknik hata
+  veri-minimum neden koduyla çıkış kodu `2` üretir.
+- Saklanan manifest yalnız sürüm paketi altındaki kanonik `.json` yolundan salt
+  okunur açılır; traversal, mutlak yol, symlink, eksik, düzenli olmayan ve büyük
+  dosya reddedilir.
+- Sonuç yalnız politika, durum ve saklanan/üretilen SHA-256 özetlerini taşır;
+  manifest veya kanıt içeriğini çoğaltmaz.
+- 15 yeni sentetik vakayla güvenli SDLC hedef grubu 184, toplam test sayısı 682
+  oldu. Gerçek 29A artifact'ı aynı SHA-256 özetiyle `MATCH` verdi.
+- CI/CD ürünü, elektronik imza, WORM/HSM, istisna/risk kabulü, release
+  maker-checker ve banka onayı kapsam dışıdır.
+
 ## İlgili Notlar
 
 - [Alınan Kararlar](Alinan-Kararlar.md)
@@ -770,8 +788,8 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B, Iterasyon 28A–28E ve Iterasyon 29A dikeylerinin kodu korunacaktır.
-- `pytest` ile 667 testin geçtiği doğrulanmıştır.
-- İterasyon 19D, 21B, hassas dışa aktarma, saklama/DR ve gerçek SIEM banka kararları nedeniyle engellidir; sıradaki hazır aday teknik kanıt manifesti drift doğrulama kapısıdır.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B, Iterasyon 28A–28E ve Iterasyon 29A–29B dikeylerinin kodu korunacaktır.
+- `pytest` ile 682 testin geçtiği doğrulanmıştır.
+- İterasyon 19D, 21B, hassas dışa aktarma, saklama/DR ve gerçek SIEM banka kararları nedeniyle engellidir; sıradaki hazır aday birleşik yerel sürüm ön kontrolüdür.
 - Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

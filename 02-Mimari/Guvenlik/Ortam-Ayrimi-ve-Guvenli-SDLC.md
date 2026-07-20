@@ -140,3 +140,17 @@ kanonikleştirilir ve tüm kontrol kayıtları tek SHA-256 digest ile bağlanır
 baseline 15 kontrolde 12 `Partial`, 3 `Missing`, 14 açık engel ve 15
 `ComplianceReviewRequired` raporlar. Elektronik imza, WORM/HSM, kurumsal kanıt
 deposu, CI/CD drift kapısı ve banka onay iş akışı kapsam dışıdır.
+
+## Teknik Kanıt Manifest Drift Kapısı
+
+`29B-v1` kapısı 29A katalog ve artifact'larından manifesti aynı kanonik serileştirme
+sözleşmesiyle yeniden üretir. Saklanan manifest yalnız
+`08-Uyum-Kanitlari/Surum-Paketleri/` altındaki repository-relative `.json` yolundan
+salt okunur açılır; mutlak/traversal/non-canonical yol, symlink, eksik, düzenli
+olmayan ve 2 MiB üzeri dosya fail-closed reddedilir.
+
+Bayt eşitliği `MATCH` ve `0`, eşitsizlik `DRIFT` ve `1`, girdi doğrulama veya
+dosya işlemi arızası veri-minimum neden koduyla `2` üretir. Sonuç yalnız politika,
+durum ve saklanan/üretilen SHA-256 özetlerini taşır; manifest veya kanıt içeriğini
+çoğaltmaz. Bu yerel doğrulama CI/CD zorlaması, imza, WORM/HSM, istisna/risk kabulü
+veya banka onayı değildir.

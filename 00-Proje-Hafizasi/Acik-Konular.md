@@ -79,8 +79,12 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
     raporladı: 12 `Partial`, 3 `Missing`, 14 açık engelli ve 15
     `ComplianceReviewRequired`. `CTRL-BDDK-BCP-001`, `CTRL-KVKK-DEL-001` ve
     `CTRL-KVKK-XFER-001` için teknik kanıt yoktur. İmzalama/WORM, kurumsal kanıt
-    deposu, CI/CD drift kapısı, banka karar referansı doğrulaması ve eksik
+    deposu, CI/CD zorlaması, banka karar referansı doğrulaması ve eksik
     kontrollerin uygulanması açık kalır.
+50. `29B-v1` saklanan manifest drift kapısı byte düzeyinde `MATCH/DRIFT` ve ayrı
+    doğrulama/teknik hata yollarıyla teknik olarak doğrulandı. Gerçek CI/CD ürünü
+    ve zorlaması, artifact imzası/değişmez kurumsal depo, istisna/risk kabulü,
+    release maker-checker ve banka kabul iş akışı açık kalır.
 
 ## Bankacılık Geçiş Açık Konuları
 

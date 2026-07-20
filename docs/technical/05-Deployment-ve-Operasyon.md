@@ -4,7 +4,7 @@
 
 Depoda son kullanıcıya hizmet veren uygulama giriş noktası yoktur. `uvicorn`, web
 server, worker daemon, scheduler daemon veya composition root bulunmaz. Çalıştırılabilen
-yüzeyler testler ve iki güvenli SDLC CLI modülüdür.
+yüzeyler testler ve güvenli SDLC CLI modülleridir.
 
 ```bash
 python3 -m pytest -q
@@ -12,6 +12,8 @@ python3 -m ruff check .
 python3 -m compileall -q 03-Backend/src 06-Testler
 PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc .
 PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc.sbom pyproject.toml
+PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc.evidence 08-Uyum-Kanitlari/Surum-Paketleri/Iterasyon-29A-Teknik-Kanit-Katalogu.json .
+PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc.evidence_gate 08-Uyum-Kanitlari/Surum-Paketleri/Iterasyon-29A-Teknik-Kanit-Katalogu.json 08-Uyum-Kanitlari/Surum-Paketleri/Iterasyon-29A-Teknik-Kanit-Manifesti.json .
 ```
 
 `pyproject.toml` proje adı/sürümü, Python sınırı, iki runtime bağımlılığı ve

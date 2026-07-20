@@ -153,6 +153,17 @@ class TechnicalEvidenceManifestBuilder:
             "controls_digest": manifest.controls_digest,
         }
 
+    @classmethod
+    def serialize(cls, manifest: TechnicalEvidenceManifest) -> bytes:
+        """Render the only canonical byte representation used by release checks."""
+        content = json.dumps(
+            cls.to_document(manifest),
+            ensure_ascii=True,
+            indent=2,
+            sort_keys=True,
+        )
+        return f"{content}\n".encode("utf-8")
+
     @staticmethod
     def _build_control(
         record: ControlEvidenceRecord,
@@ -200,10 +211,7 @@ def main(
         _write_error(error_output, "TECHNICAL_ERROR", exc.operation_code)
         return 2
 
-    output.write(
-        json.dumps(builder.to_document(manifest), ensure_ascii=True, indent=2, sort_keys=True)
-    )
-    output.write("\n")
+    output.write(builder.serialize(manifest).decode("utf-8"))
     return 0
 
 
