@@ -28,4 +28,6 @@ Sistem zaman çizelgesi ve kanıt üretir. Kurula veya ilgili kişiye otomatik b
 - Kapsam, önlem ve karar serbest metin yerine kod; kanıtlar içerik yerine UUID referansı olarak saklanır.
 - Veri işleyen kaynaklı şüphede veri sorumlusuna bildirim kanıt referansı zorunludur.
 - Şüpheyi kaydeden ile bildirim kararını kaydeden aktör farklı olmalıdır.
+- İterasyon 26B yalnız güvenilir privacy reviewer ve incident scope'u için veri-minimum zaman çizelgesi görünümü sağlar; actor, scope ve kanıt kimlikleri sonuçtan çıkarılır.
+- Zaman çizelgesi görünümü bekleyen, gecikmiş, zamanında karar ve gecikmiş karar durumlarını gösterir; görüntüleme audit yazılamazsa sonuç verilmez.
 - Gerçek SIEM/SOC, dış bildirim, banka rol eşlemesi ve tatbikat henüz uygulanmamıştır.

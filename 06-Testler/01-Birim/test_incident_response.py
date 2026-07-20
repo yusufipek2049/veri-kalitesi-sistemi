@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timedelta, timezone
 import sqlite3
 from typing import cast
@@ -17,9 +17,11 @@ from veri_kalitesi.audit import (
 from veri_kalitesi.identity import ActorContext, ActorContextIssuer, ActorType
 from veri_kalitesi.incident_response import (
     BreachDecisionDraft,
+    BreachDeadlineStatus,
     BreachNotificationDecision,
     BreachOrigin,
     BreachSuspicionDraft,
+    BreachTimelineQuery,
     IncidentAuthorizationError,
     IncidentConflictError,
     IncidentResponseAccessPolicy,
@@ -378,6 +380,328 @@ def test_technical_repository_failure_is_not_reported_as_breach_or_quality_failu
     assert exc_info.value.correlation_id == "correlation-incident-responder"
 
 
+def test_bfr_ir_002_003_pending_timeline_view_is_authorized_and_data_minimum() -> None:
+    fixture = _fixture()
+    incident_draft = _incident_draft()
+    incident = fixture.service.record_security_incident(incident_draft, fixture.incident_actor)
+    breach_draft = _breach_draft(incident.incident_id)
+    breach = fixture.service.record_breach_suspicion(breach_draft, fixture.privacy_maker)
+
+    view = fixture.service.view_breach_timeline(
+        _timeline_query(breach.breach_id), fixture.privacy_checker
+    )
+
+    assert view.breach_id == breach.breach_id
+    assert view.deadline_status is BreachDeadlineStatus.ASSESSMENT_PENDING
+    assert view.data_category_count == 1
+    assert view.external_notification_dispatched is False
+    assert [item.event_type for item in view.timeline] == [
+        IncidentTimelineEventType.SECURITY_INCIDENT_RECORDED,
+        IncidentTimelineEventType.BREACH_SUSPICION_RECORDED,
+        IncidentTimelineEventType.CONTAINMENT_RECORDED,
+    ]
+    assert set(asdict(view)) == {
+        "breach_id",
+        "learned_at",
+        "evaluation_deadline_at",
+        "assessment_status",
+        "deadline_status",
+        "origin",
+        "data_category_count",
+        "affected_scope_code",
+        "containment_action_code",
+        "processor_notification_evidence_present",
+        "decision",
+        "decided_at",
+        "decision_reason_code",
+        "external_notification_dispatched",
+        "timeline",
+        "generated_at",
+        "policy_version",
+    }
+    serialized = repr(view)
+    assert incident.incident_id not in serialized
+    assert incident.scope_id is not None
+    assert incident.scope_id not in serialized
+    assert incident.recorded_by not in serialized
+    assert breach.recorded_by not in serialized
+    assert incident_draft.evidence_reference_id not in serialized
+    assert breach_draft.evidence_reference_id not in serialized
+
+
+def test_bfr_ir_002_003_decided_timeline_exposes_human_decision_without_evidence() -> None:
+    fixture = _fixture()
+    incident = fixture.service.record_security_incident(_incident_draft(), fixture.incident_actor)
+    breach = fixture.service.record_breach_suspicion(
+        _breach_draft(incident.incident_id), fixture.privacy_maker
+    )
+    decision_draft = _decision_draft(breach.breach_id)
+    fixture.service.record_notification_decision(decision_draft, fixture.privacy_checker)
+
+    view = fixture.service.view_breach_timeline(
+        _timeline_query(breach.breach_id), fixture.privacy_checker
+    )
+
+    assert view.deadline_status is BreachDeadlineStatus.DECIDED_ON_TIME
+    assert view.decision is BreachNotificationDecision.AUTHORITY_NOTIFICATION_REQUIRED
+    assert view.decision_reason_code == "LEGAL_REVIEW_COMPLETED"
+    assert view.decided_at == NOW
+    assert decision_draft.evidence_reference_id not in repr(view)
+    assert view.timeline[-1].event_type is (
+        IncidentTimelineEventType.NOTIFICATION_DECISION_RECORDED
+    )
+
+
+@pytest.mark.parametrize(
+    ("decision_offset", "expected_status"),
+    [
+        (None, BreachDeadlineStatus.ASSESSMENT_OVERDUE),
+        (73, BreachDeadlineStatus.DECIDED_OVERDUE),
+    ],
+)
+def test_bfr_ir_003_overdue_assessment_state_is_visible_without_automatic_action(
+    decision_offset: int | None,
+    expected_status: BreachDeadlineStatus,
+) -> None:
+    fixture = _fixture(now=NOW + timedelta(hours=80))
+    incident = fixture.service.record_security_incident(_incident_draft(), fixture.incident_actor)
+    breach = fixture.service.record_breach_suspicion(
+        replace(_breach_draft(incident.incident_id), learned_at=NOW),
+        fixture.privacy_maker,
+    )
+    if decision_offset is not None:
+        fixture.service.record_notification_decision(
+            replace(
+                _decision_draft(breach.breach_id),
+                decided_at=NOW + timedelta(hours=decision_offset),
+            ),
+            fixture.privacy_checker,
+        )
+
+    view = fixture.service.view_breach_timeline(
+        _timeline_query(breach.breach_id), fixture.privacy_checker
+    )
+
+    assert view.deadline_status is expected_status
+    assert view.external_notification_dispatched is False
+
+
+def test_bfr_ir_004_processor_notice_is_reduced_to_presence_flag_in_view() -> None:
+    fixture = _fixture()
+    incident = fixture.service.record_security_incident(_incident_draft(), fixture.incident_actor)
+    evidence_id = str(uuid4())
+    breach = fixture.service.record_breach_suspicion(
+        replace(
+            _breach_draft(incident.incident_id),
+            origin=BreachOrigin.DATA_PROCESSOR,
+            processor_notification_evidence_id=evidence_id,
+        ),
+        fixture.privacy_maker,
+    )
+
+    view = fixture.service.view_breach_timeline(
+        _timeline_query(breach.breach_id), fixture.privacy_checker
+    )
+
+    assert view.processor_notification_evidence_present is True
+    assert evidence_id not in repr(view)
+
+
+@pytest.mark.parametrize(
+    ("context_kind", "reason_code"),
+    [
+        ("missing", "UNTRUSTED_CONTEXT"),
+        ("roleless", "INCIDENT_ROLE_REQUIRED"),
+        ("privileged", "PRIVILEGED_CONTEXT_NOT_ALLOWED"),
+        ("service", "ACTOR_TYPE_NOT_ALLOWED"),
+    ],
+)
+def test_nfr_sec_001_timeline_authorization_fails_before_repository_read(
+    context_kind: str,
+    reason_code: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _fixture()
+    contexts = {
+        "missing": None,
+        "roleless": _context("roleless-viewer", roles=frozenset()),
+        "privileged": _context(
+            "privileged-viewer",
+            roles=frozenset({"PRIVACY_INCIDENT_REVIEWER"}),
+            privileged=True,
+        ),
+        "service": _context(
+            "service-viewer",
+            roles=frozenset({"PRIVACY_INCIDENT_REVIEWER"}),
+            actor_type=ActorType.SERVICE,
+        ),
+    }
+    calls = 0
+
+    def fail_if_read(breach_id: str) -> object:
+        nonlocal calls
+        calls += 1
+        raise AssertionError("repository must not be read")
+
+    monkeypatch.setattr(fixture.repository, "get_breach_suspicion", fail_if_read)
+
+    with pytest.raises(IncidentAuthorizationError) as exc_info:
+        fixture.service.view_breach_timeline(_timeline_query(str(uuid4())), contexts[context_kind])
+
+    assert exc_info.value.reason_code == reason_code
+    assert calls == 0
+
+
+def test_nfr_sec_001_scope_denial_does_not_read_timeline_and_is_audited(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _fixture()
+    incident = fixture.service.record_security_incident(_incident_draft(), fixture.incident_actor)
+    breach = fixture.service.record_breach_suspicion(
+        _breach_draft(incident.incident_id), fixture.privacy_maker
+    )
+    out_of_scope = _context(
+        "out-of-scope-viewer",
+        roles=frozenset({"PRIVACY_INCIDENT_REVIEWER"}),
+        source_ids=frozenset({SOURCE_B}),
+    )
+    timeline_reads = 0
+    breach_reads = 0
+
+    def fail_if_timeline_read(incident_id: str) -> tuple[object, ...]:
+        nonlocal timeline_reads
+        timeline_reads += 1
+        raise AssertionError("timeline must not be read before scope authorization")
+
+    monkeypatch.setattr(fixture.repository, "list_timeline", fail_if_timeline_read)
+
+    def fail_if_breach_read(breach_id: str) -> object:
+        nonlocal breach_reads
+        breach_reads += 1
+        raise AssertionError("breach must not be read before scope authorization")
+
+    monkeypatch.setattr(fixture.repository, "get_breach_suspicion", fail_if_breach_read)
+
+    with pytest.raises(IncidentAuthorizationError) as exc_info:
+        fixture.service.view_breach_timeline(_timeline_query(breach.breach_id), out_of_scope)
+
+    assert exc_info.value.reason_code == "INCIDENT_SCOPE_DENIED"
+    assert timeline_reads == 0
+    assert breach_reads == 0
+    event = fixture.audit_repository.list_events()[-1]
+    assert event.action == "INCIDENT_RESPONSE_AUTHORIZATION"
+    assert event.reason_code == "INCIDENT_SCOPE_DENIED"
+    assert SOURCE_A not in repr(event)
+
+
+@pytest.mark.parametrize("invalid_kind", ["breach-id", "reason-code"])
+def test_bfr_ir_002_invalid_timeline_query_is_rejected(invalid_kind: str) -> None:
+    fixture = _fixture()
+    queries = {
+        "breach-id": BreachTimelineQuery(breach_id="not-a-uuid", reason_code="PRIVACY_REVIEW"),
+        "reason-code": BreachTimelineQuery(breach_id=str(uuid4()), reason_code="free text"),
+    }
+
+    with pytest.raises(IncidentValidationError):
+        fixture.service.view_breach_timeline(queries[invalid_kind], fixture.privacy_checker)
+
+
+def test_nfr_sec_008_timeline_view_audit_is_data_minimum() -> None:
+    fixture = _fixture()
+    incident = fixture.service.record_security_incident(_incident_draft(), fixture.incident_actor)
+    breach = fixture.service.record_breach_suspicion(
+        _breach_draft(incident.incident_id), fixture.privacy_maker
+    )
+
+    fixture.service.view_breach_timeline(_timeline_query(breach.breach_id), fixture.privacy_checker)
+
+    event = fixture.audit_repository.list_events()[-1]
+    assert event.action == "PERSONAL_DATA_BREACH_TIMELINE_VIEWED"
+    assert event.new_value_summary == {
+        "assessment_status": "ASSESSMENT_PENDING",
+        "data_category_count": 1,
+        "deadline_status": "ASSESSMENT_PENDING",
+        "external_notification_dispatched": False,
+        "policy_version": INCIDENT_POLICY_VERSION,
+        "processor_notification_evidence_present": False,
+        "query_reason_code": "PRIVACY_REVIEW",
+        "timeline_event_count": 3,
+    }
+    serialized = repr(event)
+    assert incident.scope_id is not None
+    assert incident.scope_id not in serialized
+    assert breach.evidence_reference_id not in serialized
+    assert breach.recorded_by not in serialized
+
+
+def test_bfr_aud_004_timeline_view_is_fail_closed_when_audit_stage_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _fixture()
+    incident = fixture.service.record_security_incident(_incident_draft(), fixture.incident_actor)
+    breach = fixture.service.record_breach_suspicion(
+        _breach_draft(incident.incident_id), fixture.privacy_maker
+    )
+
+    def fail_stage(event: object) -> None:
+        raise sqlite3.OperationalError("synthetic audit outage")
+
+    monkeypatch.setattr(fixture.transactional_audit, "stage", fail_stage)
+
+    with pytest.raises(IncidentTechnicalError):
+        fixture.service.view_breach_timeline(
+            _timeline_query(breach.breach_id), fixture.privacy_checker
+        )
+
+
+def test_corrupted_or_duplicate_timeline_is_rejected_as_technical_failure() -> None:
+    fixture = _fixture()
+    incident = fixture.service.record_security_incident(_incident_draft(), fixture.incident_actor)
+    breach = fixture.service.record_breach_suspicion(
+        _breach_draft(incident.incident_id), fixture.privacy_maker
+    )
+    fixture.repository.connection.execute(
+        """
+        INSERT INTO incident_timeline (
+            timeline_id, incident_id, breach_id, event_type, event_at,
+            actor_id, reason_code, evidence_reference_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            str(uuid4()),
+            incident.incident_id,
+            breach.breach_id,
+            IncidentTimelineEventType.CONTAINMENT_RECORDED.value,
+            NOW.isoformat(),
+            "synthetic-actor",
+            "DUPLICATE_EVENT",
+            str(uuid4()),
+        ),
+    )
+    fixture.repository.connection.commit()
+
+    with pytest.raises(IncidentTechnicalError):
+        fixture.service.view_breach_timeline(
+            _timeline_query(breach.breach_id), fixture.privacy_checker
+        )
+
+
+def test_timeline_repository_failure_is_classified_as_technical_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fixture = _fixture()
+
+    def fail_read(breach_id: str) -> object:
+        raise sqlite3.OperationalError("synthetic repository outage")
+
+    monkeypatch.setattr(fixture.repository, "get_breach_incident_scope", fail_read)
+
+    with pytest.raises(IncidentTechnicalError) as exc_info:
+        fixture.service.view_breach_timeline(_timeline_query(str(uuid4())), fixture.privacy_checker)
+
+    assert exc_info.value.correlation_id == "correlation-privacy-checker"
+
+
 @dataclass(frozen=True)
 class IncidentFixture:
     service: IncidentResponseService
@@ -426,6 +750,7 @@ def _context(
     roles: frozenset[str],
     privileged: bool = False,
     actor_type: ActorType = ActorType.USER,
+    source_ids: frozenset[str] = frozenset({SOURCE_A}),
 ) -> ActorContext:
     return ActorContextIssuer().issue(
         actor_id=actor_id,
@@ -433,7 +758,7 @@ def _context(
         authentication_source="synthetic-identity-adapter",
         session_id=f"synthetic-session-{actor_id}",
         roles=roles,
-        permitted_source_ids=frozenset({SOURCE_A}),
+        permitted_source_ids=source_ids,
         permitted_dataset_ids=frozenset({"dataset-a"}),
         can_view_enterprise=False,
         privileged=privileged,
@@ -477,3 +802,7 @@ def _decision_draft(breach_id: str) -> BreachDecisionDraft:
         reason_code="LEGAL_REVIEW_COMPLETED",
         evidence_reference_id=str(uuid4()),
     )
+
+
+def _timeline_query(breach_id: str) -> BreachTimelineQuery:
+    return BreachTimelineQuery(breach_id=breach_id, reason_code="PRIVACY_REVIEW")

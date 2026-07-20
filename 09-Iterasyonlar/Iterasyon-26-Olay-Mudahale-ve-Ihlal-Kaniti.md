@@ -30,6 +30,20 @@ Durum: `TechnicallyVerified`
 
 Kanıt: [[08-Uyum-Kanitlari/Olay-Mudahale/Iterasyon-26A-Veri-Minimum-Ihlal-Suphesi-Kaniti]]
 
-## Sıradaki Dilim
+## 26B — Yetki filtreli ihlal zaman çizelgesi inceleme
 
-`26B` yalnız güvenilir ve kapsam içi privacy reviewer için veri-minimum ihlal zaman çizelgesi inceleme sorgusudur.
+Durum: `TechnicallyVerified`
+
+### Kabul Sonucu
+
+- Yalnız güvenilir, ayrıcalıksız privacy reviewer ve gerçek incident scope'u görünümü açabilir.
+- Görünüm 72 saat durumunu ve kodlanmış timeline olaylarını gösterir.
+- Actor, scope, incident, timeline, decision ve kanıt kimlikleri sonuçta yer almaz.
+- Başarılı görüntüleme veri-minimum auditlenir; audit-stage arızası fail-closed davranır.
+- Gecikme veya karar hiçbir dış bildirim adaptörünü çağırmaz.
+
+Kanıt: [[08-Uyum-Kanitlari/Olay-Mudahale/Iterasyon-26B-Yetki-Filtreli-Ihlal-Zaman-Cizelgesi-Kaniti]]
+
+## Kalan Dilim
+
+Gerçek SIEM/SOC projeksiyonu ve eskalasyon akışı `OPEN-BNK-010` nedeniyle engellidir.

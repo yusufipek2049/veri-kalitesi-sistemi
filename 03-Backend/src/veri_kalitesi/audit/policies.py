@@ -108,6 +108,18 @@ def build_default_redaction_policy() -> AuditRedactionPolicy:
                     "external_notification_dispatched",
                 }
             ),
+            "PERSONAL_DATA_BREACH_TIMELINE_VIEWED": frozenset(
+                {
+                    "policy_version",
+                    "query_reason_code",
+                    "assessment_status",
+                    "deadline_status",
+                    "timeline_event_count",
+                    "data_category_count",
+                    "processor_notification_evidence_present",
+                    "external_notification_dispatched",
+                }
+            ),
             "DATA_SOURCE_CREATED": frozenset({"source_type", "status"}),
             "DATA_SOURCE_CONNECTION_TESTED": frozenset({"succeeded", "duration_ms", "error_class"}),
             "DATA_SOURCE_METADATA_DISCOVERED": frozenset(

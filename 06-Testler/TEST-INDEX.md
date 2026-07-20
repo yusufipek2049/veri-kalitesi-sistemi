@@ -29,5 +29,5 @@ tags:
 
 ## Güncel Otomasyon Baseline'ı
 
-- 482 birim testi geçmektedir.
-- `incident_response` hedef grubu, güvenlik olayı/ihlal ayrımı, 72 saat hedefi, veri işleyen kanıtı, maker-checker kararı, yetki/scope redleri, audit minimizasyonu ve rollback için 23 sentetik vaka içerir.
+- 498 birim testi geçmektedir.
+- `incident_response` hedef grubu, güvenlik olayı/ihlal ayrımı, 72 saat hedefi, veri işleyen kanıtı, maker-checker kararı, yetki/scope redleri, veri-minimum timeline görünümü, audit minimizasyonu ve rollback için 39 sentetik vaka içerir.

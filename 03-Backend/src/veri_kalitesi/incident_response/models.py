@@ -57,6 +57,13 @@ class IncidentTimelineEventType(str, Enum):
     NOTIFICATION_DECISION_RECORDED = "NOTIFICATION_DECISION_RECORDED"
 
 
+class BreachDeadlineStatus(str, Enum):
+    ASSESSMENT_PENDING = "ASSESSMENT_PENDING"
+    ASSESSMENT_OVERDUE = "ASSESSMENT_OVERDUE"
+    DECIDED_ON_TIME = "DECIDED_ON_TIME"
+    DECIDED_OVERDUE = "DECIDED_OVERDUE"
+
+
 @dataclass(frozen=True)
 class IncidentResponseAccessPolicy:
     version: str
@@ -94,6 +101,13 @@ class SecurityIncident:
     evidence_reference_id: str
     recorded_by: str
     recorded_at: datetime
+
+
+@dataclass(frozen=True)
+class SecurityIncidentScope:
+    incident_id: str
+    scope_type: IncidentScopeType
+    scope_id: str | None
 
 
 @dataclass(frozen=True)
@@ -157,3 +171,37 @@ class IncidentTimelineEntry:
     actor_id: str
     reason_code: str
     evidence_reference_id: str
+
+
+@dataclass(frozen=True)
+class BreachTimelineQuery:
+    breach_id: str
+    reason_code: str
+
+
+@dataclass(frozen=True)
+class BreachTimelineEventView:
+    event_type: IncidentTimelineEventType
+    event_at: datetime
+    reason_code: str
+
+
+@dataclass(frozen=True)
+class BreachTimelineView:
+    breach_id: str
+    learned_at: datetime
+    evaluation_deadline_at: datetime
+    assessment_status: BreachAssessmentStatus
+    deadline_status: BreachDeadlineStatus
+    origin: BreachOrigin
+    data_category_count: int
+    affected_scope_code: str
+    containment_action_code: str
+    processor_notification_evidence_present: bool
+    decision: BreachNotificationDecision | None
+    decided_at: datetime | None
+    decision_reason_code: str | None
+    external_notification_dispatched: bool
+    timeline: tuple[BreachTimelineEventView, ...]
+    generated_at: datetime
+    policy_version: str

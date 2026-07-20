@@ -633,6 +633,19 @@ tags:
 - Kanıt `08-Uyum-Kanitlari/Olay-Mudahale/Iterasyon-26A-Veri-Minimum-Ihlal-Suphesi-Kaniti.md` içinde `TechnicallyVerified` olarak kaydedildi.
 - Gerçek SIEM/SOC adaptörü, banka onaylı olay/rol sözlüğü, serbest açıklama veya ham kanıt içeriği, HTTP/UI, dış bildirim, saklama/imha ve hukuk/uyum kararı kapsam dışıdır; `OPEN-BNK-001`, `OPEN-BNK-002`, `OPEN-BNK-004`, `OPEN-BNK-008` ve `OPEN-BNK-010` açık kalır.
 
+### 2026-07-20 — İterasyon 26B: Yetki filtreli ihlal zaman çizelgesi inceleme
+
+- `BFR-IR-002/003`, `CTRL-KVKK-BREACH-001`, `NFR-PRV-001/002/005` ve `NFR-SEC-001/005/008/011` için veri-minimum ihlal zaman çizelgesi sorgusu tamamlandı.
+- Yalnız güvenilir, geçerli, ayrıcalıksız `USER` context'i ve `PRIVACY_INCIDENT_REVIEWER` rolü sorgu yapabilir. Gerçek incident scope'u repository kaydından çözülür; eksik/sahte, rolesiz, servis, ayrıcalıklı ve scope dışı erişim fail-closed reddedilir.
+- Görünüm ihlal kimliği, öğrenilme/değerlendirme zamanı, değerlendirme ve 72 saat durumu, veri-minimum kapsam/önlem kodları, kategori sayısı, kanıt varlık bayrağı ve olay türü/zaman/kod dizisini döndürür.
+- Incident/scope/actor/timeline/decision kimlikleri ile tüm kanıt UUID'leri görünüm sözleşmesinde bulunmaz. Veri işleyen bildirim kanıtı yalnız var/yok bayrağına indirgenir.
+- `ASSESSMENT_PENDING`, `ASSESSMENT_OVERDUE`, `DECIDED_ON_TIME` ve `DECIDED_OVERDUE` durumları öğrenilme zamanı ve insan kararı üzerinden deterministik hesaplanır; hiçbir durum dış bildirim tetiklemez.
+- Timeline kapsam, bağlantı, zorunlu/tekil olay, zaman ve kod bütünlüğü savunmacı olarak doğrulanır. Bozuk veya yinelenen timeline teknik hata olur; veri kalitesi ya da ihlal kararı sayılmaz.
+- Başarılı görüntüleme yalnız kodlanmış gerekçe, durumlar ve sayısal/bool özetlerle auditlenir. Audit stage arızasında görünüm fail-closed verilmez.
+- On altı yeni test vakasıyla toplam 498 test geçti. Hedef format/lint/mypy, depo lint ve derleme kontrolleri geçti; tam depo format ve mypy bakiyeleri değişmedi.
+- Kanıt `08-Uyum-Kanitlari/Olay-Mudahale/Iterasyon-26B-Yetki-Filtreli-Ihlal-Zaman-Cizelgesi-Kaniti.md` içinde `TechnicallyVerified` olarak kaydedildi.
+- HTTP/UI, ham kanıt görüntüleme, gerçek SIEM/SOC, banka rol/olay sözlüğü, dış bildirim ve saklama/imha kapsam dışıdır; `OPEN-BNK-001`, `OPEN-BNK-002`, `OPEN-BNK-008` ve `OPEN-BNK-010` açık kalır.
+
 ## İlgili Notlar
 
 - [[00-Proje-Hafizasi/Alinan-Kararlar|Alınan Kararlar]]
@@ -641,8 +654,8 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B ve Iterasyon 26A dikeylerinin kodu korunacaktır.
-- `pytest` ile 482 testin geçtiği doğrulanmıştır.
-- İterasyon 19D, 21B ve hassas dışa aktarma banka kararları nedeniyle engellidir; sıradaki hazır aday yetki filtreli ihlal zaman çizelgesi incelemesidir.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B ve Iterasyon 26A–26B dikeylerinin kodu korunacaktır.
+- `pytest` ile 498 testin geçtiği doğrulanmıştır.
+- İterasyon 19D, 21B, hassas dışa aktarma, saklama/DR ve gerçek SIEM banka kararları nedeniyle engellidir; sıradaki hazır aday yerel secret tarama sözleşmesidir.
 - Geçiş ayrıntıları için [[00-Proje-Hafizasi/Bankacilik-Gecis-Durumu|Bankacılık Geçiş Durumu]] esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

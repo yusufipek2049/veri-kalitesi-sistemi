@@ -24,11 +24,15 @@ from veri_kalitesi.incident_response.errors import (
 )
 from veri_kalitesi.incident_response.models import (
     BreachAssessmentStatus,
+    BreachDeadlineStatus,
     BreachDecisionDraft,
     BreachNotificationDecision,
     BreachNotificationDecisionRecord,
     BreachOrigin,
     BreachSuspicionDraft,
+    BreachTimelineEventView,
+    BreachTimelineQuery,
+    BreachTimelineView,
     IncidentResponseAccessPolicy,
     IncidentScopeType,
     IncidentSeverity,
@@ -39,6 +43,7 @@ from veri_kalitesi.incident_response.models import (
     PersonalDataCategory,
     SecurityIncident,
     SecurityIncidentDraft,
+    SecurityIncidentScope,
 )
 from veri_kalitesi.incident_response.repository import SQLiteIncidentResponseRepository
 
@@ -300,6 +305,109 @@ class IncidentResponseService:
         self.transactional_audit.publish_pending()
         return decision
 
+    def view_breach_timeline(
+        self,
+        query: BreachTimelineQuery,
+        actor_context: ActorContext | None,
+    ) -> BreachTimelineView:
+        now = self._now()
+        context = self._authorize(actor_context, self.access_policy.privacy_roles, now)
+        _validate_timeline_query(query)
+        try:
+            incident_scope = self.repository.get_breach_incident_scope(query.breach_id)
+        except IncidentNotFoundError:
+            raise
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+            raise IncidentTechnicalError(context.correlation_id) from exc
+        try:
+            _require_scope_reference(context, incident_scope)
+        except IncidentAuthorizationError as exc:
+            self._record_denial(context, exc.reason_code, now)
+            raise
+        try:
+            breach = self.repository.get_breach_suspicion(query.breach_id)
+            incident = self.repository.get_incident(breach.incident_id)
+        except IncidentNotFoundError:
+            raise
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+            raise IncidentTechnicalError(context.correlation_id) from exc
+        if incident.incident_id != incident_scope.incident_id:
+            raise IncidentTechnicalError(context.correlation_id)
+        try:
+            decision = self.repository.get_breach_decision(breach.breach_id)
+            timeline = self.repository.list_timeline(incident.incident_id)
+        except (sqlite3.Error, OSError, ValueError, TypeError) as exc:
+            raise IncidentTechnicalError(context.correlation_id) from exc
+        if not _timeline_is_valid(timeline, incident, breach, decision, now):
+            raise IncidentTechnicalError(context.correlation_id)
+        deadline_status = _deadline_status(breach, decision, now)
+        view = BreachTimelineView(
+            breach_id=breach.breach_id,
+            learned_at=breach.learned_at,
+            evaluation_deadline_at=breach.evaluation_deadline_at,
+            assessment_status=breach.status,
+            deadline_status=deadline_status,
+            origin=breach.origin,
+            data_category_count=len(breach.data_categories),
+            affected_scope_code=breach.affected_scope_code,
+            containment_action_code=breach.containment_action_code,
+            processor_notification_evidence_present=(
+                breach.processor_notification_evidence_id is not None
+            ),
+            decision=decision.decision if decision is not None else None,
+            decided_at=decision.decided_at if decision is not None else None,
+            decision_reason_code=decision.reason_code if decision is not None else None,
+            external_notification_dispatched=False,
+            timeline=tuple(
+                BreachTimelineEventView(
+                    event_type=entry.event_type,
+                    event_at=entry.event_at,
+                    reason_code=entry.reason_code,
+                )
+                for entry in sorted(
+                    timeline,
+                    key=lambda item: (item.event_at, item.event_type.value),
+                )
+            ),
+            generated_at=now,
+            policy_version=self.access_policy.version,
+        )
+        self._record_timeline_view(context, query, view, now)
+        return view
+
+    def _record_timeline_view(
+        self,
+        context: ActorContext,
+        query: BreachTimelineQuery,
+        view: BreachTimelineView,
+        occurred_at: datetime,
+    ) -> None:
+        audit = self._prepare_audit(
+            context,
+            action="PERSONAL_DATA_BREACH_TIMELINE_VIEWED",
+            object_type="PersonalDataBreachTimeline",
+            object_id=view.breach_id,
+            reason_code="QUERY_COMPLETED",
+            values={
+                "policy_version": self.access_policy.version,
+                "query_reason_code": query.reason_code,
+                "assessment_status": view.assessment_status.value,
+                "deadline_status": view.deadline_status.value,
+                "timeline_event_count": len(view.timeline),
+                "data_category_count": view.data_category_count,
+                "processor_notification_evidence_present": (
+                    view.processor_notification_evidence_present
+                ),
+                "external_notification_dispatched": False,
+            },
+            occurred_at=occurred_at,
+        )
+        try:
+            self.repository.record_audit(audit, self.transactional_audit)
+            self.transactional_audit.publish_pending()
+        except Exception as exc:
+            raise IncidentTechnicalError(context.correlation_id) from exc
+
     def _authorize(
         self,
         context: ActorContext | None,
@@ -462,13 +570,101 @@ def _validate_decision_draft(draft: BreachDecisionDraft, now: datetime) -> None:
         raise IncidentValidationError("Breach decision reason code is invalid.")
 
 
+def _validate_timeline_query(query: BreachTimelineQuery) -> None:
+    _require_uuid(query.breach_id, "breach")
+    if not _valid_code(query.reason_code):
+        raise IncidentValidationError("Breach timeline query reason code is invalid.")
+
+
+def _timeline_is_valid(
+    timeline: tuple[IncidentTimelineEntry, ...],
+    incident: SecurityIncident,
+    breach: PersonalDataBreachSuspicion,
+    decision: BreachNotificationDecisionRecord | None,
+    now: datetime,
+) -> bool:
+    if not 3 <= len(timeline) <= 5:
+        return False
+    event_types = tuple(entry.event_type for entry in timeline)
+    required = {
+        IncidentTimelineEventType.SECURITY_INCIDENT_RECORDED,
+        IncidentTimelineEventType.BREACH_SUSPICION_RECORDED,
+        IncidentTimelineEventType.CONTAINMENT_RECORDED,
+    }
+    if not required.issubset(event_types) or len(set(event_types)) != len(event_types):
+        return False
+    if (IncidentTimelineEventType.NOTIFICATION_DECISION_RECORDED in event_types) != (
+        decision is not None
+    ):
+        return False
+    processor_event_present = (
+        IncidentTimelineEventType.PROCESSOR_NOTICE_EVIDENCE_RECORDED in event_types
+    )
+    if processor_event_present != (breach.processor_notification_evidence_id is not None):
+        return False
+    for entry in timeline:
+        if entry.incident_id != incident.incident_id:
+            return False
+        if entry.event_type is IncidentTimelineEventType.SECURITY_INCIDENT_RECORDED:
+            if entry.breach_id is not None:
+                return False
+        elif entry.breach_id != breach.breach_id:
+            return False
+        if not _timezone_aware(entry.event_at) or entry.event_at > now:
+            return False
+        if not _valid_code(entry.reason_code):
+            return False
+    return True
+
+
+def _deadline_status(
+    breach: PersonalDataBreachSuspicion,
+    decision: BreachNotificationDecisionRecord | None,
+    now: datetime,
+) -> BreachDeadlineStatus:
+    if decision is None:
+        return (
+            BreachDeadlineStatus.ASSESSMENT_OVERDUE
+            if now > breach.evaluation_deadline_at
+            else BreachDeadlineStatus.ASSESSMENT_PENDING
+        )
+    return (
+        BreachDeadlineStatus.DECIDED_OVERDUE
+        if decision.decided_at > breach.evaluation_deadline_at
+        else BreachDeadlineStatus.DECIDED_ON_TIME
+    )
+
+
 def _require_scope(context: ActorContext, incident: SecurityIncident) -> None:
-    if incident.scope_type is IncidentScopeType.ENTERPRISE:
+    _require_scope_values(
+        context,
+        incident.scope_type,
+        incident.scope_id,
+    )
+
+
+def _require_scope_reference(
+    context: ActorContext,
+    incident_scope: SecurityIncidentScope,
+) -> None:
+    _require_scope_values(
+        context,
+        incident_scope.scope_type,
+        incident_scope.scope_id,
+    )
+
+
+def _require_scope_values(
+    context: ActorContext,
+    scope_type: IncidentScopeType,
+    scope_id: str | None,
+) -> None:
+    if scope_type is IncidentScopeType.ENTERPRISE:
         allowed = context.can_view_enterprise
-    elif incident.scope_type is IncidentScopeType.SOURCE:
-        allowed = incident.scope_id in context.permitted_source_ids
+    elif scope_type is IncidentScopeType.SOURCE:
+        allowed = scope_id in context.permitted_source_ids
     else:
-        allowed = incident.scope_id in context.permitted_dataset_ids
+        allowed = scope_id in context.permitted_dataset_ids
     if not allowed:
         raise IncidentAuthorizationError("INCIDENT_SCOPE_DENIED", context.correlation_id)
 

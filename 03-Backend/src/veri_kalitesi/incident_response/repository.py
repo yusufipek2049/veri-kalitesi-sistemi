@@ -23,6 +23,7 @@ from veri_kalitesi.incident_response.models import (
     PersonalDataBreachSuspicion,
     PersonalDataCategory,
     SecurityIncident,
+    SecurityIncidentScope,
 )
 
 
@@ -232,6 +233,24 @@ class SQLiteIncidentResponseRepository:
         if row is None:
             raise IncidentNotFoundError("Security incident was not found.")
         return _incident_from_row(row)
+
+    def get_breach_incident_scope(self, breach_id: str) -> SecurityIncidentScope:
+        row = self.connection.execute(
+            """
+            SELECT incident.incident_id, incident.scope_type, incident.scope_id
+            FROM personal_data_breach_suspicions breach
+            JOIN security_incidents incident ON incident.incident_id = breach.incident_id
+            WHERE breach.breach_id = ?
+            """,
+            (breach_id,),
+        ).fetchone()
+        if row is None:
+            raise IncidentNotFoundError("Breach suspicion was not found.")
+        return SecurityIncidentScope(
+            incident_id=row["incident_id"],
+            scope_type=IncidentScopeType(row["scope_type"]),
+            scope_id=row["scope_id"],
+        )
 
     def get_breach_suspicion(self, breach_id: str) -> PersonalDataBreachSuspicion:
         row = self.connection.execute(
