@@ -25,7 +25,7 @@ Mevcut 16 iterasyonun, Iterasyon 17A–17E audit, Iterasyon 18A–18C veri korum
 7. İterasyon 25 — Saklama, imha, legal hold ve arşivleme.
 8. İterasyon 26 — 26A kayıt/karar ve 26B yetki filtreli timeline inceleme `TechnicallyVerified`; gerçek SIEM/SOC `OPEN-BNK-010` nedeniyle engelli.
 9. İterasyon 27 — Ortam ayrılığı, yedekleme, geri yükleme ve DR kanıtları.
-10. İterasyon 28 — Güvenli SDLC, bağımlılık/secret taraması, SBOM ve sızma testi hazırlığı.
+10. İterasyon 28 — 28A yerel veri-minimum secret taraması `TechnicallyVerified`; bağımlılık/SBOM, SAST ve sızma testi hazırlığı açık.
 11. İterasyon 29 — Banka kabul ve uyum kanıt paketi.
 
 ## Geçiş Backlogu
@@ -43,7 +43,7 @@ Mevcut 16 iterasyonun, Iterasyon 17A–17E audit, Iterasyon 18A–18C veri korum
 | 25 | Saklama/imha/legal hold | `RULE-014`, `BFR-LCM-001`–`BFR-LCM-004` | Kayıt türü bazlı politika; imha ve geri çağırma kanıtı | Banka hukuk/uyum kararı |
 | 26 | SIEM ve ihlal kanıtı | `NFR-OBS-*`, `BFR-IR-001`–`BFR-IR-004` | Güvenlik olayları ve ihlal zaman çizelgesi; otomatik Kurul bildirimi yok | 26A–26B `TechnicallyVerified`; gerçek SIEM/SOC `OPEN-BNK-010` ile engelli |
 | 27 | DR ve ortam ayrılığı | `NFR-DR-*`, `BFR-OPS-001`–`BFR-OPS-004` | Banka onaylı RTO/RPO; restore testi ve ortam ayrımı kanıtı | Altyapı kararı |
-| 28 | Güvenli SDLC ve pentest hazırlığı | `NFR-SEC-*`, `BFR-SDLC-001`–`BFR-SDLC-005` | SAST, secret/dependency taraması, SBOM ve pentest kapsamı | CI/CD kararı |
+| 28 | Güvenli SDLC ve pentest hazırlığı | `NFR-SEC-*`, `BFR-SDLC-001`–`BFR-SDLC-005` | SAST, secret/dependency taraması, SBOM ve pentest kapsamı | 28A yerel secret taraması `TechnicallyVerified`; kalan dilimler açık |
 | 29 | Banka kabul paketi | Tüm `BFR-*` ve `CTRL-*` | Teknik kanıtlar tamam; banka onayları ayrı durumda | Önceki geçişler |
 
 ## Mevcut MVP Backlogundan Korunan İşler
@@ -57,9 +57,9 @@ Mevcut 16 iterasyonun, Iterasyon 17A–17E audit, Iterasyon 18A–18C veri korum
 
 ## Önerilen Sonraki İterasyon
 
-**İterasyon 28A — Yerel veri-minimum secret tarama sözleşmesi.**
+**İterasyon 28B — Deterministik yerel bağımlılık envanteri ve SBOM başlangıç paketi.**
 
-`BFR-SDLC-001/002`, `NFR-SEC-005/012` üzerinden repository dosyalarını salt okunur tarayan, gerçek secret değerini çıktıya yazmayan, yalnız dosya/yol ve bulgu kodu üreten yerel bir tarama sözleşmesi oluştur. Binary, `.git`, cache, build ve bağımlılık klasörlerini dışla; sentetik fixture ile gerçek pozitif/yanlış pozitif davranışını test et. CI/CD ürünü, harici tarayıcı servisi, dependency/SBOM ve pipeline zorlamasını bu dilime alma.
+`BFR-SDLC-001/002/004` ve `NFR-SEC-012` üzerinden yalnız repository'de beyan edilmiş Python bağımlılıklarını salt okunur okuyup deterministik, sürümle ilişkilendirilebilir bir bileşen listesi üret. Çıktıda secret, yerel yol veya kullanıcı bilgisi bulunmasın; eksik/çelişkili sürüm beyanını teknik olarak başarısız say. Ağ tabanlı zafiyet sorgusu, harici SBOM ürünü, CI/CD zorlaması ve banka ürün seçimini bu dilime alma.
 
 ## Başlangıç İçin Okunacak Notlar
 

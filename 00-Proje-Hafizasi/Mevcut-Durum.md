@@ -646,6 +646,17 @@ tags:
 - Kanıt `08-Uyum-Kanitlari/Olay-Mudahale/Iterasyon-26B-Yetki-Filtreli-Ihlal-Zaman-Cizelgesi-Kaniti.md` içinde `TechnicallyVerified` olarak kaydedildi.
 - HTTP/UI, ham kanıt görüntüleme, gerçek SIEM/SOC, banka rol/olay sözlüğü, dış bildirim ve saklama/imha kapsam dışıdır; `OPEN-BNK-001`, `OPEN-BNK-002`, `OPEN-BNK-008` ve `OPEN-BNK-010` açık kalır.
 
+### 2026-07-20 — İterasyon 28A: Yerel veri-minimum secret tarama sözleşmesi
+
+- `BFR-SDLC-001/002` ve `NFR-SEC-005/012` için repository dosyalarını salt okunur inceleyen `secure_sdlc` paketi ve CLI eklendi.
+- Sürümlü `28A-v1` politika `.git`, cache, build ve bağımlılık dizinlerini dışlar; binary, büyük, düzenli olmayan ve sembolik bağlantılı dosyaları taramaz.
+- Bulgular yalnız göreli dosya yolu, satır/sütun ve kural kodu taşır. Eşleşen değer, satır içeriği ve ham işletim sistemi hatası sonuç modeline veya CLI çıktısına alınmaz.
+- Temiz, bulgulu ve teknik olarak tamamlanamayan taramalar sırasıyla `0`, `1` ve `2` çıkış kodlarıyla ayrılır; okuma hatası temiz tarama sayılamaz.
+- On üç sentetik testle gerçek pozitif/yanlış pozitif, dışlama, salt okunurluk, deterministik sıra, redaksiyon ve teknik hata yolları doğrulandı; toplam 511 test geçti.
+- Yerel repository taraması 303 metin dosyasında `CLEAN` sonucu verdi. Hedef format/lint/mypy, depo lint ve derleme kontrolleri geçti. Tam depo format kontrolündeki dört eski dosya ve tam mypy kontrolündeki yedi dosyada 27 eski hata değişmedi.
+- Kanıt `08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28A-Yerel-Veri-Minimum-Secret-Tarama-Kaniti.md` içinde `TechnicallyVerified` olarak kaydedildi.
+- CI/CD zorlaması, harici tarayıcı, geçmiş commit taraması, bağımlılık/SAST/DAST taraması, SBOM ve pentest kapsam dışıdır; ürün/eşik/istisna politikası `ComplianceReviewRequired` kalır.
+
 ## İlgili Notlar
 
 - [[00-Proje-Hafizasi/Alinan-Kararlar|Alınan Kararlar]]
@@ -654,8 +665,8 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B ve Iterasyon 26A–26B dikeylerinin kodu korunacaktır.
-- `pytest` ile 498 testin geçtiği doğrulanmıştır.
-- İterasyon 19D, 21B, hassas dışa aktarma, saklama/DR ve gerçek SIEM banka kararları nedeniyle engellidir; sıradaki hazır aday yerel secret tarama sözleşmesidir.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B ve Iterasyon 28A dikeylerinin kodu korunacaktır.
+- `pytest` ile 511 testin geçtiği doğrulanmıştır.
+- İterasyon 19D, 21B, hassas dışa aktarma, saklama/DR ve gerçek SIEM banka kararları nedeniyle engellidir; sıradaki hazır aday yerel bağımlılık envanteri ve SBOM başlangıç paketidir.
 - Geçiş ayrıntıları için [[00-Proje-Hafizasi/Bankacilik-Gecis-Durumu|Bankacılık Geçiş Durumu]] esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

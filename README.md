@@ -33,4 +33,4 @@ Bu vault, SRS dokümanını görev bazında küçük bağlam parçalarıyla kull
 
 ## Güncel Geliştirme Baseline'ı
 
-İterasyon 1–16 ile bankacılık geçişindeki 17A–24B ve 26A–26B teknik dikeyleri tamamlanmış, 498 birim testi geçmektedir. İhlal zaman çizelgesi güvenilir rol/scope ile veri-minimum incelenmektedir; sıradaki hazır aday yerel secret tarama sözleşmesidir.
+İterasyon 1–16 ile bankacılık geçişindeki 17A–24B, 26A–26B ve 28A teknik dikeyleri tamamlanmış, 511 birim testi geçmektedir. Repository için eşleşen değeri açığa çıkarmayan yerel secret tarama sözleşmesi uygulanmıştır; sıradaki hazır aday yerel bağımlılık envanteri ve SBOM başlangıç paketidir.

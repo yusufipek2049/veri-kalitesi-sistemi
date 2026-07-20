@@ -106,6 +106,14 @@ tags:
 | 2026-07-20 | İhlal zaman çizelgesi görünümü kalıcı domain modellerini doğrudan döndürmeyecek; actor, scope, incident, timeline, decision ve kanıt kimliklerini çıkartan ayrı veri-minimum projeksiyon kullanacaktır. | Yetkili inceleme bile görev için gereksiz kimlik ve kanıt referanslarını çoğaltmamalıdır. | Repository modellerini doğrudan döndürmek veya yalnız UI katmanında maskelemek. | Sızıntı yapısal olarak servis sözleşmesinde engellenir; veri işleyen kanıtı yalnız varlık bayrağıdır. |
 | 2026-07-20 | 72 saat görünümü bekleyen/gecikmiş ve zamanında/gecikmiş karar durumlarını hesaplayacak; hiçbir durum dış aksiyon üretmeyecektir. | Zaman hedefi görünür olmalı ancak hukuki karar ve bildirim yetkili insan sürecinde kalmalıdır. | Yalnız kalan süre göstermek veya gecikmede otomatik bildirim göndermek. | Dört deterministik durum döner; `external_notification_dispatched=false` sabittir ve görüntüleme auditlidir. |
 
+## 2026-07-20 İterasyon 28A Kararları
+
+| Tarih | Karar | Gerekçe | Alternatif | Sonuç |
+| --- | --- | --- | --- | --- |
+| 2026-07-20 | İlk secret tarama dilimi bağımsız ve salt okunur yerel Python kontrolü olacak; pipeline veya harici ürün seçmeyecektir. | CI/CD ürünü ve banka eşikleri açıkken yerel, test edilebilir bir güvenlik tabanı üretmek gerekir. | Kurumsal ürünü varsaymak, harici servis bağlamak veya tüm güvenli SDLC kapsamını tek iterasyonda uygulamak. | `28A-v1` komutu yerelde çalışır; pipeline, geçmiş commit ve ürün entegrasyonu ayrı kalır. |
+| 2026-07-20 | Bulgu sözleşmesi yalnız göreli yol, satır/sütun ve kural kodu taşıyacak; eşleşen değer ve satır içeriği hiçbir sonuçta bulunmayacaktır. | Güvenlik kontrolünün kendisi secret'ı loga veya kanıta çoğaltmamalıdır. | Eşleşen satırı maskeleyerek yazmak veya değer özetini saklamak. | Pozitif bulgu konumlandırılabilir; gerçek değer model, CLI ve kanıt dışında kalır. |
+| 2026-07-20 | Dosya/dizin erişim hatası ayrı teknik sonuç olacak ve temiz tarama kabul edilmeyecektir. | Eksik taramayı başarılı saymak kritik bulguyu görünmez kılabilir. | Okunamayan dosyayı sessizce atlamak veya güvenlik bulgusu saymak. | CLI teknik/doğrulama hatasında `2`, bulguda `1`, temiz sonuçta `0` döndürür. |
+
 ## İlişkili Notlar
 
 - [[01-SRS/02-Sistem-Aciklamasi|Sistem Açıklaması]]

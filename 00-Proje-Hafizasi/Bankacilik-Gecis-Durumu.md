@@ -17,8 +17,8 @@ tags:
 
 Yüklenen mevcut vault ve kod üzerinden doğrulanan durum:
 
-- İterasyon 1–16, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B ve Iterasyon 26A–26B teknik dikeyleri tamamlanmış ve proje hafızasına kaydedilmiştir.
-- `pytest` sonucu: **498 test geçti**.
+- İterasyon 1–16, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B ve Iterasyon 28A teknik dikeyleri tamamlanmış ve proje hafızasına kaydedilmiştir.
+- `pytest` sonucu: **511 test geçti**.
 - Mevcut çalışan domain paketleri:
   - `data_sources`
   - `rules`
@@ -33,6 +33,7 @@ Yüklenen mevcut vault ve kod üzerinden doğrulanan durum:
   - `servicenow`
   - `reporting`
   - `incident_response`
+  - `secure_sdlc`
 - CSV ve PostgreSQL bağlayıcı sözleşmeleri, metadata keşfi, temel profilleme, kural testleri, idempotent execution, zamanlama, kota, iptal/timeout, hiyerarşik skorlama ve SOURCE/ENTERPRISE dashboard ağacı uygulanmıştır.
 - LDAP adaptör/eşleme, kalıcı kullanıcı/istemci giriş sınırı ve güvenli normal kullanıcı oturumu fake adaptörle doğrulanmıştır. Veri-minimum bildirim, issue yaşam döngüsü ve ServiceNow ticket oluşturma sözleşmesi uygulanmıştır; gerçek LDAP/RBAC, issue resolver bağlantıları, üretim session/cookie sınırı, HTTP API, raporlama ve gerçek ServiceNow ağ adaptörü henüz uygulanmamıştır.
 - Merkezi audit zarfı authorization, veri kaynağı, kural, schedule oluşturma ve skor konfigürasyonu aktivasyonunda kullanılmaktadır; auditli kalıcı domain yazımları transactional outbox kullanır. Aktif legacy audit API kullanımı kalmamıştır. Tarihsel `audit_records` için salt okunur, redaksiyonlu ve idempotent aktarım sözleşmesi sentetik verilerle doğrulanmıştır; gerçek üretim koşusu yapılmamıştır.
@@ -52,7 +53,7 @@ Aşağıdaki davranışlar geriye dönük bozulmamalıdır:
 5. RuleVersion ve scoring configuration geçmişinin değişmez kalması.
 6. İdempotent execution ve scheduler tetikleme.
 7. Yetkisiz SOURCE drill-down'ın repository çağrısından önce reddedilmesi.
-8. 498 mevcut birim testinin geriye dönük korunması.
+8. 511 mevcut birim testinin geriye dönük korunması.
 9. Sınıflandırılmamış veya hassas alanların ham profil değerlerinin kalıcılaştırılmaması.
 
 ## En Kritik Kontrol Boşlukları
@@ -82,7 +83,7 @@ Aşağıdaki maddeler tamamlanmadan yeni HTTP yüzeyi, hassas dışa aktarma vey
 
 ## Kontrol Durumu
 
-- Teknik geçiş: **Devam ediyor; İterasyon 17A–17E, 18A–18C, 19A–19C, 20A–20C, 21A, 22A–22I, 23A–23D, 24A–24B ve 26A–26B TechnicallyVerified**
+- Teknik geçiş: **Devam ediyor; İterasyon 17A–17E, 18A–18C, 19A–19C, 20A–20C, 21A, 22A–22I, 23A–23D, 24A–24B, 26A–26B ve 28A TechnicallyVerified**
 - BDDK/KVKK teknik kontrol eşlemesi: **Proposed**
 - Banka bilgi güvenliği onayı: **ComplianceReviewRequired**
 - Banka hukuk/uyum onayı: **ComplianceReviewRequired**
