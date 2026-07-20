@@ -20,3 +20,12 @@
 ## Sınır
 
 Sistem zaman çizelgesi ve kanıt üretir. Kurula veya ilgili kişiye otomatik bildirim göndermez.
+
+## Teknik Uygulama Durumu
+
+- İterasyon 26A güvenlik olayını kişisel veri ihlali şüphesinden ayrı append-only kayıt olarak uygular.
+- Öğrenilme zamanından hesaplanan 72 saat değerlendirme hedefi görünürdür; bu hedef otomatik hukuki karar değildir.
+- Kapsam, önlem ve karar serbest metin yerine kod; kanıtlar içerik yerine UUID referansı olarak saklanır.
+- Veri işleyen kaynaklı şüphede veri sorumlusuna bildirim kanıt referansı zorunludur.
+- Şüpheyi kaydeden ile bildirim kararını kaydeden aktör farklı olmalıdır.
+- Gerçek SIEM/SOC, dış bildirim, banka rol eşlemesi ve tatbikat henüz uygulanmamıştır.

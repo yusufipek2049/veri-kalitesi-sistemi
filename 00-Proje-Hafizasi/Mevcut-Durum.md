@@ -2,7 +2,7 @@
 type: project-memory
 status: draft
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-last_updated: 2026-07-17
+last_updated: 2026-07-20
 tags:
   - proje
   - mevcut-durum
@@ -621,6 +621,18 @@ tags:
 - Kanıt `08-Uyum-Kanitlari/Raporlama/Iterasyon-24B-Yetki-Filtreli-Rapor-Onizleme-Kaniti.md` içinde `TechnicallyVerified` olarak kaydedildi.
 - PDF/XLSX/CSV üretimi, Report kaydı, asenkron iş, indirme, HTTP/UI, DLP/watermark, geçici dosya saklama ve banka onaylı rol/dışa aktarma politikası kapsam dışıdır; `OPEN-BNK-002`, `OPEN-BNK-007`, `OPEN-BNK-008` ve `OPEN-BNK-014` açık kalır.
 
+### 2026-07-20 — İterasyon 26A: Veri-minimum güvenlik olayı ve ihlal şüphesi ayrımı
+
+- `BFR-IR-001`–`BFR-IR-004`, `CTRL-KVKK-BREACH-001`, `NFR-OBS-001/003`, `NFR-PRV-001/002/005` ve `NFR-SEC-001/005/008/011` için ilk olay müdahale domain dikeyi tamamlandı.
+- Teknik güvenlik olayı ve kişisel veri ihlali şüphesi ayrı append-only tablolarda tutulur; güvenlik olayı tek başına ihlal kaydı üretmez.
+- İhlal şüphesi öğrenilme zamanı, veri-minimum kapsam/önlem kodları, kişisel veri kategori sayımı, opak kanıt referansları ve görünür 72 saat değerlendirme hedefiyle güvenlik olayına bağlanır. Veri işleyen kaynaklı şüphede veri sorumlusuna bildirim kanıtı UUID referansı zorunludur.
+- Bildirim kararı yalnız güvenilir, ayrıcalıksız `PRIVACY_INCIDENT_REVIEWER` kullanıcısı tarafından ve şüpheyi kaydeden aktörden farklı checker ile append-only kaydedilir. Dış bildirim alanı yapısal olarak `false` kalır; Kurula veya ilgili kişiye otomatik bildirim adaptörü yoktur.
+- Kaynak/dataset/kurum kapsamı güvenilir context ile fail-closed denetlenir. Eksik/sahte, rolesiz, servis ve ayrıcalıklı context ile scope yükseltme reddedilir ve veri-minimum audit olayı üretir.
+- Domain kaydı, zaman çizelgesi ve redakte audit outbox aynı SQLite transaction'ındadır; audit stage arızasında tüm domain yazımları rollback olur. Teknik depo arızası ihlal veya veri kalitesi sonucu olarak raporlanmaz.
+- Yirmi üç yeni test vakasıyla toplam 482 test geçti. Hedef format/lint/mypy, depo lint ve derleme kontrolleri geçti; tam depo format ve mypy bakiyeleri değişmedi.
+- Kanıt `08-Uyum-Kanitlari/Olay-Mudahale/Iterasyon-26A-Veri-Minimum-Ihlal-Suphesi-Kaniti.md` içinde `TechnicallyVerified` olarak kaydedildi.
+- Gerçek SIEM/SOC adaptörü, banka onaylı olay/rol sözlüğü, serbest açıklama veya ham kanıt içeriği, HTTP/UI, dış bildirim, saklama/imha ve hukuk/uyum kararı kapsam dışıdır; `OPEN-BNK-001`, `OPEN-BNK-002`, `OPEN-BNK-004`, `OPEN-BNK-008` ve `OPEN-BNK-010` açık kalır.
+
 ## İlgili Notlar
 
 - [[00-Proje-Hafizasi/Alinan-Kararlar|Alınan Kararlar]]
@@ -629,8 +641,8 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D ve Iterasyon 24A–24B dikeylerinin kodu korunacaktır.
-- `pytest` ile 459 testin geçtiği doğrulanmıştır.
-- İterasyon 19D, 21B ve hassas dışa aktarma banka kararları nedeniyle engellidir; sıradaki hazır aday veri-minimum güvenlik olayı ve ihlal şüphesi ayrımıdır.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B ve Iterasyon 26A dikeylerinin kodu korunacaktır.
+- `pytest` ile 482 testin geçtiği doğrulanmıştır.
+- İterasyon 19D, 21B ve hassas dışa aktarma banka kararları nedeniyle engellidir; sıradaki hazır aday yetki filtreli ihlal zaman çizelgesi incelemesidir.
 - Geçiş ayrıntıları için [[00-Proje-Hafizasi/Bankacilik-Gecis-Durumu|Bankacılık Geçiş Durumu]] esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

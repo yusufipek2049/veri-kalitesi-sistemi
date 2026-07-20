@@ -7,7 +7,7 @@
 | 23 | ServiceNow allowlist/idempotency adaptörü | 22 |
 | 24 | Kontrollü rapor/audit dışa aktarma | 18, 20 |
 | 25 | Saklama, imha, legal hold, arşiv geri çağırma | Hukuk/uyum kararı |
-| 26 | SIEM olay adaptörü ve KVKK ihlal kanıt akışı | 17 |
+| 26 | Güvenlik olayı ve KVKK ihlal kanıt akışı (`26A` tamamlandı); yetkili inceleme ve SIEM/SOC açık | 17 |
 | 27 | Ortam ayrılığı, backup/restore ve DR tatbikatı | Altyapı kararı |
 | 28 | Güvenli SDLC, SBOM, taramalar ve pentest hazırlığı | CI/CD kararı |
 | 29 | Teknik kontrol ve banka kabul kanıt paketi | Tümü |

@@ -26,3 +26,8 @@ tags:
 4. 20 milyon satırlık anonim/sentetik performans veri setiyle profil ve kural testleri.
 5. Salt okunurluk, SQL injection, XSS/CSRF, secret ve audit bütünlüğü güvenlik testleri.
 6. Yedek geri yükleme ve felaket kurtarma tatbikatı.
+
+## Güncel Otomasyon Baseline'ı
+
+- 482 birim testi geçmektedir.
+- `incident_response` hedef grubu, güvenlik olayı/ihlal ayrımı, 72 saat hedefi, veri işleyen kanıtı, maker-checker kararı, yetki/scope redleri, audit minimizasyonu ve rollback için 23 sentetik vaka içerir.

@@ -71,6 +71,43 @@ def build_default_redaction_policy() -> AuditRedactionPolicy:
                     "masking_mode",
                 }
             ),
+            "INCIDENT_RESPONSE_AUTHORIZATION": frozenset(
+                {
+                    "policy_version",
+                    "reason_code",
+                }
+            ),
+            "SECURITY_INCIDENT_RECORDED": frozenset(
+                {
+                    "policy_version",
+                    "source",
+                    "severity",
+                    "event_code",
+                    "scope_type",
+                    "status",
+                }
+            ),
+            "PERSONAL_DATA_BREACH_SUSPICION_RECORDED": frozenset(
+                {
+                    "policy_version",
+                    "origin",
+                    "data_category_count",
+                    "assessment_status",
+                    "evaluation_deadline_at",
+                    "processor_notification_evidence_present",
+                    "containment_action_code",
+                }
+            ),
+            "PERSONAL_DATA_BREACH_DECISION_RECORDED": frozenset(
+                {
+                    "policy_version",
+                    "decision",
+                    "decision_reason_code",
+                    "deadline_status",
+                    "evidence_present",
+                    "external_notification_dispatched",
+                }
+            ),
             "DATA_SOURCE_CREATED": frozenset({"source_type", "status"}),
             "DATA_SOURCE_CONNECTION_TESTED": frozenset({"succeeded", "duration_ms", "error_class"}),
             "DATA_SOURCE_METADATA_DISCOVERED": frozenset(

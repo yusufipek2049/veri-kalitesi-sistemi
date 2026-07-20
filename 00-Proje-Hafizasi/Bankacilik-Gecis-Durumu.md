@@ -2,7 +2,7 @@
 type: project-memory
 status: active-transition
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-last_updated: 2026-07-17
+last_updated: 2026-07-20
 tags:
   - proje
   - banka
@@ -17,8 +17,8 @@ tags:
 
 Yüklenen mevcut vault ve kod üzerinden doğrulanan durum:
 
-- İterasyon 1–16, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D ve Iterasyon 24A–24B teknik dikeyleri tamamlanmış ve proje hafızasına kaydedilmiştir.
-- `pytest` sonucu: **459 test geçti**.
+- İterasyon 1–16, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B ve Iterasyon 26A teknik dikeyleri tamamlanmış ve proje hafızasına kaydedilmiştir.
+- `pytest` sonucu: **482 test geçti**.
 - Mevcut çalışan domain paketleri:
   - `data_sources`
   - `rules`
@@ -32,6 +32,7 @@ Yüklenen mevcut vault ve kod üzerinden doğrulanan durum:
   - `issues`
   - `servicenow`
   - `reporting`
+  - `incident_response`
 - CSV ve PostgreSQL bağlayıcı sözleşmeleri, metadata keşfi, temel profilleme, kural testleri, idempotent execution, zamanlama, kota, iptal/timeout, hiyerarşik skorlama ve SOURCE/ENTERPRISE dashboard ağacı uygulanmıştır.
 - LDAP adaptör/eşleme, kalıcı kullanıcı/istemci giriş sınırı ve güvenli normal kullanıcı oturumu fake adaptörle doğrulanmıştır. Veri-minimum bildirim, issue yaşam döngüsü ve ServiceNow ticket oluşturma sözleşmesi uygulanmıştır; gerçek LDAP/RBAC, issue resolver bağlantıları, üretim session/cookie sınırı, HTTP API, raporlama ve gerçek ServiceNow ağ adaptörü henüz uygulanmamıştır.
 - Merkezi audit zarfı authorization, veri kaynağı, kural, schedule oluşturma ve skor konfigürasyonu aktivasyonunda kullanılmaktadır; auditli kalıcı domain yazımları transactional outbox kullanır. Aktif legacy audit API kullanımı kalmamıştır. Tarihsel `audit_records` için salt okunur, redaksiyonlu ve idempotent aktarım sözleşmesi sentetik verilerle doğrulanmıştır; gerçek üretim koşusu yapılmamıştır.
@@ -51,7 +52,7 @@ Aşağıdaki davranışlar geriye dönük bozulmamalıdır:
 5. RuleVersion ve scoring configuration geçmişinin değişmez kalması.
 6. İdempotent execution ve scheduler tetikleme.
 7. Yetkisiz SOURCE drill-down'ın repository çağrısından önce reddedilmesi.
-8. 459 mevcut birim testinin geriye dönük korunması.
+8. 482 mevcut birim testinin geriye dönük korunması.
 9. Sınıflandırılmamış veya hassas alanların ham profil değerlerinin kalıcılaştırılmaması.
 
 ## En Kritik Kontrol Boşlukları
@@ -63,7 +64,7 @@ Aşağıdaki davranışlar geriye dönük bozulmamalıdır:
 | 3 | Banka sınıflandırma eşlemesi ve kurumsal referans doğrulaması tamamlanmadı | Kişisel/özel nitelikli kişisel alanlar için tamlık denetimi var; müşteri/banka sırrı eşlemesi ve referans kayıt doğrulaması yok | Banka onayı |
 | 4 | Maker-checker kapsamı tamamlanmadı | Kritik kural ve skor aktivasyonu ile kural isteği geri çekme korunur; süre aşımı, veri kaynağı aktivasyonu ve banka rol eşlemesi açık | İterasyon 19D+ |
 | 5 | LDAP/RBAC üretim entegrasyonu tamamlanmadı | 20A context'i dashboard authorization'a bağlar; 20B giriş sınırı, 20C normal session uygular; gerçek endpoint/TLS, banka eşlemesi, ayrıcalıklı/servis oturumu ve üretim altyapısı açık | Banka kararı / 21B öncesi |
-| 6 | Operasyon ve kanıt katmanı yok | İhlal, DR, saklama, erişim inceleme ve uyum kanıtı süreçleri izlenemiyor | İterasyon 24+ |
+| 6 | Operasyon ve kanıt katmanı kısmi | Audit/rapor erişimi ile güvenlik olayı ve ihlal şüphesi kaydı uygulanmıştır; DR, saklama, yetkili ihlal inceleme ve gerçek SIEM/SOC akışı eksiktir | İterasyon 26B+ |
 
 ## Geçiş Kapısı
 
@@ -81,7 +82,7 @@ Aşağıdaki maddeler tamamlanmadan yeni HTTP yüzeyi, hassas dışa aktarma vey
 
 ## Kontrol Durumu
 
-- Teknik geçiş: **Devam ediyor; İterasyon 17A–17E, 18A–18C, 19A–19C, 20A–20C, 21A, 22A–22I, 23A–23D ve 24A–24B TechnicallyVerified**
+- Teknik geçiş: **Devam ediyor; İterasyon 17A–17E, 18A–18C, 19A–19C, 20A–20C, 21A, 22A–22I, 23A–23D, 24A–24B ve 26A TechnicallyVerified**
 - BDDK/KVKK teknik kontrol eşlemesi: **Proposed**
 - Banka bilgi güvenliği onayı: **ComplianceReviewRequired**
 - Banka hukuk/uyum onayı: **ComplianceReviewRequired**

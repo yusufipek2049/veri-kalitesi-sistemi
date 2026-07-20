@@ -1,7 +1,7 @@
 ---
 type: decision-log
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-last_updated: 2026-07-17
+last_updated: 2026-07-20
 tags:
   - proje
   - karar
@@ -95,6 +95,14 @@ tags:
 | 2026-07-17 | ServiceNow circuit breaker aynı teknik hedef için SQLite'ta kalıcı, sürümlü ve varsayılan beş geçici hata/beş dakika politikasıyla çalışacak; yalnız tek half-open probe koşullu güncellemeyle alınacaktır. | Sürekli entegrasyon arızasında senkron ve kalıcı retry yollarının dış sistemi zorlaması önlenmeli; kimlik veya kalıcı hatalar geçici kesinti gibi değerlendirilmemelidir. | Bellek içi sayaç, tüm hata sınıflarını saymak, açık devrede adaptörü çağırmak veya audit geçişini ayrı commit etmek. | Açık devre istekleri veri-minimum kuyruğa erteler; başarı/geçici olmayan sonuç sayacı sıfırlar, geçici probe devreyi yeniden açar ve tüm durum geçişleri redakte audit outbox ile atomiktir. Dağıtık state, gerçek ağ adaptörü ve operasyon alarmı ayrı kalır. |
 | 2026-07-17 | İlk audit inceleme dilimi güvenilir normal kullanıcı context'i, sabit `AUDIT_VIEWER` rolü, zorunlu kodlanmış gerekçe, 31 günlük senkron pencere ve snapshot cursor kullanacaktır; sorgu sonucu verilmeden görüntüleme audit'i yazılacaktır. | Serbest rol/scope yetki kanıtı değildir; geniş ve hareketli sonuç kümesi tutarsız sayfalama veya veri aşımı üretebilir; filtre değerlerini audit etmek kişisel/hassas kimlikleri çoğaltabilir. | Global audit deposunu rolesiz açmak, offset sayfalama kullanmak, beş yıllık sorguyu senkron çalıştırmak veya filtre değerlerini görüntüleme auditine kopyalamak. | Yetkisiz erişim fail-closed ve auditlidir; sayfalar sabit append-only snapshot üzerinde ilerler; sorgu audit'i yalnız politika, gerekçe kodu ve sayısal özet taşır. Banka rol eşlemesi, istemci filtresi, asenkron rapor ve dışa aktarma ayrı kalır. |
 | 2026-07-20 | İlk raporlama dilimi dosya üretmeden yalnız source-seviyesi toplulaştırılmış skor önizlemesi sunacak; güvenilir context kapsamı sorguya itilecek, 31 gün/500 source sınırı ve kodlanmış gerekçe uygulanacaktır. | Hassas dışa aktarma politikası onaylı değilken dosya yüzeyi açılmamalı; sonradan filtreleme yetkisiz source verisini uygulama belleğine taşıyabilir; ham hesaplama detayı gereksiz veri yayılımıdır. | Önce tüm skorları okuyup uygulamada filtrelemek, execution/rule detaylarını rapora eklemek, serbest rol/scope kabul etmek veya doğrudan CSV/XLSX üretmek. | Kapsam genişletme sorgudan önce reddedilir; yalnız en güncel aggregate SOURCE skorları görünür; görüntüleme auditi source kimliği içermez. Dosya/indirme/asenkron iş ve maker-checker dışa aktarma kararı ayrı kalır. |
+
+## 2026-07-20 İterasyon 26A Kararları
+
+| Tarih | Karar | Gerekçe | Alternatif | Sonuç |
+| --- | --- | --- | --- | --- |
+| 2026-07-20 | Teknik güvenlik olayı ile kişisel veri ihlali şüphesi ayrı append-only domain kayıtları olacak; şüphe yalnız yetkili insan işlemiyle olaya bağlanacaktır. | Her teknik olayın otomatik olarak KVKK ihlali sayılması yanlış hukuki sonuç ve gereksiz veri yayılımı doğurur. | Güvenlik olayını doğrudan ihlal kaydı yapmak veya serbest metinli tek tablo kullanmak. | Güvenlik olayı tek başına ihlal üretmez; şüphe, önlem ve karar ayrı zaman çizelgesi olaylarıyla korunur. |
+| 2026-07-20 | 72 saat değeri öğrenilme zamanından hesaplanan görünür değerlendirme hedefi olacak; sistem dış bildirim göndermeyecek. | `BFR-IR-003` karar süresini görünür isterken Kurula otomatik bildirimi açıkça yasaklar. | Zamanı gizlemek, otomatik karar vermek veya bildirim adaptörü çağırmak. | Gecikme `ON_TIME/OVERDUE` olarak audit özetinde görünür; karar kaydı her zaman `external_notification_dispatched=false` taşır. |
+| 2026-07-20 | İhlal şüphesini kaydeden aktör kendi bildirim kararını kaydedemeyecek; roller geçici teknik kodlarla sürümlü politikada tutulacaktır. | Bildirim kararı kritik insan değerlendirmesidir; aynı aktörün hazırlayıp karar vermesi görevler ayrılığını zayıflatır. | Maker=checker'a izin vermek veya banka rol eşlemesini varsaymak. | Farklı güvenilir checker zorunludur; nihai rol eşlemesi `OPEN-BNK-002/004` kapsamında `ComplianceReviewRequired` kalır. |
 
 ## İlişkili Notlar
 

@@ -33,4 +33,4 @@ Bu vault, SRS dokümanını görev bazında küçük bağlam parçalarıyla kull
 
 ## Güncel Geliştirme Baseline'ı
 
-İterasyon 1–16 ile bankacılık geçişindeki 17A–24B teknik dikeyleri tamamlanmış, 459 birim testi geçmektedir. Hassas dışa aktarma banka kararına bağlıdır; sıradaki hazır aday veri-minimum güvenlik olayı ve ihlal şüphesi ayrımıdır.
+İterasyon 1–16 ile bankacılık geçişindeki 17A–24B ve 26A teknik dikeyleri tamamlanmış, 482 birim testi geçmektedir. Güvenlik olayı ile kişisel veri ihlali şüphesi ayrı ve append-only izlenmektedir; sıradaki hazır aday yetki filtreli ihlal zaman çizelgesi incelemesidir.

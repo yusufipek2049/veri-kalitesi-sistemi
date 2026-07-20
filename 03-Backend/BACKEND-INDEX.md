@@ -23,6 +23,7 @@ tags:
 | Raporlama | [[01-SRS/04-Fonksiyonel-Gereksinimler/04.10-Raporlama]] | Report |
 | Audit | [[01-SRS/04-Fonksiyonel-Gereksinimler/04.11-Audit]] | AuditLog |
 | API ve entegrasyon | [[01-SRS/04-Fonksiyonel-Gereksinimler/04.12-API-ve-Entegrasyon]] | Tüm servis sözleşmeleri |
+| Olay müdahale | [[01-SRS/17-Bankacilik-Uyum/17.02-Bankacilik-Kontrol-Gereksinimleri]] | SecurityIncident, PersonalDataBreachSuspicion, IncidentTimeline |
 
 ## Çapraz NFR
 

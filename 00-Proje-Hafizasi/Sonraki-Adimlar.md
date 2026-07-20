@@ -2,7 +2,7 @@
 type: project-memory
 status: planned
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-last_updated: 2026-07-17
+last_updated: 2026-07-20
 tags:
   - proje
   - sonraki-adim
@@ -23,7 +23,7 @@ Mevcut 16 iterasyonun, Iterasyon 17A–17E audit, Iterasyon 18A–18C veri korum
 5. İterasyon 23 — ServiceNow veri-minimizasyonlu adaptör; 23A–23D `TechnicallyVerified`.
 6. İterasyon 24 — 24A audit inceleme ve 24B maskeli rapor önizleme `TechnicallyVerified`; hassas dışa aktarma `OPEN-BNK-014` nedeniyle engelli.
 7. İterasyon 25 — Saklama, imha, legal hold ve arşivleme.
-8. İterasyon 26 — SIEM/güvenlik olayı ve KVKK ihlal kanıt akışı.
+8. İterasyon 26 — 26A veri-minimum güvenlik olayı ve ihlal şüphesi ayrımı `TechnicallyVerified`; yetkili inceleme ve SIEM/SOC adaptörü açık.
 9. İterasyon 27 — Ortam ayrılığı, yedekleme, geri yükleme ve DR kanıtları.
 10. İterasyon 28 — Güvenli SDLC, bağımlılık/secret taraması, SBOM ve sızma testi hazırlığı.
 11. İterasyon 29 — Banka kabul ve uyum kanıt paketi.
@@ -41,7 +41,7 @@ Mevcut 16 iterasyonun, Iterasyon 17A–17E audit, Iterasyon 18A–18C veri korum
 | 23 | ServiceNow adaptörü | `FR-070`, `FR-087`, `BFR-EXT-001`–`BFR-EXT-003` | Alan whitelist'i, idempotency ve ham veri çıkışının engellenmesi | 23A–23D `TechnicallyVerified`; gerçek ağ/dağıtık state ve banka kararları açık |
 | 24 | Rapor/audit erişimi | `FR-072`, `FR-075`, `FR-077`–`FR-079`, `BFR-EXP-001`–`BFR-EXP-003` | Yetki, gerekçe, maskeleme ve auditli dışa aktarma | 24A audit inceleme ve 24B rapor önizleme `TechnicallyVerified`; dosya dışa aktarma banka kararına bağlı |
 | 25 | Saklama/imha/legal hold | `RULE-014`, `BFR-LCM-001`–`BFR-LCM-004` | Kayıt türü bazlı politika; imha ve geri çağırma kanıtı | Banka hukuk/uyum kararı |
-| 26 | SIEM ve ihlal kanıtı | `NFR-OBS-*`, `BFR-IR-001`–`BFR-IR-004` | Güvenlik olayları ve ihlal zaman çizelgesi; otomatik Kurul bildirimi yok | 17'ye bağlı |
+| 26 | SIEM ve ihlal kanıtı | `NFR-OBS-*`, `BFR-IR-001`–`BFR-IR-004` | Güvenlik olayları ve ihlal zaman çizelgesi; otomatik Kurul bildirimi yok | 26A kayıt/karar dikeyi `TechnicallyVerified`; inceleme ve gerçek SIEM/SOC açık |
 | 27 | DR ve ortam ayrılığı | `NFR-DR-*`, `BFR-OPS-001`–`BFR-OPS-004` | Banka onaylı RTO/RPO; restore testi ve ortam ayrımı kanıtı | Altyapı kararı |
 | 28 | Güvenli SDLC ve pentest hazırlığı | `NFR-SEC-*`, `BFR-SDLC-001`–`BFR-SDLC-005` | SAST, secret/dependency taraması, SBOM ve pentest kapsamı | CI/CD kararı |
 | 29 | Banka kabul paketi | Tüm `BFR-*` ve `CTRL-*` | Teknik kanıtlar tamam; banka onayları ayrı durumda | Önceki geçişler |
@@ -57,9 +57,9 @@ Mevcut 16 iterasyonun, Iterasyon 17A–17E audit, Iterasyon 18A–18C veri korum
 
 ## Önerilen Sonraki İterasyon
 
-**İterasyon 26A — Veri-minimum güvenlik olayı ve ihlal şüphesi ayrımı.**
+**İterasyon 26B — Yetki filtreli ihlal zaman çizelgesi inceleme.**
 
-`BFR-IR-001`–`BFR-IR-004` ve ilgili gözlemlenebilirlik/gizlilik kayıtları üzerinden teknik güvenlik olayı ile kişisel veri ihlali şüphesini ayrı, veri-minimum ve append-only domain kayıtları olarak modelle. Otomatik Kurul bildirimi veya gerçek SIEM entegrasyonu açma; yetkili insan kararı, zaman çizelgesi ve kanıt referansı sınırını koru. `OPEN-BNK-001`, `OPEN-BNK-010` ve hukuk/uyum onaylarını açık bırak.
+`BFR-IR-002/003`, `NFR-SEC-001/008` ve `NFR-PRV-001/005` üzerinden yalnız güvenilir privacy reviewer ve kapsam içi erişimle ihlal şüphesi, 72 saat durumu ve append-only zaman çizelgesinin veri-minimum görünümünü üret. Kanıt içeriği, actor kimlikleri ve scope kimliklerini sonuçta göstermeden görüntülemeyi audit et. HTTP/UI, otomatik bildirim ve gerçek SIEM entegrasyonunu açma; `OPEN-BNK-001`, `OPEN-BNK-002`, `OPEN-BNK-008` ve `OPEN-BNK-010` açık kalsın.
 
 ## Başlangıç İçin Okunacak Notlar
 
