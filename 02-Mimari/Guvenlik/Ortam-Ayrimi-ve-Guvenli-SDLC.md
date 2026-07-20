@@ -154,3 +154,21 @@ dosya işlemi arızası veri-minimum neden koduyla `2` üretir. Sonuç yalnız p
 durum ve saklanan/üretilen SHA-256 özetlerini taşır; manifest veya kanıt içeriğini
 çoğaltmaz. Bu yerel doğrulama CI/CD zorlaması, imza, WORM/HSM, istisna/risk kabulü
 veya banka onayı değildir.
+
+## Birleşik Yerel Sürüm Ön Kontrolü
+
+`29C-v1` preflight secret taraması, saklanan SBOM byte karşılaştırması, SAST,
+doğrudan bağımlılık zafiyeti, pentest takip ve teknik kanıt manifest drift
+kontrollerini sabit sırada çağırır. Alt kapıların kritik bulgu, teknik hata ve
+doğrulama kuralları preflight içinde yeniden uygulanmaz.
+
+SAST, bağımlılık zafiyeti ve pentest raporları `schema_version=1` olan zorunlu JSON
+paketten exact-field allowlist ile ayrıştırılır. Eksik rapor veya
+`TECHNICAL_ERROR` durumu temiz kabul edilmez. Secret/kritik bulgu ve SBOM/manifest
+drift'i `BLOCKED=1`; doğrulama veya teknik hata `2`; altı kontrolün tamamlanması
+`PASS=0` üretir.
+
+Başarılı çıktı yalnız proje adı/sürümü ile kontrol kimliği, politika sürümü ve
+kanıt SHA-256 özetini taşır. Bulgu yolu, advisory, pentest UUID, ham scanner mesajı
+veya rapor içeriği çoğaltılmaz. Bu komut gerçek scanner/pentest çalıştırıcısı,
+kurumsal CI/CD zorlaması, imzalı artifact yayını veya banka onayı değildir.

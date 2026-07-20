@@ -43,8 +43,10 @@ iç kontrol, IAM ve mimari kararları açık kalır.
 - Manifest drift kapısı saklanan sürüm manifestini yeniden üretilen kanonik
   baytlarla karşılaştırır; drift, doğrulama ve teknik hata ayrı fail-closed
   sonuçlardır.
+- Birleşik yerel preflight altı mevcut kontrolü sabit sırada çalıştırır; eksik
+  scanner/pentest raporunu temiz saymaz ve yalnız veri-minimum digest özeti üretir.
 
-Bu incelemede tarayıcı `28A-v1` politikasıyla 338 metin dosyasını taramış ve sıfır
+Bu incelemede tarayıcı `28A-v1` politikasıyla 341 metin dosyasını taramış ve sıfır
 bulgu üretmiştir. Bu sonuç yalnız desteklenen pattern'ler ve mevcut çalışma ağacı
 içindir; geçmiş commit, yüksek entropi ve kurumsal scanner kapsamı değildir.
 
@@ -130,7 +132,7 @@ boyunca yaygın olsa da dağıtık trace değildir.
 | İhlal müdahale kanıtı | Kısmen uygulanmış | Incident, breach, 72 saat hedefi, insan kararı; SIEM/dış bildirim yok |
 | Yedekleme ve DR | Planlanmış ancak uygulanmamış | RTO/RPO, backup/restore ve tatbikat yok |
 | Değişiklik yönetimi | Kısmen uygulanmış | Sürümlü rule/config ve kanıt; CI/release gate yok |
-| Güvenlik testi | Kısmen uygulanmış | Unit negatif test, secret scan, direct SBOM, yerel SAST/bağımlılık zafiyet kapıları, pentest bulgu takibi, teknik kanıt manifesti ve drift kapısı; gerçek scanner/SCA/DAST/pentest yok |
+| Güvenlik testi | Kısmen uygulanmış | Unit negatif test, local secret scan, direct SBOM, yerel SAST/bağımlılık zafiyet kapıları, pentest bulgu takibi, teknik kanıt manifesti/drift kapısı ve birleşik preflight; gerçek scanner/SCA/DAST/pentest yok |
 
 ## Olay Müdahalesi
 

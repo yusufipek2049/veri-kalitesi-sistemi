@@ -304,3 +304,25 @@ class EvidenceManifestVerification:
     status: EvidenceManifestVerificationStatus
     stored_manifest_sha256: str
     generated_manifest_sha256: str
+
+
+@dataclass(frozen=True)
+class ReleasePreflightInput:
+    sast_report: SastScanReport
+    dependency_vulnerability_report: DependencyVulnerabilityScanReport
+    pentest_report: PentestAssessmentReport
+
+
+@dataclass(frozen=True, order=True)
+class ReleasePreflightCheck:
+    check_id: str
+    policy_version: str
+    evidence_digest: str
+
+
+@dataclass(frozen=True)
+class ReleasePreflightReport:
+    policy_version: str
+    project_name: str
+    project_version: str
+    checks: tuple[ReleasePreflightCheck, ...]

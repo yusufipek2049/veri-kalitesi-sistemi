@@ -119,6 +119,16 @@ class PythonDependencyInventoryBuilder:
             "dependencies": dependency_graph,
         }
 
+    @classmethod
+    def serialize(cls, inventory: PythonProjectInventory) -> bytes:
+        content = json.dumps(
+            cls().to_cyclonedx(inventory),
+            ensure_ascii=True,
+            indent=2,
+            sort_keys=True,
+        )
+        return f"{content}\n".encode("utf-8")
+
     @staticmethod
     def _build_inventory(project: Mapping[str, Any]) -> PythonProjectInventory:
         dynamic = project.get("dynamic", [])
@@ -182,7 +192,6 @@ def main(
 
     try:
         inventory = builder.read(arguments.manifest)
-        document = builder.to_cyclonedx(inventory)
     except DependencyInventoryValidationError as exc:
         _write_error(error_output, "VALIDATION_ERROR", exc.reason_code)
         return 2
@@ -190,8 +199,7 @@ def main(
         _write_error(error_output, "TECHNICAL_ERROR", exc.operation_code)
         return 2
 
-    output.write(json.dumps(document, ensure_ascii=True, indent=2, sort_keys=True))
-    output.write("\n")
+    output.write(builder.serialize(inventory).decode("utf-8"))
     return 0
 
 

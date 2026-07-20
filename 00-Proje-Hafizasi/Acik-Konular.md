@@ -85,6 +85,11 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
     doğrulama/teknik hata yollarıyla teknik olarak doğrulandı. Gerçek CI/CD ürünü
     ve zorlaması, artifact imzası/değişmez kurumsal depo, istisna/risk kabulü,
     release maker-checker ve banka kabul iş akışı açık kalır.
+51. `29C-v1` altı mevcut yerel güvenli SDLC kontrolünü veri-minimum, fail-closed
+    preflight komutunda birleştirdi. Gerçek scanner ve pentest çalıştırıcıları,
+    kurumsal CI/CD ürünü/zorlaması, artifact imzası/değişmez depo, banka eşikleri,
+    istisna/risk kabulü ve release maker-checker açık kalır; 29D `OPEN-BNK-012`
+    ve bilgi güvenliği/iç kontrol kararlarını bekler.
 
 ## Bankacılık Geçiş Açık Konuları
 

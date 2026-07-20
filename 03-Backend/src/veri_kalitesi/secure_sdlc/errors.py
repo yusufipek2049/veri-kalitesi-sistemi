@@ -155,3 +155,34 @@ class EvidenceManifestTechnicalError(EvidenceManifestError):
     def __init__(self, operation_code: str) -> None:
         super().__init__(operation_code)
         self.operation_code = operation_code
+
+
+class ReleasePreflightError(Exception):
+    """Base error for the combined local release preflight."""
+
+
+class ReleasePreflightValidationError(ReleasePreflightError):
+    """The preflight input or repository artifact is invalid."""
+
+    def __init__(self, check_id: str, reason_code: str) -> None:
+        super().__init__(reason_code)
+        self.check_id = check_id
+        self.reason_code = reason_code
+
+
+class ReleasePreflightBlockedError(ReleasePreflightError):
+    """A completed check blocks the local release candidate."""
+
+    def __init__(self, check_id: str, reason_code: str) -> None:
+        super().__init__(reason_code)
+        self.check_id = check_id
+        self.reason_code = reason_code
+
+
+class ReleasePreflightTechnicalError(ReleasePreflightError):
+    """A required check could not complete."""
+
+    def __init__(self, check_id: str, reason_code: str) -> None:
+        super().__init__(reason_code)
+        self.check_id = check_id
+        self.reason_code = reason_code

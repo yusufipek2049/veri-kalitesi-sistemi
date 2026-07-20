@@ -63,8 +63,7 @@ tamamlanmış saymaz.
 - Mobil yönetim deneyimi.
 - Banka marka/uyum onayı.
 
-## Sonraki Hazır İş
+## Sonraki İş
 
-Bankacılık geçiş sırası değişmez: **İterasyon 29C — Birleşik yerel sürüm ön
-kontrolü**. Frontend 30B geçiş kapısı ve dependency kararı
-tamamlanana kadar uygulamaya alınmaz.
+Frontend 30B geçiş kapısı, `OPEN-BNK-020` ve dependency kararı tamamlanana kadar
+uygulamaya alınmaz. Hazır ve engellenmemiş yeni geçiş artımı bulunmamaktadır.
