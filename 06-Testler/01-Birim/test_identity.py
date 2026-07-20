@@ -702,8 +702,8 @@ def test_fr_005_session_rejects_untrusted_authentication_context() -> None:
     service = _sessions(_audit_service(SQLiteAuditRepository()))
 
     with pytest.raises(ActorContextValidationError, match="Trusted authentication"):
-        service.open_authenticated_session(  # type: ignore[arg-type]
-            authenticated_context=None,
+        service.open_authenticated_session(
+            authenticated_context=None,  # type: ignore[arg-type]
             correlation_id="untrusted-session-open",
         )
 

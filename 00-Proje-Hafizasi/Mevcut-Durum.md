@@ -796,6 +796,20 @@ tags:
 - Gerçek scanner/pentest, CI/CD zorlaması, imzalı kurumsal kanıt deposu,
   istisna/risk kabulü ve banka onayı kapsam dışıdır.
 
+### 2026-07-20 — Bakım İterasyonu 29C.1: Tam depo tip kontrolü temizliği
+
+- Kimlik hata yollarında her zaman exception üreten yardımcılar `NoReturn` ile
+  tanımlandı; çalışma zamanı davranışı değiştirilmeden mypy akış daraltması
+  kesinleştirildi.
+- PostgreSQL, skorlama, dashboard ve issue test double/fixture tipleri gerçek
+  protokoller ve gözlenen veri yapılarıyla eşleştirildi.
+- Tam `python3 -m mypy 03-Backend/src 06-Testler` kontrolü 109 kaynak dosyada
+  sıfır hatayla; hedefli 252 test ve tam 702 test başarıyla tamamlandı.
+- Ruff lint ve değişen yedi dosyanın format kontrolü geçti. Tam depo format
+  kontrolündeki dört tarihsel biçim farkı bu bakım kapsamının dışındadır.
+- `FR-001`, `FR-002`, `FR-005`, `UC-001`, `NFR-SEC-001` ve `NFR-SEC-009`
+  davranışları korunmuştur; yeni ürün veya banka kontrolü iddiası oluşturulmadı.
+
 ## İlgili Notlar
 
 - [Alınan Kararlar](Alinan-Kararlar.md)
@@ -804,8 +818,9 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B, Iterasyon 28A–28E ve Iterasyon 29A–29C dikeylerinin kodu korunacaktır.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B, Iterasyon 28A–28E, Iterasyon 29A–29C ve Bakım İterasyonu 29C.1 çıktıları korunacaktır.
 - `pytest` ile 702 testin geçtiği doğrulanmıştır.
+- Tam mypy kontrolü 109 kaynak dosyada sıfır hata vermektedir.
 - Hazır ve engellenmemiş yeni geçiş artımı yoktur. 29D, 19D, 21B/frontend, hassas dışa aktarma, saklama/DR ve gerçek SIEM banka/altyapı kararlarını beklemektedir.
 - Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

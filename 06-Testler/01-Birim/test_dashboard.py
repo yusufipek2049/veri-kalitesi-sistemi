@@ -4,7 +4,7 @@ from dataclasses import FrozenInstanceError
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from time import perf_counter
-from typing import Callable
+from typing import Callable, overload
 import sqlite3
 
 import pytest
@@ -618,6 +618,36 @@ class FailingReader:
         include_enterprise: bool,
     ) -> list[QualityScore]:
         raise sqlite3.OperationalError("database unavailable")
+
+
+@overload
+def _secure_service(
+    reader: SQLiteScoreRepository | CountingReader | FailingReader,
+    *,
+    source_ids: set[str],
+    actor_type: ActorType = ActorType.USER,
+    can_view_enterprise: bool = False,
+    privileged: bool = False,
+    expires_at: datetime = NOW + timedelta(hours=1),
+    context_policy_version: str = POLICY_VERSION,
+    audit_sink: None = None,
+    clock: Callable[[], datetime] = lambda: NOW,
+) -> tuple[DashboardQueryService, ActorContext, SQLiteAuditRepository]: ...
+
+
+@overload
+def _secure_service(
+    reader: SQLiteScoreRepository | CountingReader | FailingReader,
+    *,
+    source_ids: set[str],
+    actor_type: ActorType = ActorType.USER,
+    can_view_enterprise: bool = False,
+    privileged: bool = False,
+    expires_at: datetime = NOW + timedelta(hours=1),
+    context_policy_version: str = POLICY_VERSION,
+    audit_sink: FailingAuditSink,
+    clock: Callable[[], datetime] = lambda: NOW,
+) -> tuple[DashboardQueryService, ActorContext, FailingAuditSink]: ...
 
 
 def _secure_service(

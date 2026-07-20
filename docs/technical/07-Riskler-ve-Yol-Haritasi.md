@@ -25,7 +25,7 @@ değildir.
 | 20M satır profil hedefinin kaçırılması | Yüksek | Orta-Yüksek | P2 | CSV O(n) memory, benchmark yok | Source aggregate + load test |
 | Queue/audit tablolarının sınırsız büyümesi | Yüksek | Orta-Yüksek | P2 | Retention/partition yok | Partition/archive/capacity alarm |
 | Yetki politika drift'i | Orta | Yüksek | P1 | String rol kodları dağınık | Merkezi permission catalog/policy test |
-| Type ve büyük servis kaynaklı regresyon | Orta | Orta | P2 | 27 mypy hata, 800-1000 satır servisler | Type baseline + odaklı ayrıştırma |
+| Büyük servis kaynaklı regresyon | Orta | Orta | P2 | Mypy baseline sıfır; 800-1000 satır servisler sürüyor | Sıfır type baseline + odaklı ayrıştırma |
 | Bağımlılık zafiyetinin görünmemesi | Orta | Yüksek | P1 | SCA/vuln DB/lock yok | Transitive lock/SBOM/SCA gate |
 | Operasyon ekibinin arızayı görememesi | Yüksek | Yüksek | P0 | Metric/log/health/alarm yok | Observability minimum baseline |
 | Kullanıcı akışının doğrulanamaması | Yüksek | Orta-Yüksek | P2 | UI/API/E2E yok | Dikey API+UI artımları ve E2E |
@@ -135,7 +135,7 @@ kabulü dış kararlara bağlıdır; hazır ve engellenmemiş yeni geçiş artı
 | Sonuç/audit partition ve archive | Retention/legal hold ile uyumlu query SLA |
 | Scoring batch katalog erişimi | N+1 kaldırılır; formül sonucu değişmez |
 | Dimension/enterprise ağırlık politikası | Banka onaylı sürümlü formül ve geriye dönük açıklanabilirlik |
-| Full mypy ve coverage kapısı | 0 type error, onaylı branch threshold |
+| Full mypy ve coverage CI kapısı | Yerel 0 type error korunur; onaylı branch threshold uygulanır |
 | Büyük servislerin ayrıştırılması | Davranış değiştirmeyen karakterizasyon testleriyle küçük use-case sınıfları |
 | Legacy kaldırma | `_legacy` ve `audit_records` geçiş/rollback kanıtı sonrası silinir |
 

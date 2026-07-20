@@ -16,6 +16,9 @@ tags:
 
 Mevcut 16 iterasyonun, Iterasyon 17A–17E audit, Iterasyon 18A–18C veri koruma, Iterasyon 19A–19C maker-checker ve Iterasyon 20A–20C LDAP/oturum güvenliği dikeylerinin çekirdeği korunur. Banka kararları tamamlanmadan yeni HTTP yüzeyi açılmaz.
 
+Bakım İterasyonu 29C.1 ile tam mypy baseline'ı sıfır hataya indirilmiştir;
+sonraki değişiklikler bu baseline'ı korumalıdır.
+
 1. İterasyon 19D — Kural onay süre aşımı; `OPEN-BNK-017` nedeniyle engelli.
 2. İterasyon 21A — Yetki güven sınırına bağlı dashboard trend domain sorgusu; `TechnicallyVerified`.
 3. İterasyon 21B — HTTP okuma yüzeyi; geçiş kapısı ve `OPEN-BNK-020` tamamlanana kadar engelli.

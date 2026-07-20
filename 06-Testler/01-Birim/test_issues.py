@@ -8,6 +8,7 @@ import pytest
 from veri_kalitesi.audit import (
     AuditRedactionPolicy,
     AuditRedactor,
+    PreparedAuditEvent,
     SQLiteAuditRepository,
     SQLiteTransactionalAudit,
 )
@@ -1537,7 +1538,7 @@ def test_fr_069_nfr_rel_006_relationship_audit_failure_rolls_back(
     fixture.relationship_resolver.predecessor_issue_id = predecessor.issue_id
     initial_history_count = len(fixture.repository.list_history(predecessor.issue_id))
 
-    def fail_second_stage(event: object) -> None:
+    def fail_second_stage(event: PreparedAuditEvent) -> None:
         if getattr(event, "action", None) == "DATA_QUALITY_ISSUE_LINKED":
             raise sqlite3.OperationalError("audit outbox unavailable")
         original_stage(event)

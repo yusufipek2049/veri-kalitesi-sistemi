@@ -71,6 +71,9 @@ class FakeRuleCatalog:
         assert rule_version_id == self.version.rule_version_id
         return self.version
 
+    def get_rule(self, quality_rule_id: str) -> QualityRule:
+        raise AssertionError(f"Unexpected rule lookup: {quality_rule_id}")
+
 
 @dataclass
 class FakeAggregateRuleCatalog:
@@ -1462,7 +1465,7 @@ def _aggregate_service(
         clock=lambda: datetime(2026, 7, 16, 10, 10, tzinfo=timezone.utc),
         **kwargs,
     )
-    return service, score_repository, execution_repository, versions
+    return service, score_repository, execution_repository, (versions[0], versions[1])
 
 
 def _aggregate_execution(
@@ -1548,7 +1551,13 @@ def _source_service(
         source_catalog=FakeSourceCatalog(datasets),
         clock=lambda: datetime(2026, 7, 16, 12, 10, tzinfo=timezone.utc),
     )
-    return service, score_repository, execution_repository, versions, catalog
+    return (
+        service,
+        score_repository,
+        execution_repository,
+        (versions[0], versions[1]),
+        catalog,
+    )
 
 
 def _source_execution(

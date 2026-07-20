@@ -1,6 +1,6 @@
 import sqlite3
 from pathlib import Path
-from typing import cast
+from typing import Any, Mapping, TypedDict, cast
 
 import pytest
 
@@ -21,6 +21,8 @@ from veri_kalitesi.data_sources import (
     ClassificationCode,
     ConnectorRegistry,
     DNSConnectionError,
+    DataField,
+    Dataset,
     DataSourceService,
     DataSourceStatus,
     ErrorClass,
@@ -88,6 +90,31 @@ def _audit_repository(service: DataSourceService) -> SQLiteAuditRepository:
     return repository
 
 
+class PostgreSQLProbeCall(TypedDict):
+    config: Mapping[str, Any]
+    credentials: Mapping[str, Any]
+    test_query: str
+    connect_timeout_seconds: int
+    statement_timeout_ms: int
+
+
+class PostgreSQLMetadataCall(TypedDict):
+    config: Mapping[str, Any]
+    credentials: Mapping[str, Any]
+    scope: Mapping[str, Any]
+    page_size: int
+    max_objects: int
+    timeout_seconds: int
+
+
+class PostgreSQLProfileCall(TypedDict):
+    config: Mapping[str, Any]
+    credentials: Mapping[str, Any]
+    dataset: Dataset
+    fields: tuple[DataField, ...]
+    options: ProfileOptions
+
+
 class FakePostgreSQLDriver:
     def __init__(
         self,
@@ -103,15 +130,15 @@ class FakePostgreSQLDriver:
         )
         self.metadata_outcomes = metadata_outcomes or []
         self.profile_outcomes = profile_outcomes or []
-        self.calls: list[dict[str, object]] = []
-        self.metadata_calls: list[dict[str, object]] = []
-        self.profile_calls: list[dict[str, object]] = []
+        self.calls: list[PostgreSQLProbeCall] = []
+        self.metadata_calls: list[PostgreSQLMetadataCall] = []
+        self.profile_calls: list[PostgreSQLProfileCall] = []
 
     def probe(
         self,
         *,
-        config: dict[str, object],
-        credentials: dict[str, object],
+        config: Mapping[str, Any],
+        credentials: Mapping[str, Any],
         test_query: str,
         connect_timeout_seconds: int,
         statement_timeout_ms: int,
@@ -132,9 +159,9 @@ class FakePostgreSQLDriver:
     def discover_metadata(
         self,
         *,
-        config: dict[str, object],
-        credentials: dict[str, object],
-        scope: dict[str, object],
+        config: Mapping[str, Any],
+        credentials: Mapping[str, Any],
+        scope: Mapping[str, Any],
         page_size: int,
         max_objects: int,
         timeout_seconds: int,
@@ -157,10 +184,10 @@ class FakePostgreSQLDriver:
     def profile_dataset(
         self,
         *,
-        config: dict[str, object],
-        credentials: dict[str, object],
-        dataset: object,
-        fields: tuple[object, ...],
+        config: Mapping[str, Any],
+        credentials: Mapping[str, Any],
+        dataset: Dataset,
+        fields: tuple[DataField, ...],
         options: ProfileOptions,
     ) -> ProfileComputationResult:
         self.profile_calls.append(

@@ -62,10 +62,9 @@ python3 -m compileall -q 03-Backend/src 06-Testler
 PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc .
 ```
 
-İnceleme baseline'ında test ve Ruff lint geçmektedir. Full format kontrolü dört eski
-dosyada biçim farkı; full mypy yedi dosyada 27 hata raporlamaktadır. 29C hedefindeki
-`secure_sdlc` kodu format ve mypy kontrollerini geçer; eski tam depo baseline'ı bu
-iterasyonda değiştirilmemiştir.
+İnceleme baseline'ında test ve Ruff lint geçmektedir. Full format kontrolünde dört
+eski dosyada biçim farkı sürmektedir. Bakım İterasyonu 29C.1 sonrasında full mypy
+109 kaynak dosyada sıfır hata raporlamaktadır; bu baseline henüz CI ile zorlanmaz.
 
 ## Performans ve Ölçeklenebilirlik
 
@@ -127,7 +126,7 @@ archive tier ve performans benchmark'ı yoktur. 20 milyon satırlık kabul hedef
 | Çok büyük servisler | `issues/service.py` 1013, `scoring/service.py` 913, `data_sources/service.py` 882, `servicenow/service.py` 864 satır | Değişiklik ve review maliyeti |
 | Çok büyük repository'ler | data source 770, issue 748, ServiceNow 690 satır | Şema, mapping ve query sorumlulukları iç içe |
 | Composition root yok | Servis wiring/startup bulunmuyor | Gerçek dependency graph/test edilemiyor |
-| Type-check baseline bozuk | 27 mypy hatası | Refactor güveni azalır |
+| Type-check CI kapısı eksik | Yerel mypy baseline'ı 109 dosyada sıfır; pipeline zorlaması yok | Yeni sapmalar otomatik engellenmez |
 | Tool/dependency setup eksik | pytest/Ruff/mypy manifestte pinli değil; lock yok | Tekrarlanabilir build zayıf |
 | Runtime migration | Repository açılışında DDL/rebuild | Deployment ve rollback riski |
 | SQLite'a sıkı altyapı bağı | Servisler bazı yerlerde concrete repository tipi alır | Üretim DB geçişi zorlaşır |

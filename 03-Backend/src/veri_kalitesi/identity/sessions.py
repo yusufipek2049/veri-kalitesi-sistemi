@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from threading import RLock
-from typing import Callable
+from typing import Callable, NoReturn
 
 from veri_kalitesi.audit import AuditEventInput, AuditResult, AuditSink
 from veri_kalitesi.identity.errors import (
@@ -353,7 +353,7 @@ class SessionService:
         correlation_id: str,
         reason_code: str,
         now: datetime,
-    ) -> None:
+    ) -> NoReturn:
         self._record(record, correlation_id, AuditResult.DENIED, reason_code, now)
         raise SessionDeniedError(reason_code, correlation_id)
 
@@ -417,7 +417,7 @@ class SessionService:
         except SessionTechnicalError:
             self._unavailable(correlation_id, now)
 
-    def _unavailable(self, correlation_id: str, now: datetime) -> None:
+    def _unavailable(self, correlation_id: str, now: datetime) -> NoReturn:
         self._record(
             None,
             correlation_id,
