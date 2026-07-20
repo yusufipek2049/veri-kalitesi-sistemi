@@ -177,6 +177,15 @@ tags:
 | 2026-07-20 | Doğrulama çıktısı yalnız politika, durum ve saklanan/üretilen SHA-256 özetlerini taşıyacaktır. | Manifest veya kanıt içeriğini log/CI çıktısında çoğaltmak hassas teknik ayrıntı yayılımını artırır. | Tam diff, manifest gövdesi veya değişen kanıt yollarını yazdırmak. | Çıktı veri-minimumdur; ayrıntı güvenli repository incelemesinde kalır. |
 | 2026-07-20 | Saklanan manifest yalnız sürüm paketi dizinindeki kanonik `.json` yolundan okunacaktır. | Genel dosya karşılaştırıcısı kullanıcı girdisiyle depo dışı veya ilgisiz hassas dosya okuyabilir. | Mutlak yol kabul etmek veya yalnız suffix denetlemek. | Traversal, mutlak yol, symlink, düzenli olmayan ve büyük dosya fail-closed reddedilir. |
 
+## 2026-07-20 İterasyon 29C Kararları
+
+| Tarih | Karar | Gerekçe | Alternatif | Sonuç |
+| --- | --- | --- | --- | --- |
+| 2026-07-20 | Birleşik preflight altı mevcut kontrolü sabit sırada çağıracak; alt kapıların güvenlik kararlarını yeniden uygulamayacaktır. | Aynı kritik bulgu veya teknik hata kuralını ikinci kez yazmak sözleşmeler arasında sapma yaratır. | Tüm kontrolleri preflight içinde yeniden kodlamak veya shell subprocess zinciri kullanmak. | Secret, SBOM, SAST, bağımlılık zafiyeti, pentest ve manifest kapıları açık Python sınırlarıyla orkestre edilir. |
+| 2026-07-20 | SAST, bağımlılık zafiyeti ve pentest raporları tek sürümlü exact-field JSON paketinde zorunlu olacaktır. | Rapor girdisi olmadan kontrolü çalışmış/temiz saymak `BFR-SDLC-001/003` için yanlış güven üretir. | Eksik raporu atlamak, boş rapor üretmek veya serbest scanner JSON'u kabul etmek. | Eksik, fazla alanlı veya tamamlanmamış rapor fail-closed doğrulama/teknik hata üretir. |
+| 2026-07-20 | Başarılı preflight çıktısı yalnız proje sürümü, kontrol/politika kimliği ve kanıt SHA-256 özetlerini taşıyacaktır. | Birleşik çıktı bulgu yollarını, advisory'leri ve pentest referanslarını gereksiz çoğaltmamalıdır. | Alt kapıların tam çıktılarını birleştirmek veya ham rapor paketini saklamak. | Çıktı deterministik ve veri-minimumdur; ayrıntılar kaynak kontrol sistemlerinde kalır. |
+| 2026-07-20 | `PASS=0`, güvenlik/artifact blokajı `BLOCKED=1`, doğrulama veya teknik hata `2` olacaktır. | Güvenlik kararı ile çalışmayan kontrol birbirine dönüştürülmemelidir. | Tüm olumsuz sonuçları tek exit code yapmak. | Otomasyon fail-closed kalırken neden sınıfını ayrı işleyebilir. |
+
 ## İlişkili Notlar
 
 - [Sistem Açıklaması](../01-SRS/02-Sistem-Aciklamasi.md)

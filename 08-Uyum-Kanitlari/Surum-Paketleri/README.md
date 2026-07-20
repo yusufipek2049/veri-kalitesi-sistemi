@@ -22,3 +22,6 @@ Gerçek banka verisi veya secret eklenmez.
 - [İterasyon 29B - Teknik Kanıt Manifest Drift Kapısı Kanıtı](Iterasyon-29B-Teknik-Kanit-Manifest-Drift-Kapisi-Kaniti.md)
   - Durum: `TechnicallyVerified`; gerçek 29A manifesti byte düzeyinde `MATCH`
   - Politika: `29B-v1`; drift, doğrulama hatası ve teknik hata ayrı sonuçlardır
+- [İterasyon 29C - Birleşik Yerel Sürüm Ön Kontrol Kanıtı](Iterasyon-29C-Birlesik-Yerel-Surum-On-Kontrol-Kaniti.md)
+  - Durum: `TechnicallyVerified`; altı yerel kontrol sentetik rapor paketiyle birleştirilmiştir
+  - Politika: `29C-v1`; gerçek scanner, CI/CD veya banka kabul kanıtı değildir

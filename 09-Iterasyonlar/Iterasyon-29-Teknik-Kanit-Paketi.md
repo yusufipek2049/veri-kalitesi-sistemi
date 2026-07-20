@@ -71,10 +71,45 @@ Durum: `TechnicallyVerified`
 - İstisna/risk kabulü ve release maker-checker akışı
 - Banka adına kontrol onayı veya mevzuat uyumluluğu kararı
 
+## 29C — Birleşik yerel sürüm ön kontrolü
+
+Durum: `TechnicallyVerified`
+
+### Gereksinimler
+
+- `BFR-SDLC-001`–`BFR-SDLC-005`
+- `BRULE-004`
+- `BRULE-005`
+- `NFR-CMP-002`
+- `NFR-CMP-005`
+
+### Kabul Sonucu
+
+- `29C-v1` komutu secret taraması, saklanan SBOM karşılaştırması, SAST kapısı,
+  bağımlılık zafiyet kapısı, pentest takip kapısı ve manifest drift kontrolünü
+  sabit fail-closed sırada çalıştırır.
+- SAST, bağımlılık zafiyeti ve pentest girdileri zorunlu sürümlü rapor paketinden
+  katı allowlist ile ayrıştırılır; eksik veya `TECHNICAL_ERROR` rapor temiz sayılmaz.
+- Secret/kritik güvenlik bulgusu ile SBOM/manifest drift'i `BLOCKED` ve çıkış kodu
+  `1`; doğrulama/teknik hata çıkış kodu `2`; altı kontrolün başarısı `PASS` ve
+  çıkış kodu `0` üretir.
+- Başarılı çıktı yalnız proje adı/sürümü ile kontrol kimliği, politika sürümü ve
+  SHA-256 kanıt özetini taşır; bulgu yolu, advisory, pentest referansı veya ham
+  rapor içeriğini çoğaltmaz.
+- 20 yeni sentetik vakayla güvenli SDLC hedef grubu 204, toplam test sayısı 702
+  olmuştur.
+
+### Kapsam Dışı
+
+- Gerçek scanner, zafiyet veritabanı veya pentest hizmeti çalıştırma
+- CI/CD ürünü, pipeline zorlaması veya artifact yayınlama
+- Elektronik imza, WORM/HSM ve kurumsal kanıt deposu
+- İstisna/risk kabulü, release maker-checker ve banka onayı
+
 ## Önerilen Sonraki Dilim
 
-**29C — Birleşik yerel sürüm ön kontrolü.**
+**29D — Kurumsal CI/CD entegrasyonu ve imzalı kanıt yayını — Engelli.**
 
-Mevcut secret taraması, SBOM yeniden üretimi, veri-minimum güvenlik kapıları ve 29B
-manifest drift doğrulamasını tek fail-closed yerel komutta sırayla çalıştır. Yeni
-scanner, CI/CD ürünü, istisna/risk kabulü, imzalama ve banka onayı eklenmesin.
+CI/CD/scanner ürünü, artifact imza/depo yaklaşımı, release görevler ayrılığı ve
+banka eşik/istisna kararları belirlenmeden uygulamaya alınmasın. `OPEN-BNK-012` ve
+ilgili bilgi güvenliği/iç kontrol kararları beklenmektedir.

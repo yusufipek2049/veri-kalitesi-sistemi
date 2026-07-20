@@ -780,6 +780,22 @@ tags:
 - CI/CD ürünü, elektronik imza, WORM/HSM, istisna/risk kabulü, release
   maker-checker ve banka onayı kapsam dışıdır.
 
+### 2026-07-20 — İterasyon 29C: Birleşik yerel sürüm ön kontrolü
+
+- `BFR-SDLC-001`–`BFR-SDLC-005`, `BRULE-004/005` ve `NFR-CMP-002/005` için
+  `29C-v1` birleşik yerel sürüm ön kontrolü eklendi.
+- Secret taraması, saklanan SBOM, SAST, bağımlılık zafiyeti, pentest ve teknik
+  kanıt manifesti kontrolleri sabit fail-closed sırada birleştirildi.
+- Harici güvenlik raporları zorunlu sürümlü JSON paketinden exact-field allowlist
+  ile alınır; eksik/tamamlanmamış rapor temiz sonuca dönüştürülmez.
+- Secret/kritik bulgu ve artifact drift'i `BLOCKED`; doğrulama ve teknik hata ayrı
+  sonuçlardır. Başarılı çıktı yalnız politika ve SHA-256 kanıt özetlerini taşır.
+- 20 yeni sentetik vakayla güvenli SDLC hedef grubu 204, toplam test sayısı 702
+  oldu. Secret taraması 341 dosyada `CLEAN`, SBOM ve manifest karşılaştırmaları
+  eşleşen sonuç verdi.
+- Gerçek scanner/pentest, CI/CD zorlaması, imzalı kurumsal kanıt deposu,
+  istisna/risk kabulü ve banka onayı kapsam dışıdır.
+
 ## İlgili Notlar
 
 - [Alınan Kararlar](Alinan-Kararlar.md)
@@ -788,8 +804,8 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B, Iterasyon 28A–28E ve Iterasyon 29A–29B dikeylerinin kodu korunacaktır.
-- `pytest` ile 682 testin geçtiği doğrulanmıştır.
-- İterasyon 19D, 21B, hassas dışa aktarma, saklama/DR ve gerçek SIEM banka kararları nedeniyle engellidir; sıradaki hazır aday birleşik yerel sürüm ön kontrolüdür.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B, Iterasyon 28A–28E ve Iterasyon 29A–29C dikeylerinin kodu korunacaktır.
+- `pytest` ile 702 testin geçtiği doğrulanmıştır.
+- Hazır ve engellenmemiş yeni geçiş artımı yoktur. 29D, 19D, 21B/frontend, hassas dışa aktarma, saklama/DR ve gerçek SIEM banka/altyapı kararlarını beklemektedir.
 - Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

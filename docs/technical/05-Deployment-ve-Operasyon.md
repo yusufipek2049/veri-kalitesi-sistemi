@@ -14,6 +14,7 @@ PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc .
 PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc.sbom pyproject.toml
 PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc.evidence 08-Uyum-Kanitlari/Surum-Paketleri/Iterasyon-29A-Teknik-Kanit-Katalogu.json .
 PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc.evidence_gate 08-Uyum-Kanitlari/Surum-Paketleri/Iterasyon-29A-Teknik-Kanit-Katalogu.json 08-Uyum-Kanitlari/Surum-Paketleri/Iterasyon-29A-Teknik-Kanit-Manifesti.json .
+PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc.preflight <rapor-paketi.json> .
 ```
 
 `pyproject.toml` proje adı/sürümü, Python sınırı, iki runtime bağımlılığı ve

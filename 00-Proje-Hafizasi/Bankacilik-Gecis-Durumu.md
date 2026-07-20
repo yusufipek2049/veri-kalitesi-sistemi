@@ -17,8 +17,8 @@ tags:
 
 Yüklenen mevcut vault ve kod üzerinden doğrulanan durum:
 
-- İterasyon 1–16, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B, Iterasyon 28A–28E ve Iterasyon 29A–29B teknik dikeyleri tamamlanmış ve proje hafızasına kaydedilmiştir.
-- `pytest` sonucu: **682 test geçti**.
+- İterasyon 1–16, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B, Iterasyon 28A–28E ve Iterasyon 29A–29C teknik dikeyleri tamamlanmış ve proje hafızasına kaydedilmiştir.
+- `pytest` sonucu: **702 test geçti**.
 - Mevcut çalışan domain paketleri:
   - `data_sources`
   - `rules`
@@ -40,7 +40,7 @@ Yüklenen mevcut vault ve kod üzerinden doğrulanan durum:
 - Kural ve skor konfigürasyonu onay işlemleri güvenilir `ActorContext` kullanır; diğer bazı servis işlemlerinde `actor_id` çağıran tarafından serbest metin olarak verilebilmektedir.
 - Public dashboard sorguları scope kabul etmez; güvenilir context'i scope'a çeviren authorization servisini kullanır. Skor ağacı ve sabit son 30 günlük trend domain sorgusu yetki filtrelidir; internal/deprecated geçiş adaptörü henüz kaldırılmamıştır.
 - Metadata sınıflandırması sürümlü teknik sözlük kullanır; sınıfsız alanlar fail-closed `UNCLASSIFIED` olur ve profil kalıcılığı ham örnek/top-value/desen payloadlarını çıkarır. Kişisel ve özel nitelikli kişisel alanlar sürümlü işleme envanteriyle ilişkilendirilebilir ve salt okunur tamlık raporuyla denetlenir; banka sözlük eşlemesi henüz tamamlanmamıştır.
-- Yerel güvenli SDLC paketi secret taraması, doğrudan bağımlılık SBOM'u, veri-minimum SAST/bağımlılık zafiyet kapıları, sızma testi bulgu takibi, 15 kontrollük deterministik teknik kanıt manifesti ve byte düzeyinde drift kapısını içerir. Gerçek scanner/pentest, transitive lock, CI/CD zorlaması, imzalı kurumsal kanıt deposu, banka eşik/istisna ve release onayı uygulanmamıştır.
+- Yerel güvenli SDLC paketi secret taraması, doğrudan bağımlılık SBOM'u, veri-minimum SAST/bağımlılık zafiyet kapıları, sızma testi bulgu takibi, deterministik teknik kanıt manifesti, drift kapısı ve bunları birleştiren yerel preflight komutunu içerir. Gerçek scanner/pentest, transitive lock, CI/CD zorlaması, imzalı kurumsal kanıt deposu, banka eşik/istisna ve release onayı uygulanmamıştır.
 - Yerel metadata ve execution deposu SQLite'tır; bu, üretim mimarisi kararı değildir.
 
 ## Korunacak Kazanımlar
@@ -54,7 +54,7 @@ Aşağıdaki davranışlar geriye dönük bozulmamalıdır:
 5. RuleVersion ve scoring configuration geçmişinin değişmez kalması.
 6. İdempotent execution ve scheduler tetikleme.
 7. Yetkisiz SOURCE drill-down'ın repository çağrısından önce reddedilmesi.
-8. 682 mevcut birim testinin geriye dönük korunması.
+8. 702 mevcut birim testinin geriye dönük korunması.
 9. Sınıflandırılmamış veya hassas alanların ham profil değerlerinin kalıcılaştırılmaması.
 
 ## En Kritik Kontrol Boşlukları
@@ -84,7 +84,7 @@ Aşağıdaki maddeler tamamlanmadan yeni HTTP yüzeyi, hassas dışa aktarma vey
 
 ## Kontrol Durumu
 
-- Teknik geçiş: **Devam ediyor; İterasyon 17A–17E, 18A–18C, 19A–19C, 20A–20C, 21A, 22A–22I, 23A–23D, 24A–24B, 26A–26B, 28A–28E ve 29A–29B TechnicallyVerified**
+- Teknik geçiş: **Devam ediyor; İterasyon 17A–17E, 18A–18C, 19A–19C, 20A–20C, 21A, 22A–22I, 23A–23D, 24A–24B, 26A–26B, 28A–28E ve 29A–29C TechnicallyVerified**
 - BDDK/KVKK teknik kontrol eşlemesi: **Proposed**
 - Banka bilgi güvenliği onayı: **ComplianceReviewRequired**
 - Banka hukuk/uyum onayı: **ComplianceReviewRequired**

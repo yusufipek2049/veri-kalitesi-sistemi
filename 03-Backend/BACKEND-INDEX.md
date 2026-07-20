@@ -24,7 +24,7 @@ tags:
 | Audit | [04.11-Audit](../01-SRS/04-Fonksiyonel-Gereksinimler/04.11-Audit.md) | AuditLog |
 | API ve entegrasyon | [04.12-API-ve-Entegrasyon](../01-SRS/04-Fonksiyonel-Gereksinimler/04.12-API-ve-Entegrasyon.md) | Tüm servis sözleşmeleri |
 | Olay müdahale | [17.02-Bankacilik-Kontrol-Gereksinimleri](../01-SRS/17-Bankacilik-Uyum/17.02-Bankacilik-Kontrol-Gereksinimleri.md) | SecurityIncident, PersonalDataBreachSuspicion, IncidentTimeline |
-| Güvenli SDLC yerel kontrolleri | [17.02-Bankacilik-Kontrol-Gereksinimleri](../01-SRS/17-Bankacilik-Uyum/17.02-Bankacilik-Kontrol-Gereksinimleri.md) | SecretScanPolicy, PythonProjectInventory, SastReleaseGate, DependencyVulnerabilityReleaseGate, PentestFindingTracker, TechnicalEvidenceManifestBuilder, TechnicalEvidenceManifestGate |
+| Güvenli SDLC yerel kontrolleri | [17.02-Bankacilik-Kontrol-Gereksinimleri](../01-SRS/17-Bankacilik-Uyum/17.02-Bankacilik-Kontrol-Gereksinimleri.md) | SecretScanPolicy, PythonProjectInventory, SastReleaseGate, DependencyVulnerabilityReleaseGate, PentestFindingTracker, TechnicalEvidenceManifestBuilder, TechnicalEvidenceManifestGate, LocalReleasePreflight |
 
 ## Çapraz NFR
 
