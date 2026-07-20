@@ -123,6 +123,15 @@ tags:
 | 2026-07-20 | Eksik/dinamik sürüm veya bağımlılık, tam pin olmayan/URL/extras/yinelenen beyan üretim hatası olacaktır. | Belirsiz veya dış kaynağa bağlı beyan eksik envanteri temiz SBOM gibi gösterebilir. | Belirsiz beyanı olduğu gibi geçirmek veya parser uyarısıyla devam etmek. | CLI güvenli neden koduyla `2` döndürür; yerel yol ve ham parser/işletim sistemi hatası çıkmaz. |
 | 2026-07-20 | 28B yalnız beyan edilmiş doğrudan bağımlılıkları kapsayacaktır. | Transitive çözüm, hash, lisans ve zafiyet verisi lock/artifact/scanner politikası gerektirir ve tek iterasyon sınırını aşar. | Kurulu ortamı transitive gerçeklik saymak veya harici zafiyet servisini varsaymak. | SBOM kapsamı açık property ve kanıt notuyla sınırlandırılır; kalan kontroller `ComplianceReviewRequired` kalır. |
 
+## 2026-07-20 İterasyon 28C Kararları
+
+| Tarih | Karar | Gerekçe | Alternatif | Sonuç |
+| --- | --- | --- | --- | --- |
+| 2026-07-20 | SAST scanner çıktısı güvenilmez girdi sayılacak ve bulgu yalnız yedi veri-minimum allowlist alanından üretilecektir. | Scanner mesajı, source snippet'i veya mutlak yol kanıt/log üzerinden source ya da secret sızdırabilir. | Scanner ürününün ham JSON'unu saklamak veya yalnız bilinen ürün formatını kabul etmek. | Ürün bağımsız parser yalnız scanner kimliği/sürümü, rule code, severity ve repository-relative konumu kabul eder. |
+| 2026-07-20 | Tamamlanmamış SAST taraması kritik bulgudan ayrı teknik hata olacak; iki durumda da sürüm kanıtı üretilmeyecektir. | Eksik taramayı temiz veya güvenlik bulgusu saymak operasyonel neden ile güvenlik sonucunu karıştırır. | Teknik hatayı boş rapor kabul etmek ya da sahte kritik bulgu üretmek. | `SastGateTechnicalError` ve `SastGateBlockedError` ayrı fail-closed yollar sağlar. |
+| 2026-07-20 | Yerel `28C-v1` politika yalnız `CRITICAL` önem derecesini bloklayacak; diğer eşikler ve istisna/risk kabulü tahmin edilmeyecektir. | `BFR-SDLC-003` kritik bulguyu açıkça engeller; banka onaylı ek eşikler ve istisna süreci henüz yoktur. | HIGH ve üstünü varsayılan engellemek veya kullanıcı tanımlı istisna eklemek. | Kritik olmayan bulgular sayılır ve digest'e bağlanır; banka eşik/istisna/release onayı `ComplianceReviewRequired` kalır. |
+| 2026-07-20 | Sürüm kanıtı bulgu listesini açık metin taşımayacak; PEP 621 proje sürümü ve kanonik bulgu SHA-256 digest'iyle ilişki kuracaktır. | Kanıt sürümle doğrulanabilir olmalı, fakat source konumu ve rule detayını gereksiz yere çoğaltmamalıdır. | Tüm bulgu yollarını release artifact'ına yazmak veya yalnız toplam sayı tutmak. | Kanıt deterministik ve veri-minimumdur; ayrıntılı bulgu raporu scanner güven sınırında kalır. |
+
 ## İlişkili Notlar
 
 - [[01-SRS/02-Sistem-Aciklamasi|Sistem Açıklaması]]

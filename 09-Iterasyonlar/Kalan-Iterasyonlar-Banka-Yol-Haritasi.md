@@ -9,7 +9,7 @@
 | 25 | Saklama, imha, legal hold, arşiv geri çağırma | Hukuk/uyum kararı |
 | 26 | Güvenlik olayı ve KVKK ihlal kanıt akışı (`26A–26B` tamamlandı); gerçek SIEM/SOC engelli | 17, `OPEN-BNK-010` |
 | 27 | Ortam ayrılığı, backup/restore ve DR tatbikatı | Altyapı kararı |
-| 28 | Güvenli SDLC, SBOM, taramalar ve pentest hazırlığı (`28A` secret, `28B` doğrudan bağımlılık SBOM'u tamamlandı) | CI/CD kararı |
+| 28 | Güvenli SDLC, SBOM, taramalar ve pentest hazırlığı (`28A` secret, `28B` doğrudan bağımlılık SBOM'u, `28C` yerel SAST kapısı tamamlandı) | CI/CD kararı |
 | 29 | Teknik kontrol ve banka kabul kanıt paketi | Tümü |
 
 ## Pilot Kapısı

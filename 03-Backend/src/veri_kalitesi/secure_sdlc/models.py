@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 
 
 DEFAULT_EXCLUDED_DIRECTORIES = frozenset(
@@ -72,3 +73,47 @@ class PythonProjectInventory:
     version: str
     requires_python: str
     dependencies: tuple[DeclaredDependency, ...]
+
+
+class SastSeverity(str, Enum):
+    INFO = "INFO"
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
+
+
+class SastScanStatus(str, Enum):
+    COMPLETED = "COMPLETED"
+    TECHNICAL_ERROR = "TECHNICAL_ERROR"
+
+
+@dataclass(frozen=True, order=True)
+class SastFinding:
+    scanner_id: str
+    scanner_version: str
+    rule_code: str
+    severity: SastSeverity
+    relative_path: str
+    line_number: int
+    column_number: int
+
+
+@dataclass(frozen=True)
+class SastScanReport:
+    scanner_id: str
+    scanner_version: str
+    status: SastScanStatus
+    findings: tuple[SastFinding, ...]
+
+
+@dataclass(frozen=True)
+class SastReleaseEvidence:
+    project_name: str
+    project_version: str
+    gate_policy_version: str
+    scanner_id: str
+    scanner_version: str
+    finding_count: int
+    critical_finding_count: int
+    findings_digest: str

@@ -59,7 +59,7 @@ SQLite şemaları ve testlerle verilmiştir.
 | ServiceNow | `03-Backend/src/veri_kalitesi/servicenow/service.py` | `ServiceNowService` | Allowlist projeksiyon, retry, DLQ ve circuit breaker |
 | Olay müdahalesi | `03-Backend/src/veri_kalitesi/incident_response/service.py` | `IncidentResponseService` | Güvenlik olayı ve ihlal şüphesi kanıt akışı |
 | Raporlama | `03-Backend/src/veri_kalitesi/reporting/service.py` | `ReportPreviewService` | Yetki filtreli maskeli özet önizleme |
-| Güvenli SDLC | `03-Backend/src/veri_kalitesi/secure_sdlc/` | `RepositorySecretScanner`, `PythonDependencyInventoryBuilder` | Yerel secret taraması ve doğrudan bağımlılık SBOM'u |
+| Güvenli SDLC | `03-Backend/src/veri_kalitesi/secure_sdlc/` | `RepositorySecretScanner`, `PythonDependencyInventoryBuilder`, `SastReleaseGate` | Yerel secret taraması, doğrudan bağımlılık SBOM'u ve veri-minimum SAST kapısı |
 
 ### Özellik Durumu
 
@@ -76,6 +76,7 @@ SQLite şemaları ve testlerle verilmiştir.
 | ServiceNow | Kısmen uygulanmış | `ServiceNowAdapter` protokolü ve fake testler | Gerçek HTTP istemcisi, credential ve durum senkronu |
 | Audit bütünlüğü | Kısmen uygulanmış | SQLite hash-chain ve outbox | WORM/imza, merkezi platform ve publisher worker |
 | Rapor önizleme | Kısmen uygulanmış | `ReportPreviewService` | PDF/XLSX/CSV üretimi ve kontrollü indirme |
+| Güvenli SDLC | Kısmen uygulanmış | Secret scanner, direct SBOM ve `SastReleaseGate` | Gerçek scanner/SCA/DAST, CI zorlaması ve istisna akışı |
 | REST API | Planlanmış ancak uygulanmamış | Mimari belge | Endpoint, hata sözleşmesi, OpenAPI |
 | Frontend | Planlanmış ancak uygulanmamış | Yalnız `FRONTEND-INDEX.md` | Çalışan UI kodu ve build zinciri |
 | Deployment/CI/CD/DR | Planlanmış ancak uygulanmamış | Operasyon belgeleri | Çalıştırılabilir altyapı ve kanıt |

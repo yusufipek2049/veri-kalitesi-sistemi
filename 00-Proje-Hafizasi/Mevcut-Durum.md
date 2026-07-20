@@ -668,6 +668,17 @@ tags:
 - Kanıt `08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28B-Deterministik-Bagimlilik-SBOM-Kaniti.md` içinde `TechnicallyVerified` olarak kaydedildi.
 - Transitive çözüm/lock, artifact hash'i, lisans, zafiyet taraması, CI/CD ve harici ürün/eşik/istisna politikası kapsam dışıdır ve `ComplianceReviewRequired` kalır.
 
+### 2026-07-20 — İterasyon 28C: Yerel SAST bulgu ve sürüm kapısı sözleşmesi
+
+- `BFR-SDLC-001/002/003` ve `NFR-SEC-012` için ürün bağımsız, veri-minimum SAST bulgu zarfı ve `28C-v1` sürüm kapısı eklendi.
+- Bulgu yalnız scanner kimliği/sürümü, kural kodu, önem derecesi ve repository-relative satır/sütun konumunu kabul eder; source line, snippet, mesaj, secret ve mutlak/traversal yollar reddedilir.
+- Tamamlanmamış tarama ayrı teknik hata olarak sürüm kanıtını engeller. Tamamlanmış rapordaki `CRITICAL` bulgular fail-closed bloklanır; kritik olmayan bulgular kanıtta yalnız sayım ve deterministik digest ile temsil edilir.
+- Başarılı kanıt 28B PEP 621 envanterindeki proje adı/sürümünü gate ve scanner sürümüne bağlar; bulgu yolu veya rule code kanıta açık metin yazılmaz.
+- 26 yeni sentetik vakayla güvenli SDLC hedef grubu 58, toplam test sayısı 556 oldu. Depo lint, hedef format/mypy ve derleme kontrolleri geçti; secret taraması 319 dosyada `CLEAN` kaldı.
+- Tam depo formatındaki dört eski dosya ve tam mypy kontrolündeki yedi dosyada 27 eski hata değişmedi.
+- Kanıt `08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28C-Yerel-SAST-Surum-Kapisi-Kaniti.md` içinde `TechnicallyVerified` olarak kaydedildi.
+- Gerçek SAST scanner/repository taraması, CI/CD zorlaması, kritik olmayan eşikler, istisna/risk kabulü, release maker-checker, DAST ve pentest kapsam dışıdır ve `ComplianceReviewRequired` kalır.
+
 ## İlgili Notlar
 
 - [[00-Proje-Hafizasi/Alinan-Kararlar|Alınan Kararlar]]
@@ -676,8 +687,8 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B ve Iterasyon 28A–28B dikeylerinin kodu korunacaktır.
-- `pytest` ile 530 testin geçtiği doğrulanmıştır.
-- İterasyon 19D, 21B, hassas dışa aktarma, saklama/DR ve gerçek SIEM banka kararları nedeniyle engellidir; sıradaki hazır aday yerel SAST bulgu ve sürüm kapısı sözleşmesidir.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B ve Iterasyon 28A–28C dikeylerinin kodu korunacaktır.
+- `pytest` ile 556 testin geçtiği doğrulanmıştır.
+- İterasyon 19D, 21B, hassas dışa aktarma, saklama/DR ve gerçek SIEM banka kararları nedeniyle engellidir; sıradaki hazır aday bağımlılık zafiyet bulgu zarfı ve sürüm kapısı sözleşmesidir.
 - Geçiş ayrıntıları için [[00-Proje-Hafizasi/Bankacilik-Gecis-Durumu|Bankacılık Geçiş Durumu]] esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

@@ -25,7 +25,7 @@ Mevcut 16 iterasyonun, Iterasyon 17A–17E audit, Iterasyon 18A–18C veri korum
 7. İterasyon 25 — Saklama, imha, legal hold ve arşivleme.
 8. İterasyon 26 — 26A kayıt/karar ve 26B yetki filtreli timeline inceleme `TechnicallyVerified`; gerçek SIEM/SOC `OPEN-BNK-010` nedeniyle engelli.
 9. İterasyon 27 — Ortam ayrılığı, yedekleme, geri yükleme ve DR kanıtları.
-10. İterasyon 28 — 28A yerel veri-minimum secret taraması ve 28B doğrudan bağımlılık SBOM'u `TechnicallyVerified`; SAST, transitive/zafiyet ve sızma testi hazırlığı açık.
+10. İterasyon 28 — 28A secret, 28B doğrudan bağımlılık SBOM'u ve 28C SAST sürüm kapısı `TechnicallyVerified`; gerçek scanner, transitive/zafiyet ve sızma testi hazırlığı açık.
 11. İterasyon 29 — Banka kabul ve uyum kanıt paketi.
 
 ## Geçiş Backlogu
@@ -43,7 +43,7 @@ Mevcut 16 iterasyonun, Iterasyon 17A–17E audit, Iterasyon 18A–18C veri korum
 | 25 | Saklama/imha/legal hold | `RULE-014`, `BFR-LCM-001`–`BFR-LCM-004` | Kayıt türü bazlı politika; imha ve geri çağırma kanıtı | Banka hukuk/uyum kararı |
 | 26 | SIEM ve ihlal kanıtı | `NFR-OBS-*`, `BFR-IR-001`–`BFR-IR-004` | Güvenlik olayları ve ihlal zaman çizelgesi; otomatik Kurul bildirimi yok | 26A–26B `TechnicallyVerified`; gerçek SIEM/SOC `OPEN-BNK-010` ile engelli |
 | 27 | DR ve ortam ayrılığı | `NFR-DR-*`, `BFR-OPS-001`–`BFR-OPS-004` | Banka onaylı RTO/RPO; restore testi ve ortam ayrımı kanıtı | Altyapı kararı |
-| 28 | Güvenli SDLC ve pentest hazırlığı | `NFR-SEC-*`, `BFR-SDLC-001`–`BFR-SDLC-005` | SAST, secret/dependency taraması, SBOM ve pentest kapsamı | 28A secret ve 28B doğrudan bağımlılık SBOM'u `TechnicallyVerified`; kalan dilimler açık |
+| 28 | Güvenli SDLC ve pentest hazırlığı | `NFR-SEC-*`, `BFR-SDLC-001`–`BFR-SDLC-005` | SAST, secret/dependency taraması, SBOM ve pentest kapsamı | 28A secret, 28B doğrudan bağımlılık SBOM'u ve 28C SAST kapısı `TechnicallyVerified`; kalan dilimler açık |
 | 29 | Banka kabul paketi | Tüm `BFR-*` ve `CTRL-*` | Teknik kanıtlar tamam; banka onayları ayrı durumda | Önceki geçişler |
 
 ## Mevcut MVP Backlogundan Korunan İşler
@@ -57,9 +57,9 @@ Mevcut 16 iterasyonun, Iterasyon 17A–17E audit, Iterasyon 18A–18C veri korum
 
 ## Önerilen Sonraki İterasyon
 
-**İterasyon 28C — Yerel SAST bulgu ve sürüm kapısı sözleşmesi.**
+**İterasyon 28D — Yerel bağımlılık zafiyet bulgu zarfı ve sürüm kapısı sözleşmesi.**
 
-`BFR-SDLC-001/002/003` ve `NFR-SEC-012` üzerinden ürün bağımsız, veri-minimum bir SAST bulgu zarfı oluştur; yalnız scanner kimliği/sürümü, kural kodu, önem derecesi ve repository-relative konum kabul et. Kritik bulguda üretim adayı kanıtını fail-closed reddet. Gerçek scanner ürünü, CI/CD entegrasyonu, istisna/risk kabul onayı ve DAST'ı bu dilime alma.
+`BFR-SDLC-001/002/003` ve `NFR-SEC-012` üzerinden 28B proje/SBOM sürümünü ürün bağımsız, veri-minimum zafiyet bulgusuna bağla. Eksik taramayı temiz kabul etme ve kritik zafiyette üretim adayı kanıtını fail-closed reddet. Gerçek zafiyet veritabanı/ağ tarayıcısı, transitive lock, istisna/risk kabul onayı ve CI/CD entegrasyonunu bu dilime alma.
 
 ## Başlangıç İçin Okunacak Notlar
 

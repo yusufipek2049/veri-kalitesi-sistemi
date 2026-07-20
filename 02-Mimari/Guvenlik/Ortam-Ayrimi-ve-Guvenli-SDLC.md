@@ -60,3 +60,21 @@ Bu başlangıç paketi transitive çözümleme, artifact hash'i, lisans doğrula
 zafiyet taraması yapmaz. Nihai SBOM ürünü, kapsamı ve CI/CD kapısı banka bilgi
 güvenliği standardına bağlanır. Çıktı yapısı [CycloneDX 1.5 JSON şemasına](https://cyclonedx.org/schema/bom-1.5.schema.json)
 karşı doğrulanır.
+
+## Yerel SAST Bulgu ve Sürüm Kapısı Baseline'ı
+
+`28C-v1` sözleşmesi harici scanner çıktısını güvenilmez girdi kabul eder. Bulgu
+allowlist'i scanner kimliği/sürümü, kural kodu, `INFO/LOW/MEDIUM/HIGH/CRITICAL`
+önem derecesi ve repository-relative satır/sütun konumuyla sınırlıdır. Kaynak
+satırı, snippet, açıklama, ham scanner mesajı, secret veya mutlak/üst dizine çıkan
+yol kabul edilmez.
+
+`SastReleaseGate`, yalnız `COMPLETED` rapordan sürüm kanıtı üretebilir.
+`TECHNICAL_ERROR` temiz tarama sayılmaz ve teknik hata olarak fail-closed kapanır.
+Tamamlanmış raporda en az bir `CRITICAL` bulgu varsa üretim adayı kanıtı üretilmez.
+Başarılı kanıt PEP 621 proje adı/sürümü, gate/scanner sürümü, bulgu sayısı ve
+deterministik bulgu digest'ini taşır; bulgu yolu ve kural kodunu açık metin taşımaz.
+
+Bu baseline gerçek SAST ürünü veya repository taraması değildir. CI/CD zorlaması,
+scanner seçimi, banka eşikleri, istisna/risk kabulü, release onayı, DAST ve sızma
+testi `ComplianceReviewRequired` olarak açık kalır.

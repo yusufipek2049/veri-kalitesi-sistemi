@@ -60,10 +60,45 @@ Durum: `TechnicallyVerified`
 - CI/CD zorlaması ve harici SBOM/dependency scanner ürünü
 - Banka eşik, istisna ve risk kabulü
 
+## 28C — Yerel SAST bulgu ve sürüm kapısı sözleşmesi
+
+Durum: `TechnicallyVerified`
+
+### Gereksinimler
+
+- `BFR-SDLC-001`
+- `BFR-SDLC-002`
+- `BFR-SDLC-003`
+- `NFR-SEC-012`
+
+### Kabul Sonucu
+
+- Ürün bağımsız SAST bulgusu yalnız scanner kimliği/sürümü, kural kodu, önem
+  derecesi ve repository-relative satır/sütun konumunu kabul eder.
+- Kaynak satırı, snippet, scanner mesajı, açıklama, secret ve mutlak/üst dizine
+  çıkan konum allowlist dışı olarak fail-closed reddedilir.
+- Tamamlanmamış tarama ayrı `SastGateTechnicalError` üretir ve sürüm kanıtı vermez.
+- Tamamlanmış taramadaki her `CRITICAL` bulgu sürüm kanıtını
+  `SastGateBlockedError` ile engeller; kritik olmayan bulgular sayılır ve kanonik
+  bulgu özetine bağlanır.
+- Başarılı kanıt PEP 621 proje adı/sürümü, `28C-v1` politika ve scanner sürümünü
+  deterministik SHA-256 özetiyle ilişkilendirir; bulgu yolu/kural kodunu kanıta
+  açık metin taşımaz.
+- 26 sentetik vakayla toplam 556 birim testi geçmiştir.
+
+### Kapsam Dışı
+
+- Gerçek SAST scanner ürünü ve repository taraması
+- CI/CD/pipeline zorlaması ve artifact üretimi
+- Kritik olmayan banka eşikleri, istisna ve risk kabul onayı
+- DAST, container/IaC taraması ve penetrasyon testi
+- Release maker-checker ve banka onayı
+
 ## Önerilen Sonraki Dilim
 
-**28C — Yerel SAST bulgu ve sürüm kapısı sözleşmesi.**
+**28D — Yerel bağımlılık zafiyet bulgu zarfı ve sürüm kapısı sözleşmesi.**
 
-Ürün bağımsız, veri-minimum bir SAST bulgu zarfı ve kritik bulgu bulunduğunda
-üretim adayı kanıtını reddeden yerel sürüm kapısı oluştur; gerçek scanner ürünü,
-CI/CD entegrasyonu, istisna onayı ve DAST kapsam dışında kalsın.
+28B doğrudan bağımlılık/SBOM çıktısını veri-minimum, ürün bağımsız zafiyet bulgusu
+ile bağla; eksik taramayı temiz kabul etme ve kritik zafiyette sürüm kanıtını
+fail-closed engelle. Gerçek zafiyet veritabanı/ağ tarayıcısı, transitive lock,
+istisna/risk kabul onayı ve CI/CD entegrasyonu kapsam dışında kalsın.
