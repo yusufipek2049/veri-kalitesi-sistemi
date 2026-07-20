@@ -19,3 +19,6 @@ Gerçek banka verisi veya secret eklenmez.
   - Kapsam: 15 BDDK/KVKK kontrolü, 26 benzersiz teknik kanıt artifact'ı
 - [İterasyon 29A - Teknik Kanıt Manifest Kanıtı](Iterasyon-29A-Teknik-Kanit-Manifest-Kaniti.md)
   - Durum: `TechnicallyVerified`; kontrol seviyesinde banka onayı değildir
+- [İterasyon 29B - Teknik Kanıt Manifest Drift Kapısı Kanıtı](Iterasyon-29B-Teknik-Kanit-Manifest-Drift-Kapisi-Kaniti.md)
+  - Durum: `TechnicallyVerified`; gerçek 29A manifesti byte düzeyinde `MATCH`
+  - Politika: `29B-v1`; drift, doğrulama hatası ve teknik hata ayrı sonuçlardır

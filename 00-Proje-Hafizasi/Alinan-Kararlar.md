@@ -168,6 +168,15 @@ tags:
 | 2026-07-20 | Katalog 15 matris kontrolünün tamamını ve yalnız bunları içerecek; eksik/fazla kayıt fail-closed olacaktır. | Sessizce atlanan kontrol eksik kanıtı temiz paket gibi gösterebilir. | Bulunan kayıtlarla best-effort manifest üretmek. | Her kontrol açıkça `Partial` veya `Missing` durumundadır; kapsam eksikliği üretim hatasıdır. |
 | 2026-07-20 | `ApprovedByBank` ve `NotApplicable` yalnız opak karar referansı varsa kabul edilecektir. | Codex veya teknik test bankanın yetkili kararını varsayamaz. | Serbest onay notu veya referanssız durum yükseltme. | Mevcut 15 kontrolün tamamı `ComplianceReviewRequired`; banka kararı ve kimlik çözümü ayrı kalır. |
 
+## 2026-07-20 İterasyon 29B Kararları
+
+| Tarih | Karar | Gerekçe | Alternatif | Sonuç |
+| --- | --- | --- | --- | --- |
+| 2026-07-20 | Drift kapısı manifesti 29A üreticisinin tek kanonik bayt serileştirmesiyle yeniden üretecek ve saklanan dosyayla byte düzeyinde karşılaştıracaktır. | JSON nesne eşitliği whitespace veya serileştirme sapmasını gizleyebilir; sürüm artifact'ı tam bayt kimliğiyle doğrulanmalıdır. | JSON'u parse edip semantik karşılaştırmak veya ayrı bir serileştirici yazmak. | Aynı kanonik çıktı `MATCH`, herhangi bir bayt farkı `DRIFT` üretir. |
+| 2026-07-20 | CLI `MATCH`, `DRIFT` ve doğrulama/teknik hatayı sırasıyla `0`, `1`, `2` çıkış kodlarıyla ayıracaktır. | Artifact sapması ile dosya/girdi arızası aynı sonuç sayılırsa operasyonel neden ve kontrol sonucu karışır. | Her başarısızlığı `1` döndürmek veya drift'i exception yapmak. | Kapı fail-closed kalırken otomasyon üç sonucu ayrı işleyebilir. |
+| 2026-07-20 | Doğrulama çıktısı yalnız politika, durum ve saklanan/üretilen SHA-256 özetlerini taşıyacaktır. | Manifest veya kanıt içeriğini log/CI çıktısında çoğaltmak hassas teknik ayrıntı yayılımını artırır. | Tam diff, manifest gövdesi veya değişen kanıt yollarını yazdırmak. | Çıktı veri-minimumdur; ayrıntı güvenli repository incelemesinde kalır. |
+| 2026-07-20 | Saklanan manifest yalnız sürüm paketi dizinindeki kanonik `.json` yolundan okunacaktır. | Genel dosya karşılaştırıcısı kullanıcı girdisiyle depo dışı veya ilgisiz hassas dosya okuyabilir. | Mutlak yol kabul etmek veya yalnız suffix denetlemek. | Traversal, mutlak yol, symlink, düzenli olmayan ve büyük dosya fail-closed reddedilir. |
+
 ## İlişkili Notlar
 
 - [Sistem Açıklaması](../01-SRS/02-Sistem-Aciklamasi.md)

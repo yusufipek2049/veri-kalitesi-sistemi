@@ -291,3 +291,16 @@ class TechnicalEvidenceManifest:
     compliance_review_required_control_ids: tuple[str, ...]
     controls: tuple[ManifestControlRecord, ...]
     controls_digest: str
+
+
+class EvidenceManifestVerificationStatus(str, Enum):
+    MATCH = "MATCH"
+    DRIFT = "DRIFT"
+
+
+@dataclass(frozen=True)
+class EvidenceManifestVerification:
+    policy_version: str
+    status: EvidenceManifestVerificationStatus
+    stored_manifest_sha256: str
+    generated_manifest_sha256: str

@@ -65,6 +65,6 @@ tamamlanmış saymaz.
 
 ## Sonraki Hazır İş
 
-Bankacılık geçiş sırası değişmez: **İterasyon 29B — Teknik kanıt manifesti drift
-doğrulama kapısı**. Frontend 30B geçiş kapısı ve dependency kararı
+Bankacılık geçiş sırası değişmez: **İterasyon 29C — Birleşik yerel sürüm ön
+kontrolü**. Frontend 30B geçiş kapısı ve dependency kararı
 tamamlanana kadar uygulamaya alınmaz.
