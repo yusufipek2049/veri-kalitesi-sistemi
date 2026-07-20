@@ -18,46 +18,46 @@ version: iteration-18a-local
 executed_at: 2026-07-16
 ---
 
-# Iterasyon 18A Siniflandirma ve Profil Minimizasyonu Kaniti
+# İterasyon 18A Sınıflandırma ve Profil Minimizasyonu Kanıtı
 
-## Degisiklik
+## Değişiklik
 
-- Iterasyon: 18A - Surumlu siniflandirma sozlugu ve fail-closed profil minimizasyonu
-- Commit/Artifact: Git deposu bulunmadigi icin commit yok; yerel calisma agaci
-- Bilesen: `veri_kalitesi.data_protection`, `veri_kalitesi.data_sources`
-- Kontrol/Gereksinim: BFR-DATA-001, BFR-DATA-002, BFR-DATA-003 profil alt kapsami, CTRL-KVKK-SEC-001, CTRL-KVKK-MIN-001, FR-016, FR-020, UC-004, RULE-010, NFR-PRV-002, NFR-PRV-003 ve AC-023
+- İterasyon: 18A - Sürümlü sınıflandırma sözlüğü ve fail-closed profil minimizasyonu
+- Commit/Artifact: Git deposu bulunmadığı için commit yok; yerel çalışma ağacı
+- Bileşen: `veri_kalitesi.data_protection`, `veri_kalitesi.data_sources`
+- Kontrol/Gereksinim: BFR-DATA-001, BFR-DATA-002, BFR-DATA-003 profil alt kapsamı, CTRL-KVKK-SEC-001, CTRL-KVKK-MIN-001, FR-016, FR-020, UC-004, RULE-010, NFR-PRV-002, NFR-PRV-003 ve AC-023
 
-## Dogrulama
+## Doğrulama
 
 - Komut: `PYTHONPATH=03-Backend/src python3 -m pytest -q`
-- Ortam: Python 3.10.12, yerel prototip, bellek ici ve gecici dosya tabanli sentetik SQLite verisi
-- Sentetik veri seti: Onaysiz sinif kodu, NULL/serbest legacy siniflar ve ham e-posta/top-value/desen iceren sentetik profil payloadi
-- Beklenen: Onaysiz kod yazilmaz; sinifsiz alan fail-closed olur; aggregate metrikler korunurken ham profil degerleri kalici profil ve audit payloadina girmez.
-- Gerceklesen: 173 test gecti. Veri kaynagi hedef grubu 31 testle gecti. Servis dogrulamasi, SQLite migration/tetikleyici, profil allowlist'i ve ham deger negatif kontrolleri dogrulandi.
-- Sonuc: PASS
+- Ortam: Python 3.10.12, yerel prototip, bellek içi ve geçici dosya tabanlı sentetik SQLite verisi
+- Sentetik veri seti: Onaysız sınıf kodu, NULL/serbest legacy sınıflar ve ham e-posta/top-value/desen içeren sentetik profil payloadı
+- Beklenen: Onaysız kod yazılmaz; sınıfsız alan fail-closed olur; aggregate metrikler korunurken ham profil değerleri kalıcı profil ve audit payloadına girmez.
+- Gerçekleşen: 173 test geçti. Veri kaynağı hedef grubu 31 testle geçti. Servis doğrulaması, SQLite migration/tetikleyici, profil allowlist'i ve ham değer negatif kontrolleri doğrulandı.
+- Sonuç: PASS
 
 Ek kontroller:
 
-- Degisen Python dosyalarinda `python3 -m ruff format --check ...`: PASS
+- Değişen Python dosyalarında `python3 -m ruff format --check ...`: PASS
 - `python3 -m ruff check 03-Backend/src 06-Testler`: PASS
 - `python3 -m compileall -q 03-Backend/src 06-Testler`: PASS
-- Hassas deger incelemesi: PASS; yalniz acikca sentetik test degerleri kullanildi ve kalici sonuc/audit icinde bulunmadiklari negatif assertion ile dogrulandi.
-- Tam depo format kontrolu, bu iterasyonda degismeyen 4 eski dosyanin mevcut format farklari nedeniyle PASS degildir.
+- Hassas değer incelemesi: PASS; yalnız açıkça sentetik test değerleri kullanıldı ve kalıcı sonuç/audit içinde bulunmadıkları negatif assertion ile doğrulandı.
+- Tam depo format kontrolü, bu iterasyonda değişmeyen 4 eski dosyanın mevcut format farkları nedeniyle PASS değildir.
 
-## Guvenlik
+## Güvenlik
 
-- Deny-by-default: NULL/bos sınıf `UNCLASSIFIED`; onaysiz yeni kod validation hatasidir.
-- Veri minimizasyonu: Connector payloadi dogrudan saklanmaz; yalniz allowlist aggregate alanlari kalir.
-- Defense in depth: SQLite insert/update tetikleyicileri dogrudan sozluk disi sinif yazimini reddeder.
-- Kaynak erisimi: Profil baglayicilarinin mevcut salt okunur erisim modeli degismemistir.
-- Kalan risk: Teknik kodlar banka tarafindan onayli sozluk degildir; isleme envanteri ve diger cikis yuzeyleri 18A disindadir.
+- Deny-by-default: NULL/bos sınıf `UNCLASSIFIED`; onaysiz yeni kod validation hatasıdır.
+- Veri minimizasyonu: Connector payloadı doğrudan saklanmaz; yalnız allowlist aggregate alanları kalır.
+- Defense in depth: SQLite insert/update tetikleyicileri doğrudan sözlük dışı sınıf yazımını reddeder.
+- Kaynak erişimi: Profil bağlayıcılarının mevcut salt okunur erişim modeli değişmemiştir.
+- Kalan risk: Teknik kodlar banka tarafından onaylı sözlük değildir; işleme envanteri ve diğer çıkış yüzeyleri 18A dışındadır.
 
 ## Onaylar
 
-- Teknik dogrulayan: Codex teknik uygulama ajani
-- Bilgi guvenligi: ComplianceReviewRequired
-- Veri yonetisimi: ComplianceReviewRequired
+- Teknik doğrulayan: Codex teknik uygulama ajanı
+- Bilgi güvenliği: ComplianceReviewRequired
+- Veri yönetişimi: ComplianceReviewRequired
 - Hukuk/uyum: ComplianceReviewRequired
-- Is sahibi: ComplianceReviewRequired
+- İş sahibi: ComplianceReviewRequired
 
-Bu kanit teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayi anlamina gelmez.
+Bu kanıt teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayı anlamına gelmez.

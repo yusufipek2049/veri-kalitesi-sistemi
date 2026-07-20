@@ -369,7 +369,7 @@ class IncidentResponseService:
                     key=lambda item: (item.event_at, item.event_type.value),
                 )
             ),
-            generated_at=now,
+            created_at=now,
             policy_version=self.access_policy.version,
         )
         self._record_timeline_view(context, query, view, now)

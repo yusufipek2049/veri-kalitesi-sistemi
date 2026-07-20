@@ -15,45 +15,45 @@ version: iteration-17d1-local
 executed_at: 2026-07-16
 ---
 
-# Iterasyon 17D1 Zamanlama Audit Gecis Kaniti
+# İterasyon 17D1 Zamanlama Audit Geçiş Kanıtı
 
-## Degisiklik
+## Değişiklik
 
-- Iterasyon: 17D1 - Zamanlama olusturma merkezi audit gecisi
-- Commit/Artifact: Git deposu bulunmadigi icin commit yok; yerel calisma agaci
-- Bilesen: `veri_kalitesi.executions.scheduling`, `veri_kalitesi.audit`
+- İterasyon: 17D1 - Zamanlama oluşturma merkezi audit geçişi
+- Commit/Artifact: Git deposu bulunmadığı için commit yok; yerel çalışma ağacı
+- Bileşen: `veri_kalitesi.executions.scheduling`, `veri_kalitesi.audit`
 - Kontrol/Gereksinim: BFR-AUD-001, BFR-AUD-002, BFR-AUD-003, BFR-AUD-004, BRULE-005, FR-037, FR-077, FR-079 ve UC-007
 
-## Dogrulama
+## Doğrulama
 
 - Komut: `python3 -m pytest -q`
-- Ortam: Python 3.10.12, yerel prototip, bellek ici sentetik SQLite test verisi
-- Sentetik veri seti: Sentetik schedule, kural surumu, actor/correlation kimlikleri ve audit kesintileri
-- Beklenen: Schedule ile redakte audit olayi atomik commit/rollback olur; merkezi kesintide commit edilen schedule'in olayi `PENDING` kalir; sonraki bes calisma zamani onizlemesi korunur.
-- Gerceklesen: 164 test gecti. Audit/execution hedef grubu 49 testle gecti. Merkezi olay ve correlation, veri minimizasyonu, outbox rollback ve merkezi kesintide pending kayit dogrulandi.
-- Sonuc: PASS
+- Ortam: Python 3.10.12, yerel prototip, bellek içi sentetik SQLite test verisi
+- Sentetik veri seti: Sentetik schedule, kural sürümü, actor/correlation kimlikleri ve audit kesintileri
+- Beklenen: Schedule ile redakte audit olayı atomik commit/rollback olur; merkezi kesintide commit edilen schedule'ın olayı `PENDING` kalır; sonraki beş çalışma zamanı onizlemesi korunur.
+- Gerçekleşen: 164 test geçti. Audit/execution hedef grubu 49 testle geçti. Merkezi olay ve correlation, veri minimizasyonu, outbox rollback ve merkezi kesintide pending kayıt doğrulandı.
+- Sonuç: PASS
 
 Ek kontroller:
 
-- Degisen dosyalarda `python3 -m ruff format --check ...`: PASS
+- Değişen dosyalarda `python3 -m ruff format --check ...`: PASS
 - `python3 -m ruff check 03-Backend/src 06-Testler`: PASS
 - `python3 -m compileall -q 03-Backend/src 06-Testler`: PASS
-- Hassas deger desen taramasi: PASS; eslesme bulunmadi.
-- Tam depo format kontrolu, bu iterasyonda degismeyen 4 eski dosyanin mevcut format farklari nedeniyle PASS degildir.
+- Hassas değer desen taraması: PASS; eşleşme bulunmadı.
+- Tam depo format kontrolü, bu iterasyonda değişmeyen 4 eski dosyanın mevcut format farkları nedeniyle PASS değildir.
 
-## Guvenlik
+## Güvenlik
 
-- Redaksiyon: Schedule adi ve kural surum kimlikleri audit ozetine alinmaz; yalniz tur, saat dilimi, kural sayisi, onizleme sayisi ve ilk tetik zamani tutulur.
-- Correlation: Verilen correlation ID korunur; eksikse operasyon sinirinda uretilir, bos deger schedule yazimindan once reddedilir.
-- Audit atomikligi: Schedule inserti ve outbox-stage ayni SQLite transaction'indadir; merkezi yayin commit sonrasinda yapilir.
-- Kalan risk: Serbest `actor_id`, skorlama legacy audit yolu, tarihsel aktarim ve uretim publisher worker'i bu dilimin disindadir.
+- Redaksiyon: Schedule adı ve kural sürüm kimlikleri audit özetine alınmaz; yalnız tur, saat dilimi, kural sayısı, onizleme sayısı ve ilk tetik zamanı tutulur.
+- Correlation: Verilen correlation ID korunur; eksikse operasyon sınırında üretilir, boş değer schedule yazımından önce reddedilir.
+- Audit atomikliği: Schedule inserti ve outbox-stage aynı SQLite transaction'ındadır; merkezi yayın commit sonrasında yapılır.
+- Kalan risk: Serbest `actor_id`, skorlama legacy audit yolu, tarihsel aktarım ve üretim publisher worker'ı bu dilimin dışındadır.
 
 ## Onaylar
 
-- Teknik dogrulayan: Codex teknik uygulama ajani
-- Bilgi guvenligi: ComplianceReviewRequired
-- Ic kontrol: ComplianceReviewRequired
+- Teknik doğrulayan: Codex teknik uygulama ajanı
+- Bilgi güvenliği: ComplianceReviewRequired
+- İç kontrol: ComplianceReviewRequired
 - Hukuk/uyum: ComplianceReviewRequired
-- Is sahibi: ComplianceReviewRequired
+- İş sahibi: ComplianceReviewRequired
 
-Bu kanit teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayi anlamina gelmez.
+Bu kanıt teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayı anlamına gelmez.

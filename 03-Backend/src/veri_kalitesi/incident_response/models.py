@@ -203,5 +203,5 @@ class BreachTimelineView:
     decision_reason_code: str | None
     external_notification_dispatched: bool
     timeline: tuple[BreachTimelineEventView, ...]
-    generated_at: datetime
+    created_at: datetime
     policy_version: str

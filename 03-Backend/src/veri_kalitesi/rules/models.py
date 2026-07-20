@@ -62,6 +62,7 @@ class RuleApprovalStatus(str, Enum):
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
     WITHDRAWN = "WITHDRAWN"
+    EXPIRED = "EXPIRED"
 
 
 @dataclass(frozen=True)
@@ -76,6 +77,10 @@ class RuleApprovalPolicy:
     allowed_actor_types: frozenset[ActorType] = field(
         default_factory=lambda: frozenset({ActorType.USER})
     )
+    target_business_days: int | None = None
+    expiration_business_days: int | None = None
+    business_calendar_version: str | None = None
+    expiry_service_roles: frozenset[str] = field(default_factory=frozenset)
 
 
 @dataclass(frozen=True)
@@ -88,6 +93,9 @@ class RuleApprovalRequest:
     decision_reason_code: str | None = None
     approval_request_id: str = field(default_factory=lambda: str(uuid4()))
     requested_at: datetime = field(default_factory=utc_now)
+    target_at: datetime | None = None
+    expires_at: datetime | None = None
+    business_calendar_version: str | None = None
     decided_at: datetime | None = None
 
 

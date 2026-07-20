@@ -4,7 +4,7 @@ project: Veri Kalitesi İzleme ve Skorlama Sistemi
 source_document: Veri_Kalitesi_Izleme_ve_Skorlama_Sistemi_SRS_v0.1.md
 source_version: "0.1"
 source_section: "13"
-generated_at: 2026-07-16
+created_at: 2026-07-16
 tags:
   - srs
   - risk
@@ -21,7 +21,7 @@ Bu bölüm, proje ve işletim risklerini, önleyici/düzeltici faaliyetleri ve s
 | RISK-003 | Data Owner ve Data Steward atanmaması | Orta | Yüksek | Yüksek | Kritik kaynak aktivasyonunda sahip zorunluluğu; yönetişim matrisi | Varsayılan yönetişim kuyruğuna ata; yönetim eskalasyonu | Veri Yönetişimi Yöneticisi |
 | RISK-004 | Kişisel verilerin profil, log veya raporda açığa çıkması | Orta | Çok Yüksek | Kritik | Sınıflandırma, maskeleme, veri minimizasyonu, güvenli log, dışa aktarma izni | Erişimi kes; olayı güvenliğe bildir; veriyi temizle/anonimleştir; kök neden analizi | Bilgi Güvenliği / KVKK |
 | RISK-005 | Veri kaynaklarına ağ veya yetki erişimi sağlanamaması | Yüksek | Orta | Yüksek | Erken bağlantı matrisi, servis hesabı, güvenlik duvarı talepleri, bağlantı testi | Mock/anonim veriyle geliştirme; erişim bekleyen kaynağı fazlandırma | Proje Yöneticisi / Sistem Yöneticisi |
-| RISK-006 | 20 milyon+ satır veri hacminde yerel bilgisayar kapasitesinin aşılması | Yüksek | Yüksek | Kritik | Kaynakta aggregate, örnekleme, bölümleme, streaming okuma, bellek limiti, performans bütçesi | Kapsamı küçült; sentetik bölüm kullan; üretim benchmarkını ayrı ortamda yap | Yazılım Mimarı / Yusuf İpek |
+| RISK-006 | 20 milyon+ satır veri hacminde yerel bilgisayar kapasitesinin aşılması | Yüksek | Yüksek | Kritik | Kaynakta aggregate, örnekleme, bölümleme, streaming okuma, bellek limiti, performans bütçesi | Kapsamı küçült; sentetik bölüm kullan; üretim benchmarkını ayrı ortamda yap | Yazılım Mimari / Yusuf İpek |
 | RISK-007 | Yanlış skor ağırlıklarıyla yanıltıcı kurumsal skor | Orta | Yüksek | Yüksek | Ağırlık sürümleme, veri yönetişimi onayı, duyarlılık analizi, açıklanabilir skor | Yeni konfigürasyon sürümü yayımla; geçmişi yeniden yazmadan karşılaştırmalı yeniden hesapla | Veri Yönetişimi Kurulu |
 | RISK-008 | Bildirim yorgunluğu | Yüksek | Orta | Yüksek | Deduplication, susturma, tekrar penceresi, kritik bazlı eskalasyon | Eşikleri ve alıcıları gözden geçir; toplu özet görünümü oluştur | Data Steward |
 | RISK-009 | Eski metadata nedeniyle kuralların yanlış nesneye uygulanması | Orta | Yüksek | Yüksek | Periyodik metadata taraması, değişiklik algılama, son tarama göstergesi | Etkilenen kuralları inceleme gerekli durumuna al; yeniden keşif yap | Veri Mühendisi |

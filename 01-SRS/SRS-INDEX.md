@@ -2,7 +2,7 @@
 type: srs-index
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
 source_version: "0.1"
-generated_at: 2026-07-16
+created_at: 2026-07-16
 tags:
   - srs
   - index

@@ -18,50 +18,50 @@ version: iteration-20c-local
 executed_at: 2026-07-17
 ---
 
-# Iterasyon 20C Guvenli Oturum Yasam Dongusu Kaniti
+# İterasyon 20C Güvenli Oturum Yaşam Döngüsü Kanıtı
 
-## Degisiklik
+## Değişiklik
 
-- Iterasyon: 20C - kalici, iptal edilebilir ve idle-timeout kontrollu kullanici oturumu
-- Commit/Artifact: Git deposu bulunmadigi icin commit yok; yerel calisma agaci
-- Bilesen: `veri_kalitesi.identity`, `veri_kalitesi.audit`
-- Kontrol/Gereksinim: FR-001/005, UC-001, NFR-SEC-005/009, AC-001 ve BFR-IAM-001/002/004/005/006 alt kapsami
+- İterasyon: 20C - kalıcı, iptal edilebilir ve idle-timeout kontrollü kullanıcı oturumu
+- Commit/Artifact: Git deposu bulunmadığı için commit yok; yerel çalışma ağacı
+- Bileşen: `veri_kalitesi.identity`, `veri_kalitesi.audit`
+- Kontrol/Gereksinim: FR-001/005, UC-001, NFR-SEC-005/009, AC-001 ve BFR-IAM-001/002/004/005/006 alt kapsamı
 
-## Dogrulama
+## Doğrulama
 
 - Komut: `pytest -q`
-- Ortam: Python 3.10.12, yerel prototip, fake LDAP adaptoru ve sentetik kullanici verisi
-- Sentetik veri seti: Guvenilir/guvenilmez/expired context, 32 bayt session credential, idle ve mutlak sure ilerletme, cikis, degistirilmis credential, kalici SQLite kaydi, depo ve audit arizasi
-- Beklenen: Yalniz guvenilir LDAP context'i oturum acar; credential acik saklanmaz; 30 dakikada idle timeout, mutlak timeout ve cikis oturumu kalici gecersizlestirir; teknik ariza context dondurmez.
-- Gerceklesen: 254 test gecti. Kimlik hedef grubu 42 testle gecti; 17 yeni oturum testi eklendi.
-- Sonuc: PASS
+- Ortam: Python 3.10.12, yerel prototip, fake LDAP adaptörü ve sentetik kullanıcı verisi
+- Sentetik veri seti: Güvenilir/güvenilmez/expired context, 32 bayt session credential, idle ve mutlak süre ilerletme, çıkış, değiştirilmiş credential, kalıcı SQLite kaydı, depo ve audit arızası
+- Beklenen: Yalnız güvenilir LDAP context'i oturum açar; credential açık saklanmaz; 30 dakikada idle timeout, mutlak timeout ve çıkış oturumu kalıcı geçersizleştirir; teknik arıza context döndürmez.
+- Gerçekleşen: 254 test geçti. Kimlik hedef grubu 42 testle geçti; 17 yeni oturum testi eklendi.
+- Sonuç: PASS
 
 Ek kontroller:
 
 - `ruff check 03-Backend/src 06-Testler`: PASS
-- Degisen alti Python dosyasinda `ruff format --check ...`: PASS
+- Değişen altı Python dosyasında `ruff format --check ...`: PASS
 - `python3 -m compileall -q 03-Backend/src`: PASS
-- Tam depo format kontrolu, bu iterasyonda degismeyen dort eski dosyanin mevcut format farklari nedeniyle PASS degildir.
+- Tam depo format kontrolü, bu iterasyonda değişmeyen dört eski dosyanın mevcut format farkları nedeniyle PASS değildir.
 
-## Guvenlik
+## Güvenlik
 
-- Guven siniri: Session servisi serbest actor/rol/scope almaz; yalniz guvenilir ve halen gecerli `ActorContext` kabul eder.
-- Credential: Yuksek entropili credential yalniz bir kez `SessionGrant` icinde dondurulur; SQLite ve audit yalniz SHA-256/session digest tasir.
-- Deny-by-default: Bilinmeyen, degistirilmis, expired veya revoked credential context uretmez. Depo ya da audit arizasi fail-closed kapanir.
-- Zaman: Surumlu politika varsayilan 30 dakika idle timeoutu uygular; daha siki deger desteklenir. Ayrica enjekte edilen mutlak timeout aktiviteyle uzatilmaz.
-- Cikis: Ilk cikis kalici `REVOKED`, tekrar cikis idempotenttir; credential daha sonra kullanilamaz.
-- Hesap ayrimi: Normal kullanici session servisi servis hesabi ve ayricalikli kullaniciyi reddeder; break-glass/servis oturumu bu dilimde tahmin edilmez.
-- Audit: Olusturma, dogrulama, timeout, cikis ve ret olaylari allowlist ozetle kaydedilir; ham credential ve acik session ID audit ozetine girmez.
-- Maker-checker etkisi: Bu dilimde politika degistirme yuzeyi yoktur; uretim timeout/es zamanli oturum politika onayi `OPEN-BNK-020` altinda aciktir.
-- Geri alma: Session servisi LDAP basarisinda zorunludur. Guvenli pasiflestirme yerine oturumlar `REVOKED` yapilip onceki surume kontrollu donulmelidir.
-- Kalan risk: HTTP cookie/token tasimasi, CSRF, es zamanli oturum limiti, mutlak sure, uretim deposu/sifreleme ve saklama suresi banka karari gerektirir.
+- Güven sınırı: Session servisi serbest actor/rol/scope almaz; yalnız güvenilir ve halen geçerli `ActorContext` kabul eder.
+- Credential: Yüksek entropili credential yalnız bir kez `SessionGrant` içinde dondurulur; SQLite ve audit yalnız SHA-256/session digest taşır.
+- Deny-by-default: Bilinmeyen, değiştirilmiş, expired veya revoked credential context üretmez. Depo ya da audit arızası fail-closed kapanır.
+- Zaman: Sürümlü politika varsayılan 30 dakika idle timeoutu uygular; daha sıkı değer desteklenir. Ayrıca enjekte edilen mutlak timeout aktiviteyle uzatılmaz.
+- Çıkış: İlk çıkış kalıcı `REVOKED`, tekrar çıkış idempotenttir; credential daha sonra kullanılamaz.
+- Hesap ayrımı: Normal kullanıcı session servisi servis hesabı ve ayrıcalıklı kullanıcıyı reddeder; break-glass/servis oturumu bu dilimde tahmin edilmez.
+- Audit: Oluşturma, doğrulama, timeout, çıkış ve ret olayları allowlist özetle kaydedilir; ham credential ve açık session ID audit özetine girmez.
+- Maker-checker etkisi: Bu dilimde politika değiştirme yüzeyi yoktur; üretim timeout/es zamanlı oturum politika onayı `OPEN-BNK-020` altında açıktır.
+- Geri alma: Session servisi LDAP başarısında zorunludur. Güvenli pasifleştirme yerine oturumlar `REVOKED` yapılıp önceki sürüme kontrollü dönülmelidir.
+- Kalan risk: HTTP cookie/token taşıması, CSRF, eş zamanlı oturum limiti, mutlak süre, üretim deposu/sifreleme ve saklama süresi banka kararı gerektirir.
 
 ## Onaylar
 
-- Teknik dogrulayan: Codex teknik uygulama ajani
-- Bilgi guvenligi: ComplianceReviewRequired
+- Teknik doğrulayan: Codex teknik uygulama ajanı
+- Bilgi güvenliği: ComplianceReviewRequired
 - IAM: ComplianceReviewRequired
-- Ic kontrol: ComplianceReviewRequired
+- İç kontrol: ComplianceReviewRequired
 - Hukuk/uyum: ComplianceReviewRequired
 
-Bu kanit teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayi anlamina gelmez.
+Bu kanıt teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayı anlamına gelmez.

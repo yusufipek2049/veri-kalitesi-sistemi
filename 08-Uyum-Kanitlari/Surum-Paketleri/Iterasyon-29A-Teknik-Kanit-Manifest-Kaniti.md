@@ -15,8 +15,8 @@ producer_role: Codex
 ## Kapsam
 
 - Politika: `29A-v1`
-- Katalog: [Iterasyon 29A Teknik Kanıt Kataloğu](Iterasyon-29A-Teknik-Kanit-Katalogu.json)
-- Manifest: [Iterasyon 29A Teknik Kanıt Manifesti](Iterasyon-29A-Teknik-Kanit-Manifesti.json)
+- Katalog: [İterasyon 29A Teknik Kanıt Kataloğu](Iterasyon-29A-Teknik-Kanit-Katalogu.json)
+- Manifest: [İterasyon 29A Teknik Kanıt Manifesti](Iterasyon-29A-Teknik-Kanit-Manifesti.json)
 - Katalog SHA-256: `1ff1e643da61a44ed6a87a7d28a146b67fa43813adc62b86c52bceefe38ce3a0`
 - Manifest SHA-256: `8909af184797ffe493082f2a9a8ebbfbad818c987416830a76732ec15eaa8a24`
 

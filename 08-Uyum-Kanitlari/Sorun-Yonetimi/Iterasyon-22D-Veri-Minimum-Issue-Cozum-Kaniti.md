@@ -19,50 +19,50 @@ version: iteration-22d-local
 executed_at: 2026-07-17
 ---
 
-# Iterasyon 22D Veri Minimum Issue Cozum Kaniti
+# İterasyon 22D Veri Minimum Issue Çözüm Kanıtı
 
-## Degisiklik
+## Değişiklik
 
-- Iterasyon: 22D - korunan kok neden, duzeltici faaliyet ve kanit referansiyla `RESOLVED` gecisi
-- Commit/Artifact: Git deposu bulunmadigi icin commit yok; yerel calisma agaci
-- Bilesen: `veri_kalitesi.issues`, `veri_kalitesi.audit`, `veri_kalitesi.identity`
-- Kontrol/Gereksinim: FR-066, FR-068, FR-070, UC-014, RULE-013, NFR-REL-006, NFR-SEC-001/005/008 ve BFR-IAM-001/002, BFR-DATA-003 alt kapsami
+- İterasyon: 22D - korunan kök neden, düzeltici faaliyet ve kanıt referansıyla `RESOLVED` geçişi
+- Commit/Artifact: Git deposu bulunmadığı için commit yok; yerel çalışma ağacı
+- Bileşen: `veri_kalitesi.issues`, `veri_kalitesi.audit`, `veri_kalitesi.identity`
+- Kontrol/Gereksinim: FR-066, FR-068, FR-070, UC-014, RULE-013, NFR-REL-006, NFR-SEC-001/005/008 ve BFR-IAM-001/002, BFR-DATA-003 alt kapsamı
 
-## Dogrulama
+## Doğrulama
 
 - Komut: `PYTHONPATH=03-Backend/src pytest -q`
-- Ortam: Python 3.10.12, yerel prototip, bellek ici SQLite ve sentetik UUID referanslari
-- Sentetik veri seti: Korunmus kok neden/faaliyet, HTML girdi, zorunlu alan ve zaman sinirlari, gecersiz kanit, assignee/rol/scope ihlalleri, servis/ayricalikli context, koruma/depo/audit arizalari
-- Beklenen: Yalniz atanmis, kapsam ici ve yetkili kullanici incelenen issue'yu zorunlu korunan cozum ve kanit referansiyla `RESOLVED` yapar; cozum/gecmis/audit atomik, audit veri-minimumdur.
-- Gerceklesen: 337 test gecti. Issue hedef grubu 55 testle gecti; 19 yeni test vakasi eklendi.
-- Sonuc: PASS
+- Ortam: Python 3.10.12, yerel prototip, bellek içi SQLite ve sentetik UUID referansları
+- Sentetik veri seti: Korunmuş kök neden/faaliyet, HTML girdi, zorunlu alan ve zaman sınırları, geçersiz kanıt, assignee/rol/scope ihlalleri, servis/ayrıcalıklı context, koruma/depo/audit arızaları
+- Beklenen: Yalnız atanmış, kapsam içi ve yetkili kullanıcı incelenen issue'yü zorunlu korunan çözüm ve kanıt referansıyla `RESOLVED` yapar; çözüm/geçmiş/audit atomik, audit veri-minimumdur.
+- Gerçekleşen: 337 test geçti. Issue hedef grubu 55 testle geçti; 19 yeni test vakası eklendi.
+- Sonuç: PASS
 
 Ek kontroller:
 
 - `ruff check 03-Backend/src 06-Testler`: PASS
-- Degisen Python dosyalarinda `ruff format --check ...`: PASS
+- Değişen Python dosyalarında `ruff format --check ...`: PASS
 - `python3 -m compileall -q 03-Backend/src 06-Testler`: PASS
-- Hassas anahtar sozcuk taramasi yalniz sentetik negatif test girdilerini buldu; kalici cozum/audit ciktisinda bu degerler bulunmaz.
-- Tam depo format kontrolu, bu iterasyonda degismeyen dort eski dosyanin mevcut format farklari nedeniyle PASS degildir.
+- Hassas anahtar sözcük taraması yalnız sentetik negatif test girdilerini buldu; kalıcı çözüm/audit çıktısında bu değerler bulunmaz.
+- Tam depo format kontrolü, bu iterasyonda değişmeyen dört eski dosyanın mevcut format farkları nedeniyle PASS değildir.
 
-## Guvenlik
+## Güvenlik
 
-- Guven siniri: Cozum yalniz guvenilir, gecerli, normal kullanici context'indeki kayitli assignee; ilgili dataset/source scope'u ve `DATA_STEWARD`/`DATA_ENGINEER` roluyle yapilir.
-- Veri koruma: Ham kok neden ve faaliyet dogrudan saklanmaz. Enjekte edilen koruma adaptoru HTML ve yasak hassas kalip icermeyen, surumlu cikti uretmelidir; politika yoksa islem fail-closed kapanir.
-- Veri minimizasyonu: Kanit dosyasi veya icerigi yerine yalniz sentetik UUID referansi saklanir. Cozum metni issue satirina veya gecmise kopyalanmaz; gecmis append-only cozum UUID'sine baglanir.
-- Atomiklik: Cozum kaydi, issue durumu, gecmis ve redakte audit outbox ayni SQLite transaction'indadir; audit-stage arizasinda tum degisiklikler rollback olur.
-- Audit: Allowlist yalniz eski/yeni durum, zorunlu alan tamligi ve koruma politika surumunu tutar. Kok neden, faaliyet, kanit, scope ve acik session kimligi audit ozetine girmez.
-- Teknik hata ayrimi: Girdi/durum/koruma cikti ihlali domain hatasi; koruma adaptoru veya depo arizasi redakte teknik hatadir. Teknik hata issue'yu cozulmus yapmaz.
-- Maker-checker etkisi: Bu dilim cozum bildirimidir, dogrulama/onay degildir. Cozumu yapan ile dogrulayanin ayrilmasi 22E/22F politika kapsaminda degerlendirilecektir.
-- Geri alma: `resolve` cagri yolu pasiflestirilip onceki surume donulebilir; append-only cozum/gecmis kayitlari silinmez. Kaynak sisteme yazim yoktur.
-- Kalan risk: Gercek metin koruma adaptoru, dogrulama skoru/execution bagi, `VERIFIED/CLOSED`, yeniden acma, ServiceNow ve HTTP/UI kapsam disidir.
+- Güven sınırı: Çözüm yalnız güvenilir, geçerli, normal kullanıcı context'indeki kayıtlı assignee; ilgili dataset/source scope'ü ve `DATA_STEWARD`/`DATA_ENGINEER` rolüyle yapılır.
+- Veri koruma: Ham kök neden ve faaliyet doğrudan saklanmaz. Enjekte edilen koruma adaptörü HTML ve yasak hassas kalıp içermeyen, sürümlü çıktı üretmelidir; politika yoksa işlem fail-closed kapanır.
+- Veri minimizasyonu: Kanıt dosyası veya içeriği yerine yalnız sentetik UUID referansı saklanır. Çözüm metni issue satırına veya geçmişe kopyalanmaz; geçmiş append-only çözüm UUID'sine bağlanır.
+- Atomiklik: Çözüm kaydı, issue durumu, geçmiş ve redakte audit outbox aynı SQLite transaction'ındadır; audit-stage arızasında tüm değişiklikler rollback olur.
+- Audit: Allowlist yalnız eski/yeni durum, zorunlu alan tamlığı ve koruma politika sürümünü tutar. Kök neden, faaliyet, kanıt, scope ve açık session kimliği audit özetine girmez.
+- Teknik hata ayrımı: Girdi/durum/koruma çıktı ihlali domain hatası; koruma adaptörü veya depo arızası redakte teknik hatadır. Teknik hata issue'yu çözülmüş yapmaz.
+- Maker-checker etkisi: Bu dilim çözüm bildirimidir, doğrulama/onay değildir. Çözümü yapan ile doğrulayanın ayrılması 22E/22F politika kapsamında değerlendirilecektir.
+- Geri alma: `resolve` çağrı yolu pasifleştirilip önceki sürüme dönülebilir; append-only çözüm/geçmiş kayıtları silinmez. Kaynak sisteme yazım yoktur.
+- Kalan risk: Gerçek metin koruma adaptörü, doğrulama skoru/execution bağı, `VERIFIED/CLOSED`, yeniden açma, ServiceNow ve HTTP/UI kapsam dışıdır.
 
 ## Onaylar
 
-- Teknik dogrulayan: Codex teknik uygulama ajani
-- Bilgi guvenligi: ComplianceReviewRequired
-- Veri yonetisimi: ComplianceReviewRequired
-- Ic kontrol: ComplianceReviewRequired
+- Teknik doğrulayan: Codex teknik uygulama ajanı
+- Bilgi güvenliği: ComplianceReviewRequired
+- Veri yönetişimi: ComplianceReviewRequired
+- İç kontrol: ComplianceReviewRequired
 - Hukuk/uyum: ComplianceReviewRequired
 
-Bu kanit teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayi anlamina gelmez.
+Bu kanıt teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayı anlamına gelmez.

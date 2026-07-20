@@ -416,7 +416,7 @@ def test_bfr_ir_002_003_pending_timeline_view_is_authorized_and_data_minimum() -
         "decision_reason_code",
         "external_notification_dispatched",
         "timeline",
-        "generated_at",
+        "created_at",
         "policy_version",
     }
     serialized = repr(view)

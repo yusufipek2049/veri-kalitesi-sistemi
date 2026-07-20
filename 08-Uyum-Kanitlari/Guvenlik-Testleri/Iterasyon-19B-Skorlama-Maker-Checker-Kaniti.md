@@ -15,50 +15,50 @@ version: iteration-19b-local
 executed_at: 2026-07-17
 ---
 
-# Iterasyon 19B Skorlama Maker-Checker Kaniti
+# İterasyon 19B Skorlama Maker-Checker Kanıtı
 
-## Degisiklik
+## Değişiklik
 
-- Iterasyon: 19B - Skor konfigürasyonu maker-checker
-- Commit/Artifact: Git deposu bulunmadigi icin commit yok; yerel calisma agaci
-- Bilesen: `veri_kalitesi.identity`, `veri_kalitesi.scoring`, `veri_kalitesi.audit`
-- Kontrol/Gereksinim: FR-051, FR-052, RULE-001, RULE-005, RULE-007, BFR-SOD-001-004 skor konfigürasyonu alt kapsami
+- İterasyon: 19B - Skor konfigürasyonu maker-checker
+- Commit/Artifact: Git deposu bulunmadığı için commit yok; yerel çalışma ağacı
+- Bileşen: `veri_kalitesi.identity`, `veri_kalitesi.scoring`, `veri_kalitesi.audit`
+- Kontrol/Gereksinim: FR-051, FR-052, RULE-001, RULE-005, RULE-007, BFR-SOD-001-004 skor konfigürasyonu alt kapsamı
 
-## Dogrulama
+## Doğrulama
 
 - Komut: `PYTHONPATH=03-Backend/src python3 -m pytest -q`
-- Ortam: Python 3.10.12, yerel prototip, bellek ici sentetik SQLite verisi
-- Sentetik veri seti: Skor esik ve agirliklari, sentetik maker/checker context, kurum kapsami, eski taslak, servis hesabi ve outbox arizasi
-- Beklenen: Yeni konfigürasyon pasif taslak olur; yalniz farkli yetkili checker onayi aktive eder; ret veya gecersiz context aktif sürümü degistirmez; talep ve karar audit ile atomiktir.
-- Gerceklesen: 202 test gecti. Skorlama hedef grubu 46 testle gecti. On iki yeni maker-checker ve negatif güvenlik testi basarili oldu; mevcut migration testi onay tablosunu da dogruluyor.
-- Sonuc: PASS
+- Ortam: Python 3.10.12, yerel prototip, bellek içi sentetik SQLite verisi
+- Sentetik veri seti: Skor eşik ve ağırlıkları, sentetik maker/checker context, kurum kapsamı, eski taslak, servis hesabı ve outbox arızası
+- Beklenen: Yeni konfigürasyon pasif taslak olur; yalnız farklı yetkili checker onayı aktıve eder; ret veya geçersiz context aktif sürümü değiştirmez; talep ve karar audit ile atomiktir.
+- Gerçekleşen: 202 test geçti. Skorlama hedef grubu 46 testle geçti. Ön iki yeni maker-checker ve negatif güvenlik testi başarılı oldu; mevcut migration testi onay tablosunu da doğruluyor.
+- Sonuç: PASS
 
 Ek kontroller:
 
-- Degisen yedi Python dosyasinda `python3 -m ruff format --check ...`: PASS
+- Değişen yedi Python dosyasında `python3 -m ruff format --check ...`: PASS
 - `python3 -m ruff check 03-Backend/src 06-Testler`: PASS
 - `python3 -m compileall -q 03-Backend/src 06-Testler`: PASS
-- Hassas desen taramasi: PASS; yalniz sentetik kimlik/context degerleri kullanildi.
-- Tam depo format kontrolu, bu iterasyonda degismeyen 4 eski dosyanin mevcut format farklari nedeniyle PASS degildir.
+- Hassas desen taraması: PASS; yalnız sentetik kimlik/context değerleri kullanıldı.
+- Tam depo format kontrolü, bu iterasyonda değişmeyen 4 eski dosyanın mevcut format farkları nedeniyle PASS değildir.
 
-## Guvenlik
+## Güvenlik
 
-- Guven siniri: Talep ve karar serbest actor/rol/scope kabul etmez; issuer tarafindan uretilmis `ActorContext` ister.
-- Gorevler ayriligi: Maker ve checker ayni actor ise karar verilmez; ayricalikli bayrak rol veya kapsami atlatmaz.
-- Aktor tipi: Servis hesabi varsayilan politikada talep veya karar veremez.
-- Scope: Global skor konfigürasyonunda her iki aktor icin acik kurum skoru kapsami gerekir.
-- Tarihsel koruma: Onay yalniz en yeni hedef konfigürasyon icin gecerlidir; gecmis skorlar kullandiklari sürümü korur.
-- Audit atomikligi: Talep ile onay/ret ve gerekli aktivasyon redakte outbox olayi ile ayni transaction'dadir.
-- Veri minimizasyonu: Karar gerekce kodu audit ozetine girmez; session acik degeri yerine digest saklanir.
-- Guvenli pasiflestirme: Ret taslagi pasif birakir; audit-stage hatasi islemi rollback eder ve önceki aktif sürüm devam eder.
-- Kalan risk: Kural onay süre asimi/geri cekme, veri kaynagi aktivasyonu, banka rol eslemesi ve acil override bu kanitin disindadir.
+- Güven sınırı: Talep ve karar serbest actor/rol/scope kabul etmez; issuer tarafından üretilmiş `ActorContext` ister.
+- Görevler ayrılığı: Maker ve checker aynı actor ise karar verilmez; ayrıcalıklı bayrak rol veya kapsamı atlatmaz.
+- Aktör tipi: Servis hesabı varsayılan politikada talep veya karar veremez.
+- Scope: Global skor konfigürasyonunda her iki aktör için açık kurum skoru kapsamı gerekir.
+- Tarihsel koruma: Onay yalnız en yeni hedef konfigürasyon için geçerlidir; geçmiş skorlar kullandıkları sürümü korur.
+- Audit atomikliği: Talep ile onay/ret ve gerekli aktivasyon redakte outbox olayı ile aynı transaction'dadır.
+- Veri minimizasyonu: Karar gerekçe kodu audit özetine girmez; session açık değeri yerine digest saklanır.
+- Güvenli pasifleştirme: Ret taslağı pasif bırakır; audit-stage hatası işlemi rollback eder ve önceki aktif sürüm devam eder.
+- Kalan risk: Kural onay süre aşımı/geri çekme, veri kaynağı aktivasyonu, banka rol eşlemesi ve acil override bu kanıtın dışındadır.
 
 ## Onaylar
 
-- Teknik dogrulayan: Codex teknik uygulama ajani
-- Bilgi guvenligi: ComplianceReviewRequired
-- Ic kontrol: ComplianceReviewRequired
-- Veri yonetisimi: ComplianceReviewRequired
+- Teknik doğrulayan: Codex teknik uygulama ajanı
+- Bilgi güvenliği: ComplianceReviewRequired
+- İç kontrol: ComplianceReviewRequired
+- Veri yönetişimi: ComplianceReviewRequired
 - Hukuk/uyum: ComplianceReviewRequired
 
-Bu kanit teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayi anlamina gelmez.
+Bu kanıt teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayı anlamına gelmez.

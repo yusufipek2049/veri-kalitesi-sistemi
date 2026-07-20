@@ -810,6 +810,17 @@ tags:
 - `FR-001`, `FR-002`, `FR-005`, `UC-001`, `NFR-SEC-001` ve `NFR-SEC-009`
   davranışları korunmuştur; yeni ürün veya banka kontrolü iddiası oluşturulmadı.
 
+### 2026-07-20 — İterasyon 19D: Kural onay isteği süre aşımı
+
+- `FR-035`, `UC-005`, `RULE-001`, `RULE-007` ve `BFR-SOD-001/003/004` için kritik kural onay isteği süre aşımı alt kapsamı tamamlandı.
+- Sürümlü politika hedefi 3, otomatik sona ermesi 10 iş günüdür; başlangıç istek oluşturma anıdır. Enjekte edilen sürümlü takvim hedef ve sona erme zamanlarını üretir.
+- Süresi dolmuş istek onaylanamaz veya geri çekilemez. Yalnız güvenilir `SERVICE` context'i, politika rolü ve tüm dataset kapsamları doğrulandıktan sonra isteği `EXPIRED` yapabilir.
+- Süre aşımı ve veri-minimum audit outbox atomiktir; audit-stage arızası durumu `PENDING` bırakır. Maker kimliği ve gerekçe audit özetine alınmaz.
+- Aynı RuleVersion için tek bekleyen istek kuralı korunur; sona ermiş istek geçmişi silinmeden yeni onay isteği oluşturulabilir. Eski SQLite şeması kısmi benzersiz indekse veri kaybetmeden taşınır.
+- Sekiz yeni testle kural hedef grubu 67, toplam test sayısı 710 oldu. Tam mypy 109 dosyada ve Ruff kontrolü hatasız geçti.
+- Kanıt `08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19D-Kural-Onay-Sure-Asimi-Kaniti.md` içinde `TechnicallyVerified` olarak kaydedildi.
+- Gerçek banka tatil takvimi kaynağı, banka onaylı worker rolü, operasyonel zamanlama/alarm, veri kaynağı aktivasyonu ve legacy maker geçişi kapsam dışıdır; kurum onayları `ComplianceReviewRequired` kalır.
+
 ## İlgili Notlar
 
 - [Alınan Kararlar](Alinan-Kararlar.md)
@@ -818,9 +829,9 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B, Iterasyon 28A–28E, Iterasyon 29A–29C ve Bakım İterasyonu 29C.1 çıktıları korunacaktır.
-- `pytest` ile 702 testin geçtiği doğrulanmıştır.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19D, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B, Iterasyon 28A–28E, Iterasyon 29A–29C ve Bakım İterasyonu 29C.1 çıktıları korunacaktır.
+- `pytest` ile 710 testin geçtiği doğrulanmıştır.
 - Tam mypy kontrolü 109 kaynak dosyada sıfır hata vermektedir.
-- Hazır ve engellenmemiş yeni geçiş artımı yoktur. 29D, 19D, 21B/frontend, hassas dışa aktarma, saklama/DR ve gerçek SIEM banka/altyapı kararlarını beklemektedir.
+- Sıradaki teknik aday veri kaynağı aktivasyonu maker-checker dilimidir. 29D, 21B/frontend, hassas dışa aktarma, saklama/DR ve gerçek SIEM banka/altyapı kararlarını beklemektedir.
 - Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

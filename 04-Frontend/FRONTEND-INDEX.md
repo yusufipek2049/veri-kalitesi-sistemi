@@ -2,7 +2,7 @@
 type: implementation-index
 area: frontend
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-generated_at: 2026-07-16
+created_at: 2026-07-16
 tags:
   - frontend
   - index

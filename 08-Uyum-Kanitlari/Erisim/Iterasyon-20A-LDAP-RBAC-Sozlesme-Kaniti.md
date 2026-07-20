@@ -19,49 +19,49 @@ version: iteration-20a-local
 executed_at: 2026-07-17
 ---
 
-# Iterasyon 20A LDAP RBAC Sozlesme Kaniti
+# İterasyon 20A LDAP RBAC Sözleşme Kanıtı
 
-## Degisiklik
+## Değişiklik
 
-- Iterasyon: 20A - LDAP/RBAC adaptor sozlesmesi ve guvenilir grup iddiasi siniri
-- Commit/Artifact: Git deposu bulunmadigi icin commit yok; yerel calisma agaci
-- Bilesen: `veri_kalitesi.identity`, `veri_kalitesi.audit`
-- Kontrol/Gereksinim: FR-001-003, UC-001, NFR-SEC-001/005/008, BFR-IAM-001/003/004/006, BRULE-001/005 alt kapsami
+- İterasyon: 20A - LDAP/RBAC adaptör sözleşmesi ve güvenilir grup iddiası sınırı
+- Commit/Artifact: Git deposu bulunmadığı için commit yok; yerel çalışma ağacı
+- Bileşen: `veri_kalitesi.identity`, `veri_kalitesi.audit`
+- Kontrol/Gereksinim: FR-001-003, UC-001, NFR-SEC-001/005/008, BFR-IAM-001/003/004/006, BRULE-001/005 alt kapsamı
 
-## Dogrulama
+## Doğrulama
 
 - Komut: `PYTHONPATH=03-Backend/src python3 -m pytest -q`
-- Ortam: Python 3.10.12, yerel prototip, fake LDAP adaptoru ve sentetik kimlik verisi
-- Sentetik veri seti: Teknik subject, sentetik principal, gecici bayt credential, eslenen/eslenmeyen grup, pasif kimlik, servis hesabi ve LDAP/audit arizasi
-- Beklenen: Yalniz guvenilir adaptor iddiasi surumlu politikayla role/scope uretir; eslenmeyen grup yetki vermez; ret ve teknik hata context olusturmadan ayrilir; ozet hassas kimlik girdilerini tasimaz.
-- Gerceklesen: 224 test gecti. Kimlik hedef grubu 12 testle gecti; context mevcut dashboard authorization politikasina basariyla baglandi.
-- Sonuc: PASS
+- Ortam: Python 3.10.12, yerel prototip, fake LDAP adaptörü ve sentetik kimlik verisi
+- Sentetik veri seti: Teknik subject, sentetik principal, geçici bayt credential, eşlenen/eşlenmeyen grup, pasif kimlik, servis hesabı ve LDAP/audit arızası
+- Beklenen: Yalnız güvenilir adaptör iddiası sürümlü politikayla role/scope üretir; eşlenmeyen grup yetki vermez; ret ve teknik hata context oluşturmadan ayrılır; özet hassas kimlik girdilerini taşımaz.
+- Gerçekleşen: 224 test geçti. Kimlik hedef grubu 12 testle geçti; context mevcut dashboard authorization politikasına başarıyla bağlandı.
+- Sonuç: PASS
 
 Ek kontroller:
 
-- Degisen bes Python dosyasinda `python3 -m ruff format --check ...`: PASS
+- Değişen beş Python dosyasında `python3 -m ruff format --check ...`: PASS
 - `python3 -m ruff check 03-Backend/src 06-Testler`: PASS
 - `python3 -m compileall -q 03-Backend/src 06-Testler`: PASS
-- Hassas desen taramasi: PASS; gercek LDAP URL, kullanici, credential, token veya banka grup kodu kullanilmadi.
-- Tam depo format kontrolu, bu iterasyonda degismeyen 4 eski dosyanin mevcut format farklari nedeniyle PASS degildir.
+- Hassas desen taraması: PASS; gerçek LDAP URL, kullanıcı, credential, token veya banka grup kodu kullanılmadı.
+- Tam depo format kontrolü, bu iterasyonda değişmeyen 4 eski dosyanın mevcut format farkları nedeniyle PASS değildir.
 
-## Guvenlik
+## Güvenlik
 
-- Guven siniri: Uygulama actor, rol veya scope'u giris isteginden almaz; LDAP adaptorunun dondurdugu iddia ve surumlu policy kullanilir.
-- Deny-by-default: Eslenmeyen grup, pasif kimlik, izin verilmeyen actor tipi ve gecersiz adaptor iddiasi context uretmez.
-- Hata ayrimi: Credential reddi `DENIED`, LDAP teknik veya beklenmeyen adaptor hatasi `FAILURE` olarak ayrilir.
-- Servis hesabi: Kullanici LDAP akisinda servis hesabi reddedilir; ayri amac/scope modeli banka karari olarak aciktir.
-- Audit: Basari, ret ve teknik hata kaydedilir; audit yazilamazsa context dondurulmez.
-- Veri minimizasyonu: Principal, credential, LDAP grup kodlari ve kaynak/dataset kimlikleri audit ozetine girmez; session yalniz digest olur.
-- Dashboard bagi: ActorContext policy surumu ve izinli kaynak kapsami mevcut authorization servisi tarafindan tuketilir.
-- Kalan risk: Gercek LDAP endpoint/TLS/sertifika, banka grup-role-scope degerleri, session/lockout, MFA/PAM/break-glass ve issuer process siniri bu kanitin disindadir.
+- Güven sınırı: Uygulama actor, rol veya scope'u giriş isteğinden almaz; LDAP adaptorunun döndürdüğü iddia ve sürümlü policy kullanılır.
+- Deny-by-default: Eşlenmeyen grup, pasif kimlik, izin verilmeyen actor tipi ve geçersiz adaptör iddiası context üretmez.
+- Hata ayrımı: Credential reddi `DENIED`, LDAP teknik veya beklenmeyen adaptör hatası `FAILURE` olarak ayrılır.
+- Servis hesabı: Kullanıcı LDAP akışında servis hesabı reddedilir; ayrı amaç/scope modeli banka kararı olarak açıktır.
+- Audit: Başarı, ret ve teknik hata kaydedilir; audit yazılamazsa context döndürülmez.
+- Veri minimizasyonu: Principal, credential, LDAP grup kodları ve kaynak/dataset kimlikleri audit özetine girmez; session yalnız digest olur.
+- Dashboard bağı: ActorContext policy sürümü ve izinli kaynak kapsamı mevcut authorization servisi tarafından tüketilir.
+- Kalan risk: Gerçek LDAP endpoint/TLS/sertifika, banka grup-role-scope değerleri, session/lockout, MFA/PAM/break-glass ve issuer process sınırı bu kanıtın dışındadır.
 
 ## Onaylar
 
-- Teknik dogrulayan: Codex teknik uygulama ajani
-- Bilgi guvenligi: ComplianceReviewRequired
+- Teknik doğrulayan: Codex teknik uygulama ajanı
+- Bilgi güvenliği: ComplianceReviewRequired
 - IAM: ComplianceReviewRequired
-- Ic kontrol: ComplianceReviewRequired
+- İç kontrol: ComplianceReviewRequired
 - Hukuk/uyum: ComplianceReviewRequired
 
-Bu kanit teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayi anlamina gelmez.
+Bu kanıt teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayı anlamına gelmez.

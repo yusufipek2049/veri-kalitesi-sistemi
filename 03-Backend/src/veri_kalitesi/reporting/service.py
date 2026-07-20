@@ -94,10 +94,10 @@ class ReportPreviewService:
             if calculated
             else None
         )
-        generated_at = self._now()
+        created_at = self._now()
         preview = ReportPreview(
             report_type=ReportType.SUMMARY,
-            generated_at=generated_at,
+            created_at=created_at,
             filters=ReportPreviewFilter(
                 start_at=normalized.start_at,
                 end_at=normalized.end_at,
@@ -193,7 +193,7 @@ class ReportPreviewService:
                 "window_days": (request.end_at - request.start_at).days,
                 "masking_mode": preview.masking_mode,
             },
-            occurred_at=preview.generated_at,
+            occurred_at=preview.created_at,
             session_id=context.session_id,
         )
         self._append_audit(event)

@@ -62,4 +62,16 @@ Kural sürüm aktivasyonu ve scoring configuration aktivasyonu.
 - Geri çekme ve redakte audit outbox olayı atomiktir; stage hatasında istek `PENDING` kalır.
 - On yeni testle toplam 212 test geçti; kural hedef grubu 59 testle geçti.
 
-Süre aşımı süresi, başlangıç anı ve politika sahibi tanımlı olmadığı için 19D `OPEN-BNK-017` ile engellidir. Veri kaynağı aktivasyonu, banka rol eşlemesi ve kurum onayları `ComplianceReviewRequired` durumundadır.
+## Dilim 19D Kapanışı
+
+`TechnicallyVerified` kapsam:
+
+- Onay hedefi 3 iş günü, otomatik sona erme 10 iş günü olarak sürümlü politikaya bağlandı; süre istek oluşturma anında başlar.
+- Enjekte edilen sürümlü iş takvimi hedef ve sona erme zamanlarını üretir; naive veya geçersiz zaman penceresi fail-closed reddedilir.
+- Süresi dolmuş istek onaylanamaz veya geri çekilemez; yalnız güvenilir, yetkili ve kapsam içi servis context'i isteği `EXPIRED` yapabilir.
+- Süre aşımı ve redakte audit outbox aynı transaction'dadır; audit-stage arızasında istek `PENDING` kalır.
+- Aynı RuleVersion için tek bekleyen istek korunurken sona ermiş istek geçmişi silinmeden yeni istek oluşturulabilir.
+- Eski SQLite onay tablosu hedef/sona erme/takvim alanlarına ve kısmi benzersiz indekse geçmişi kaybetmeden taşınır.
+- Sekiz yeni testle toplam 710 test geçti; kural hedef grubu 67 testle geçti.
+
+Gerçek banka iş günü/tatil kaynağı, banka onaylı süre aşımı servis rolü, worker operasyonu, veri kaynağı aktivasyonu, legacy maker geçişi ve kurum onayları `ComplianceReviewRequired` durumundadır.

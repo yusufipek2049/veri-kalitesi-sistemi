@@ -14,49 +14,49 @@ version: iteration-21a-local
 executed_at: 2026-07-17
 ---
 
-# Iterasyon 21A Yetki Filtreli Dashboard Trend Kaniti
+# İterasyon 21A Yetki Filtreli Dashboard Trend Kanıtı
 
-## Degisiklik
+## Değişiklik
 
-- Iterasyon: 21A - guvenilir scope ile son 30 UTC gunluk dashboard trend domain sorgusu
-- Commit/Artifact: Git deposu bulunmadigi icin commit yok; yerel calisma agaci
-- Bilesen: `veri_kalitesi.dashboard`, `veri_kalitesi.scoring`
-- Kontrol/Gereksinim: FR-054/055/057, UC-010 ve NFR-PERF-001/002 trend alt kapsami
+- İterasyon: 21A - güvenilir scope ile son 30 UTC günlük dashboard trend domain sorgusu
+- Commit/Artifact: Git deposu bulunmadığı için commit yok; yerel çalışma ağacı
+- Bileşen: `veri_kalitesi.dashboard`, `veri_kalitesi.scoring`
+- Kontrol/Gereksinim: FR-054/055/057, UC-010 ve NFR-PERF-001/002 trend alt kapsamı
 
-## Dogrulama
+## Doğrulama
 
 - Komut: `pytest -q`
-- Ortam: Python 3.10.12, yerel prototip, bellek ici SQLite ve sentetik skor verisi
-- Sentetik veri seti: Yetkili/yetkisiz kaynak ve kurum skorlari, bos gun, `NO_DATA`, pencere sinirlari, saat dilimsiz zaman, depo arizasi ve 500 gozlem
-- Beklenen: Yalniz yetkili scope doner; son 30 UTC gun sabittir; bos gun ve `NO_DATA` sifir olmaz; teknik hata ayri kalir; yerel p95 uc saniyenin altindadir.
-- Gerceklesen: 265 test gecti. Dashboard hedef grubu 29 testle gecti; 11 yeni trend testi eklendi.
-- Sonuc: PASS
+- Ortam: Python 3.10.12, yerel prototip, bellek içi SQLite ve sentetik skor verisi
+- Sentetik veri seti: Yetkili/yetkisiz kaynak ve kurum skorları, boş gün, `NO_DATA`, pencere sınırları, saat dilimsiz zaman, depo arızası ve 500 gözlem
+- Beklenen: Yalnız yetkili scope döner; son 30 UTC gün sabittir; boş gün ve `NO_DATA` sıfır olmaz; teknik hata ayrı kalır; yerel p95 üç saniyenin altındadır.
+- Gerçekleşen: 265 test geçti. Dashboard hedef grubu 29 testle geçti; 11 yeni trend testi eklendi.
+- Sonuç: PASS
 
 Ek kontroller:
 
 - `ruff check 03-Backend/src 06-Testler`: PASS
-- Degisen Python dosyalarinda `ruff format --check ...`: PASS
+- Değişen Python dosyalarında `ruff format --check ...`: PASS
 - `python3 -m compileall -q 03-Backend/src`: PASS
-- Tam depo format kontrolu, bu iterasyonda degismeyen dort eski dosyanin mevcut format farklari nedeniyle PASS degildir.
+- Tam depo format kontrolü, bu iterasyonda değişmeyen dört eski dosyanın mevcut format farkları nedeniyle PASS değildir.
 
-## Guvenlik
+## Güvenlik
 
-- Guven siniri: Trend metodu scope parametresi kabul etmez; `ActorContext` mevcut authorization servisiyle karara donusturulmeden repository cagrilmaz.
-- Deny-by-default: Eksik/gecersiz context repository cagrisindan once reddedilir. Kurum skoru yalniz acik kurum yetkisiyle doner.
-- Katmanli filtre: Zaman ve scope SQLite sorgusunda parametreli uygulanir; servis okuyucu ciktisini ayni yetki karariyla yeniden filtreler.
-- Veri minimizasyonu: Yalniz onceden hesaplanmis skor gorunumleri doner; ham kayit, secret, LDAP kimligi veya musteri verisi okunmaz ve loglanmaz.
-- Sonuc ayrimi: Bos donem bos kalir, `NO_DATA` NULL degeriyle korunur; depo arizasi redakte teknik hata olur.
-- Audit: Yetki karari mevcut merkezi audit sozlesmesini kullanir; trend sorgusu yeni kalici yazim veya hassas audit payloadi olusturmaz.
-- Maker-checker etkisi: Salt okunur sorgu yeni kritik konfigurasyon degisikligi yaratmaz; maker-checker kapsami yoktur.
-- Geri alma: `get_score_trend` ve repository okuma metodu kaldirilarak onceki skor agaci davranisina donulebilir; kalici veri semasi degismemistir.
-- Kalan risk: Serbest tarih/periyot, operasyon listeleri, grafik/tablo ve HTTP/cookie/CSRF yuzeyi kapsam disidir; 21B `OPEN-BNK-020` nedeniyle engellidir.
+- Güven sınırı: Trend metodu scope parametresi kabul etmez; `ActorContext` mevcut authorization servisiyle karara dönüştürülmeden repository çağrılmaz.
+- Deny-by-default: Eksik/geçersiz context repository çağrısından önce reddedilir. Kurum skoru yalnız açık kurum yetkisiyle döner.
+- Katmanlı filtre: Zaman ve scope SQLite sorgusunda parametreli uygulanır; servis okuyucu çıktısını aynı yetki kararıyla yeniden filtreler.
+- Veri minimizasyonu: Yalnız önceden hesaplanmış skor görünümleri döner; ham kayıt, secret, LDAP kimliği veya müşteri verisi okunmaz ve loglanmaz.
+- Sonuç ayrımı: Boş dönem boş kalır, `NO_DATA` NULL değeriyle korunur; depo arızası redakte teknik hata olur.
+- Audit: Yetki kararı mevcut merkezi audit sözleşmesini kullanır; trend sorgusu yeni kalıcı yazım veya hassas audit payloadı oluşturmaz.
+- Maker-checker etkisi: Salt okunur sorgu yeni kritik konfigürasyon değişikliği yaratmaz; maker-checker kapsamı yoktur.
+- Geri alma: `get_score_trend` ve repository okuma metodu kaldırılarak önceki skor ağacı davranışına dönülebilir; kalıcı veri şeması değişmemiştir.
+- Kalan risk: Serbest tarih/periyot, operasyon listeleri, grafik/tablo ve HTTP/cookie/CSRF yüzeyi kapsam dışıdır; 21B `OPEN-BNK-020` nedeniyle engellidir.
 
 ## Onaylar
 
-- Teknik dogrulayan: Codex teknik uygulama ajani
-- Bilgi guvenligi: ComplianceReviewRequired
+- Teknik doğrulayan: Codex teknik uygulama ajanı
+- Bilgi güvenliği: ComplianceReviewRequired
 - IAM: ComplianceReviewRequired
-- Ic kontrol: ComplianceReviewRequired
+- İç kontrol: ComplianceReviewRequired
 - Hukuk/uyum: ComplianceReviewRequired
 
-Bu kanit teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayi anlamina gelmez.
+Bu kanıt teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayı anlamına gelmez.

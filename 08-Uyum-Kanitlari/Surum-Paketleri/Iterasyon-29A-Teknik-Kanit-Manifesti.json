@@ -46,19 +46,19 @@
       "evidence_artifacts": [
         {
           "relative_path": "08-Uyum-Kanitlari/Audit/Iterasyon-17A-Merkezi-Audit-Kaniti.md",
-          "sha256": "f652dfde9f381f209ba5d03c5a0743cca9714447830140472dd4e1cf787fe699"
+          "sha256": "18c5adcc16350f0a69418f9d978a5a683138c1d9434ed606a38621e18952583b"
         },
         {
           "relative_path": "08-Uyum-Kanitlari/Audit/Iterasyon-17C1-Transactional-Outbox-Kaniti.md",
-          "sha256": "9a014f4b00df79dd890f40f1f79427d559a045cc3c5d26b2fc04d63634fefc24"
+          "sha256": "fa14f4b2769162c2b3efec30bfa0b755f72f743d59bbfb0eb69b4a3840ec216e"
         },
         {
           "relative_path": "08-Uyum-Kanitlari/Audit/Iterasyon-17E-Tarihsel-Audit-Aktarim-Kaniti.md",
-          "sha256": "dc766b0b367621925c2d56471a4b4956ac35a4494ec69fb683560883a02aefbb"
+          "sha256": "e0bada7a6baa8dd32e9e4f234d60f456d67b9988bec0b8cc4b09d25df3848005"
         },
         {
           "relative_path": "08-Uyum-Kanitlari/Audit/Iterasyon-24A-Yetki-Filtreli-Audit-Inceleme-Kaniti.md",
-          "sha256": "beea1da36d7d49c660362463a572d9d5e85433dae62e94384ab491338b410018"
+          "sha256": "05c00a47ab475e840c6ede81f10470cad520e5c97aee3c384821b10f8c36b4db"
         }
       ],
       "review_status": "ComplianceReviewRequired",
@@ -84,19 +84,19 @@
       "evidence_artifacts": [
         {
           "relative_path": "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23A-ServiceNow-Veri-Minimum-Ticket-Kaniti.md",
-          "sha256": "4b7d431278a34c4c229ce30470496f1e6e8e133b91da342e96fa03456f21f049"
+          "sha256": "b0d283a3c28a54f3bc73202d684d0ed5de765bc3930e1b6b38cbf31af89c30f4"
         },
         {
           "relative_path": "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23B-ServiceNow-Retry-Backoff-Kaniti.md",
-          "sha256": "3f132accce73b7ca84da9ea0a63d9e2163558b16f293c3aaee1159d3433a1a18"
+          "sha256": "f230940f9a6283f5e224f8f04519f69cbe4d7e418eb0023b4ab3cb1157549be8"
         },
         {
           "relative_path": "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23C-ServiceNow-Kalici-Retry-Kuyrugu-Kaniti.md",
-          "sha256": "91c7996f1f0823e8272a5c45fa3fb06ce2d5bd6702c2444d955dedce1eaead81"
+          "sha256": "0d00d3f60d20214d96b7d57ee2778f0376df0d5f497cba366b06281583c6c99a"
         },
         {
           "relative_path": "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23D-ServiceNow-Circuit-Breaker-Kaniti.md",
-          "sha256": "80ab42bb8a2aeac0b0f49b981d9c6aeab64a247d650ea5780710e1fbc003ace7"
+          "sha256": "b71587bc6c55f7084d9f15cf18ae0a474f0e8773b35c5d8f43ab92fa1602d6ca"
         }
       ],
       "review_status": "ComplianceReviewRequired",
@@ -115,19 +115,19 @@
       "evidence_artifacts": [
         {
           "relative_path": "08-Uyum-Kanitlari/Erisim/Iterasyon-16-Guvenilir-Aktor-Kaniti.md",
-          "sha256": "00f7b16e70b0e902da44eac72455fa4ae0f3caeb6d07e6fb1514bb35139902fb"
+          "sha256": "21646261360404c4df31db7f8a9c91438048057a632005bb161f8b47b8337295"
         },
         {
           "relative_path": "08-Uyum-Kanitlari/Erisim/Iterasyon-20A-LDAP-RBAC-Sozlesme-Kaniti.md",
-          "sha256": "5ee75eac68d23eeb43322c04bbbb46b4b06ccf54806744549a026adba8b43c42"
+          "sha256": "3a1b39688050d376e8abe9fc7b94e43d6aa6b8fcd639415c2a50cb848d2530db"
         },
         {
           "relative_path": "08-Uyum-Kanitlari/Erisim/Iterasyon-20B-Basarisiz-Giris-Sinirlandirma-Kaniti.md",
-          "sha256": "916abf76957f802ef056380564a1d176e41f4ea741322b075c3f4a7798635af4"
+          "sha256": "fd3003292df1e4713ab1144fce30aff98061209a15787308e217398e18f2192d"
         },
         {
           "relative_path": "08-Uyum-Kanitlari/Erisim/Iterasyon-20C-Guvenli-Oturum-Yasam-Dongusu-Kaniti.md",
-          "sha256": "08c6a68f9dda15428fca4346dcf8b949861918c9bf7dadfcf2303cf7fd28f497"
+          "sha256": "ff15ab6902f6dc7bf049361ac0147f29cd38fa546662c0ef3fee6e8b2ee902d4"
         }
       ],
       "review_status": "ComplianceReviewRequired",
@@ -188,7 +188,7 @@
         },
         {
           "relative_path": "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18A-Siniflandirma-ve-Profil-Minimizasyonu-Kaniti.md",
-          "sha256": "fc1c68a4b628f11168a99d6c43369200aa264e38323c8aa48054b011904adf72"
+          "sha256": "17879c5eb1da8de718b32ffa4e02a0c8334e18a51e7d18a751799fea5acf558d"
         }
       ],
       "review_status": "ComplianceReviewRequired",
@@ -204,15 +204,19 @@
       "evidence_artifacts": [
         {
           "relative_path": "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19A-Kural-Maker-Checker-Kaniti.md",
-          "sha256": "4c9aaa0c16cc323bfad03a162f6e2dd0a6cd20e45f84662aa40c9a0205c94fe4"
+          "sha256": "d47f4f359e41722424c7c98d84af304ff8bbdad816b4d9a7713b3d860b7c71ef"
         },
         {
           "relative_path": "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19B-Skorlama-Maker-Checker-Kaniti.md",
-          "sha256": "f85deca0c6583d8a7b7bf80de881f10f037ea08cf14a1adc723f127be73c15e2"
+          "sha256": "88739ee21649c22ac5081222a3286ccc01e86d7796545bc8a04edccd48865d5f"
         },
         {
           "relative_path": "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19C-Kural-Onay-Geri-Cekme-Kaniti.md",
-          "sha256": "ea98d6f140faad9fd979974963a0d4cbae2e4b2553e6b97a19980d2e83ddc5cf"
+          "sha256": "1b22de682da52cd0f972e0769f86e1fe5f666ab71e7711c95b9777bb99866c1c"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19D-Kural-Onay-Sure-Asimi-Kaniti.md",
+          "sha256": "2a6780818c3529fb7a06fd1acd3ea9cd28979ddc1e50123af5a7af7e61bf0047"
         }
       ],
       "review_status": "ComplianceReviewRequired",
@@ -231,7 +235,7 @@
       "evidence_artifacts": [
         {
           "relative_path": "08-Uyum-Kanitlari/Olay-Mudahale/Iterasyon-26A-Veri-Minimum-Ihlal-Suphesi-Kaniti.md",
-          "sha256": "9d8b8eb28f155843d18f28658d570c66e76318a6955845e8a174189d564c0728"
+          "sha256": "47229fcecd61fd6e90939da50aff971d7522c881a9d8ad10b885c49c8e37792f"
         },
         {
           "relative_path": "08-Uyum-Kanitlari/Olay-Mudahale/Iterasyon-26B-Yetki-Filtreli-Ihlal-Zaman-Cizelgesi-Kaniti.md",
@@ -261,11 +265,11 @@
       "evidence_artifacts": [
         {
           "relative_path": "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18B-Isleme-Envanteri-Kaniti.md",
-          "sha256": "d460d3b10b3ddf85387bb5f2b9809ac9bd7eef7fc19f4d7d7e69cface8de81fa"
+          "sha256": "c678dab6af57f1340b6017584d746ec02b30a33b11e49d6eeeff708a893510fd"
         },
         {
           "relative_path": "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18C-Envanter-Tamlik-Kaniti.md",
-          "sha256": "6e41b6550b2de4df556432e0d1dfba81a80dd45e8c9e0412bb4f826f0dbfd81c"
+          "sha256": "f5a241f9881f7f4d7e2458b1bfcb60aa0961c9ebb50b7a31982b544fda1aeac3"
         }
       ],
       "review_status": "ComplianceReviewRequired",
@@ -282,15 +286,15 @@
       "evidence_artifacts": [
         {
           "relative_path": "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23A-ServiceNow-Veri-Minimum-Ticket-Kaniti.md",
-          "sha256": "4b7d431278a34c4c229ce30470496f1e6e8e133b91da342e96fa03456f21f049"
+          "sha256": "b0d283a3c28a54f3bc73202d684d0ed5de765bc3930e1b6b38cbf31af89c30f4"
         },
         {
           "relative_path": "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18A-Siniflandirma-ve-Profil-Minimizasyonu-Kaniti.md",
-          "sha256": "fc1c68a4b628f11168a99d6c43369200aa264e38323c8aa48054b011904adf72"
+          "sha256": "17879c5eb1da8de718b32ffa4e02a0c8334e18a51e7d18a751799fea5acf558d"
         },
         {
           "relative_path": "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18B-Isleme-Envanteri-Kaniti.md",
-          "sha256": "d460d3b10b3ddf85387bb5f2b9809ac9bd7eef7fc19f4d7d7e69cface8de81fa"
+          "sha256": "c678dab6af57f1340b6017584d746ec02b30a33b11e49d6eeeff708a893510fd"
         }
       ],
       "review_status": "ComplianceReviewRequired",
@@ -305,19 +309,19 @@
       "evidence_artifacts": [
         {
           "relative_path": "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23A-ServiceNow-Veri-Minimum-Ticket-Kaniti.md",
-          "sha256": "4b7d431278a34c4c229ce30470496f1e6e8e133b91da342e96fa03456f21f049"
+          "sha256": "b0d283a3c28a54f3bc73202d684d0ed5de765bc3930e1b6b38cbf31af89c30f4"
         },
         {
           "relative_path": "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23B-ServiceNow-Retry-Backoff-Kaniti.md",
-          "sha256": "3f132accce73b7ca84da9ea0a63d9e2163558b16f293c3aaee1159d3433a1a18"
+          "sha256": "f230940f9a6283f5e224f8f04519f69cbe4d7e418eb0023b4ab3cb1157549be8"
         },
         {
           "relative_path": "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23C-ServiceNow-Kalici-Retry-Kuyrugu-Kaniti.md",
-          "sha256": "91c7996f1f0823e8272a5c45fa3fb06ce2d5bd6702c2444d955dedce1eaead81"
+          "sha256": "0d00d3f60d20214d96b7d57ee2778f0376df0d5f497cba366b06281583c6c99a"
         },
         {
           "relative_path": "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23D-ServiceNow-Circuit-Breaker-Kaniti.md",
-          "sha256": "80ab42bb8a2aeac0b0f49b981d9c6aeab64a247d650ea5780710e1fbc003ace7"
+          "sha256": "b71587bc6c55f7084d9f15cf18ae0a474f0e8773b35c5d8f43ab92fa1602d6ca"
         }
       ],
       "review_status": "ComplianceReviewRequired",
@@ -333,11 +337,11 @@
       "evidence_artifacts": [
         {
           "relative_path": "08-Uyum-Kanitlari/Bildirim/Iterasyon-22A-Sistem-Ici-Bildirim-Kaniti.md",
-          "sha256": "bc7477b4a15026b639976bc3a114b1b90f680c9c007a4a581710822bb89ec841"
+          "sha256": "9b63990c7d3c628529d88d87d665095cce8aa44bf96a547fb5269ad1989a0389"
         },
         {
           "relative_path": "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18A-Siniflandirma-ve-Profil-Minimizasyonu-Kaniti.md",
-          "sha256": "fc1c68a4b628f11168a99d6c43369200aa264e38323c8aa48054b011904adf72"
+          "sha256": "17879c5eb1da8de718b32ffa4e02a0c8334e18a51e7d18a751799fea5acf558d"
         }
       ],
       "review_status": "ComplianceReviewRequired",
@@ -354,7 +358,7 @@
       "technical_status": "Missing"
     }
   ],
-  "controls_digest": "1440fbdfb1948125edd10b0bfebbf78957b9e83ecb092903e0de40d84883a23f",
+  "controls_digest": "a5e0b6044a47e053a8d9a33ed25a7f57e745dee834e81d23ad0d4a4e36a927ab",
   "missing_control_ids": [
     "CTRL-BDDK-BCP-001",
     "CTRL-KVKK-DEL-001",
@@ -374,5 +378,5 @@
     "Partial": 12,
     "TechnicallyVerified": 0
   },
-  "unique_evidence_artifact_count": 26
+  "unique_evidence_artifact_count": 27
 }

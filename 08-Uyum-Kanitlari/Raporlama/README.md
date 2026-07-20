@@ -1,5 +1,5 @@
 # Raporlama Kanitlari
 
-Yetki filtreli rapor gorunumu, veri minimizasyonu, maskeleme ve disa aktarma kontrolu teknik kanitlari.
+Yetki filtreli rapor görünümü, veri minimizasyonu, maskeleme ve dışa aktarma kontrolü teknik kanıtları.
 
-Gercek banka verisi, ham musteri kaydi, kullanici kimligi, secret veya indirilebilir hassas dosya eklenmez.
+Gerçek banka verisi, ham müşteri kaydi, kullanıcı kimliği, secret veya indirilebilir hassas dosya eklenmez.
