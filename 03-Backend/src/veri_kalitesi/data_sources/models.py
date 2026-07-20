@@ -32,7 +32,37 @@ class DataSourceStatus(str, Enum):
     TEST_PENDING = "TEST_PENDING"
     TEST_SUCCEEDED = "TEST_SUCCEEDED"
     TEST_FAILED = "TEST_FAILED"
+    ACTIVE = "ACTIVE"
     ARCHIVED = "ARCHIVED"
+
+
+class DataSourceActivationStatus(str, Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
+@dataclass(frozen=True)
+class DataSourceActivationPolicy:
+    version: str
+    actor_policy_version: str
+    maker_roles: frozenset[str]
+    checker_roles: frozenset[str]
+    allowed_actor_types: frozenset[str] = field(default_factory=lambda: frozenset({"USER"}))
+
+
+@dataclass(frozen=True)
+class DataSourceActivationRequest:
+    data_source_id: str
+    data_source_revision: int
+    maker_actor_id: str
+    policy_version: str
+    status: DataSourceActivationStatus = DataSourceActivationStatus.PENDING
+    checker_actor_id: str | None = None
+    decision_reason_code: str | None = None
+    activation_request_id: str = field(default_factory=lambda: str(uuid4()))
+    requested_at: datetime = field(default_factory=utc_now)
+    decided_at: datetime | None = None
 
 
 class DatasetType(str, Enum):
@@ -90,6 +120,7 @@ class DataSource:
     owner_user_id: str | None = None
     data_source_id: str = field(default_factory=lambda: str(uuid4()))
     status: DataSourceStatus = DataSourceStatus.TEST_PENDING
+    revision: int = 1
     last_test_at: datetime | None = None
     created_at: datetime = field(default_factory=utc_now)
 

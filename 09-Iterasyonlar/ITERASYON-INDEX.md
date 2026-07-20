@@ -2,18 +2,18 @@
 
 ## Gerçek başlangıç noktası
 
-- 16 iterasyon, İterasyon 17A–17E, İterasyon 18A–18C, Iterasyon 19A–19D, Iterasyon 20A–20C, Iterasyon 21A, İterasyon 22A–22İ, İterasyon 23A–23D, İterasyon 24A–24B, İterasyon 26A–26B, İterasyon 28A–28E ve İterasyon 29A–29C teknik dikeyleri tamamlandı.
-- 710 birim testi geçiyor; Bakım İterasyonu 29C.1 sonrasında tam mypy kontrolü
+- 16 iterasyon, İterasyon 17A–17E, İterasyon 18A–18C, Iterasyon 19A–19E, Iterasyon 20A–20C, Iterasyon 21A, İterasyon 22A–22İ, İterasyon 23A–23D, İterasyon 24A–24B, İterasyon 26A–26B, İterasyon 28A–28E ve İterasyon 29A–29C teknik dikeyleri tamamlandı.
+- 720 birim testi geçiyor; Bakım İterasyonu 29C.1 sonrasında tam mypy kontrolü
   109 kaynak dosyada sıfır hata veriyor.
 - Son ürün artımı altı mevcut yerel güvenli SDLC kontrolünü tek veri-minimum, fail-closed sürüm ön kontrolünde birleştirir.
-- Sıradaki teknik aday 19E veri kaynağı aktivasyonu maker-checker dilimidir. Banka rol kodları ve gerçek takvim/worker işletimi `ComplianceReviewRequired` kalır; HTTP/frontend `OPEN-BNK-020`, hassas dışa aktarma `OPEN-BNK-014` ve gerçek SIEM/SOC `OPEN-BNK-010` nedeniyle engellidir.
+- Sıradaki teknik aday 19F veri kaynağı aktivasyon isteği geri çekme ve 3/10 iş günlük süre aşımı dilimidir. Banka rol kodları ve gerçek takvim/worker işletimi `ComplianceReviewRequired` kalır; HTTP/frontend `OPEN-BNK-020`, hassas dışa aktarma `OPEN-BNK-014` ve gerçek SIEM/SOC `OPEN-BNK-010` nedeniyle engellidir.
 
 ## Sıra
 
 1. [Iterasyon-16-Guvenilir-Aktor-Baglami](Iterasyon-16-Guvenilir-Aktor-Baglami.md) - TechnicallyVerified
 2. [Iterasyon-17-Merkezi-Audit-Butunlugu](Iterasyon-17-Merkezi-Audit-Butunlugu.md) - 17A–17E `TechnicallyVerified`
 3. [Iterasyon-18-Veri-Siniflandirma-ve-Maskeleme](Iterasyon-18-Veri-Siniflandirma-ve-Maskeleme.md) - 18A–18C `TechnicallyVerified`
-4. [Iterasyon-19-Maker-Checker](Iterasyon-19-Maker-Checker.md) - 19A–19D `TechnicallyVerified`; veri kaynağı aktivasyonu ve banka rol eşlemesi açık
+4. [Iterasyon-19-Maker-Checker](Iterasyon-19-Maker-Checker.md) - 19A–19E `TechnicallyVerified`; kaynak onay süre aşımı/geri çekme ve banka rol eşlemesi açık
 5. [Iterasyon-20-LDAP-RBAC-Entegrasyonu](Iterasyon-20-LDAP-RBAC-Entegrasyonu.md) - 20A–20C `TechnicallyVerified`; üretim kararları açık
 6. [Kalan-Iterasyonlar-Banka-Yol-Haritasi](Kalan-Iterasyonlar-Banka-Yol-Haritasi.md)
 7. [Iterasyon-26-Olay-Mudahale-ve-Ihlal-Kaniti](Iterasyon-26-Olay-Mudahale-ve-Ihlal-Kaniti.md) - 26A–26B `TechnicallyVerified`

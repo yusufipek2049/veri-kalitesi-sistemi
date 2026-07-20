@@ -265,7 +265,10 @@ class RuleService:
         rule = self.repository.get_rule(version.quality_rule_id)
         dataset = self.metadata_catalog.get_dataset(rule.dataset_id)
         data_source = self.metadata_catalog.get_data_source(dataset.data_source_id)
-        if data_source.status is not DataSourceStatus.TEST_SUCCEEDED:
+        if data_source.status not in {
+            DataSourceStatus.TEST_SUCCEEDED,
+            DataSourceStatus.ACTIVE,
+        }:
             raise RuleValidationError("Rule test requires a successful connection test.")
         if version.rule_type is RuleType.CUSTOM_SQL and not is_read_only_sql(
             str(version.definition.get("sql", ""))

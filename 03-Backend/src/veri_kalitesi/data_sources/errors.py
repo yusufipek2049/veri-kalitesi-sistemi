@@ -9,6 +9,10 @@ class ValidationError(DataSourceError):
     """Kullanıcı girdisi veya iş kuralı doğrulaması başarısız oldu."""
 
 
+class AuthorizationError(DataSourceError):
+    """Güvenilir aktör bağlamı veri kaynağı işlemi için yetkili değil."""
+
+
 class NotFoundError(DataSourceError):
     """İstenen domain nesnesi bulunamadı."""
 
