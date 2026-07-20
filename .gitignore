@@ -2,6 +2,10 @@
 **/*.md
 !/README.md
 
+!/docs/
+!/docs/technical/
+!/docs/technical/*.md
+
 !/00-Proje-Hafizasi/*.md
 /00-Proje-Hafizasi/AGENTS.md
 

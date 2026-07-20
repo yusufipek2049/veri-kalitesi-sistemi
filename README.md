@@ -23,6 +23,7 @@ Bu vault, SRS dokümanını görev bazında küçük bağlam parçalarıyla kull
 - [[07-Operasyon/OPERASYON-INDEX|Operasyon]]
 - [[08-Uyum-Kanitlari/KANIT-INDEX|Uyum Kanıtları]]
 - [[09-Iterasyonlar/ITERASYON-INDEX|Bankacılık Geçiş İterasyonları]]
+- [Teknik Mimari ve Sistem Analizi](docs/technical/README.md)
 
 
 ## Güncel Geliştirme Baseline'ı
