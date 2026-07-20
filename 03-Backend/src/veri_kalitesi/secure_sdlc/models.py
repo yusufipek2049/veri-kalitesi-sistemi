@@ -57,3 +57,18 @@ class SecretScanReport:
     @property
     def passed(self) -> bool:
         return not self.findings
+
+
+@dataclass(frozen=True, order=True)
+class DeclaredDependency:
+    canonical_name: str
+    version: str
+    environment_marker: str | None = None
+
+
+@dataclass(frozen=True)
+class PythonProjectInventory:
+    name: str
+    version: str
+    requires_python: str
+    dependencies: tuple[DeclaredDependency, ...]

@@ -1,3 +1,12 @@
+[project]
+name = "veri-kalitesi-sistemi"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "packaging==26.0",
+    "tomli==2.4.1",
+]
+
 [tool.pytest.ini_options]
 pythonpath = ["03-Backend/src"]
 testpaths = ["06-Testler"]

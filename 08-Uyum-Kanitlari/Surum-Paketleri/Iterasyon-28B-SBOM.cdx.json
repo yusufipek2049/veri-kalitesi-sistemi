@@ -1,0 +1,64 @@
+{
+  "$schema": "http://cyclonedx.org/schema/bom-1.5.schema.json",
+  "bomFormat": "CycloneDX",
+  "components": [
+    {
+      "bom-ref": "pkg:pypi/packaging@26.0",
+      "name": "packaging",
+      "purl": "pkg:pypi/packaging@26.0",
+      "scope": "required",
+      "type": "library",
+      "version": "26.0"
+    },
+    {
+      "bom-ref": "pkg:pypi/tomli@2.4.1",
+      "name": "tomli",
+      "purl": "pkg:pypi/tomli@2.4.1",
+      "scope": "required",
+      "type": "library",
+      "version": "2.4.1"
+    }
+  ],
+  "dependencies": [
+    {
+      "dependsOn": [
+        "pkg:pypi/packaging@26.0",
+        "pkg:pypi/tomli@2.4.1"
+      ],
+      "ref": "pkg:generic/veri-kalitesi-sistemi@0.1.0"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/packaging@26.0"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/tomli@2.4.1"
+    }
+  ],
+  "metadata": {
+    "component": {
+      "bom-ref": "pkg:generic/veri-kalitesi-sistemi@0.1.0",
+      "name": "veri-kalitesi-sistemi",
+      "properties": [
+        {
+          "name": "veri-kalitesi:inventory-scope",
+          "value": "declared-direct-dependencies"
+        },
+        {
+          "name": "veri-kalitesi:inventory-policy-version",
+          "value": "28B-v1"
+        },
+        {
+          "name": "veri-kalitesi:requires-python",
+          "value": ">=3.10"
+        }
+      ],
+      "purl": "pkg:generic/veri-kalitesi-sistemi@0.1.0",
+      "type": "application",
+      "version": "0.1.0"
+    }
+  },
+  "specVersion": "1.5",
+  "version": 1
+}

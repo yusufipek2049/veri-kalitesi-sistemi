@@ -29,10 +29,41 @@ Durum: `TechnicallyVerified`
 - SBOM üretimi ve sürüm bağlantısı
 - Pentest ürünü, kapsamı ve banka onayı
 
+## 28B — Deterministik yerel bağımlılık envanteri ve SBOM başlangıç paketi
+
+Durum: `TechnicallyVerified`
+
+### Gereksinimler
+
+- `BFR-SDLC-001`
+- `BFR-SDLC-002`
+- `BFR-SDLC-004`
+- `NFR-SEC-012`
+
+### Kabul Sonucu
+
+- PEP 621 proje adı, `0.1.0` sürümü, Python sınırı ve doğrudan çalışma zamanı
+  bağımlılıkları açıkça beyan edilmiştir.
+- Yalnız tam sürüme sabitlenmiş paketler kabul edilir; dinamik, URL/path tabanlı,
+  extras içeren veya yinelenen beyanlar başarısız olur.
+- CycloneDX 1.5 çıktı deterministiktir; proje sürümü ve doğrudan bağımlılık
+  grafiğini taşır, zaman damgası/seri numarası/yerel yol içermez.
+- Sürüm artifact'ı yeniden üretilen çıktıyla byte düzeyinde eşleşmiş ve resmî
+  CycloneDX 1.5 JSON şemasını geçmiştir.
+- 19 yeni sentetik vakayla toplam 530 birim testi geçmiştir.
+
+### Kapsam Dışı
+
+- Transitive bağımlılık çözümleme ve lock dosyası
+- Paket/artifact hash'i ve lisans doğrulaması
+- Ağ tabanlı zafiyet sorgusu
+- CI/CD zorlaması ve harici SBOM/dependency scanner ürünü
+- Banka eşik, istisna ve risk kabulü
+
 ## Önerilen Sonraki Dilim
 
-**28B — Deterministik yerel bağımlılık envanteri ve SBOM başlangıç paketi.**
+**28C — Yerel SAST bulgu ve sürüm kapısı sözleşmesi.**
 
-Yalnız repository'deki beyan edilmiş Python bağımlılıklarını salt okunur ve
-deterministik bir bileşen listesine dönüştür; ağ tabanlı zafiyet sorgusu, CI/CD
-zorlaması ve banka ürün seçimini kapsam dışında tut.
+Ürün bağımsız, veri-minimum bir SAST bulgu zarfı ve kritik bulgu bulunduğunda
+üretim adayı kanıtını reddeden yerel sürüm kapısı oluştur; gerçek scanner ürünü,
+CI/CD entegrasyonu, istisna onayı ve DAST kapsam dışında kalsın.

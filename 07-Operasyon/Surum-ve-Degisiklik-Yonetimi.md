@@ -31,3 +31,18 @@ PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc .
 Bulgu değeri, satır içeriği veya ham teknik hata kanıt dosyasına ve loga yazılmaz.
 Kurumsal CI/CD ürünü, kritik eşik ve istisna/onay akışı banka bilgi güvenliği
 kararıyla ayrıca belirlenir.
+
+## Yerel SBOM Kontrolü
+
+Doğrudan Python bağımlılık envanteri aşağıdaki komutla sürüm bağlantılı CycloneDX
+JSON olarak üretilir:
+
+```bash
+PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc.sbom pyproject.toml
+```
+
+Başarılı üretim `0`, manifest doğrulama veya teknik okuma hatası `2` döndürür.
+Başarısız üretim sürüm için SBOM kanıtı sayılamaz. Yerel doğrulama artifact'ı
+`08-Uyum-Kanitlari/Surum-Paketleri/Iterasyon-28B-SBOM.cdx.json` yolundadır ve
+proje sürümü `0.1.0` ile ilişkilidir. Transitive bağımlılık, hash, lisans ve
+zafiyet sonuçları bu artifact'ın kapsamında değildir.

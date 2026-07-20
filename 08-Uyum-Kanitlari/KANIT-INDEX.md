@@ -52,5 +52,6 @@
 - [[Olay-Mudahale/Iterasyon-26A-Veri-Minimum-Ihlal-Suphesi-Kaniti|Iterasyon 26A - Veri Minimum Ihlal Suphesi Kaniti]] - `TechnicallyVerified`
 - [[Olay-Mudahale/Iterasyon-26B-Yetki-Filtreli-Ihlal-Zaman-Cizelgesi-Kaniti|Iterasyon 26B - Yetki Filtreli Ihlal Zaman Cizelgesi Kaniti]] - `TechnicallyVerified`
 - [[Guvenlik-Testleri/Iterasyon-28A-Yerel-Veri-Minimum-Secret-Tarama-Kaniti|Iterasyon 28A - Yerel Veri Minimum Secret Tarama Kaniti]] - `TechnicallyVerified`
+- [[Guvenlik-Testleri/Iterasyon-28B-Deterministik-Bagimlilik-SBOM-Kaniti|Iterasyon 28B - Deterministik Bagimlilik ve SBOM Kaniti]] - `TechnicallyVerified`
 
 Kanıt üretmek için [[Kanıt-Paketi-Sablonu|Kanıt Paketi Şablonu]] kullanılır.

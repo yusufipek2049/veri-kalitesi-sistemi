@@ -58,6 +58,7 @@ Ayrıntılı ve bağlayıcı liste: [[01-SRS/15-Acik-Konular|SRS — Açık Konu
 41. Güvenlik olayı, kişisel veri ihlali şüphesi, 72 saat hedefi, veri işleyen bildirim kanıt referansı ve farklı aktörle insan kararı teknik olarak uygulandı. Banka olay/rol sözlüğü, gerçek SIEM/SOC akışı, hukuk/uyum karar içeriği, dış bildirim, saklama/imha ve tatbikat kanıtı açık kalır; `OPEN-BNK-001`, `OPEN-BNK-002`, `OPEN-BNK-004`, `OPEN-BNK-008` ve `OPEN-BNK-010` geçerlidir.
 42. İhlal zaman çizelgesi güvenilir privacy rolü ve incident scope'u ile veri-minimum görüntülenebilir; 72 saat durumu ve görüntüleme auditi teknik olarak doğrulandı. Listeleme/arama, HTTP/UI, kanıt içeriğine ayrı erişim, gerçek SIEM/SOC, banka rol eşlemesi ve saklama/imha açık kalır; `OPEN-BNK-002`, `OPEN-BNK-008` ve `OPEN-BNK-010` geçerlidir.
 43. Yerel `28A-v1` secret taraması teknik olarak doğrulandı. Kurumsal scanner/CI-CD ürünü, kritik bulgu eşiği, istisna ve risk kabulü, geçmiş commit taraması, pipeline zorlaması, bağımlılık/SAST/DAST taraması, SBOM ve banka bilgi güvenliği onayı açık kalır.
+44. `28B` doğrudan bağımlılık envanteri ve sürüm bağlı CycloneDX 1.5 SBOM'u teknik olarak doğrulandı. Transitive bağımlılık/lock, artifact hash'i, lisans, zafiyet veritabanı, harici scanner/SBOM ürünü, CI/CD zorlaması ve banka eşik/istisna onayı açık kalır.
 
 ## Bankacılık Geçiş Açık Konuları
 

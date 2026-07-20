@@ -114,6 +114,15 @@ tags:
 | 2026-07-20 | Bulgu sözleşmesi yalnız göreli yol, satır/sütun ve kural kodu taşıyacak; eşleşen değer ve satır içeriği hiçbir sonuçta bulunmayacaktır. | Güvenlik kontrolünün kendisi secret'ı loga veya kanıta çoğaltmamalıdır. | Eşleşen satırı maskeleyerek yazmak veya değer özetini saklamak. | Pozitif bulgu konumlandırılabilir; gerçek değer model, CLI ve kanıt dışında kalır. |
 | 2026-07-20 | Dosya/dizin erişim hatası ayrı teknik sonuç olacak ve temiz tarama kabul edilmeyecektir. | Eksik taramayı başarılı saymak kritik bulguyu görünmez kılabilir. | Okunamayan dosyayı sessizce atlamak veya güvenlik bulgusu saymak. | CLI teknik/doğrulama hatasında `2`, bulguda `1`, temiz sonuçta `0` döndürür. |
 
+## 2026-07-20 İterasyon 28B Kararları
+
+| Tarih | Karar | Gerekçe | Alternatif | Sonuç |
+| --- | --- | --- | --- | --- |
+| 2026-07-20 | Proje ve doğrudan çalışma zamanı bağımlılıkları PEP 621 `[project]` metadata'sında açıkça, tam sürüme sabitlenmiş olarak beyan edilecektir. | SBOM'un sürümle ve yeniden üretilebilir bir kaynak beyanıyla ilişkilendirilmesi gerekir; mevcut araç-only pyproject envanter sayılmamalıdır. | Ortamda kurulu paketleri taramak, gevşek sürüm aralığı kullanmak veya eksik beyanı bağımlılık yok saymak. | Proje `0.1.0`, Python `>=3.10`, `packaging==26.0` ve `tomli==2.4.1` beyanıyla deterministik doğrudan envanter üretir. |
+| 2026-07-20 | İlk SBOM CycloneDX 1.5 JSON olacak; zaman damgası ve rastgele seri numarası içermeyecektir. | Aynı kaynak beyanından byte düzeyinde aynı artifact üretmek ve sürüm kanıtını karşılaştırabilmek gerekir. | Özel JSON şeması, çalışma zamanına bağlı timestamp/UUID veya kurulu ortam dökümü kullanmak. | Artifact resmî şemayı geçer ve proje sürümü ile doğrudan bağımlılık grafiğini taşır. |
+| 2026-07-20 | Eksik/dinamik sürüm veya bağımlılık, tam pin olmayan/URL/extras/yinelenen beyan üretim hatası olacaktır. | Belirsiz veya dış kaynağa bağlı beyan eksik envanteri temiz SBOM gibi gösterebilir. | Belirsiz beyanı olduğu gibi geçirmek veya parser uyarısıyla devam etmek. | CLI güvenli neden koduyla `2` döndürür; yerel yol ve ham parser/işletim sistemi hatası çıkmaz. |
+| 2026-07-20 | 28B yalnız beyan edilmiş doğrudan bağımlılıkları kapsayacaktır. | Transitive çözüm, hash, lisans ve zafiyet verisi lock/artifact/scanner politikası gerektirir ve tek iterasyon sınırını aşar. | Kurulu ortamı transitive gerçeklik saymak veya harici zafiyet servisini varsaymak. | SBOM kapsamı açık property ve kanıt notuyla sınırlandırılır; kalan kontroller `ComplianceReviewRequired` kalır. |
+
 ## İlişkili Notlar
 
 - [[01-SRS/02-Sistem-Aciklamasi|Sistem Açıklaması]]

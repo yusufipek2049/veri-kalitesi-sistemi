@@ -1,9 +1,3 @@
----
-type: vault-index
-project: Veri Kalitesi İzleme ve Skorlama Sistemi
-generated_at: 2026-07-16
----
-
 # Veri Kalitesi İzleme ve Skorlama Sistemi
 
 Bu vault, SRS dokümanını görev bazında küçük bağlam parçalarıyla kullanmak için hazırlanmıştır.
@@ -33,4 +27,4 @@ Bu vault, SRS dokümanını görev bazında küçük bağlam parçalarıyla kull
 
 ## Güncel Geliştirme Baseline'ı
 
-İterasyon 1–16 ile bankacılık geçişindeki 17A–24B, 26A–26B ve 28A teknik dikeyleri tamamlanmış, 511 birim testi geçmektedir. Repository için eşleşen değeri açığa çıkarmayan yerel secret tarama sözleşmesi uygulanmıştır; sıradaki hazır aday yerel bağımlılık envanteri ve SBOM başlangıç paketidir.
+İterasyon 1–16 ile bankacılık geçişindeki 17A–24B, 26A–26B ve 28A–28B teknik dikeyleri tamamlanmış, 530 birim testi geçmektedir. Repository için veri-minimum secret taraması ile proje sürümüne bağlı deterministik doğrudan bağımlılık SBOM'u uygulanmıştır; sıradaki hazır aday yerel SAST bulgu ve sürüm kapısı sözleşmesidir.

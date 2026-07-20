@@ -657,6 +657,17 @@ tags:
 - Kanıt `08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28A-Yerel-Veri-Minimum-Secret-Tarama-Kaniti.md` içinde `TechnicallyVerified` olarak kaydedildi.
 - CI/CD zorlaması, harici tarayıcı, geçmiş commit taraması, bağımlılık/SAST/DAST taraması, SBOM ve pentest kapsam dışıdır; ürün/eşik/istisna politikası `ComplianceReviewRequired` kalır.
 
+### 2026-07-20 — İterasyon 28B: Deterministik yerel bağımlılık envanteri ve SBOM başlangıç paketi
+
+- `BFR-SDLC-001/002/004` ve `NFR-SEC-012` için PEP 621 bağımlılık envanteri ile deterministik CycloneDX 1.5 üreticisi eklendi.
+- Proje `0.1.0`, Python `>=3.10` ve doğrudan çalışma zamanı bağımlılıkları tam sürüme sabitlenmiş olarak `pyproject.toml` içinde beyan edildi.
+- Üretici yalnız açık `[project]` metadata'sını salt okunur işler; eksik/dinamik sürüm veya bağımlılık, tam pin olmayan/URL/extras/yinelenen beyan güvenli neden koduyla başarısız olur.
+- SBOM proje sürümü, Python sınırı ve doğrudan bağımlılık grafiğini taşır; timestamp, rastgele seri numarası, yerel yol, kullanıcı bilgisi veya ham teknik hata içermez.
+- `Iterasyon-28B-SBOM.cdx.json` artifact'ı yeniden üretilen çıktıyla byte düzeyinde eşleşti, SHA-256 özeti kaydedildi ve resmî CycloneDX 1.5 JSON şemasını geçti.
+- On dokuz yeni sentetik vakayla güvenli SDLC hedef grubu 32, toplam test sayısı 530 oldu. Depo lint, hedef format/mypy ve derleme kontrolleri geçti; secret taraması `CLEAN` kaldı. Tam depo formatındaki dört eski dosya ve tam mypy kontrolündeki yedi dosyada 27 eski hata değişmedi.
+- Kanıt `08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28B-Deterministik-Bagimlilik-SBOM-Kaniti.md` içinde `TechnicallyVerified` olarak kaydedildi.
+- Transitive çözüm/lock, artifact hash'i, lisans, zafiyet taraması, CI/CD ve harici ürün/eşik/istisna politikası kapsam dışıdır ve `ComplianceReviewRequired` kalır.
+
 ## İlgili Notlar
 
 - [[00-Proje-Hafizasi/Alinan-Kararlar|Alınan Kararlar]]
@@ -665,8 +676,8 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B ve Iterasyon 28A dikeylerinin kodu korunacaktır.
-- `pytest` ile 511 testin geçtiği doğrulanmıştır.
-- İterasyon 19D, 21B, hassas dışa aktarma, saklama/DR ve gerçek SIEM banka kararları nedeniyle engellidir; sıradaki hazır aday yerel bağımlılık envanteri ve SBOM başlangıç paketidir.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B ve Iterasyon 28A–28B dikeylerinin kodu korunacaktır.
+- `pytest` ile 530 testin geçtiği doğrulanmıştır.
+- İterasyon 19D, 21B, hassas dışa aktarma, saklama/DR ve gerçek SIEM banka kararları nedeniyle engellidir; sıradaki hazır aday yerel SAST bulgu ve sürüm kapısı sözleşmesidir.
 - Geçiş ayrıntıları için [[00-Proje-Hafizasi/Bankacilik-Gecis-Durumu|Bankacılık Geçiş Durumu]] esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

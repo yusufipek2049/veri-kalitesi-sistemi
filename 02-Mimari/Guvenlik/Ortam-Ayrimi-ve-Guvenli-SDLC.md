@@ -39,3 +39,24 @@ PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc .
 tarama hatası için `2` değeridir. `.git`, cache, build ve bağımlılık dizinleri;
 binary, büyük, düzenli olmayan ve sembolik bağlantılı dosyalar tarama dışında kalır.
 Bu yerel baseline pipeline zorlaması veya banka onaylı tarayıcı ürünü değildir.
+
+## Yerel Bağımlılık Envanteri ve SBOM Baseline'ı
+
+`pyproject.toml` PEP 621 metadata'sında proje sürümü ve doğrudan çalışma zamanı
+bağımlılıkları tam sürüme sabitlenir. `28B-v1` üreticisi bu beyanı salt okunur
+alarak deterministik CycloneDX 1.5 JSON üretir:
+
+```bash
+PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc.sbom pyproject.toml
+```
+
+SBOM proje sürümünü, `requires-python` beyanını ve doğrudan bağımlılık grafiğini
+taşır; zaman damgası, rastgele seri numarası, yerel dosya yolu veya kullanıcı
+bilgisi içermez. Eksik/dinamik sürüm veya bağımlılık beyanı; tam sürüme
+sabitlenmemiş, URL/path tabanlı ya da yinelenen bağımlılık teknik üretim
+başarısızlığıdır.
+
+Bu başlangıç paketi transitive çözümleme, artifact hash'i, lisans doğrulaması veya
+zafiyet taraması yapmaz. Nihai SBOM ürünü, kapsamı ve CI/CD kapısı banka bilgi
+güvenliği standardına bağlanır. Çıktı yapısı [CycloneDX 1.5 JSON şemasına](https://cyclonedx.org/schema/bom-1.5.schema.json)
+karşı doğrulanır.
