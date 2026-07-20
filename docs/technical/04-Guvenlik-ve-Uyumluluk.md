@@ -31,8 +31,11 @@ iç kontrol, IAM ve mimari kararları açık kalır.
 - Yerel SAST kapısı yalnız scanner kimliği/sürümü, rule code, önem, depo göreli
   konum ve satır/sütun kabul eder; teknik tarama hatasını kalite bulgusundan ayırır,
   kritik bulguda sürüm kanıtı üretmez.
+- Yerel bağımlılık zafiyet kapısı bulguyu yalnız doğrudan SBOM envanterindeki tam
+  paket/sürüm çiftine bağlar; tamamlanmamış taramayı teknik hata sayar ve kritik
+  bulguda sürüm kanıtı üretmez.
 
-Bu incelemede tarayıcı `28A-v1` politikasıyla 319 metin dosyasını taramış ve sıfır
+Bu incelemede tarayıcı `28A-v1` politikasıyla 326 metin dosyasını taramış ve sıfır
 bulgu üretmiştir. Bu sonuç yalnız desteklenen pattern'ler ve mevcut çalışma ağacı
 içindir; geçmiş commit, yüksek entropi ve kurumsal scanner kapsamı değildir.
 
@@ -49,7 +52,7 @@ içindir; geçmiş commit, yüksek entropi ve kurumsal scanner kapsamı değildi
 | Çoklu instance güvenliği yok | Yüksek | Süreç içi `RLock`, SQLite breaker/queue | Duplicate claim, yarış ve tutarsız kota | Transactional DB locking/lease ve dağıtık state |
 | Retention/imha/legal hold yok | Yüksek | Tarihçe tablolarında delete/archive job yok | Gereksiz veri tutma ve hukuki yaşam döngüsü riski | Kayıt türü bazlı onaylı lifecycle motoru |
 | HTTP kontrolleri yok | Yüksek | Cookie/JWT/CORS/CSRF/security header kodu yok | API eklendiğinde session ve browser saldırıları | Threat model sonrası cookie/CSRF/CORS politikası |
-| Güvenlik tarama entegrasyonu eksik | Orta | Direct SBOM ve yerel SAST bulgu kapısı var; gerçek scanner/SCA/DAST yok | Bilinen zafiyet ve kod kusuru otomatik bulunamaz | Lock, transitive SBOM, kurumsal SCA/SAST/DAST CI kapısı |
+| Güvenlik tarama entegrasyonu eksik | Orta | Direct SBOM ile yerel SAST/bağımlılık bulgu kapıları var; gerçek scanner/SCA/DAST yok | Bilinen zafiyet ve kod kusuru otomatik bulunamaz | Lock, transitive SBOM, kurumsal SCA/SAST/DAST CI kapısı |
 | Legacy serbest aktör kullanımı | Orta | Bazı eski servislerde `actor_id` parametreleri | Caller sahte aktör verebilir | Tüm mutasyonları trusted `ActorContext` sınırına taşı |
 | Genel export/DLP kontrolü yok | Yüksek | Yalnız rapor önizleme var | Gelecek dosya export'unda toplu veri sızıntısı | Gerekçe, maker-checker, watermark, DLP, expiry |
 
@@ -118,7 +121,7 @@ boyunca yaygın olsa da dağıtık trace değildir.
 | İhlal müdahale kanıtı | Kısmen uygulanmış | Incident, breach, 72 saat hedefi, insan kararı; SIEM/dış bildirim yok |
 | Yedekleme ve DR | Planlanmış ancak uygulanmamış | RTO/RPO, backup/restore ve tatbikat yok |
 | Değişiklik yönetimi | Kısmen uygulanmış | Sürümlü rule/config ve kanıt; CI/release gate yok |
-| Güvenlik testi | Kısmen uygulanmış | Unit negatif test, secret scan, direct SBOM ve yerel SAST kapısı; gerçek scanner/SCA/DAST/pentest yok |
+| Güvenlik testi | Kısmen uygulanmış | Unit negatif test, secret scan, direct SBOM ve yerel SAST/bağımlılık zafiyet kapıları; gerçek scanner/SCA/DAST/pentest yok |
 
 ## Olay Müdahalesi
 

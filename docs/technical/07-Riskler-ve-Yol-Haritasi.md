@@ -120,10 +120,10 @@ değildir.
 | CSV güvenli dosya sınırı | Path kapsamı serbest | Mount/servis hesabı modeli | Canonical allowlist, symlink ve negatif test |
 | ServiceNow gerçek adaptörü | Issue dış sisteme çıkmıyor | `OPEN-BNK-009` | TLS, allowlist, timeout, retry, reconciliation ve alarm |
 | Incident/SIEM entegrasyonu | SOC akışı yok | `OPEN-BNK-010` | Olay kodu, SIEM ingest, timeline ve insan karar kanıtı |
-| Güvenli SDLC tamamlama | Secret/direct SBOM ve yerel SAST kapısı | Scanner ürünleri | Gerçek SAST, transitive SCA, DAST, exception workflow, pentest |
+| Güvenli SDLC tamamlama | Secret/direct SBOM ve yerel SAST/bağımlılık zafiyet kapıları | Scanner ürünleri | Gerçek SAST, transitive SCA, DAST, exception workflow, pentest |
 
-Proje backlogundaki sıradaki dar artım olan **28D bağımlılık zafiyet bulgu zarfı ve
-sürüm kapısı**, bu P1 güvenli SDLC başlığının küçük ve hazır dilimidir; mevcut
+Proje backlogundaki sıradaki dar artım olan **28E veri-minimum sızma testi bulgu
+takip sözleşmesi**, bu P1 güvenli SDLC başlığının küçük ve hazır dilimidir; mevcut
 iteratif çalışma sırasıyla uyumludur.
 
 ## P2 - Ölçeklenebilirlik ve Bakım
@@ -153,7 +153,7 @@ iteratif çalışma sırasıyla uyumludur.
 
 ## Önerilen Teslim Sırası
 
-1. Mevcut backlog sırasıyla 28D ve kalan güvenli SDLC kapıları.
+1. Mevcut backlog sırasıyla 28E ve kalan güvenli SDLC kapıları.
 2. Güvenli read-only API composition root.
 3. Üretim DB/broker migration omurgası.
 4. LDAP/vault ve PostgreSQL gerçek adaptörleri.

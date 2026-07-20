@@ -78,3 +78,23 @@ deterministik bulgu digest'ini taşır; bulgu yolu ve kural kodunu açık metin 
 Bu baseline gerçek SAST ürünü veya repository taraması değildir. CI/CD zorlaması,
 scanner seçimi, banka eşikleri, istisna/risk kabulü, release onayı, DAST ve sızma
 testi `ComplianceReviewRequired` olarak açık kalır.
+
+## Yerel Bağımlılık Zafiyet Bulgu ve Sürüm Kapısı Baseline'ı
+
+`28D-v1` sözleşmesi harici dependency scanner ve advisory kaynağı çıktısını
+güvenilmez girdi kabul eder. Bulgu allowlist'i scanner/advisory kaynağı kimliği ve
+sürümü, advisory kimliği, `INFO/LOW/MEDIUM/HIGH/CRITICAL` önem derecesi ile doğrudan
+bağımlılığın kanonik adı ve PEP 440 sürümüyle sınırlıdır. Açıklama, mesaj, URL,
+düzeltme sürümü, yerel yol, secret veya ham teknik ayrıntı kabul edilmez.
+
+`DependencyVulnerabilityReleaseGate`, bulguların yalnız 28B envanterindeki tam
+ad-sürüm çiftlerine ait olmasını zorunlu kılar. Yalnız `COMPLETED` rapor kanıt
+üretebilir; `TECHNICAL_ERROR` temiz tarama sayılmaz. En az bir `CRITICAL` bulgu
+kanıtı fail-closed engeller. Başarılı kanıt proje/gate/scanner/advisory sürümlerini,
+`declared-direct-dependencies` kapsamını ve envanter/bulgu SHA-256 özetlerini taşır;
+advisory veya paket ayrıntısını açık metin çoğaltmaz.
+
+Bu baseline gerçek zafiyet veritabanı veya ağ taraması değildir. Transitive lock,
+paket artifact doğrulaması, kritik olmayan banka eşikleri, istisna/risk kabulü,
+CI/CD zorlaması, release maker-checker ve sızma testi `ComplianceReviewRequired`
+olarak açık kalır.

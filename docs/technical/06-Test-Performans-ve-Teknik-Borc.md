@@ -2,7 +2,7 @@
 
 ## Test Yapısı
 
-`06-Testler/01-Birim/` altında 15 pytest dosyası vardır:
+`06-Testler/01-Birim/` altında 16 pytest dosyası vardır:
 
 | Test alanı | Kapsanan ana davranış |
 | --- | --- |
@@ -21,6 +21,7 @@
 | `test_secure_sdlc.py` | Secret scanner |
 | `test_secure_sdlc_sbom.py` | Doğrudan bağımlılık inventory/SBOM |
 | `test_secure_sdlc_sast.py` | Veri-minimum SAST bulgu zarfı ve sürüm kapısı |
+| `test_secure_sdlc_vulnerabilities.py` | Doğrudan bağımlılık zafiyet bulgu zarfı ve sürüm kapısı |
 
 Testler geçici SQLite DB veya `:memory:` repository ile izoledir. LDAP, PostgreSQL,
 ServiceNow, audit sink ve resolver'lar fake/protokol implementasyonlarıdır. Gerçek
@@ -31,14 +32,14 @@ secret redaksiyonu ve veri-minimum payload testleri dikkate değer güçlü nokt
 
 | Seviye | Durum | Açıklama |
 | --- | --- | --- |
-| Unit | Uygulanmış | 556 test |
+| Unit | Uygulanmış | 593 test |
 | Repository | Uygulanmış, unit içinde | Gerçek SQLite sorgu/constraint testleri |
 | Contract | Kısmen uygulanmış | Fake adaptörler port sözleşmesini sınar |
 | Integration | Planlanmış ancak uygulanmamış | Dizin boş; gerçek PostgreSQL/LDAP/ServiceNow yok |
 | API | Planlanmış ancak uygulanmamış | API yok |
 | End-to-end | Planlanmış ancak uygulanmamış | Dizin boş; runtime/UI yok |
 | Performance | Planlanmış ancak uygulanmamış | 20 milyon satır ve yük testi yok |
-| Security | Kısmen uygulanmış | Negatif unit, local secret scan, direct SBOM ve yerel SAST kapısı; gerçek scanner/SCA/DAST/pentest yok |
+| Security | Kısmen uygulanmış | Negatif unit, local secret scan, direct SBOM ve yerel SAST/bağımlılık zafiyet kapıları; gerçek scanner/SCA/DAST/pentest yok |
 
 Coverage aracı, eşik veya rapor dosyası yapılandırılmamıştır. Test sayısı yüksek olsa
 da statement/branch coverage doğrulanamaz. Mutation, property/fuzz ve concurrency
@@ -58,7 +59,7 @@ PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc .
 ```
 
 İnceleme baseline'ında test ve Ruff lint geçmektedir. Full format kontrolü dört eski
-dosyada biçim farkı; full mypy yedi dosyada 27 hata raporlamaktadır. 28C hedefindeki
+dosyada biçim farkı; full mypy yedi dosyada 27 hata raporlamaktadır. 28D hedefindeki
 `secure_sdlc` kodu format ve mypy kontrollerini geçer; eski tam depo baseline'ı bu
 iterasyonda değiştirilmemiştir.
 

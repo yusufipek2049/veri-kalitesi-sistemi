@@ -141,6 +141,15 @@ tags:
 | 2026-07-20 | Kritik veri kalitesi ihlali kırmızı, teknik hata mor, uyarı turuncu, başarı yeşil, bilgi mavi ve veri yok gri gösterilecektir; renk tek bilgi taşıyıcısı olmayacaktır. | Teknik hata kalite başarısızlığından ayrılmalı ve erişilebilirlik korunmalıdır. | Tüm olumsuz durumları kırmızı göstermek veya yalnız renge güvenmek. | İkon, yazılı etiket, badge, tooltip/açıklama ve uygun ARIA adı zorunludur. |
 | 2026-07-20 | İlk görsel ekran kurumsal dashboard; component doğrulama aracı Storybook ve ekran/görsel doğrulama aracı Playwright olacaktır. | Ortak component durumları ile responsive ekran sapmaları farklı test katmanları gerektirir. | Yalnız manuel inceleme veya yalnız pixel screenshot kullanmak. | Toolchain kurulumu ayrı onaylı artımdır; minimum viewport'lar ve iki iyileştirme turu Definition of Done'a bağlandı. |
 
+## 2026-07-20 İterasyon 28D Kararları
+
+| Tarih | Karar | Gerekçe | Alternatif | Sonuç |
+| --- | --- | --- | --- | --- |
+| 2026-07-20 | Dependency scanner ve advisory çıktısı güvenilmez girdi sayılacak; bulgu yalnız sekiz veri-minimum allowlist alanından üretilecektir. | Ham açıklama, mesaj, URL, düzeltme önerisi ve yerel yol secret veya iç sistem ayrıntısı yayabilir. | Scanner ham JSON'unu saklamak veya ürün özel şema kullanmak. | Parser yalnız scanner/advisory kimliği-sürümü, advisory kimliği, severity ve paket adı-sürümünü kabul eder. |
+| 2026-07-20 | Bulgu yalnız 28B doğrudan envanterindeki tam kanonik paket/sürüm çiftiyle eşleşecektir. | Tarama kanıtının hangi sürümlü SBOM kapsamına ait olduğu belirsiz kalmamalıdır. | Paket adı eşleşmesini yeterli saymak veya kurulu ortamı envanter kabul etmek. | Bilinmeyen paket ve sürüm uyuşmazlığı fail-closed doğrulama hatasıdır; kapsam `declared-direct-dependencies` olarak açıktır. |
+| 2026-07-20 | Tamamlanmamış tarama teknik hata, `CRITICAL` bulgu güvenlik blokajı olacaktır; ikisi de sürüm kanıtı üretmeyecektir. | Teknik erişim/işleme arızası ile doğrulanmış zafiyet sonucu birbirine dönüştürülmemelidir. | Eksik taramayı temiz saymak veya teknik hatayı sahte kritik bulgu yapmak. | Ayrı teknik ve blokaj hata sınıfları uygulanır; kritik olmayan eşikler banka kararına bırakılır. |
+| 2026-07-20 | Sürüm kanıtı açık advisory/paket listesi yerine envanter ve bulgu SHA-256 özetlerini taşıyacaktır. | Sürüm ve tarama kapsamı doğrulanabilir olmalı, ayrıntılı güvenlik bulguları gereksiz çoğaltılmamalıdır. | Tüm bulguları release kanıtına yazmak veya yalnız toplam sayı tutmak. | Kanıt deterministik ve veri-minimumdur; scanner/advisory sürümleriyle proje sürümüne bağlanır. |
+
 ## İlişkili Notlar
 
 - [[01-SRS/02-Sistem-Aciklamasi|Sistem Açıklaması]]

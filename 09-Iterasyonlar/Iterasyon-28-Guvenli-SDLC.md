@@ -94,11 +94,44 @@ Durum: `TechnicallyVerified`
 - DAST, container/IaC taraması ve penetrasyon testi
 - Release maker-checker ve banka onayı
 
+## 28D — Yerel bağımlılık zafiyet bulgu zarfı ve sürüm kapısı sözleşmesi
+
+Durum: `TechnicallyVerified`
+
+### Gereksinimler
+
+- `BFR-SDLC-001`
+- `BFR-SDLC-002`
+- `BFR-SDLC-003`
+- `BFR-SDLC-004`
+- `NFR-SEC-012`
+
+### Kabul Sonucu
+
+- Ürün bağımsız bulgu yalnız scanner/advisory kimliği ve sürümü, advisory kimliği,
+  önem derecesi ile kanonik doğrudan bağımlılık adı/sürümünü kabul eder.
+- Açıklama, mesaj, advisory URL, düzeltme sürümü, yerel yol ve secret allowlist dışı
+  olarak fail-closed reddedilir.
+- Bulgu yalnız 28B envanterindeki tam kanonik paket/sürüm çiftiyle eşleşebilir;
+  bilinmeyen veya farklı sürümdeki paket reddedilir.
+- Tamamlanmamış tarama ayrı teknik hata üretir; `CRITICAL` bulgu sürüm kanıtını
+  fail-closed engeller. Kritik olmayan bulgular yalnız sayım ve digest'e bağlanır.
+- Başarılı kanıt proje sürümü, `declared-direct-dependencies` kapsamı,
+  scanner/advisory sürümleri ve deterministik envanter/bulgu SHA-256 özetlerini taşır.
+- 37 sentetik vakayla toplam 593 birim testi geçmiştir.
+
+### Kapsam Dışı
+
+- Gerçek zafiyet veritabanı, ağ erişimi ve dependency scanner ürünü
+- Transitive çözümleme/lock ve artifact doğrulaması
+- Kritik olmayan banka eşikleri ile istisna/risk kabul onayı
+- CI/CD zorlaması, release maker-checker ve banka onayı
+- DAST, container/IaC taraması ve penetrasyon testi
+
 ## Önerilen Sonraki Dilim
 
-**28D — Yerel bağımlılık zafiyet bulgu zarfı ve sürüm kapısı sözleşmesi.**
+**28E — Veri-minimum sızma testi bulgu takip sözleşmesi.**
 
-28B doğrudan bağımlılık/SBOM çıktısını veri-minimum, ürün bağımsız zafiyet bulgusu
-ile bağla; eksik taramayı temiz kabul etme ve kritik zafiyette sürüm kanıtını
-fail-closed engelle. Gerçek zafiyet veritabanı/ağ tarayıcısı, transitive lock,
-istisna/risk kabul onayı ve CI/CD entegrasyonu kapsam dışında kalsın.
+`BFR-SDLC-003/005` kapsamında sızma testi bulgusunu önem, veri-minimum aksiyon ve
+sorumlu referansı ile tekrar test kanıtına bağla. Gerçek test hizmeti, banka kapsamı,
+takvim/sıklık, scanner ürünü, serbest rapor içeriği ve banka onayı kapsam dışında kalsın.

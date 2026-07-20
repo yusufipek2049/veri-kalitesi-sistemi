@@ -117,3 +117,55 @@ class SastReleaseEvidence:
     finding_count: int
     critical_finding_count: int
     findings_digest: str
+
+
+class VulnerabilitySeverity(str, Enum):
+    INFO = "INFO"
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
+
+
+class DependencyVulnerabilityScanStatus(str, Enum):
+    COMPLETED = "COMPLETED"
+    TECHNICAL_ERROR = "TECHNICAL_ERROR"
+
+
+@dataclass(frozen=True, order=True)
+class DependencyVulnerabilityFinding:
+    scanner_id: str
+    scanner_version: str
+    advisory_source: str
+    advisory_source_version: str
+    advisory_id: str
+    severity: VulnerabilitySeverity
+    dependency_name: str
+    dependency_version: str
+
+
+@dataclass(frozen=True)
+class DependencyVulnerabilityScanReport:
+    scanner_id: str
+    scanner_version: str
+    advisory_source: str
+    advisory_source_version: str
+    status: DependencyVulnerabilityScanStatus
+    findings: tuple[DependencyVulnerabilityFinding, ...]
+
+
+@dataclass(frozen=True)
+class DependencyVulnerabilityReleaseEvidence:
+    project_name: str
+    project_version: str
+    gate_policy_version: str
+    inventory_scope: str
+    dependency_count: int
+    dependency_inventory_digest: str
+    scanner_id: str
+    scanner_version: str
+    advisory_source: str
+    advisory_source_version: str
+    finding_count: int
+    critical_finding_count: int
+    findings_digest: str

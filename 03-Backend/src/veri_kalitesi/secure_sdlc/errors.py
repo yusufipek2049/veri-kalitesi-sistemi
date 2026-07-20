@@ -69,3 +69,32 @@ class SastGateTechnicalError(SastGateError):
     def __init__(self, reason_code: str) -> None:
         super().__init__(reason_code)
         self.reason_code = reason_code
+
+
+class DependencyVulnerabilityGateError(Exception):
+    """Base error for dependency vulnerability evidence and release gating."""
+
+
+class DependencyVulnerabilityGateValidationError(DependencyVulnerabilityGateError):
+    """The scanner envelope or dependency inventory is invalid."""
+
+    def __init__(self, reason_code: str) -> None:
+        super().__init__(reason_code)
+        self.reason_code = reason_code
+
+
+class DependencyVulnerabilityGateBlockedError(DependencyVulnerabilityGateError):
+    """A completed dependency scan contains release-blocking findings."""
+
+    def __init__(self, reason_code: str, blocking_finding_count: int) -> None:
+        super().__init__(reason_code)
+        self.reason_code = reason_code
+        self.blocking_finding_count = blocking_finding_count
+
+
+class DependencyVulnerabilityGateTechnicalError(DependencyVulnerabilityGateError):
+    """The dependency scan did not complete and cannot produce evidence."""
+
+    def __init__(self, reason_code: str) -> None:
+        super().__init__(reason_code)
+        self.reason_code = reason_code

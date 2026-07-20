@@ -1,6 +1,10 @@
 """Local data-minimum secure SDLC checks."""
 
 from veri_kalitesi.secure_sdlc.errors import (
+    DependencyVulnerabilityGateBlockedError,
+    DependencyVulnerabilityGateError,
+    DependencyVulnerabilityGateTechnicalError,
+    DependencyVulnerabilityGateValidationError,
     DependencyInventoryError,
     DependencyInventoryTechnicalError,
     DependencyInventoryValidationError,
@@ -15,6 +19,10 @@ from veri_kalitesi.secure_sdlc.errors import (
 from veri_kalitesi.secure_sdlc.models import (
     DEFAULT_EXCLUDED_DIRECTORIES,
     DeclaredDependency,
+    DependencyVulnerabilityFinding,
+    DependencyVulnerabilityReleaseEvidence,
+    DependencyVulnerabilityScanReport,
+    DependencyVulnerabilityScanStatus,
     PythonProjectInventory,
     SastFinding,
     SastReleaseEvidence,
@@ -24,16 +32,34 @@ from veri_kalitesi.secure_sdlc.models import (
     SecretFinding,
     SecretScanPolicy,
     SecretScanReport,
+    VulnerabilitySeverity,
 )
 from veri_kalitesi.secure_sdlc.scanner import RepositorySecretScanner
 from veri_kalitesi.secure_sdlc.sast import SAST_GATE_POLICY_VERSION, SastReleaseGate, parse_finding
+from veri_kalitesi.secure_sdlc.vulnerabilities import (
+    DEPENDENCY_INVENTORY_SCOPE,
+    DEPENDENCY_VULNERABILITY_GATE_POLICY_VERSION,
+    DependencyVulnerabilityReleaseGate,
+    parse_dependency_vulnerability_finding,
+)
 
 __all__ = [
     "DEFAULT_EXCLUDED_DIRECTORIES",
     "DeclaredDependency",
+    "DEPENDENCY_INVENTORY_SCOPE",
+    "DEPENDENCY_VULNERABILITY_GATE_POLICY_VERSION",
     "DependencyInventoryError",
     "DependencyInventoryTechnicalError",
     "DependencyInventoryValidationError",
+    "DependencyVulnerabilityFinding",
+    "DependencyVulnerabilityGateBlockedError",
+    "DependencyVulnerabilityGateError",
+    "DependencyVulnerabilityGateTechnicalError",
+    "DependencyVulnerabilityGateValidationError",
+    "DependencyVulnerabilityReleaseEvidence",
+    "DependencyVulnerabilityReleaseGate",
+    "DependencyVulnerabilityScanReport",
+    "DependencyVulnerabilityScanStatus",
     "PythonProjectInventory",
     "RepositorySecretScanner",
     "SAST_GATE_POLICY_VERSION",
@@ -53,5 +79,7 @@ __all__ = [
     "SecretScanReport",
     "SecretScanTechnicalError",
     "SecretScanValidationError",
+    "VulnerabilitySeverity",
+    "parse_dependency_vulnerability_finding",
     "parse_finding",
 ]

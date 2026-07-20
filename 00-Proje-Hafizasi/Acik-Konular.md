@@ -65,6 +65,11 @@ Ayrıntılı ve bağlayıcı liste: [[01-SRS/15-Acik-Konular|SRS — Açık Konu
     visual diff eşiği, Storybook/Playwright dependency kurulumu ve banka marka
     onayı açık kalır. Dashboard uygulaması ayrıca 21B güvenli HTTP/API sınırı ile
     bankacılık geçiş kapısına bağlıdır.
+47. `28D-v1` doğrudan bağımlılık zafiyet bulgu zarfı, tamamlanmamış tarama teknik
+    hata yolu, tam envanter eşleşmesi ve kritik bulguda fail-closed sürüm kapısı
+    teknik olarak doğrulandı. Gerçek zafiyet veritabanı/ağ scanner'ı, transitive
+    lock/artifact doğrulaması, kritik olmayan banka eşikleri, istisna/risk kabulü,
+    CI/CD, release maker-checker, DAST ve pentest açık kalır.
 
 ## Bankacılık Geçiş Açık Konuları
 

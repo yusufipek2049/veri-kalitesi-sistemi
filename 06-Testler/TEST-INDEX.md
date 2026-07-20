@@ -31,13 +31,13 @@ tags:
 
 ## Güncel Otomasyon Baseline'ı
 
-- 556 birim testi geçmektedir.
+- 593 birim testi geçmektedir.
 - `incident_response` hedef grubu, güvenlik olayı/ihlal ayrımı, 72 saat hedefi, veri işleyen kanıtı, maker-checker kararı, yetki/scope redleri, veri-minimum timeline görünümü, audit minimizasyonu ve rollback için 39 sentetik vaka içerir.
 - `secure_sdlc` hedef grubu; gerçek pozitif/yanlış pozitif, binary/büyük/dışlanan
   dosya, sembolik bağlantı, salt okunurluk, deterministik sıra, teknik hata ve
   veri-minimum CLI çıktısına ek olarak PEP 621 bağımlılık beyanı, tam sürüm pini,
   dinamik/URL/yinelenen bağımlılık redleri, salt okunurluk ve deterministik
-  CycloneDX 1.5 çıktısı ile veri-minimum SAST bulgu/sürüm kapısı için toplam 58
-  sentetik vaka içerir.
+  CycloneDX 1.5 çıktısı, veri-minimum SAST bulgu/sürüm kapısı ve doğrudan bağımlılık
+  zafiyet sürüm kapısı için toplam 95 sentetik vaka içerir.
 - Frontend runtime, Storybook ve Playwright otomasyonu henüz kurulmamıştır; görsel
   doğrulama stratejisi `Proposed` durumundadır.
