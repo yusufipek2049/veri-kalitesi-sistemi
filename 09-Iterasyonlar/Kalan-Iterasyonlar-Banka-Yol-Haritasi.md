@@ -10,7 +10,7 @@
 | 26 | Güvenlik olayı ve KVKK ihlal kanıt akışı (`26A–26B` tamamlandı); gerçek SIEM/SOC engelli | 17, `OPEN-BNK-010` |
 | 27 | Ortam ayrılığı, backup/restore ve DR tatbikatı | Altyapı kararı |
 | 28 | Güvenli SDLC, SBOM, taramalar ve pentest hazırlığı (`28A`–`28E` yerel teknik sözleşmeleri tamamlandı) | CI/CD ve banka pentest kararı |
-| 29 | Teknik kontrol ve banka kabul kanıt paketi | Tümü |
+| 29 | Teknik kontrol ve banka kabul kanıt paketi (`29A` deterministik manifest ve eksik kontrol raporu tamamlandı) | Tümü |
 | 30 | Frontend tasarım sistemi ve kurumsal dashboard (`30A` dokümantasyon tabanı tamamlandı) | Geçiş kapısı, 21B güvenli API ve frontend toolchain kararı |
 
 ## Pilot Kapısı

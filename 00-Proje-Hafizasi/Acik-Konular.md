@@ -75,6 +75,12 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
     kapısı teknik olarak doğrulandı. Gerçek pentest hizmeti, banka kapsamı/sıklığı,
     bağımsızlık şartı, kimlik ve kanıt resolver'ları, kalıcı depo, CI/CD, release
     maker-checker ve banka onayı açık kalır.
+49. `29A-v1` teknik kanıt kataloğu/manifesti 15 kontrolü deterministik olarak
+    raporladı: 12 `Partial`, 3 `Missing`, 14 açık engelli ve 15
+    `ComplianceReviewRequired`. `CTRL-BDDK-BCP-001`, `CTRL-KVKK-DEL-001` ve
+    `CTRL-KVKK-XFER-001` için teknik kanıt yoktur. İmzalama/WORM, kurumsal kanıt
+    deposu, CI/CD drift kapısı, banka karar referansı doğrulaması ve eksik
+    kontrollerin uygulanması açık kalır.
 
 ## Bankacılık Geçiş Açık Konuları
 

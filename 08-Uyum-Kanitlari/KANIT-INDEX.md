@@ -56,5 +56,6 @@
 - [Iterasyon 28C - Yerel SAST Surum Kapisi Kaniti](Guvenlik-Testleri/Iterasyon-28C-Yerel-SAST-Surum-Kapisi-Kaniti.md) - `TechnicallyVerified`
 - [Iterasyon 28D - Bagimlilik Zafiyet Surum Kapisi Kaniti](Guvenlik-Testleri/Iterasyon-28D-Bagimlilik-Zafiyet-Surum-Kapisi-Kaniti.md) - `TechnicallyVerified`
 - [Iterasyon 28E - Veri Minimum Sizma Testi Bulgu Takip Kaniti](Guvenlik-Testleri/Iterasyon-28E-Veri-Minimum-Pentest-Bulgu-Takip-Kaniti.md) - `TechnicallyVerified`
+- [Iterasyon 29A - Teknik Kanit Manifest Kaniti](Surum-Paketleri/Iterasyon-29A-Teknik-Kanit-Manifest-Kaniti.md) - `TechnicallyVerified`
 
 Kanıt üretmek için [Kanıt Paketi Şablonu](Kan%C4%B1t-Paketi-Sablonu.md) kullanılır.

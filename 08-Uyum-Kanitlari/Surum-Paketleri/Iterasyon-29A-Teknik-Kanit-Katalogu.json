@@ -1,0 +1,202 @@
+{
+  "catalog_version": "29A-catalog-v1",
+  "scope": "banking-control-technical-evidence",
+  "required_control_ids": [
+    "CTRL-BDDK-IAM-001",
+    "CTRL-BDDK-SOD-001",
+    "CTRL-BDDK-AUD-001",
+    "CTRL-BDDK-SEC-001",
+    "CTRL-BDDK-OPS-001",
+    "CTRL-BDDK-EXT-001",
+    "CTRL-BDDK-PT-001",
+    "CTRL-BDDK-BCP-001",
+    "CTRL-KVKK-SEC-001",
+    "CTRL-KVKK-MIN-001",
+    "CTRL-KVKK-INV-001",
+    "CTRL-KVKK-DEL-001",
+    "CTRL-KVKK-BREACH-001",
+    "CTRL-KVKK-PROC-001",
+    "CTRL-KVKK-XFER-001"
+  ],
+  "records": [
+    {
+      "control_id": "CTRL-BDDK-IAM-001",
+      "technical_status": "Partial",
+      "review_status": "ComplianceReviewRequired",
+      "evidence_paths": [
+        "08-Uyum-Kanitlari/Erisim/Iterasyon-16-Guvenilir-Aktor-Kaniti.md",
+        "08-Uyum-Kanitlari/Erisim/Iterasyon-20A-LDAP-RBAC-Sozlesme-Kaniti.md",
+        "08-Uyum-Kanitlari/Erisim/Iterasyon-20B-Basarisiz-Giris-Sinirlandirma-Kaniti.md",
+        "08-Uyum-Kanitlari/Erisim/Iterasyon-20C-Guvenli-Oturum-Yasam-Dongusu-Kaniti.md"
+      ],
+      "blocker_ids": [
+        "OPEN-BNK-002",
+        "OPEN-BNK-003",
+        "OPEN-BNK-018",
+        "OPEN-BNK-019",
+        "OPEN-BNK-020"
+      ],
+      "decision_reference": null
+    },
+    {
+      "control_id": "CTRL-BDDK-SOD-001",
+      "technical_status": "Partial",
+      "review_status": "ComplianceReviewRequired",
+      "evidence_paths": [
+        "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19A-Kural-Maker-Checker-Kaniti.md",
+        "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19B-Skorlama-Maker-Checker-Kaniti.md",
+        "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19C-Kural-Onay-Geri-Cekme-Kaniti.md"
+      ],
+      "blocker_ids": ["OPEN-BNK-004", "OPEN-BNK-017"],
+      "decision_reference": null
+    },
+    {
+      "control_id": "CTRL-BDDK-AUD-001",
+      "technical_status": "Partial",
+      "review_status": "ComplianceReviewRequired",
+      "evidence_paths": [
+        "08-Uyum-Kanitlari/Audit/Iterasyon-17A-Merkezi-Audit-Kaniti.md",
+        "08-Uyum-Kanitlari/Audit/Iterasyon-17C1-Transactional-Outbox-Kaniti.md",
+        "08-Uyum-Kanitlari/Audit/Iterasyon-17E-Tarihsel-Audit-Aktarim-Kaniti.md",
+        "08-Uyum-Kanitlari/Audit/Iterasyon-24A-Yetki-Filtreli-Audit-Inceleme-Kaniti.md"
+      ],
+      "blocker_ids": ["OPEN-BNK-005", "OPEN-BNK-006", "OPEN-BNK-016"],
+      "decision_reference": null
+    },
+    {
+      "control_id": "CTRL-BDDK-SEC-001",
+      "technical_status": "Partial",
+      "review_status": "ComplianceReviewRequired",
+      "evidence_paths": [
+        "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18A-Siniflandirma-ve-Profil-Minimizasyonu-Kaniti.md",
+        "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28A-Yerel-Veri-Minimum-Secret-Tarama-Kaniti.md"
+      ],
+      "blocker_ids": ["OPEN-BNK-007", "OPEN-BNK-012"],
+      "decision_reference": null
+    },
+    {
+      "control_id": "CTRL-BDDK-OPS-001",
+      "technical_status": "Partial",
+      "review_status": "ComplianceReviewRequired",
+      "evidence_paths": [
+        "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28A-Yerel-Veri-Minimum-Secret-Tarama-Kaniti.md",
+        "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28B-Deterministik-Bagimlilik-SBOM-Kaniti.md",
+        "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28C-Yerel-SAST-Surum-Kapisi-Kaniti.md",
+        "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28D-Bagimlilik-Zafiyet-Surum-Kapisi-Kaniti.md"
+      ],
+      "blocker_ids": ["OPEN-BNK-011", "OPEN-BNK-012"],
+      "decision_reference": null
+    },
+    {
+      "control_id": "CTRL-BDDK-EXT-001",
+      "technical_status": "Partial",
+      "review_status": "ComplianceReviewRequired",
+      "evidence_paths": [
+        "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23A-ServiceNow-Veri-Minimum-Ticket-Kaniti.md",
+        "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23B-ServiceNow-Retry-Backoff-Kaniti.md",
+        "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23C-ServiceNow-Kalici-Retry-Kuyrugu-Kaniti.md",
+        "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23D-ServiceNow-Circuit-Breaker-Kaniti.md"
+      ],
+      "blocker_ids": ["OPEN-BNK-009"],
+      "decision_reference": null
+    },
+    {
+      "control_id": "CTRL-BDDK-PT-001",
+      "technical_status": "Partial",
+      "review_status": "ComplianceReviewRequired",
+      "evidence_paths": [
+        "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28E-Veri-Minimum-Pentest-Bulgu-Takip-Kaniti.md"
+      ],
+      "blocker_ids": [],
+      "decision_reference": null
+    },
+    {
+      "control_id": "CTRL-BDDK-BCP-001",
+      "technical_status": "Missing",
+      "review_status": "ComplianceReviewRequired",
+      "evidence_paths": [],
+      "blocker_ids": ["OPEN-BNK-011", "OPEN-BNK-012"],
+      "decision_reference": null
+    },
+    {
+      "control_id": "CTRL-KVKK-SEC-001",
+      "technical_status": "Partial",
+      "review_status": "ComplianceReviewRequired",
+      "evidence_paths": [
+        "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18A-Siniflandirma-ve-Profil-Minimizasyonu-Kaniti.md",
+        "08-Uyum-Kanitlari/Bildirim/Iterasyon-22A-Sistem-Ici-Bildirim-Kaniti.md"
+      ],
+      "blocker_ids": ["OPEN-BNK-002", "OPEN-BNK-007"],
+      "decision_reference": null
+    },
+    {
+      "control_id": "CTRL-KVKK-MIN-001",
+      "technical_status": "Partial",
+      "review_status": "ComplianceReviewRequired",
+      "evidence_paths": [
+        "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18A-Siniflandirma-ve-Profil-Minimizasyonu-Kaniti.md",
+        "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18B-Isleme-Envanteri-Kaniti.md",
+        "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23A-ServiceNow-Veri-Minimum-Ticket-Kaniti.md"
+      ],
+      "blocker_ids": ["OPEN-BNK-007", "OPEN-BNK-008", "OPEN-BNK-009"],
+      "decision_reference": null
+    },
+    {
+      "control_id": "CTRL-KVKK-INV-001",
+      "technical_status": "Partial",
+      "review_status": "ComplianceReviewRequired",
+      "evidence_paths": [
+        "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18B-Isleme-Envanteri-Kaniti.md",
+        "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18C-Envanter-Tamlik-Kaniti.md"
+      ],
+      "blocker_ids": ["OPEN-BNK-007", "OPEN-BNK-008"],
+      "decision_reference": null
+    },
+    {
+      "control_id": "CTRL-KVKK-DEL-001",
+      "technical_status": "Missing",
+      "review_status": "ComplianceReviewRequired",
+      "evidence_paths": [],
+      "blocker_ids": ["OPEN-BNK-008"],
+      "decision_reference": null
+    },
+    {
+      "control_id": "CTRL-KVKK-BREACH-001",
+      "technical_status": "Partial",
+      "review_status": "ComplianceReviewRequired",
+      "evidence_paths": [
+        "08-Uyum-Kanitlari/Olay-Mudahale/Iterasyon-26A-Veri-Minimum-Ihlal-Suphesi-Kaniti.md",
+        "08-Uyum-Kanitlari/Olay-Mudahale/Iterasyon-26B-Yetki-Filtreli-Ihlal-Zaman-Cizelgesi-Kaniti.md"
+      ],
+      "blocker_ids": [
+        "OPEN-BNK-001",
+        "OPEN-BNK-002",
+        "OPEN-BNK-004",
+        "OPEN-BNK-008",
+        "OPEN-BNK-010"
+      ],
+      "decision_reference": null
+    },
+    {
+      "control_id": "CTRL-KVKK-PROC-001",
+      "technical_status": "Partial",
+      "review_status": "ComplianceReviewRequired",
+      "evidence_paths": [
+        "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23A-ServiceNow-Veri-Minimum-Ticket-Kaniti.md",
+        "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23B-ServiceNow-Retry-Backoff-Kaniti.md",
+        "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23C-ServiceNow-Kalici-Retry-Kuyrugu-Kaniti.md",
+        "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23D-ServiceNow-Circuit-Breaker-Kaniti.md"
+      ],
+      "blocker_ids": ["OPEN-BNK-009"],
+      "decision_reference": null
+    },
+    {
+      "control_id": "CTRL-KVKK-XFER-001",
+      "technical_status": "Missing",
+      "review_status": "ComplianceReviewRequired",
+      "evidence_paths": [],
+      "blocker_ids": ["OPEN-BNK-009"],
+      "decision_reference": null
+    }
+  ]
+}

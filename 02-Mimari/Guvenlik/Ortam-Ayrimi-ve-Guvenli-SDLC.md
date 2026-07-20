@@ -121,3 +121,22 @@ deterministik SHA-256 özetini taşır; tekil bulgu ve sorumlu referanslarını 
 Bu baseline gerçek sızma testi hizmeti değildir. Banka kapsamı, sıklığı,
 bağımsızlık şartı, kimlik/evidence resolver'ları, kalıcı depo, HTTP/UI, CI/CD,
 release maker-checker ve banka onayı `ComplianceReviewRequired` olarak açık kalır.
+
+## Teknik Kanıt Manifesti Baseline'ı
+
+`29A-v1` manifest üreticisi sürümlü JSON katalogdaki 8 BDDK ve 7 KVKK kontrolünü
+tam kapsam olarak doğrular. Her kontrolün teknik durumu, banka inceleme durumu,
+opak karar referansı ve `OPEN-BNK-*` engelleri ayrı alanlardır; teknik kanıt hiçbir
+durumda banka onayına yükseltilmez.
+
+Kanıt yolları yalnız `08-Uyum-Kanitlari/` altındaki repository-relative `.md` veya
+`.json` artifact'larını gösterebilir. Mutlak/traversal/non-canonical yol, symlink,
+eksik, düzenli olmayan veya 2 MiB üzeri artifact fail-closed reddedilir. Dosyalar
+salt okunur açılır; manifest yalnız göreli yol ve SHA-256 özeti taşır, kanıt
+içeriğini çoğaltmaz.
+
+Çıktı zaman damgası veya rastgele kimlik içermez; kontrol/artifact sırası
+kanonikleştirilir ve tüm kontrol kayıtları tek SHA-256 digest ile bağlanır. Mevcut
+baseline 15 kontrolde 12 `Partial`, 3 `Missing`, 14 açık engel ve 15
+`ComplianceReviewRequired` raporlar. Elektronik imza, WORM/HSM, kurumsal kanıt
+deposu, CI/CD drift kapısı ve banka onay iş akışı kapsam dışıdır.

@@ -1,0 +1,378 @@
+{
+  "blocked_control_ids": [
+    "CTRL-BDDK-AUD-001",
+    "CTRL-BDDK-BCP-001",
+    "CTRL-BDDK-EXT-001",
+    "CTRL-BDDK-IAM-001",
+    "CTRL-BDDK-OPS-001",
+    "CTRL-BDDK-SEC-001",
+    "CTRL-BDDK-SOD-001",
+    "CTRL-KVKK-BREACH-001",
+    "CTRL-KVKK-DEL-001",
+    "CTRL-KVKK-INV-001",
+    "CTRL-KVKK-MIN-001",
+    "CTRL-KVKK-PROC-001",
+    "CTRL-KVKK-SEC-001",
+    "CTRL-KVKK-XFER-001"
+  ],
+  "catalog_version": "29A-catalog-v1",
+  "compliance_review_required_control_ids": [
+    "CTRL-BDDK-AUD-001",
+    "CTRL-BDDK-BCP-001",
+    "CTRL-BDDK-EXT-001",
+    "CTRL-BDDK-IAM-001",
+    "CTRL-BDDK-OPS-001",
+    "CTRL-BDDK-PT-001",
+    "CTRL-BDDK-SEC-001",
+    "CTRL-BDDK-SOD-001",
+    "CTRL-KVKK-BREACH-001",
+    "CTRL-KVKK-DEL-001",
+    "CTRL-KVKK-INV-001",
+    "CTRL-KVKK-MIN-001",
+    "CTRL-KVKK-PROC-001",
+    "CTRL-KVKK-SEC-001",
+    "CTRL-KVKK-XFER-001"
+  ],
+  "control_count": 15,
+  "controls": [
+    {
+      "blocker_ids": [
+        "OPEN-BNK-005",
+        "OPEN-BNK-006",
+        "OPEN-BNK-016"
+      ],
+      "control_id": "CTRL-BDDK-AUD-001",
+      "decision_reference": null,
+      "evidence_artifacts": [
+        {
+          "relative_path": "08-Uyum-Kanitlari/Audit/Iterasyon-17A-Merkezi-Audit-Kaniti.md",
+          "sha256": "f652dfde9f381f209ba5d03c5a0743cca9714447830140472dd4e1cf787fe699"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Audit/Iterasyon-17C1-Transactional-Outbox-Kaniti.md",
+          "sha256": "9a014f4b00df79dd890f40f1f79427d559a045cc3c5d26b2fc04d63634fefc24"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Audit/Iterasyon-17E-Tarihsel-Audit-Aktarim-Kaniti.md",
+          "sha256": "dc766b0b367621925c2d56471a4b4956ac35a4494ec69fb683560883a02aefbb"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Audit/Iterasyon-24A-Yetki-Filtreli-Audit-Inceleme-Kaniti.md",
+          "sha256": "beea1da36d7d49c660362463a572d9d5e85433dae62e94384ab491338b410018"
+        }
+      ],
+      "review_status": "ComplianceReviewRequired",
+      "technical_status": "Partial"
+    },
+    {
+      "blocker_ids": [
+        "OPEN-BNK-011",
+        "OPEN-BNK-012"
+      ],
+      "control_id": "CTRL-BDDK-BCP-001",
+      "decision_reference": null,
+      "evidence_artifacts": [],
+      "review_status": "ComplianceReviewRequired",
+      "technical_status": "Missing"
+    },
+    {
+      "blocker_ids": [
+        "OPEN-BNK-009"
+      ],
+      "control_id": "CTRL-BDDK-EXT-001",
+      "decision_reference": null,
+      "evidence_artifacts": [
+        {
+          "relative_path": "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23A-ServiceNow-Veri-Minimum-Ticket-Kaniti.md",
+          "sha256": "4b7d431278a34c4c229ce30470496f1e6e8e133b91da342e96fa03456f21f049"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23B-ServiceNow-Retry-Backoff-Kaniti.md",
+          "sha256": "3f132accce73b7ca84da9ea0a63d9e2163558b16f293c3aaee1159d3433a1a18"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23C-ServiceNow-Kalici-Retry-Kuyrugu-Kaniti.md",
+          "sha256": "91c7996f1f0823e8272a5c45fa3fb06ce2d5bd6702c2444d955dedce1eaead81"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23D-ServiceNow-Circuit-Breaker-Kaniti.md",
+          "sha256": "80ab42bb8a2aeac0b0f49b981d9c6aeab64a247d650ea5780710e1fbc003ace7"
+        }
+      ],
+      "review_status": "ComplianceReviewRequired",
+      "technical_status": "Partial"
+    },
+    {
+      "blocker_ids": [
+        "OPEN-BNK-002",
+        "OPEN-BNK-003",
+        "OPEN-BNK-018",
+        "OPEN-BNK-019",
+        "OPEN-BNK-020"
+      ],
+      "control_id": "CTRL-BDDK-IAM-001",
+      "decision_reference": null,
+      "evidence_artifacts": [
+        {
+          "relative_path": "08-Uyum-Kanitlari/Erisim/Iterasyon-16-Guvenilir-Aktor-Kaniti.md",
+          "sha256": "00f7b16e70b0e902da44eac72455fa4ae0f3caeb6d07e6fb1514bb35139902fb"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Erisim/Iterasyon-20A-LDAP-RBAC-Sozlesme-Kaniti.md",
+          "sha256": "5ee75eac68d23eeb43322c04bbbb46b4b06ccf54806744549a026adba8b43c42"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Erisim/Iterasyon-20B-Basarisiz-Giris-Sinirlandirma-Kaniti.md",
+          "sha256": "916abf76957f802ef056380564a1d176e41f4ea741322b075c3f4a7798635af4"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Erisim/Iterasyon-20C-Guvenli-Oturum-Yasam-Dongusu-Kaniti.md",
+          "sha256": "08c6a68f9dda15428fca4346dcf8b949861918c9bf7dadfcf2303cf7fd28f497"
+        }
+      ],
+      "review_status": "ComplianceReviewRequired",
+      "technical_status": "Partial"
+    },
+    {
+      "blocker_ids": [
+        "OPEN-BNK-011",
+        "OPEN-BNK-012"
+      ],
+      "control_id": "CTRL-BDDK-OPS-001",
+      "decision_reference": null,
+      "evidence_artifacts": [
+        {
+          "relative_path": "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28A-Yerel-Veri-Minimum-Secret-Tarama-Kaniti.md",
+          "sha256": "494c40c20ca8b21615216e3806d256c771c6a5f02cdd1a9e219a22b023e23272"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28B-Deterministik-Bagimlilik-SBOM-Kaniti.md",
+          "sha256": "d26db7e2152bedb869e5fb82a76db58815186a09ba64addbc776c40c07cbd1e0"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28C-Yerel-SAST-Surum-Kapisi-Kaniti.md",
+          "sha256": "f3d70fcd9df28697607988b662a07d1c54d71e8787b953bd08df1caed52c1a41"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28D-Bagimlilik-Zafiyet-Surum-Kapisi-Kaniti.md",
+          "sha256": "e5dbe5e5337e78b544cb5800a3e44a51fb9ee74d7d5e12eac80f5fb15ed58338"
+        }
+      ],
+      "review_status": "ComplianceReviewRequired",
+      "technical_status": "Partial"
+    },
+    {
+      "blocker_ids": [],
+      "control_id": "CTRL-BDDK-PT-001",
+      "decision_reference": null,
+      "evidence_artifacts": [
+        {
+          "relative_path": "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28E-Veri-Minimum-Pentest-Bulgu-Takip-Kaniti.md",
+          "sha256": "f70e7e70f6aaed41c48a65d5e8bdb423ff3df081af64c1f9091db5efdb1a6772"
+        }
+      ],
+      "review_status": "ComplianceReviewRequired",
+      "technical_status": "Partial"
+    },
+    {
+      "blocker_ids": [
+        "OPEN-BNK-007",
+        "OPEN-BNK-012"
+      ],
+      "control_id": "CTRL-BDDK-SEC-001",
+      "decision_reference": null,
+      "evidence_artifacts": [
+        {
+          "relative_path": "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28A-Yerel-Veri-Minimum-Secret-Tarama-Kaniti.md",
+          "sha256": "494c40c20ca8b21615216e3806d256c771c6a5f02cdd1a9e219a22b023e23272"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18A-Siniflandirma-ve-Profil-Minimizasyonu-Kaniti.md",
+          "sha256": "fc1c68a4b628f11168a99d6c43369200aa264e38323c8aa48054b011904adf72"
+        }
+      ],
+      "review_status": "ComplianceReviewRequired",
+      "technical_status": "Partial"
+    },
+    {
+      "blocker_ids": [
+        "OPEN-BNK-004",
+        "OPEN-BNK-017"
+      ],
+      "control_id": "CTRL-BDDK-SOD-001",
+      "decision_reference": null,
+      "evidence_artifacts": [
+        {
+          "relative_path": "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19A-Kural-Maker-Checker-Kaniti.md",
+          "sha256": "4c9aaa0c16cc323bfad03a162f6e2dd0a6cd20e45f84662aa40c9a0205c94fe4"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19B-Skorlama-Maker-Checker-Kaniti.md",
+          "sha256": "f85deca0c6583d8a7b7bf80de881f10f037ea08cf14a1adc723f127be73c15e2"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19C-Kural-Onay-Geri-Cekme-Kaniti.md",
+          "sha256": "ea98d6f140faad9fd979974963a0d4cbae2e4b2553e6b97a19980d2e83ddc5cf"
+        }
+      ],
+      "review_status": "ComplianceReviewRequired",
+      "technical_status": "Partial"
+    },
+    {
+      "blocker_ids": [
+        "OPEN-BNK-001",
+        "OPEN-BNK-002",
+        "OPEN-BNK-004",
+        "OPEN-BNK-008",
+        "OPEN-BNK-010"
+      ],
+      "control_id": "CTRL-KVKK-BREACH-001",
+      "decision_reference": null,
+      "evidence_artifacts": [
+        {
+          "relative_path": "08-Uyum-Kanitlari/Olay-Mudahale/Iterasyon-26A-Veri-Minimum-Ihlal-Suphesi-Kaniti.md",
+          "sha256": "9d8b8eb28f155843d18f28658d570c66e76318a6955845e8a174189d564c0728"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Olay-Mudahale/Iterasyon-26B-Yetki-Filtreli-Ihlal-Zaman-Cizelgesi-Kaniti.md",
+          "sha256": "0a9e42037393275af04f3dcdd87d8fb226425dec12a35da5fba9c8dbc9ddcaa0"
+        }
+      ],
+      "review_status": "ComplianceReviewRequired",
+      "technical_status": "Partial"
+    },
+    {
+      "blocker_ids": [
+        "OPEN-BNK-008"
+      ],
+      "control_id": "CTRL-KVKK-DEL-001",
+      "decision_reference": null,
+      "evidence_artifacts": [],
+      "review_status": "ComplianceReviewRequired",
+      "technical_status": "Missing"
+    },
+    {
+      "blocker_ids": [
+        "OPEN-BNK-007",
+        "OPEN-BNK-008"
+      ],
+      "control_id": "CTRL-KVKK-INV-001",
+      "decision_reference": null,
+      "evidence_artifacts": [
+        {
+          "relative_path": "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18B-Isleme-Envanteri-Kaniti.md",
+          "sha256": "d460d3b10b3ddf85387bb5f2b9809ac9bd7eef7fc19f4d7d7e69cface8de81fa"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18C-Envanter-Tamlik-Kaniti.md",
+          "sha256": "6e41b6550b2de4df556432e0d1dfba81a80dd45e8c9e0412bb4f826f0dbfd81c"
+        }
+      ],
+      "review_status": "ComplianceReviewRequired",
+      "technical_status": "Partial"
+    },
+    {
+      "blocker_ids": [
+        "OPEN-BNK-007",
+        "OPEN-BNK-008",
+        "OPEN-BNK-009"
+      ],
+      "control_id": "CTRL-KVKK-MIN-001",
+      "decision_reference": null,
+      "evidence_artifacts": [
+        {
+          "relative_path": "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23A-ServiceNow-Veri-Minimum-Ticket-Kaniti.md",
+          "sha256": "4b7d431278a34c4c229ce30470496f1e6e8e133b91da342e96fa03456f21f049"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18A-Siniflandirma-ve-Profil-Minimizasyonu-Kaniti.md",
+          "sha256": "fc1c68a4b628f11168a99d6c43369200aa264e38323c8aa48054b011904adf72"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18B-Isleme-Envanteri-Kaniti.md",
+          "sha256": "d460d3b10b3ddf85387bb5f2b9809ac9bd7eef7fc19f4d7d7e69cface8de81fa"
+        }
+      ],
+      "review_status": "ComplianceReviewRequired",
+      "technical_status": "Partial"
+    },
+    {
+      "blocker_ids": [
+        "OPEN-BNK-009"
+      ],
+      "control_id": "CTRL-KVKK-PROC-001",
+      "decision_reference": null,
+      "evidence_artifacts": [
+        {
+          "relative_path": "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23A-ServiceNow-Veri-Minimum-Ticket-Kaniti.md",
+          "sha256": "4b7d431278a34c4c229ce30470496f1e6e8e133b91da342e96fa03456f21f049"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23B-ServiceNow-Retry-Backoff-Kaniti.md",
+          "sha256": "3f132accce73b7ca84da9ea0a63d9e2163558b16f293c3aaee1159d3433a1a18"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23C-ServiceNow-Kalici-Retry-Kuyrugu-Kaniti.md",
+          "sha256": "91c7996f1f0823e8272a5c45fa3fb06ce2d5bd6702c2444d955dedce1eaead81"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Sorun-Yonetimi/Iterasyon-23D-ServiceNow-Circuit-Breaker-Kaniti.md",
+          "sha256": "80ab42bb8a2aeac0b0f49b981d9c6aeab64a247d650ea5780710e1fbc003ace7"
+        }
+      ],
+      "review_status": "ComplianceReviewRequired",
+      "technical_status": "Partial"
+    },
+    {
+      "blocker_ids": [
+        "OPEN-BNK-002",
+        "OPEN-BNK-007"
+      ],
+      "control_id": "CTRL-KVKK-SEC-001",
+      "decision_reference": null,
+      "evidence_artifacts": [
+        {
+          "relative_path": "08-Uyum-Kanitlari/Bildirim/Iterasyon-22A-Sistem-Ici-Bildirim-Kaniti.md",
+          "sha256": "bc7477b4a15026b639976bc3a114b1b90f680c9c007a4a581710822bb89ec841"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18A-Siniflandirma-ve-Profil-Minimizasyonu-Kaniti.md",
+          "sha256": "fc1c68a4b628f11168a99d6c43369200aa264e38323c8aa48054b011904adf72"
+        }
+      ],
+      "review_status": "ComplianceReviewRequired",
+      "technical_status": "Partial"
+    },
+    {
+      "blocker_ids": [
+        "OPEN-BNK-009"
+      ],
+      "control_id": "CTRL-KVKK-XFER-001",
+      "decision_reference": null,
+      "evidence_artifacts": [],
+      "review_status": "ComplianceReviewRequired",
+      "technical_status": "Missing"
+    }
+  ],
+  "controls_digest": "1440fbdfb1948125edd10b0bfebbf78957b9e83ecb092903e0de40d84883a23f",
+  "missing_control_ids": [
+    "CTRL-BDDK-BCP-001",
+    "CTRL-KVKK-DEL-001",
+    "CTRL-KVKK-XFER-001"
+  ],
+  "policy_version": "29A-v1",
+  "required_control_count": 15,
+  "review_status_counts": {
+    "ApprovedByBank": 0,
+    "ComplianceReviewRequired": 15,
+    "NotApplicable": 0
+  },
+  "schema_version": 1,
+  "scope": "banking-control-technical-evidence",
+  "technical_status_counts": {
+    "Missing": 3,
+    "Partial": 12,
+    "TechnicallyVerified": 0
+  },
+  "unique_evidence_artifact_count": 26
+}

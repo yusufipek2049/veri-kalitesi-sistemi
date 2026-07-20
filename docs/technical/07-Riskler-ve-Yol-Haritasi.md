@@ -122,9 +122,9 @@ değildir.
 | Incident/SIEM entegrasyonu | SOC akışı yok | `OPEN-BNK-010` | Olay kodu, SIEM ingest, timeline ve insan karar kanıtı |
 | Güvenli SDLC tamamlama | Secret/direct SBOM, yerel SAST/bağımlılık zafiyet kapıları ve pentest bulgu takibi | Scanner ürünleri | Gerçek SAST, transitive SCA, DAST, exception workflow, pentest |
 
-28A–28E yerel güvenli SDLC sözleşmeleri teknik olarak doğrulanmıştır. Gerçek scanner,
-CI/CD ve pentest hizmeti banka/altyapı kararlarına bağlı kalırken sıradaki hazır dar
-artım **29A teknik kanıt paketi manifesti ve eksik kontrol raporudur**.
+28A–28E yerel güvenli SDLC sözleşmeleri ile 29A teknik kanıt manifesti doğrulanmıştır.
+Gerçek scanner, CI/CD, pentest ve banka kabulü dış kararlara bağlı kalırken sıradaki
+hazır dar artım **29B teknik kanıt manifesti drift doğrulama kapısıdır**.
 
 ## P2 - Ölçeklenebilirlik ve Bakım
 
@@ -153,7 +153,7 @@ artım **29A teknik kanıt paketi manifesti ve eksik kontrol raporudur**.
 
 ## Önerilen Teslim Sırası
 
-1. 29A teknik kanıt paketi manifesti ve eksik kontrol raporu.
+1. 29B teknik kanıt manifesti drift doğrulama kapısı.
 2. Güvenli read-only API composition root.
 3. Üretim DB/broker migration omurgası.
 4. LDAP/vault ve PostgreSQL gerçek adaptörleri.

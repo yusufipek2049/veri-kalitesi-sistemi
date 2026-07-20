@@ -11,7 +11,7 @@
 | `03-Backend/01-*` ... `12-*` | Modül talimatları ve backend indeksi | Kod değil, yönlendirme |
 | `04-Frontend/` | Frontend hedef modülleri | Plan; yalnız indeks var |
 | `05-Veritabani/` | Veritabanı çalışma alanı | Plan; migration kodu burada yok |
-| `06-Testler/01-Birim/` | 17 test dosyası ve 630 test | Aktif |
+| `06-Testler/01-Birim/` | 18 test dosyası ve 667 test | Aktif |
 | `06-Testler/02-Entegrasyon/` | Entegrasyon test alanı | Boş |
 | `06-Testler/03-Uctan-Uca/` | E2E test alanı | Boş |
 | `07-Operasyon/` | Runbook ve politika taslakları | Belge; çalışan otomasyon değil |
@@ -34,7 +34,8 @@
 - **Kalite:** Ruff ve mypy komutları kullanılıyor; araçlar manifestte sabitlenmemiş.
 - **Güvenli SDLC:** Yerel veri-minimum secret scanner, CycloneDX 1.5 doğrudan
   bağımlılık SBOM üreticisi, ürün bağımsız veri-minimum SAST/bağımlılık zafiyet
-  sürüm kapıları ve sızma testi bulgu/tekrar test takip sözleşmesi.
+  sürüm kapıları, sızma testi bulgu/tekrar test takibi ve deterministik teknik
+  kanıt manifesti.
 - **Container/orkestrasyon/CI/CD:** Bulunmuyor.
 - **Log/metric/trace:** Framework veya exporter bulunmuyor.
 

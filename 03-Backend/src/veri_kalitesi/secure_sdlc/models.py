@@ -227,3 +227,67 @@ class PentestTrackingEvidence:
     closed_finding_count: int
     unresolved_critical_finding_count: int
     findings_digest: str
+
+
+class EvidenceTechnicalStatus(str, Enum):
+    TECHNICALLY_VERIFIED = "TechnicallyVerified"
+    PARTIAL = "Partial"
+    MISSING = "Missing"
+
+
+class EvidenceReviewStatus(str, Enum):
+    COMPLIANCE_REVIEW_REQUIRED = "ComplianceReviewRequired"
+    APPROVED_BY_BANK = "ApprovedByBank"
+    NOT_APPLICABLE = "NotApplicable"
+
+
+@dataclass(frozen=True)
+class ControlEvidenceRecord:
+    control_id: str
+    technical_status: EvidenceTechnicalStatus
+    review_status: EvidenceReviewStatus
+    evidence_paths: tuple[str, ...]
+    blocker_ids: tuple[str, ...] = ()
+    decision_reference: UUID | None = None
+
+
+@dataclass(frozen=True)
+class TechnicalEvidenceCatalog:
+    catalog_version: str
+    scope: str
+    required_control_ids: tuple[str, ...]
+    records: tuple[ControlEvidenceRecord, ...]
+
+
+@dataclass(frozen=True, order=True)
+class EvidenceArtifact:
+    relative_path: str
+    sha256: str
+
+
+@dataclass(frozen=True)
+class ManifestControlRecord:
+    control_id: str
+    technical_status: EvidenceTechnicalStatus
+    review_status: EvidenceReviewStatus
+    evidence_artifacts: tuple[EvidenceArtifact, ...]
+    blocker_ids: tuple[str, ...]
+    decision_reference: UUID | None
+
+
+@dataclass(frozen=True)
+class TechnicalEvidenceManifest:
+    schema_version: int
+    policy_version: str
+    catalog_version: str
+    scope: str
+    required_control_count: int
+    control_count: int
+    unique_evidence_artifact_count: int
+    technical_status_counts: tuple[tuple[str, int], ...]
+    review_status_counts: tuple[tuple[str, int], ...]
+    missing_control_ids: tuple[str, ...]
+    blocked_control_ids: tuple[str, ...]
+    compliance_review_required_control_ids: tuple[str, ...]
+    controls: tuple[ManifestControlRecord, ...]
+    controls_digest: str

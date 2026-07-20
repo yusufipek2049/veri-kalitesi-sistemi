@@ -20,7 +20,7 @@ hazır olsa da sistem üretime hazır değildir.
 | Alan | Değerlendirme | Kanıt |
 | --- | --- | --- |
 | Domain kapsamı | Güçlü prototip | 14 backend paketi, 37 SQLite tablosu |
-| Test disiplini | Güçlü birim test tabanı | 630 test geçiyor |
+| Test disiplini | Güçlü birim test tabanı | 667 test geçiyor |
 | Mimari sınırlar | Orta-iyi | Protocol tabanlı portlar, modüler paketler |
 | Uygulama bütünlüğü | Eksik | Composition root ve runtime giriş noktası yok |
 | Entegrasyon olgunluğu | Düşük | Dış sistemler fake/protokol seviyesinde |
@@ -83,6 +83,6 @@ kayıtlarıdır.
 ## Sonuç
 
 Projenin en değerli varlığı, bankacılık güven sınırlarını domain seviyesinde erken
-ele almış ve 630 birim testle korunan çekirdektir. En önemli sonraki aşama yeni
+ele almış ve 667 birim testle korunan çekirdektir. En önemli sonraki aşama yeni
 domain özelliği eklemek değil; bu çekirdeği güvenli bir runtime, gerçek adaptörler
 ve işletilebilir altyapı ile uçtan uca çalışan ürüne dönüştürmektir.

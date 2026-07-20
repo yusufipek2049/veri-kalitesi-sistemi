@@ -159,6 +159,15 @@ tags:
 | 2026-07-20 | Yalnız tamamlanmış değerlendirme kanıt üretecek; kapanmamış her kritik bulgu kanıtı engelleyecektir. | `BFR-SDLC-003` kritik bulgulu üretim adayını fail-closed engeller; eksik değerlendirme temiz kabul edilemez. | Tamamlanmamış rapordan veya açık kritik bulguyla kanıt üretmek. | Teknik hata ve güvenlik blokajı ayrı hata sınıflarıdır; kritik olmayan banka eşikleri tahmin edilmez. |
 | 2026-07-20 | Kanıt tekil bulgu/sorumlu referanslarını taşımayacak; yalnız sayımlar ve kanonik SHA-256 digest kullanacaktır. | Kanıt bütünlüğü doğrulanırken operasyonel güvenlik referansları gereksiz çoğaltılmamalıdır. | Tüm UUID listesini kanıta yazmak veya yalnız toplam bulgu sayısı tutmak. | Kanıt deterministik ve veri-minimumdur; ayrıntı kayıt sisteminde kalır. |
 
+## 2026-07-20 İterasyon 29A Kararları
+
+| Tarih | Karar | Gerekçe | Alternatif | Sonuç |
+| --- | --- | --- | --- | --- |
+| 2026-07-20 | Kontrol kataloğu teknik durum, banka inceleme durumu ve açık engelleri ayrı alanlarda tutacaktır. | Teknik artifact bulunması tüm kontrolün tamamlandığını veya banka onayını göstermez. | Tek `PASS/FAIL` durumu kullanmak ya da teknik kanıtı otomatik onay saymak. | Manifest `Partial/Missing`, `ComplianceReviewRequired` ve `OPEN-BNK-*` listelerini birbirine dönüştürmeden raporlar. |
+| 2026-07-20 | Kanıt artifact'ları içerik kopyası yerine repository-relative yol ve SHA-256 ile bağlanacaktır. | Kanıt paketinin hassas teknik ayrıntıları gereksiz çoğaltmadan bütünlük ilişkisi kurması gerekir. | Tüm Markdown içeriğini JSON'a gömmek veya yalnız dosya adını kaydetmek. | Manifest veri-minimum ve deterministiktir; dosya değişikliği digest'i değiştirir. |
+| 2026-07-20 | Katalog 15 matris kontrolünün tamamını ve yalnız bunları içerecek; eksik/fazla kayıt fail-closed olacaktır. | Sessizce atlanan kontrol eksik kanıtı temiz paket gibi gösterebilir. | Bulunan kayıtlarla best-effort manifest üretmek. | Her kontrol açıkça `Partial` veya `Missing` durumundadır; kapsam eksikliği üretim hatasıdır. |
+| 2026-07-20 | `ApprovedByBank` ve `NotApplicable` yalnız opak karar referansı varsa kabul edilecektir. | Codex veya teknik test bankanın yetkili kararını varsayamaz. | Serbest onay notu veya referanssız durum yükseltme. | Mevcut 15 kontrolün tamamı `ComplianceReviewRequired`; banka kararı ve kimlik çözümü ayrı kalır. |
+
 ## İlişkili Notlar
 
 - [Sistem Açıklaması](../01-SRS/02-Sistem-Aciklamasi.md)

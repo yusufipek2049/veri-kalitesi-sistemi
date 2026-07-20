@@ -29,4 +29,4 @@ Bu vault, SRS dokümanını görev bazında küçük bağlam parçalarıyla kull
 
 ## Güncel Geliştirme Baseline'ı
 
-İterasyon 1–16 ile bankacılık geçişindeki 17A–24B, 26A–26B ve 28A–28E teknik dikeyleri tamamlanmış, 630 birim testi geçmektedir. Repository için veri-minimum secret taraması, proje sürümüne bağlı deterministik doğrudan bağımlılık SBOM'u, kritik bulguda fail-closed yerel SAST/doğrudan bağımlılık zafiyet kapıları ve veri-minimum sızma testi bulgu takip sözleşmesi uygulanmıştır; sıradaki hazır aday teknik kanıt paketi manifesti ve eksik kontrol raporudur.
+İterasyon 1–16 ile bankacılık geçişindeki 17A–24B, 26A–26B, 28A–28E ve 29A teknik dikeyleri tamamlanmış, 667 birim testi geçmektedir. Repository için veri-minimum güvenli SDLC kontrolleri ve 15 BDDK/KVKK kontrolünü eksik/engelli/inceleme bekleyen durumlarıyla ayıran deterministik teknik kanıt manifesti uygulanmıştır; sıradaki hazır aday manifest drift doğrulama kapısıdır.

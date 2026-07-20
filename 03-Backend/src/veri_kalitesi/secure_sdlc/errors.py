@@ -135,3 +135,23 @@ class PentestTrackingTechnicalError(PentestTrackingError):
     def __init__(self, reason_code: str) -> None:
         super().__init__(reason_code)
         self.reason_code = reason_code
+
+
+class EvidenceManifestError(Exception):
+    """Base error for deterministic technical evidence manifests."""
+
+
+class EvidenceManifestValidationError(EvidenceManifestError):
+    """The catalog, control state, or evidence reference is invalid."""
+
+    def __init__(self, reason_code: str) -> None:
+        super().__init__(reason_code)
+        self.reason_code = reason_code
+
+
+class EvidenceManifestTechnicalError(EvidenceManifestError):
+    """A catalog or evidence artifact could not be inspected completely."""
+
+    def __init__(self, operation_code: str) -> None:
+        super().__init__(operation_code)
+        self.operation_code = operation_code
