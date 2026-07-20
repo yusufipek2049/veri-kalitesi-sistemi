@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from types import MappingProxyType
-from typing import Callable, Mapping, Protocol
+from typing import Callable, Mapping, NoReturn, Protocol
 
 from veri_kalitesi.audit import AuditEventInput, AuditResult, AuditSink
 from veri_kalitesi.identity.errors import (
@@ -253,7 +253,7 @@ class LdapAuthenticationService:
         actor_id: str = "UNKNOWN",
         actor_type: str | None = None,
         throttle_decision: AuthenticationThrottleDecision | None = None,
-    ) -> None:
+    ) -> NoReturn:
         self._record(
             actor_id=actor_id,
             actor_type=actor_type,
@@ -266,7 +266,7 @@ class LdapAuthenticationService:
         )
         raise AuthenticationDeniedError(reason_code, correlation_id)
 
-    def _unavailable(self, reason_code: str, correlation_id: str, now: datetime) -> None:
+    def _unavailable(self, reason_code: str, correlation_id: str, now: datetime) -> NoReturn:
         self._record(
             actor_id="UNKNOWN",
             actor_type=None,

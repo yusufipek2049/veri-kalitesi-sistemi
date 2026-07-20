@@ -32,6 +32,8 @@ tags:
 ## Güncel Otomasyon Baseline'ı
 
 - 702 birim testi geçmektedir.
+- Tam statik tip kontrolü `python3 -m mypy 03-Backend/src 06-Testler` komutuyla
+  109 kaynak dosyada sıfır hata vermektedir.
 - `incident_response` hedef grubu, güvenlik olayı/ihlal ayrımı, 72 saat hedefi, veri işleyen kanıtı, maker-checker kararı, yetki/scope redleri, veri-minimum timeline görünümü, audit minimizasyonu ve rollback için 39 sentetik vaka içerir.
 - `secure_sdlc` hedef grubu; gerçek pozitif/yanlış pozitif, binary/büyük/dışlanan
   dosya, sembolik bağlantı, salt okunurluk, deterministik sıra, teknik hata ve

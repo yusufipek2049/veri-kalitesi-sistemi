@@ -186,6 +186,12 @@ tags:
 | 2026-07-20 | Başarılı preflight çıktısı yalnız proje sürümü, kontrol/politika kimliği ve kanıt SHA-256 özetlerini taşıyacaktır. | Birleşik çıktı bulgu yollarını, advisory'leri ve pentest referanslarını gereksiz çoğaltmamalıdır. | Alt kapıların tam çıktılarını birleştirmek veya ham rapor paketini saklamak. | Çıktı deterministik ve veri-minimumdur; ayrıntılar kaynak kontrol sistemlerinde kalır. |
 | 2026-07-20 | `PASS=0`, güvenlik/artifact blokajı `BLOCKED=1`, doğrulama veya teknik hata `2` olacaktır. | Güvenlik kararı ile çalışmayan kontrol birbirine dönüştürülmemelidir. | Tüm olumsuz sonuçları tek exit code yapmak. | Otomasyon fail-closed kalırken neden sınıfını ayrı işleyebilir. |
 
+## 2026-07-20 Bakım İterasyonu 29C.1 Kararları
+
+| Tarih | Karar | Gerekçe | Alternatif | Sonuç |
+| --- | --- | --- | --- | --- |
+| 2026-07-20 | Exception ile kesin sonlanan kimlik yardımcıları `NoReturn` olarak modellenecek; test double'ları geniş `object` veya davranışı gizleyen cast yerine uygulama protokolleriyle eşleşecektir. | Tam type-check sonucunu davranış değiştirmeden güvenilir hale getirmek ve gerçek sözleşme sapmalarını görünür tutmak gerekir. | Hataları global ignore, `Any` veya toplu cast ile bastırmak. | Tam depo mypy baseline'ı 109 dosyada sıfır hatadır; gelecekteki sapmalar yeni teknik borç sayılacaktır. |
+
 ## İlişkili Notlar
 
 - [Sistem Açıklaması](../01-SRS/02-Sistem-Aciklamasi.md)
