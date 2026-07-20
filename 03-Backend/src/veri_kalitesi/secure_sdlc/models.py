@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from uuid import UUID
 
 
 DEFAULT_EXCLUDED_DIRECTORIES = frozenset(
@@ -168,4 +169,61 @@ class DependencyVulnerabilityReleaseEvidence:
     advisory_source_version: str
     finding_count: int
     critical_finding_count: int
+    findings_digest: str
+
+
+class PentestSeverity(str, Enum):
+    INFO = "INFO"
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
+
+
+class PentestFindingStatus(str, Enum):
+    OPEN = "OPEN"
+    READY_FOR_RETEST = "READY_FOR_RETEST"
+    CLOSED = "CLOSED"
+
+
+class PentestRetestOutcome(str, Enum):
+    PASSED = "PASSED"
+    FAILED = "FAILED"
+    TECHNICAL_ERROR = "TECHNICAL_ERROR"
+
+
+class PentestAssessmentStatus(str, Enum):
+    COMPLETED = "COMPLETED"
+    TECHNICAL_ERROR = "TECHNICAL_ERROR"
+
+
+@dataclass(frozen=True)
+class PentestFindingRecord:
+    assessment_reference: UUID
+    finding_reference: UUID
+    severity: PentestSeverity
+    action_reference: UUID
+    responsible_reference: UUID
+    status: PentestFindingStatus
+    revision: int
+    retest_outcome: PentestRetestOutcome | None = None
+    retest_evidence_reference: UUID | None = None
+
+
+@dataclass(frozen=True)
+class PentestAssessmentReport:
+    assessment_reference: UUID
+    status: PentestAssessmentStatus
+    findings: tuple[PentestFindingRecord, ...]
+
+
+@dataclass(frozen=True)
+class PentestTrackingEvidence:
+    assessment_reference: UUID
+    policy_version: str
+    finding_count: int
+    open_finding_count: int
+    ready_for_retest_count: int
+    closed_finding_count: int
+    unresolved_critical_finding_count: int
     findings_digest: str

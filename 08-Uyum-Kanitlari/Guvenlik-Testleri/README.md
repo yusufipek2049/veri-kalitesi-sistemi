@@ -10,3 +10,4 @@ Gerçek banka verisi veya secret eklenmez.
 - [İterasyon 28B - Deterministik Bağımlılık ve SBOM Kanıtı](Iterasyon-28B-Deterministik-Bagimlilik-SBOM-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 28C - Yerel SAST Sürüm Kapısı Kanıtı](Iterasyon-28C-Yerel-SAST-Surum-Kapisi-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 28D - Bağımlılık Zafiyet Sürüm Kapısı Kanıtı](Iterasyon-28D-Bagimlilik-Zafiyet-Surum-Kapisi-Kaniti.md) - `TechnicallyVerified`
+- [İterasyon 28E - Veri Minimum Sızma Testi Bulgu Takip Kanıtı](Iterasyon-28E-Veri-Minimum-Pentest-Bulgu-Takip-Kaniti.md) - `TechnicallyVerified`

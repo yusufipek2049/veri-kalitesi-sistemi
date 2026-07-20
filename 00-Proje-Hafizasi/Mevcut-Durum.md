@@ -722,6 +722,27 @@ tags:
   kritik olmayan banka eşikleri, istisna/risk kabulü, CI/CD, release maker-checker,
   DAST ve pentest kapsam dışıdır ve `ComplianceReviewRequired` kalır.
 
+### 2026-07-20 — İterasyon 28E: Veri-minimum sızma testi bulgu takip sözleşmesi
+
+- `BFR-SDLC-003/005`, `NFR-SEC-012` ve destekleyici `NFR-CMP-002/005` için
+  ürün bağımsız `28E-v1` bulgu takip sözleşmesi eklendi.
+- Bulgu yalnız opak değerlendirme, bulgu, iyileştirme aksiyonu ve sorumlu taraf
+  UUID referansları ile önem derecesini kabul eder; serbest metin ve ham teknik
+  içerik fail-closed reddedilir.
+- Değişmez `OPEN -> READY_FOR_RETEST -> CLOSED` yaşam döngüsü uygulanmıştır.
+  Başarısız tekrar test bulguyu `OPEN` durumuna döndürür; teknik hata güvenlik
+  sonucu sayılmaz ve bulguyu tekrar teste hazır bırakır.
+- Tamamlanmamış değerlendirme ayrı teknik hata üretir. Kapanmamış `CRITICAL`
+  bulgu kanıtı engeller; başarılı kanıt yalnız toplam/durum sayımları ile
+  deterministik SHA-256 digest taşır.
+- 37 yeni sentetik vakayla güvenli SDLC hedef grubu 132, toplam test sayısı 630
+  oldu. Depo lint, hedef format/mypy ve derleme kontrolleri geçti.
+- Kanıt [İterasyon 28E Veri-Minimum Pentest Bulgu Takip Kanıtı](../08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28E-Veri-Minimum-Pentest-Bulgu-Takip-Kaniti.md)
+  içinde `TechnicallyVerified` olarak kaydedildi.
+- Gerçek pentest hizmeti, banka kapsamı/sıklığı, bağımsızlık şartı, resolver'lar,
+  kalıcı depo, CI/CD, release maker-checker ve banka onayı kapsam dışıdır ve
+  `ComplianceReviewRequired` kalır.
+
 ## İlgili Notlar
 
 - [Alınan Kararlar](Alinan-Kararlar.md)
@@ -730,8 +751,8 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B ve Iterasyon 28A–28D dikeylerinin kodu korunacaktır.
-- `pytest` ile 593 testin geçtiği doğrulanmıştır.
-- İterasyon 19D, 21B, hassas dışa aktarma, saklama/DR ve gerçek SIEM banka kararları nedeniyle engellidir; sıradaki hazır aday veri-minimum sızma testi bulgu takip sözleşmesidir.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B ve Iterasyon 28A–28E dikeylerinin kodu korunacaktır.
+- `pytest` ile 630 testin geçtiği doğrulanmıştır.
+- İterasyon 19D, 21B, hassas dışa aktarma, saklama/DR ve gerçek SIEM banka kararları nedeniyle engellidir; sıradaki hazır aday teknik kanıt paketi manifesti ve eksik kontrol raporudur.
 - Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

@@ -34,8 +34,11 @@ iç kontrol, IAM ve mimari kararları açık kalır.
 - Yerel bağımlılık zafiyet kapısı bulguyu yalnız doğrudan SBOM envanterindeki tam
   paket/sürüm çiftine bağlar; tamamlanmamış taramayı teknik hata sayar ve kritik
   bulguda sürüm kanıtı üretmez.
+- Yerel sızma testi bulgu takibi yalnız opak UUID referansları ve önem derecesini
+  kabul eder; tekrar test teknik hatasını güvenlik sonucundan ayırır ve kapanmamış
+  kritik bulguda kanıt üretmez.
 
-Bu incelemede tarayıcı `28A-v1` politikasıyla 326 metin dosyasını taramış ve sıfır
+Bu incelemede tarayıcı `28A-v1` politikasıyla 329 metin dosyasını taramış ve sıfır
 bulgu üretmiştir. Bu sonuç yalnız desteklenen pattern'ler ve mevcut çalışma ağacı
 içindir; geçmiş commit, yüksek entropi ve kurumsal scanner kapsamı değildir.
 
@@ -121,7 +124,7 @@ boyunca yaygın olsa da dağıtık trace değildir.
 | İhlal müdahale kanıtı | Kısmen uygulanmış | Incident, breach, 72 saat hedefi, insan kararı; SIEM/dış bildirim yok |
 | Yedekleme ve DR | Planlanmış ancak uygulanmamış | RTO/RPO, backup/restore ve tatbikat yok |
 | Değişiklik yönetimi | Kısmen uygulanmış | Sürümlü rule/config ve kanıt; CI/release gate yok |
-| Güvenlik testi | Kısmen uygulanmış | Unit negatif test, secret scan, direct SBOM ve yerel SAST/bağımlılık zafiyet kapıları; gerçek scanner/SCA/DAST/pentest yok |
+| Güvenlik testi | Kısmen uygulanmış | Unit negatif test, secret scan, direct SBOM, yerel SAST/bağımlılık zafiyet kapıları ve pentest bulgu takibi; gerçek scanner/SCA/DAST/pentest yok |
 
 ## Olay Müdahalesi
 

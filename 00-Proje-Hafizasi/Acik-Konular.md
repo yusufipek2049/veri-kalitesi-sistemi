@@ -70,6 +70,11 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
     teknik olarak doğrulandı. Gerçek zafiyet veritabanı/ağ scanner'ı, transitive
     lock/artifact doğrulaması, kritik olmayan banka eşikleri, istisna/risk kabulü,
     CI/CD, release maker-checker, DAST ve pentest açık kalır.
+48. `28E-v1` veri-minimum sızma testi bulgu zarfı, değişmez tekrar test yaşam
+    döngüsü, teknik hata ayrımı ve kapanmamış kritik bulguda fail-closed kanıt
+    kapısı teknik olarak doğrulandı. Gerçek pentest hizmeti, banka kapsamı/sıklığı,
+    bağımsızlık şartı, kimlik ve kanıt resolver'ları, kalıcı depo, CI/CD, release
+    maker-checker ve banka onayı açık kalır.
 
 ## Bankacılık Geçiş Açık Konuları
 

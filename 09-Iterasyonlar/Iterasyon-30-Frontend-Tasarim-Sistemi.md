@@ -65,6 +65,6 @@ tamamlanmış saymaz.
 
 ## Sonraki Hazır İş
 
-Bankacılık geçiş sırası değişmez: **İterasyon 28D — Yerel bağımlılık zafiyet bulgu
-zarfı ve sürüm kapısı sözleşmesi**. Frontend 30B geçiş kapısı ve dependency kararı
+Bankacılık geçiş sırası değişmez: **İterasyon 29A — Teknik kanıt paketi manifesti
+ve eksik kontrol raporu**. Frontend 30B geçiş kapısı ve dependency kararı
 tamamlanana kadar uygulamaya alınmaz.

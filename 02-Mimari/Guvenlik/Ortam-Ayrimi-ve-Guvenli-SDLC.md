@@ -98,3 +98,26 @@ Bu baseline gerçek zafiyet veritabanı veya ağ taraması değildir. Transitive
 paket artifact doğrulaması, kritik olmayan banka eşikleri, istisna/risk kabulü,
 CI/CD zorlaması, release maker-checker ve sızma testi `ComplianceReviewRequired`
 olarak açık kalır.
+
+## Veri-Minimum Sızma Testi Bulgu Takip Baseline'ı
+
+`28E-v1` sözleşmesi sızma testi bulgu girdisini güvenilmez kabul eder. Bulgu zarfı
+yalnız opak değerlendirme, bulgu, iyileştirme aksiyonu ve sorumlu taraf UUID
+referansları ile `INFO/LOW/MEDIUM/HIGH/CRITICAL` önem derecesini kabul eder. Başlık,
+açıklama, endpoint, istek/yanıt, exploit, rapor URL'si, kullanıcı adı veya secret
+gibi serbest içerik sözleşmeye alınmaz.
+
+Bulgu değişmez kayıtlarla `OPEN -> READY_FOR_RETEST` ve başarılı tekrar testten
+sonra `PASSED -> CLOSED` ilerler. Başarısız tekrar test bulguyu `OPEN` durumuna
+döndürür. `TECHNICAL_ERROR` güvenlik sonucu değildir; bulgu
+`READY_FOR_RETEST` durumunda kalır ve yeniden test edilebilir. Geçersiz veya
+atlanan durum geçişleri fail-closed reddedilir.
+
+Yalnız `COMPLETED` değerlendirme raporu kanıt üretebilir. Kapanmamış herhangi bir
+`CRITICAL` bulgu kanıtı engeller; tamamlanmamış değerlendirme teknik hata olarak
+ayrılır. Başarılı kanıt yalnız toplam/durum sayımları ile kanonik kayıtların
+deterministik SHA-256 özetini taşır; tekil bulgu ve sorumlu referanslarını çoğaltmaz.
+
+Bu baseline gerçek sızma testi hizmeti değildir. Banka kapsamı, sıklığı,
+bağımsızlık şartı, kimlik/evidence resolver'ları, kalıcı depo, HTTP/UI, CI/CD,
+release maker-checker ve banka onayı `ComplianceReviewRequired` olarak açık kalır.

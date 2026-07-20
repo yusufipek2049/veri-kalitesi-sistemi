@@ -150,6 +150,15 @@ tags:
 | 2026-07-20 | Tamamlanmamış tarama teknik hata, `CRITICAL` bulgu güvenlik blokajı olacaktır; ikisi de sürüm kanıtı üretmeyecektir. | Teknik erişim/işleme arızası ile doğrulanmış zafiyet sonucu birbirine dönüştürülmemelidir. | Eksik taramayı temiz saymak veya teknik hatayı sahte kritik bulgu yapmak. | Ayrı teknik ve blokaj hata sınıfları uygulanır; kritik olmayan eşikler banka kararına bırakılır. |
 | 2026-07-20 | Sürüm kanıtı açık advisory/paket listesi yerine envanter ve bulgu SHA-256 özetlerini taşıyacaktır. | Sürüm ve tarama kapsamı doğrulanabilir olmalı, ayrıntılı güvenlik bulguları gereksiz çoğaltılmamalıdır. | Tüm bulguları release kanıtına yazmak veya yalnız toplam sayı tutmak. | Kanıt deterministik ve veri-minimumdur; scanner/advisory sürümleriyle proje sürümüne bağlanır. |
 
+## 2026-07-20 İterasyon 28E Kararları
+
+| Tarih | Karar | Gerekçe | Alternatif | Sonuç |
+| --- | --- | --- | --- | --- |
+| 2026-07-20 | Sızma testi bulgusu yalnız opak değerlendirme/bulgu/aksiyon/sorumlu UUID referansları ve önem derecesinden oluşacaktır. | Ham rapor, endpoint, istek/yanıt, exploit ve kullanıcı bilgisi güvenlik kontrolünden yeni bir hassas veri yayılımı yaratabilir. | Serbest metinli bulgu kaydı veya pentest ürününün ham JSON'unu saklamak. | Beş alanlı allowlist dışındaki her girdi fail-closed reddedilir; ayrıntılı rapor harici güven sınırında kalır. |
+| 2026-07-20 | Tekrar test teknik hatası güvenlik sonucu olmayacak ve bulguyu kapatmayacaktır. | Erişim veya test arızasını başarılı/başarısız güvenlik doğrulaması saymak teknik hata ile bulgu sonucunu karıştırır. | Teknik hatada bulguyu açmak, kapatmak veya başarısız saymak. | `TECHNICAL_ERROR` bulguyu `READY_FOR_RETEST` durumunda tutar; yeniden test kanıtı yalnız başarılı/başarısız sonuçta kaydedilir. |
+| 2026-07-20 | Yalnız tamamlanmış değerlendirme kanıt üretecek; kapanmamış her kritik bulgu kanıtı engelleyecektir. | `BFR-SDLC-003` kritik bulgulu üretim adayını fail-closed engeller; eksik değerlendirme temiz kabul edilemez. | Tamamlanmamış rapordan veya açık kritik bulguyla kanıt üretmek. | Teknik hata ve güvenlik blokajı ayrı hata sınıflarıdır; kritik olmayan banka eşikleri tahmin edilmez. |
+| 2026-07-20 | Kanıt tekil bulgu/sorumlu referanslarını taşımayacak; yalnız sayımlar ve kanonik SHA-256 digest kullanacaktır. | Kanıt bütünlüğü doğrulanırken operasyonel güvenlik referansları gereksiz çoğaltılmamalıdır. | Tüm UUID listesini kanıta yazmak veya yalnız toplam bulgu sayısı tutmak. | Kanıt deterministik ve veri-minimumdur; ayrıntı kayıt sisteminde kalır. |
+
 ## İlişkili Notlar
 
 - [Sistem Açıklaması](../01-SRS/02-Sistem-Aciklamasi.md)

@@ -98,3 +98,40 @@ class DependencyVulnerabilityGateTechnicalError(DependencyVulnerabilityGateError
     def __init__(self, reason_code: str) -> None:
         super().__init__(reason_code)
         self.reason_code = reason_code
+
+
+class PentestTrackingError(Exception):
+    """Base error for local penetration-test finding tracking."""
+
+
+class PentestTrackingValidationError(PentestTrackingError):
+    """The finding envelope, record, or assessment report is invalid."""
+
+    def __init__(self, reason_code: str) -> None:
+        super().__init__(reason_code)
+        self.reason_code = reason_code
+
+
+class PentestTrackingTransitionError(PentestTrackingError):
+    """The requested finding lifecycle transition is not allowed."""
+
+    def __init__(self, reason_code: str) -> None:
+        super().__init__(reason_code)
+        self.reason_code = reason_code
+
+
+class PentestTrackingBlockedError(PentestTrackingError):
+    """Unresolved critical findings block completed tracking evidence."""
+
+    def __init__(self, reason_code: str, blocking_finding_count: int) -> None:
+        super().__init__(reason_code)
+        self.reason_code = reason_code
+        self.blocking_finding_count = blocking_finding_count
+
+
+class PentestTrackingTechnicalError(PentestTrackingError):
+    """The assessment did not complete and cannot produce tracking evidence."""
+
+    def __init__(self, reason_code: str) -> None:
+        super().__init__(reason_code)
+        self.reason_code = reason_code

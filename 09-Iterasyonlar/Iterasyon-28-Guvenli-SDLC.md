@@ -128,10 +128,44 @@ Durum: `TechnicallyVerified`
 - CI/CD zorlaması, release maker-checker ve banka onayı
 - DAST, container/IaC taraması ve penetrasyon testi
 
+## 28E — Veri-minimum sızma testi bulgu takip sözleşmesi
+
+Durum: `TechnicallyVerified`
+
+### Gereksinimler
+
+- `BFR-SDLC-003`
+- `BFR-SDLC-005`
+- `NFR-SEC-012`
+- `NFR-CMP-002`
+- `NFR-CMP-005`
+
+### Kabul Sonucu
+
+- Ürün bağımsız bulgu yalnız opak değerlendirme/bulgu/aksiyon/sorumlu UUID
+  referansları ve önem derecesini kabul eder; serbest metin ve teknik detaylar
+  allowlist dışı olarak reddedilir.
+- Değişmez yaşam döngüsü `OPEN -> READY_FOR_RETEST -> CLOSED` geçişlerini zorunlu
+  kılar; başarısız tekrar test `OPEN`, teknik hata `READY_FOR_RETEST` durumunda kalır.
+- Teknik tekrar test hatası güvenlik sonucundan ayrı tutulur ve kapanış üretmez.
+- Tamamlanmamış değerlendirme teknik hata verir; kapanmamış `CRITICAL` bulgu
+  kanıtı fail-closed engeller.
+- Başarılı kanıt yalnız toplam/durum sayımları ve deterministik SHA-256 digest taşır;
+  tekil referansları çoğaltmaz.
+- 37 sentetik vakayla toplam 630 birim testi geçmiştir.
+
+### Kapsam Dışı
+
+- Gerçek sızma testi hizmeti, scanner veya banka ağı
+- Banka kapsamı, sıklığı, bağımsızlık ve kabul kriterleri
+- Kimlik/evidence resolver'ları ve kalıcı depo
+- HTTP/UI, CI/CD ve release maker-checker
+- Banka bilgi güvenliği ve uyum onayı
+
 ## Önerilen Sonraki Dilim
 
-**28E — Veri-minimum sızma testi bulgu takip sözleşmesi.**
+**29A — Teknik kanıt paketi manifesti ve eksik kontrol raporu.**
 
-`BFR-SDLC-003/005` kapsamında sızma testi bulgusunu önem, veri-minimum aksiyon ve
-sorumlu referansı ile tekrar test kanıtına bağla. Gerçek test hizmeti, banka kapsamı,
-takvim/sıklık, scanner ürünü, serbest rapor içeriği ve banka onayı kapsam dışında kalsın.
+Mevcut teknik kanıtları deterministik bir manifestte topla ve eksik/banka kararı
+bekleyen kontrolleri başarı iddiası üretmeden açıkça raporla. İmzalama, WORM,
+kurumsal kanıt deposu ve `ApprovedByBank` kararı kapsam dışında kalsın.
