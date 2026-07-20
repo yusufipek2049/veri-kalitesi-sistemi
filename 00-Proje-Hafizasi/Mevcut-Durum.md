@@ -608,6 +608,19 @@ tags:
 - Kanıt `08-Uyum-Kanitlari/Audit/Iterasyon-24A-Yetki-Filtreli-Audit-Inceleme-Kaniti.md` içinde `TechnicallyVerified` olarak kaydedildi.
 - HTTP/UI, istemci bilgisi filtresi, beş yıllık asenkron rapor, dosya dışa aktarma, DLP/watermark ve banka onaylı auditor rol eşlemesi kapsam dışıdır; `OPEN-BNK-002`, `OPEN-BNK-008` ve `OPEN-BNK-014` açık kalır.
 
+### 2026-07-20 — İterasyon 24B: Yetki filtreli ve maskeli rapor önizleme
+
+- `FR-072`, `UC-015`, `AC-021/023`, `NFR-PERF-002`, `NFR-PRV-001/002/003`, `NFR-SEC-001/005/008`, `BFR-IAM-001/002/004`, `BFR-AUD-005` ve `BRULE-001/005` için source-seviyesi özet rapor önizleme dikeyi tamamlandı.
+- Sürümlü `ReportPreviewAccessPolicy`, yalnız güvenilir, geçerli, ayrıcalıksız `USER` context'i ve izinli raporlama rolüyle çalışır. Eksik/sahte context, servis aktörü, ayrıcalıklı context ve rolesiz erişim fail-closed reddedilir ve veri-minimum denied audit olayı üretir.
+- Kullanıcının istediği source kapsamı güvenilir context kapsamının alt kümesi olmalıdır; kapsam genişletme reader çağrısından önce reddedilir. Scope filtresi parametreli SQLite sorgusuna itilerek yetkisiz source satırı sorgu sonucuna alınmaz.
+- Önizleme son 31 günlük pencerede en fazla 500 yetkili source için her source'un en güncel, önceden toplulaştırılmış `SOURCE` skorunu döndürür. Filtreler ve üretim zamanı görünür; execution/rule kimliği, hesaplama detayı, ham kayıt veya hata örneği sözleşmede bulunmaz.
+- `CALCULATED` skorlar iki ondalıklı ortalamaya katılır; `NO_DATA` ve teknik sonuçlar sayısal sıfıra dönüştürülmez. Reader kapsam dışı/yinelenen kaynak, aralık dışı tarih veya geçersiz skor döndürürse servis fail-closed teknik hata üretir.
+- Reader'ın yalnız `WITH/SELECT` çalıştırdığı doğrulandı. Başarılı görüntüleme auditi source/filter kimliklerini değil politika, kodlanmış gerekçe, pencere ve sayısal özetleri taşır; audit yazılamazsa önizleme sonucu verilmez.
+- On sekiz yeni test vakasıyla toplam 459 test geçti; reporting hedef grubu 18 testle geçti. 500 source ve 20 tekrarlı yerel p95 koruma testi 1 saniye hedefini karşıladı; bu üretim kapasite kanıtı değildir.
+- Hedef format/lint/mypy, depo lint ve derleme kontrolleri geçti. Tam depo format kontrolünde değişiklik dışındaki dört eski dosya, tam mypy kontrolünde yedi eski dosyadaki 27 hata sürmektedir.
+- Kanıt `08-Uyum-Kanitlari/Raporlama/Iterasyon-24B-Yetki-Filtreli-Rapor-Onizleme-Kaniti.md` içinde `TechnicallyVerified` olarak kaydedildi.
+- PDF/XLSX/CSV üretimi, Report kaydı, asenkron iş, indirme, HTTP/UI, DLP/watermark, geçici dosya saklama ve banka onaylı rol/dışa aktarma politikası kapsam dışıdır; `OPEN-BNK-002`, `OPEN-BNK-007`, `OPEN-BNK-008` ve `OPEN-BNK-014` açık kalır.
+
 ## İlgili Notlar
 
 - [[00-Proje-Hafizasi/Alinan-Kararlar|Alınan Kararlar]]
@@ -616,8 +629,8 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D ve Iterasyon 24A dikeylerinin kodu korunacaktır.
-- `pytest` ile 441 testin geçtiği doğrulanmıştır.
-- İterasyon 19D ve 21B banka kararları nedeniyle engellidir; sıradaki hazır aday dışa aktarma açmadan yetki filtreli, maskeli rapor önizleme domain dilimidir.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D ve Iterasyon 24A–24B dikeylerinin kodu korunacaktır.
+- `pytest` ile 459 testin geçtiği doğrulanmıştır.
+- İterasyon 19D, 21B ve hassas dışa aktarma banka kararları nedeniyle engellidir; sıradaki hazır aday veri-minimum güvenlik olayı ve ihlal şüphesi ayrımıdır.
 - Geçiş ayrıntıları için [[00-Proje-Hafizasi/Bankacilik-Gecis-Durumu|Bankacılık Geçiş Durumu]] esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

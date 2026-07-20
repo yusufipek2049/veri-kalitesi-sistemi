@@ -10,6 +10,7 @@
 | Sorun yönetimi | [[Sorun-Yonetimi/README]] |
 | Yedek/DR | [[Yedek-Geri-Yukleme/README]] |
 | Banka onayları | [[Onaylar/README]] |
+| Raporlama | [[Raporlama/README]] |
 | Sürüm paketi | [[Surum-Paketleri/README]] |
 
 ## Teknik Dogrulama Kayitlari
@@ -46,5 +47,6 @@
 - [[Sorun-Yonetimi/Iterasyon-23C-ServiceNow-Kalici-Retry-Kuyrugu-Kaniti|Iterasyon 23C - ServiceNow Kalici Retry Kuyrugu Kaniti]] - `TechnicallyVerified`
 - [[Sorun-Yonetimi/Iterasyon-23D-ServiceNow-Circuit-Breaker-Kaniti|Iterasyon 23D - ServiceNow Circuit Breaker Kaniti]] - `TechnicallyVerified`
 - [[Audit/Iterasyon-24A-Yetki-Filtreli-Audit-Inceleme-Kaniti|Iterasyon 24A - Yetki Filtreli Audit Inceleme Kaniti]] - `TechnicallyVerified`
+- [[Raporlama/Iterasyon-24B-Yetki-Filtreli-Rapor-Onizleme-Kaniti|Iterasyon 24B - Yetki Filtreli Rapor Onizleme Kaniti]] - `TechnicallyVerified`
 
 Kanıt üretmek için [[Kanıt-Paketi-Sablonu|Kanıt Paketi Şablonu]] kullanılır.

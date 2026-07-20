@@ -33,4 +33,4 @@ Bu vault, SRS dokümanını görev bazında küçük bağlam parçalarıyla kull
 
 ## Güncel Geliştirme Baseline'ı
 
-İterasyon 1–16 ile bankacılık geçişindeki 17A–24A teknik dikeyleri tamamlanmış, 441 birim testi geçmektedir. Sıradaki hazır aday, dışa aktarma açmadan yetki filtreli ve maskeli rapor önizleme domain dilimidir.
+İterasyon 1–16 ile bankacılık geçişindeki 17A–24B teknik dikeyleri tamamlanmış, 459 birim testi geçmektedir. Hassas dışa aktarma banka kararına bağlıdır; sıradaki hazır aday veri-minimum güvenlik olayı ve ihlal şüphesi ayrımıdır.

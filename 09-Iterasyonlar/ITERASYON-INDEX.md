@@ -2,10 +2,10 @@
 
 ## Gerçek başlangıç noktası
 
-- 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D ve Iterasyon 24A teknik dikeyleri tamamlandı.
-- 441 birim testi geçiyor.
-- Son ürün artımı güvenilir `AUDIT_VIEWER` context'iyle filtreli, snapshot sayfalı ve auditli inceleme sorgusu sağlar.
-- Kural onay süre aşımı `OPEN-BNK-017`; HTTP/session kararları `OPEN-BNK-020`, hassas dışa aktarma `OPEN-BNK-014` nedeniyle engellidir. Sıradaki hazır aday dosya üretmeden maskeli rapor önizleme domain dilimidir.
+- 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19C, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D ve Iterasyon 24A–24B teknik dikeyleri tamamlandı.
+- 459 birim testi geçiyor.
+- Son ürün artımı güvenilir rol/source kapsamıyla salt okunur, aggregate-only ve auditli rapor önizlemesi sağlar.
+- Kural onay süre aşımı `OPEN-BNK-017`; HTTP/session kararları `OPEN-BNK-020`, hassas dışa aktarma `OPEN-BNK-014` nedeniyle engellidir. Sıradaki hazır aday veri-minimum güvenlik olayı ve ihlal şüphesi ayrımıdır.
 
 ## Sıra
 
