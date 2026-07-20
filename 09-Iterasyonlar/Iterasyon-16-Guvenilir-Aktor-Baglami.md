@@ -49,14 +49,14 @@ Yetki kararları serbest `actor_id` veya çağıranın oluşturduğu `DashboardA
 5. ENTERPRISE görünürlüğü explicit izin olmadan açılmaz.
 6. Mevcut 129 test ve yeni testler geçer.
 
-## Kapanis
+## Kapanış
 
 - **Tamamlanma tarihi:** 2026-07-16
 - **Teknik durum:** TechnicallyVerified
-- **Regresyon sonucu:** 139 test gecti.
-- **Negatif testler:** Eksik/sahte/suresi dolmus/eski policy context, sahte scope, servis hesabi ve audit hatasi fail-closed reddedildi.
-- **Audit/redaksiyon:** Authorization karar ozeti ham rol, session veya source/dataset kimligi tasimiyor.
-- **Kanit:** [Iterasyon-16-Guvenilir-Aktor-Kaniti](../08-Uyum-Kanitlari/Erisim/Iterasyon-16-Guvenilir-Aktor-Kaniti.md)
-- **Banka onayi:** ComplianceReviewRequired
-- **Geri alma:** Yeni HTTP yuzeyi bulunmadigindan guvenli pasiflestirme composition katmaninda dashboard servisinin baglanmamasi ile yapilir; internal legacy adapter yalniz kontrollu gecis testleri icindir.
-- **Sonraki iterasyon:** Iterasyon 17 - Merkezi Audit Butunlugu
+- **Regresyon sonucu:** 139 test geçti.
+- **Negatif testler:** Eksik/sahte/süresi dolmus/eski policy context, sahte scope, servis hesabı ve audit hatası fail-closed reddedildi.
+- **Audit/redaksiyon:** Authorization karar özeti ham rol, session veya source/dataset kimliği taşımıyor.
+- **Kanıt:** [Iterasyon-16-Guvenilir-Aktor-Kaniti](../08-Uyum-Kanitlari/Erisim/Iterasyon-16-Guvenilir-Aktor-Kaniti.md)
+- **Banka onayı:** ComplianceReviewRequired
+- **Geri alma:** Yeni HTTP yüzeyi bulunmadığından güvenli pasifleştirme composition katmanında dashboard servisinin bağlanmaması ile yapılır; ınternal legacy adapter yalnız kontrollü geçiş testleri içindir.
+- **Sonraki iterasyon:** İterasyon 17 - Merkezi Audit Bütünlüğü

@@ -78,19 +78,23 @@ class SQLiteRuleRepository:
 
             CREATE TABLE IF NOT EXISTS rule_approval_requests (
                 approval_request_id TEXT PRIMARY KEY,
-                rule_version_id TEXT NOT NULL UNIQUE,
+                rule_version_id TEXT NOT NULL,
                 maker_actor_id TEXT NOT NULL,
                 checker_actor_id TEXT,
                 policy_version TEXT NOT NULL,
                 status TEXT NOT NULL,
                 decision_reason_code TEXT,
                 requested_at TEXT NOT NULL,
+                target_at TEXT,
+                expires_at TEXT,
+                business_calendar_version TEXT,
                 decided_at TEXT,
                 FOREIGN KEY (rule_version_id) REFERENCES rule_versions(rule_version_id)
             );
             """
         )
         self._migrate_rule_versions()
+        self._migrate_rule_approval_requests()
 
     def _migrate_rule_versions(self) -> None:
         columns = {
@@ -105,6 +109,68 @@ class SQLiteRuleRepository:
                     ADD COLUMN prepared_by_actor_id TEXT NOT NULL DEFAULT 'LEGACY_UNKNOWN'
                     """
                 )
+
+    def _migrate_rule_approval_requests(self) -> None:
+        table_sql = self.connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?",
+            ("rule_approval_requests",),
+        ).fetchone()["sql"]
+        if "rule_version_id TEXT NOT NULL UNIQUE" in table_sql:
+            with self.connection:
+                self.connection.executescript(
+                    """
+                    ALTER TABLE rule_approval_requests RENAME TO rule_approval_requests_legacy;
+                    CREATE TABLE rule_approval_requests (
+                        approval_request_id TEXT PRIMARY KEY,
+                        rule_version_id TEXT NOT NULL,
+                        maker_actor_id TEXT NOT NULL,
+                        checker_actor_id TEXT,
+                        policy_version TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        decision_reason_code TEXT,
+                        requested_at TEXT NOT NULL,
+                        target_at TEXT,
+                        expires_at TEXT,
+                        business_calendar_version TEXT,
+                        decided_at TEXT,
+                        FOREIGN KEY (rule_version_id) REFERENCES rule_versions(rule_version_id)
+                    );
+                    INSERT INTO rule_approval_requests (
+                        approval_request_id, rule_version_id, maker_actor_id,
+                        checker_actor_id, policy_version, status,
+                        decision_reason_code, requested_at, decided_at
+                    )
+                    SELECT approval_request_id, rule_version_id, maker_actor_id,
+                           checker_actor_id, policy_version, status,
+                           decision_reason_code, requested_at, decided_at
+                    FROM rule_approval_requests_legacy;
+                    DROP TABLE rule_approval_requests_legacy;
+                    """
+                )
+        columns = {
+            row["name"]
+            for row in self.connection.execute(
+                "PRAGMA table_info(rule_approval_requests)"
+            ).fetchall()
+        }
+        additions = {
+            "target_at": "TEXT",
+            "expires_at": "TEXT",
+            "business_calendar_version": "TEXT",
+        }
+        with self.connection:
+            for column, column_type in additions.items():
+                if column not in columns:
+                    self.connection.execute(
+                        f"ALTER TABLE rule_approval_requests ADD COLUMN {column} {column_type}"
+                    )
+            self.connection.execute(
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_rule_approval_pending_version
+                ON rule_approval_requests (rule_version_id)
+                WHERE status = 'PENDING'
+                """
+            )
 
     def add_rule_with_version(
         self,
@@ -277,8 +343,9 @@ class SQLiteRuleRepository:
                     INSERT INTO rule_approval_requests (
                         approval_request_id, rule_version_id, maker_actor_id,
                         checker_actor_id, policy_version, status,
-                        decision_reason_code, requested_at, decided_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        decision_reason_code, requested_at, target_at, expires_at,
+                        business_calendar_version, decided_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         request.approval_request_id,
@@ -289,6 +356,9 @@ class SQLiteRuleRepository:
                         request.status.value,
                         request.decision_reason_code,
                         request.requested_at.isoformat(),
+                        request.target_at.isoformat() if request.target_at else None,
+                        request.expires_at.isoformat() if request.expires_at else None,
+                        request.business_calendar_version,
                         request.decided_at.isoformat() if request.decided_at else None,
                     ),
                 )
@@ -305,6 +375,17 @@ class SQLiteRuleRepository:
         if row is None:
             raise RuleNotFoundError("RuleApprovalRequest not found.")
         return _row_to_approval_request(row)
+
+    def list_due_approval_requests(self, as_of: datetime) -> list[RuleApprovalRequest]:
+        rows = self.connection.execute(
+            """
+            SELECT * FROM rule_approval_requests
+            WHERE status = ? AND expires_at IS NOT NULL AND expires_at <= ?
+            ORDER BY expires_at, approval_request_id
+            """,
+            (RuleApprovalStatus.PENDING.value, as_of.isoformat()),
+        ).fetchall()
+        return [_row_to_approval_request(row) for row in rows]
 
     def decide_approval_request(
         self,
@@ -357,6 +438,37 @@ class SQLiteRuleRepository:
         self._require_shared_audit_transaction(audit_outbox)
         if request.status is not RuleApprovalStatus.WITHDRAWN:
             raise RuleValidationError("Rule approval withdrawal status is invalid.")
+        with self.connection:
+            cursor = self.connection.execute(
+                """
+                UPDATE rule_approval_requests
+                SET status = ?, checker_actor_id = NULL,
+                    decision_reason_code = ?, decided_at = ?
+                WHERE approval_request_id = ? AND status = ?
+                """,
+                (
+                    request.status.value,
+                    request.decision_reason_code,
+                    request.decided_at.isoformat() if request.decided_at else None,
+                    request.approval_request_id,
+                    RuleApprovalStatus.PENDING.value,
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise RuleValidationError("Rule approval request is not pending.")
+            audit_outbox.stage(audit_event)
+        return self.get_approval_request(request.approval_request_id)
+
+    def expire_approval_request(
+        self,
+        request: RuleApprovalRequest,
+        *,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: SQLiteTransactionalAudit,
+    ) -> RuleApprovalRequest:
+        self._require_shared_audit_transaction(audit_outbox)
+        if request.status is not RuleApprovalStatus.EXPIRED:
+            raise RuleValidationError("Rule approval expiry status is invalid.")
         with self.connection:
             cursor = self.connection.execute(
                 """
@@ -462,6 +574,9 @@ def _row_to_approval_request(row: sqlite3.Row) -> RuleApprovalRequest:
         status=RuleApprovalStatus(row["status"]),
         decision_reason_code=row["decision_reason_code"],
         requested_at=datetime.fromisoformat(row["requested_at"]),
+        target_at=(datetime.fromisoformat(row["target_at"]) if row["target_at"] else None),
+        expires_at=(datetime.fromisoformat(row["expires_at"]) if row["expires_at"] else None),
+        business_calendar_version=row["business_calendar_version"],
         decided_at=(
             datetime.fromisoformat(row["decided_at"]) if row["decided_at"] is not None else None
         ),

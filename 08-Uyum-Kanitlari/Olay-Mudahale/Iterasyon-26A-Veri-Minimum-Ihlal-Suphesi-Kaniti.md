@@ -20,7 +20,7 @@ version: ITERATION_26A
 executed_at: 2026-07-20
 ---
 
-# Iterasyon 26A Veri Minimum İhlal Şüphesi Kanıtı
+# İterasyon 26A Veri Minimum İhlal Şüphesi Kanıtı
 
 ## Değişiklik
 
@@ -49,10 +49,10 @@ Ek kontroller:
 
 ## Güvenlik ve Gizlilik
 
-- Güven sınırı: Yalnız güvenilir, geçerli, ayrıcalıksız `USER` context'i ve sürümlü rolde izin verilir; servis ve ayrıcalıklı context reddedilir.
+- Güven sınırı: Yalnız güvenilir, geçerli, ayrıcalıksız `USER` context'ı ve sürümlü rolde izin verilir; servis ve ayrıcalıklı context reddedilir.
 - Scope: SOURCE/DATASET/ENTERPRISE kapsamı güvenilir context üzerinden denetlenir; scope kimliği audit özetine yazılmaz.
 - Veri minimizasyonu: Serbest olay/ihlal açıklaması veya kanıt içeriği yoktur. Kodlar, kategori enumları ve UUID kanıt referansları saklanır.
-- Audit: Domain kayıtları, zaman çizelgesi ve redakte outbox atomiktir; audit-stage arızasında rollback olur.
+- Audit: Domain kayıtları, zaman çizelgesi ve redakte outbox atomiktir; audit-stage arızasında rollback ölür.
 - Maker-checker: Şüpheyi kaydeden kendi bildirim kararını kaydedemez. Banka rol eşlemesi `ComplianceReviewRequired` kalır.
 - Dış bildirim: Karar kaydı yapısal olarak `external_notification_dispatched=false` taşır; Kurul/ilgili kişi/SIEM adaptörü yoktur.
 - Teknik hata ayrımı: Depo ve audit arızası teknik hata olarak kalır; ihlal veya veri kalitesi başarısızlığına dönüştürülmez.

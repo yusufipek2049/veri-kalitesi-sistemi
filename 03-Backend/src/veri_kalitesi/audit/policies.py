@@ -174,13 +174,30 @@ def build_default_redaction_policy() -> AuditRedactionPolicy:
             ),
             "QUALITY_RULE_ACTIVATED": frozenset({"rule_version_id", "status"}),
             "QUALITY_RULE_APPROVAL_REQUESTED": frozenset(
-                {"rule_version_id", "approval_request_id", "policy_version", "status"}
+                {
+                    "rule_version_id",
+                    "approval_request_id",
+                    "policy_version",
+                    "status",
+                    "target_at",
+                    "expires_at",
+                    "business_calendar_version",
+                }
             ),
             "QUALITY_RULE_APPROVAL_DECIDED": frozenset(
                 {"rule_version_id", "approval_request_id", "policy_version", "status"}
             ),
             "QUALITY_RULE_APPROVAL_WITHDRAWN": frozenset(
                 {"rule_version_id", "approval_request_id", "policy_version", "status"}
+            ),
+            "QUALITY_RULE_APPROVAL_EXPIRED": frozenset(
+                {
+                    "rule_version_id",
+                    "approval_request_id",
+                    "policy_version",
+                    "business_calendar_version",
+                    "status",
+                }
             ),
             "SCHEDULE_CREATED": frozenset(
                 {

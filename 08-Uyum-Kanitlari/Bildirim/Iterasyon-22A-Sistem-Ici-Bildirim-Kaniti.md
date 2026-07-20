@@ -20,50 +20,50 @@ version: iteration-22a-local
 executed_at: 2026-07-17
 ---
 
-# Iterasyon 22A Sistem Ici Bildirim Kaniti
+# İterasyon 22A Sistem İçi Bildirim Kanıtı
 
-## Degisiklik
+## Değişiklik
 
-- Iterasyon: 22A - veri-minimum, idempotent ve okunabilir sistem ici bildirim yasam dongusu
-- Commit/Artifact: Git deposu bulunmadigi icin commit yok; yerel calisma agaci
-- Bilesen: `veri_kalitesi.notifications`, `veri_kalitesi.audit`, `veri_kalitesi.identity`
-- Kontrol/Gereksinim: FR-059/060/063, UC-012, RULE-006/011, AC-010/015/016, NFR-REL-006, BFR-IAM-001/002 ve BFR-DATA-003 alt kapsami
+- İterasyon: 22A - veri-minimum, idempotent ve okunabilir sistem içi bildirim yaşam döngüsü
+- Commit/Artifact: Git deposu bulunmadığı için commit yok; yerel çalışma ağacı
+- Bileşen: `veri_kalitesi.notifications`, `veri_kalitesi.audit`, `veri_kalitesi.identity`
+- Kontrol/Gereksinim: FR-059/060/063, UC-012, RULE-006/011, AC-010/015/016, NFR-REL-006, BFR-IAM-001/002 ve BFR-DATA-003 alt kapsamı
 
-## Dogrulama
+## Doğrulama
 
 - Komut: `pytest -q`
-- Ortam: Python 3.10.12, yerel prototip, bellek ici SQLite ve sentetik UUID referanslari
-- Sentetik veri seti: Kalite esigi, kritik kural ve teknik hata; tekrar/cakisma; alicisiz olay; resolver/depo/audit arizasi; farkli alici; guvenilmez, expired, servis ve ayricalikli context
-- Beklenen: Sabit veri-minimum bildirim dogru guvenilir aliciya bes dakika hedefi icinde yazilir; kalite/teknik olay ayrilir; tekrar tek kaydi gunceller; yalniz alici okuyabilir; audit-stage arizasi kaydi rollback eder.
-- Gerceklesen: 282 test gecti. Bildirim hedef grubu 17 testle gecti; 17 yeni test eklendi.
-- Sonuc: PASS
+- Ortam: Python 3.10.12, yerel prototip, bellek içi SQLite ve sentetik UUID referansları
+- Sentetik veri seti: Kalite eşiği, kritik kural ve teknik hata; tekrar/çakışma; alıcısız olay; resolver/depo/audit arızası; farklı alıcı; güvenilmez, expired, servis ve ayrıcalıklı context
+- Beklenen: Sabit veri-minimum bildirim doğru güvenilir alıcıya beş dakika hedefi içinde yazılır; kalite/teknik olay ayrılır; tekrar tek kaydı günceller; yalnız alıcı okuyabilir; audit-stage arızası kaydı rollback eder.
+- Gerçekleşen: 282 test geçti. Bildirim hedef grubu 17 testle geçti; 17 yeni test eklendi.
+- Sonuç: PASS
 
 Ek kontroller:
 
 - `ruff check 03-Backend/src 06-Testler`: PASS
-- Degisen Python dosyalarinda `ruff format --check ...`: PASS
+- Değişen Python dosyalarında `ruff format --check ...`: PASS
 - `python3 -m compileall -q 03-Backend/src`: PASS
-- Tam depo format kontrolu, bu iterasyonda degismeyen dort eski dosyanin mevcut format farklari nedeniyle PASS degildir.
+- Tam depo format kontrolü, bu iterasyonda değişmeyen dört eski dosyanın mevcut format farkları nedeniyle PASS değildir.
 
-## Guvenlik
+## Güvenlik
 
-- Guven siniri: Alici kimligi olay girdisinden alinmaz; enjekte edilen guvenilir sahiplik resolver protokolunden gelir. Uretim guvenilir servis context'i, okuma guvenilir ve gecerli normal kullanici context'i gerektirir.
-- Deny-by-default: Baska alici, guvenilmez/expired context, servis hesabi ve ayricalikli context standart bildirim merkezine erisemez.
-- Veri minimizasyonu: Baslik ve govde yalniz event-type allowlist'indeki sabit metinlerden uretilir; scope/event/hata payloadi govdeye tasinmaz.
-- Deduplication: Anahtar acik saklanmaz; SHA-256 ozeti recipient ile benzersizdir. Ayni payload sayac/son gorulme zamanini gunceller, farkli payload cakisir.
-- Audit: Olusturma ve `READ` gecisi merkezi redactor ile hazirlanir. Scope, dedup anahtari ve acik session kimligi audit ozetinden cikarilir.
-- Atomiklik: Bildirim veya durum gecisi ile redakte audit outbox olayi ayni SQLite transaction'indadir; stage arizasi rollback olur.
-- Sonuc ayrimi: Alici yoklugu yapilandirma/owner problemi; resolver, depo ve audit arizasi redakte teknik hata olarak ayrilir.
-- Maker-checker etkisi: Bu dilimde politika veya serbest sablon degistirme yuzeyi yoktur. Ileride sablon/alici politikasi yonetimi kritik degisiklik degerlendirmesi gerektirir.
-- Geri alma: `notifications` paketi ve yeni SQLite tablosu bagimsizdir; tetikleyiciler devre disi birakilip onceki surume donulebilir. Kaynak sisteme yazim yoktur.
-- Kalan risk: Gercek sahiplik/fallback grup adaptoru, asenkron retry/DLQ, susturma/eskalasyon, sablon yonetimi, saklama-imha, issue ve HTTP/UI kapsam disidir.
+- Güven sınırı: Alıcı kimliği olay girdisinden alınmaz; enjekte edilen güvenilir sahiplik resolver protokolünden gelir. Üretim güvenilir servis context'i, okuma güvenilir ve geçerli normal kullanıcı context'i gerektirir.
+- Deny-by-default: Başka alıcı, güvenilmez/expired context, servis hesabı ve ayrıcalıklı context standart bildirim merkezine erişemez.
+- Veri minimizasyonu: Başlık ve gövde yalnız event-type allowlist'indeki sabit metinlerden üretilir; scope/event/hata payloadı gövdeye taşınmaz.
+- Deduplication: Anahtar açık saklanmaz; SHA-256 özeti recipient ile benzersizdir. Aynı payload sayaç/son görülme zamanını günceller, farklı payload çakışır.
+- Audit: Oluşturma ve `READ` geçişi merkezi redactor ile hazırlanır. Scope, dedup anahtarı ve açık session kimliği audit özetinden çıkarılır.
+- Atomiklik: Bildirim veya durum geçişi ile redakte audit outbox olayı aynı SQLite transaction'ındadır; stage arızası rollback olur.
+- Sonuç ayrımı: Alıcı yokluğu yapilandirma/owner problemi; resolver, depo ve audit arızası redakte teknik hata olarak ayrılır.
+- Maker-checker etkisi: Bu dilimde politika veya serbest şablon değiştirme yüzeyi yoktur. İleride sablon/alici politikası yönetimi kritik değişiklik değerlendirmesi gerektirir.
+- Geri alma: `notifications` paketi ve yeni SQLite tablosu bağımsızdır; tetikleyiciler devre dışı bırakılıp önceki sürüme dönülebilir. Kaynak sisteme yazım yoktur.
+- Kalan risk: Gerçek sahiplik/fallback grup adaptörü, asenkron retry/DLQ, susturma/eskalasyon, şablon yönetimi, saklama-imha, issue ve HTTP/UI kapsam dışıdır.
 
 ## Onaylar
 
-- Teknik dogrulayan: Codex teknik uygulama ajani
-- Bilgi guvenligi: ComplianceReviewRequired
-- Veri yonetisimi: ComplianceReviewRequired
-- Ic kontrol: ComplianceReviewRequired
+- Teknik doğrulayan: Codex teknik uygulama ajanı
+- Bilgi güvenliği: ComplianceReviewRequired
+- Veri yönetişimi: ComplianceReviewRequired
+- İç kontrol: ComplianceReviewRequired
 - Hukuk/uyum: ComplianceReviewRequired
 
-Bu kanit teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayi anlamina gelmez.
+Bu kanıt teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayı anlamına gelmez.

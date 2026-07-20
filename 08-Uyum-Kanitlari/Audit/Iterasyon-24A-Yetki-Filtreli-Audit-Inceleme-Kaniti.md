@@ -24,50 +24,50 @@ version: ITERATION_24A
 executed_at: 2026-07-17
 ---
 
-# Iterasyon 24A Yetki Filtreli Audit Inceleme Kaniti
+# İterasyon 24A Yetki Filtreli Audit İnceleme Kanıtı
 
-## Degisiklik
+## Değişiklik
 
-- Iterasyon: 24A - Yetki filtreli, salt okunur audit inceleme domain sorgusu
+- İterasyon: 24A - Yetki filtreli, salt okunur audit inceleme domain sorgusu
 - Commit/Artifact: `ITERATION_24A` (`origin/main`)
-- Bilesen: `veri_kalitesi.audit`, `veri_kalitesi.identity`
-- Kontrol/Gereksinim: FR-077/078/079, UC-016, NFR-SEC-001/005/008/011, NFR-CMP-001/002/003, BFR-IAM-001/002/004, BFR-AUD-002/003/005 ve AC-026 alt kapsami
+- Bileşen: `veri_kalitesi.audit`, `veri_kalitesi.identity`
+- Kontrol/Gereksinim: FR-077/078/079, UC-016, NFR-SEC-001/005/008/011, NFR-CMP-001/002/003, BFR-IAM-001/002/004, BFR-AUD-002/003/005 ve AC-026 alt kapsamı
 
-## Dogrulama
+## Doğrulama
 
 - Komut: `PYTHONPATH=03-Backend/src pytest -q`
-- Ortam: Python 3.10.12, yerel prototip, bellek ici SQLite, sentetik audit olaylari ve guvenilir fake actor context
-- Sentetik veri seti: Aktor/islem/nesne/sonuc/correlation filtreleri, snapshot sayfalama, eksik rol, servis/ayricalikli context, gecersiz/genis sorgu, bozulmus zincir, repository ve audit sink arizasi
-- Beklenen: Yalniz guvenilir auditor filtreli kayitlari gorur; sayfalama tutarlidir; butunluk sonucu raporlanir; yetkisiz ve basarili goruntulemeler veri-minimum auditlenir; teknik hata ayri kalir.
-- Gerceklesen: 441 test gecti; audit hedef grubu 26 testle gecti ve 14 yeni vaka eklendi.
-- Sonuc: PASS
+- Ortam: Python 3.10.12, yerel prototip, bellek içi SQLite, sentetik audit olayları ve güvenilir fake actor context
+- Sentetik veri seti: Aktör/işlem/nesne/sonuç/correlation filtreleri, snapshot sayfalama, eksik rol, servis/ayrıcalıklı context, geçersiz/geniş sorgu, bozulmuş zincir, repository ve audit sink arızası
+- Beklenen: Yalnız güvenilir auditör filtreli kayıtları görür; sayfalama tutarlıdır; bütünlük sonucu raporlanır; yetkisiz ve başarılı görüntülemeler veri-minimum auditlenir; teknik hata ayrı kalır.
+- Gerçekleşen: 441 test geçti; audit hedef grubu 26 testle geçti ve 14 yeni vaka eklendi.
+- Sonuç: PASS
 
 Ek kontroller:
 
 - `ruff check 03-Backend/src 06-Testler`: PASS
-- Audit yuzeyinde `ruff format --check ...`: PASS
+- Audit yüzeyinde `ruff format --check ...`: PASS
 - `python3 -m compileall -q 03-Backend/src 06-Testler`: PASS
 - Audit paketi ve testinde `mypy ...`: PASS
-- Tam depo format kontrolu, degisiklik disindaki dort eski dosyanin bicim farki nedeniyle PASS degildir.
-- Tam mypy kontrolu, yedi eski dosyada 27 hata nedeniyle PASS degildir; audit yuzeyindeki iki eski hata bu iterasyonda giderildi.
+- Tam depo format kontrolü, değişiklik dışındaki dört eski dosyanın biçim farkı nedeniyle PASS değildir.
+- Tam mypy kontrolü, yedi eski dosyada 27 hata nedeniyle PASS değildir; audit yüzeyindeki iki eski hata bu iterasyonda giderildi.
 
-## Guvenlik
+## Güvenlik
 
-- Guven siniri: Yalniz guvenilir, gecerli, ayricaliksiz USER context'i ve `AUDIT_VIEWER` rolu kabul edilir. Serbest actor/rol/scope yetki kaniti degildir.
-- Veri minimizasyonu: Sorgu audit'i filtre degerlerini, session kimligini veya ham kayit degerini tasimaz; yalniz politika, kodlanmis gerekce ve sayisal ozet saklar.
-- Teknik hata ayrimi: Gecersiz filtre dogrulama hatasi, repository/audit sink arizasi teknik hata, hash bozulmasi ise kaydi degistirmeyen butunluk sonucu olarak ayrilir.
-- Butunluk: Sorgu mevcut hash zincirini dogrular; bozulmus kaydi sessizce duzeltmez veya silmez.
-- Sayfalama: Sequence cursor ve sabit ust snapshot, sorgu audit olaylari eklenirken sonuc kumesinin kaymasini engeller.
-- Maker-checker etkisi: Inceleme salt okunurdur; hassas disa aktarma acilmamistir. Auditor rol eslemesi ve disa aktarma onayi `ComplianceReviewRequired` kalir.
-- Geri alma: Audit sorgu servisi cagri yuzeyinden kaldirilabilir; append-only kayitlar ve goruntuleme auditleri silinmez.
-- Kalan risk: Istemci bilgisi filtresi, bes yillik asenkron rapor, HTTP/UI, dosya uretimi, DLP/watermark, saklama ve `OPEN-BNK-002/008/014` kapsam disidir.
+- Güven sınırı: Yalnız güvenilir, geçerli, ayrıcalıksız USER context'ı ve `AUDIT_VIEWER` rolü kabul edilir. Serbest actor/rol/scope yetki kanıtı değildir.
+- Veri minimizasyonu: Sorgu audit'i filtre değerlerini, session kimliğini veya ham kayıt değerini taşımaz; yalnız politika, kodlanmış gerekçe ve sayısal özet saklar.
+- Teknik hata ayrımı: Geçersiz filtre doğrulama hatası, repository/audit sink arızası teknik hata, hash bozulması ise kaydı değiştirmeyen bütünlük sonucu olarak ayrılır.
+- Bütünlük: Sorgu mevcut hash zincirini doğrular; bozulmuş kaydı sessizce düzeltmez veya silmez.
+- Sayfalama: Sequence cursor ve sabit üst snapshot, sorgu audit olayları eklenirken sonuç kümesinin kaymasını engeller.
+- Maker-checker etkisi: İnceleme salt okunurdur; hassas dışa aktarma açılmamıştır. Auditör rol eşlemesi ve dışa aktarma onayı `ComplianceReviewRequired` kalır.
+- Geri alma: Audit sorgu servisi çağrı yüzeyinden kaldırılabilir; append-only kayıtlar ve görüntüleme auditleri silinmez.
+- Kalan risk: İstemci bilgisi filtresi, beş yıllık asenkron rapor, HTTP/UI, dosya üretimi, DLP/watermark, saklama ve `OPEN-BNK-002/008/014` kapsam dışıdır.
 
 ## Onaylar
 
-- Teknik dogrulayan: Codex teknik uygulama ajani
-- Bilgi guvenligi: ComplianceReviewRequired
-- Veri yonetisimi: ComplianceReviewRequired
-- Ic kontrol: ComplianceReviewRequired
+- Teknik doğrulayan: Codex teknik uygulama ajanı
+- Bilgi güvenliği: ComplianceReviewRequired
+- Veri yönetişimi: ComplianceReviewRequired
+- İç kontrol: ComplianceReviewRequired
 - Hukuk/uyum: ComplianceReviewRequired
 
-Bu kanit teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayi anlamina gelmez.
+Bu kanıt teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayı anlamına gelmez.

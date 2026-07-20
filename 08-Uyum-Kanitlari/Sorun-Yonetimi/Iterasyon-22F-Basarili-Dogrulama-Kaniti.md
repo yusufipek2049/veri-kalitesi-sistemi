@@ -16,49 +16,49 @@ version: iteration-22f-local
 executed_at: 2026-07-17
 ---
 
-# Iterasyon 22F Basarili Dogrulama Kaniti
+# İterasyon 22F Başarılı Doğrulama Kanıtı
 
-## Degisiklik
+## Değişiklik
 
-- Iterasyon: 22F - farkli guvenilir aktorle basarili dogrulama ve `VERIFIED` gecisi
-- Commit/Artifact: Yerel calisma agaci; bu iterasyonda commit olusturulmadi
-- Bilesen: `veri_kalitesi.issues`, `veri_kalitesi.audit`, `veri_kalitesi.identity`
-- Kontrol/Gereksinim: FR-066, FR-069, UC-014, RULE-013, NFR-REL-006 ve BFR-IAM-001/002, BFR-SOD-001/002, BFR-DATA-003 alt kapsami
+- İterasyon: 22F - farklı güvenilir aktörle başarılı doğrulama ve `VERIFIED` geçişi
+- Commit/Artifact: Yerel çalışma ağacı; bu iterasyonda commit oluşturulmadı
+- Bileşen: `veri_kalitesi.issues`, `veri_kalitesi.audit`, `veri_kalitesi.identity`
+- Kontrol/Gereksinim: FR-066, FR-069, UC-014, RULE-013, NFR-REL-006 ve BFR-IAM-001/002, BFR-SOD-001/002, BFR-DATA-003 alt kapsamı
 
-## Dogrulama
+## Doğrulama
 
 - Komut: `PYTHONPATH=03-Backend/src pytest -q`
-- Ortam: Python 3.10.12, yerel prototip, bellek ici SQLite ve sentetik UUID referanslari
-- Sentetik veri seti: Basarili kalite dogrulamasi, cozen=dogrulayan ihlali, kullanici/servis/ayricalik/scope negatifleri, basarisiz/kismi/teknik regresyonlari ve audit-stage arizasi
-- Beklenen: Guvenilir `QUALITY_PASSED` sonucu yalniz cozumu kaydeden kisiden farkli, kapsam ici Data Owner/Steward tarafindan kaydedilir ve issue atomik olarak `VERIFIED` olur.
-- Gerceklesen: 354 test gecti. Issue hedef grubu 72 testle gecti; 2 net yeni test vakasi eklendi.
-- Sonuc: PASS
+- Ortam: Python 3.10.12, yerel prototip, bellek içi SQLite ve sentetik UUID referansları
+- Sentetik veri seti: Başarılı kalite doğrulaması, çözen=doğrulayan ihlali, kullanıcı/servis/ayrıcalık/scope negatifleri, başarısız/kısmi/teknik regresyonları ve audit-stage arızası
+- Beklenen: Güvenilir `QUALITY_PASSED` sonucu yalnız çözümü kaydeden kişiden farklı, kapsam içi Data Owner/Steward tarafından kaydedilir ve issue atomik olarak `VERIFIED` ölür.
+- Gerçekleşen: 354 test geçti. Issue hedef grubu 72 testle geçti; 2 net yeni test vakası eklendi.
+- Sonuç: PASS
 
 Ek kontroller:
 
 - `ruff check 03-Backend/src 06-Testler`: PASS
 - `ruff format --check 03-Backend/src/veri_kalitesi/issues 06-Testler/01-Birim/test_issues.py`: PASS
 - `python3 -m compileall -q 03-Backend/src 06-Testler`: PASS
-- Degisen bes kaynak yuzeyinde `mypy --follow-imports=skip ...`: PASS
-- Tam `mypy` kontrolu, degisiklik disindaki `audit/repository.py`, `identity/sessions.py` ve `identity/ldap.py` dosyalarinda ayni 13 mevcut hata nedeniyle PASS degildir.
+- Değişen beş kaynak yüzeyinde `mypy --follow-imports=skip ...`: PASS
+- Tam `mypy` kontrolü, değişiklik dışındaki `audit/repository.py`, `identity/sessions.py` ve `identity/ldap.py` dosyalarında aynı 13 mevcut hata nedeniyle PASS değildir.
 
-## Guvenlik
+## Güvenlik
 
-- Guven siniri: Cagiran yalniz UUID dogrulama referansi verir. Basarili sonuc, execution ve skor bagi guvenilir resolver'dan gelir ve issue scope'uyla eslesir.
-- Yetki: Yalniz gecerli, normal USER context'indeki kapsam ici `DATA_OWNER` veya `DATA_STEWARD` dogrulama yapabilir. Eksik, servis, ayricalikli, rolesiz ve scope disi context fail-closed reddedilir.
-- Gorevler ayriligi: Son append-only cozum kaydindaki `created_by`, guvenilir dogrulayan aktorle karsilastirilir. Ayni aktor sonucu kaydedemez ve `VERIFIED` gecisi yapamaz.
-- Veri minimizasyonu: Audit allowlist'i yalniz durum, sonuc sinifi ve skor referansi var/yok bilgisini tutar; aktor karsilastirma detayi, execution, score ve scope kimlikleri audit ozetine girmez.
-- Atomiklik: Dogrulama kaydi, issue durumu, gecmis ve redakte audit outbox ayni SQLite transaction'indadir; audit-stage arizasinda basarili dogrulama dahil tum yazimlar rollback olur.
-- Teknik hata ayrimi: 22E'nin teknik hata ve kalite basarisizligi ayrimi korunur; yalniz `QUALITY_PASSED` `VERIFIED` uretir.
-- Geri alma: Basarili sonuc kolu pasiflestirilip onceki 22E davranisina donulebilir; append-only dogrulama/gecmis kayitlari silinmez. Kaynak sisteme yazim yoktur.
-- Kalan risk: Gercek execution/scoring resolver baglantisi, banka onayli rol eslemesi, `CLOSED`, yeniden acma, ServiceNow ve HTTP/UI kapsam disidir.
+- Güven sınırı: Çağıran yalnız UUID doğrulama referansı verir. Başarılı sonuç, execution ve skor bağı güvenilir resolver'dan gelir ve issue scope'uyla eşleşir.
+- Yetki: Yalnız geçerli, normal USER context'indeki kapsam içi `DATA_OWNER` veya `DATA_STEWARD` doğrulama yapabilir. Eksik, servis, ayrıcalıklı, rolesiz ve scope dışı context fail-closed reddedilir.
+- Görevler ayrılığı: Son append-only çözüm kaydındaki `created_by`, güvenilir doğrulayan aktörle karşılaştırılır. Aynı aktör sonucu kaydedemez ve `VERIFIED` geçişi yapamaz.
+- Veri minimizasyonu: Audit allowlist'i yalnız durum, sonuç sınıfı ve skor referansı var/yok bilgisini tutar; aktör karşılaştırma detayı, execution, score ve scope kimlikleri audit özetine girmez.
+- Atomiklik: Doğrulama kaydı, issue durumu, geçmiş ve redakte audit outbox aynı SQLite transaction'ındadır; audit-stage arızasında başarılı doğrulama dahil tüm yazımlar rollback olur.
+- Teknik hata ayrımı: 22E'nin teknik hata ve kalite başarısızlığı ayrımı korunur; yalnız `QUALITY_PASSED` `VERIFIED` üretir.
+- Geri alma: Başarılı sonuç kolu pasifleştirilip önceki 22E davranışına dönülebilir; append-only doğrulama/geçmiş kayıtları silinmez. Kaynak sisteme yazım yoktur.
+- Kalan risk: Gerçek execution/scoring resolver bağlantısı, banka onaylı rol eşlemesi, `CLOSED`, yeniden açma, ServiceNow ve HTTP/UI kapsam dışıdır.
 
 ## Onaylar
 
-- Teknik dogrulayan: Codex teknik uygulama ajani
-- Bilgi guvenligi: ComplianceReviewRequired
-- Veri yonetisimi: ComplianceReviewRequired
-- Ic kontrol: ComplianceReviewRequired
+- Teknik doğrulayan: Codex teknik uygulama ajanı
+- Bilgi güvenliği: ComplianceReviewRequired
+- Veri yönetişimi: ComplianceReviewRequired
+- İç kontrol: ComplianceReviewRequired
 - Hukuk/uyum: ComplianceReviewRequired
 
-Bu kanit teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayi anlamina gelmez.
+Bu kanıt teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayı anlamına gelmez.

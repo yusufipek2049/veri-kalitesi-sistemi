@@ -11,48 +11,48 @@ version: iteration-20b-local
 executed_at: 2026-07-17
 ---
 
-# Iterasyon 20B Basarisiz Giris Sinirlandirma Kaniti
+# İterasyon 20B Başarısız Giriş Sınırlandırma Kanıtı
 
-## Degisiklik
+## Değişiklik
 
-- Iterasyon: 20B - yapilandirilabilir ve kalici basarisiz giris sinirlandirmasi
-- Commit/Artifact: Git deposu bulunmadigi icin commit yok; yerel calisma agaci
-- Bilesen: `veri_kalitesi.identity`, `veri_kalitesi.audit`
-- Kontrol/Gereksinim: FR-006, UC-001, NFR-SEC-010, AC-002 ve BFR-IAM-004 alt kapsami
+- İterasyon: 20B - yapılandırılabilir ve kalıcı başarısız giriş sınırlandırması
+- Commit/Artifact: Git deposu bulunmadığı için commit yok; yerel çalışma ağacı
+- Bileşen: `veri_kalitesi.identity`, `veri_kalitesi.audit`
+- Kontrol/Gereksinim: FR-006, UC-001, NFR-SEC-010, AC-002 ve BFR-IAM-004 alt kapsamı
 
-## Dogrulama
+## Doğrulama
 
 - Komut: `pytest -q`
-- Ortam: Python 3.10.12, yerel prototip, fake LDAP adaptoru ve sentetik opak anahtarlar
-- Sentetik veri seti: Credential reddi, LDAP teknik arizasi, iki kullanici/istemci kapsami, kalici SQLite sayaci, 15 dakikalik zaman ilerletme ve kapali depo
-- Beklenen: En gec besinci credential reddinde kullanici ve istemci kapsamlari en az 15 dakika engellenir; aktif engel LDAP cagrisindan once reddedilir; LDAP teknik hatasi sayaci artirmaz; basari sayaci sifirlar; ham kimlik girdileri saklanmaz.
-- Gerceklesen: 237 test gecti. Kimlik hedef grubu 25 testle gecti; besinci rette iki kapsam engellendi ve sonraki cagri LDAP'a ulasmadi.
-- Sonuc: PASS
+- Ortam: Python 3.10.12, yerel prototip, fake LDAP adaptörü ve sentetik opak anahtarlar
+- Sentetik veri seti: Credential reddi, LDAP teknik arızası, iki kullanıcı/istemci kapsamı, kalıcı SQLite sayacı, 15 dakikalık zaman ilerletme ve kapalı depo
+- Beklenen: En geç beşinci credential reddinde kullanıcı ve istemci kapsamları en az 15 dakika engellenir; aktif engel LDAP çağrısından önce reddedilir; LDAP teknik hatası sayacı artırmaz; başarı sayacı sıfırlar; ham kimlik girdileri saklanmaz.
+- Gerçekleşen: 237 test geçti. Kimlik hedef grubu 25 testle geçti; beşinci rette iki kapsam engellendi ve sonraki çağrı LDAP'a ulaşmadı.
+- Sonuç: PASS
 
 Ek kontroller:
 
 - `ruff check 03-Backend/src 06-Testler`: PASS
-- Degisen alti Python dosyasinda `ruff format --check ...`: PASS
+- Değişen altı Python dosyasında `ruff format --check ...`: PASS
 - `python3 -m compileall -q 03-Backend/src`: PASS
-- Tam depo format kontrolu, bu iterasyonda degismeyen dort eski dosyanin mevcut format farklari nedeniyle PASS degildir.
+- Tam depo format kontrolü, bu iterasyonda değişmeyen dört eski dosyanın mevcut format farkları nedeniyle PASS değildir.
 
-## Guvenlik
+## Güvenlik
 
-- Guven siniri: Principal ve istemci referansi, enjekte edilen guvenilir anahtar saglayici tarafindan opak kullanici/istemci anahtarina donusturulur.
-- Deny-by-default: Anahtar uretimi veya throttle deposu kullanilamazsa LDAP cagrisi ve context uretimi yapilmaz.
-- Hata ayrimi: Yalniz credential reddi sayilir; LDAP teknik ve beklenmeyen hatalari giris sayacini degistirmez.
-- Kalicilik: Kullanici ve istemci sayaclari ayri SQLite satirlarinda atomik guncellenir ve repository yeniden acildiginda engel korunur.
-- Veri minimizasyonu: Principal, istemci referansi ve credential throttle deposuna veya audit ozetine yazilmaz; audit yalniz politika surumleri, sayac ve engel ozetini tasir.
-- Maker-checker etkisi: Bu dilimde politika olusturma/degistirme API'si yoktur; politika yalniz baslangicta enjekte edilir. Uretim politika degisikligi onayi ve gorevler ayriligi `OPEN-BNK-019` altinda aciktir.
-- Geri alma: LDAP servisi throttle bagimliligi olmadan kurulamaz; guvenli pasiflestirme ancak banka onayli daha kisitlayici olmayan yeni politika ve kontrollu migration ile yapilmalidir.
-- Kalan risk: Uretim anahtar saglayicisi, secret manager, istemci referansinin guvenilir ag siniri, paylasimli uretim deposu ve LDAP lockout deger uyumu banka karari gerektirir.
+- Güven sınırı: Principal ve istemci referansı, enjekte edilen güvenilir anahtar sağlayıcı tarafından opak kullanıcı/istemci anahtarına dönüştürülür.
+- Deny-by-default: Anahtar üretimi veya throttle deposu kullanılamazsa LDAP çağrısı ve context üretimi yapılmaz.
+- Hata ayrımı: Yalnız credential reddi sayılır; LDAP teknik ve beklenmeyen hataları giriş sayacını değiştirmez.
+- Kalıcılık: Kullanıcı ve istemci sayaçları ayrı SQLite satırlarında atomik güncellenir ve repository yeniden açıldığında engel korunur.
+- Veri minimizasyonu: Principal, istemci referansı ve credential throttle deposuna veya audit özetine yazılmaz; audit yalnız politika sürümleri, sayaç ve engel özetini taşır.
+- Maker-checker etkisi: Bu dilimde politika oluşturma/degistirme API'sı yoktur; politika yalnız başlangıçta enjekte edilir. Üretim politika değişikliği onayı ve görevler ayrılığı `OPEN-BNK-019` altında açıktır.
+- Geri alma: LDAP servisi throttle bağımlılığı olmadan kurulamaz; güvenli pasifleştirme ancak banka onaylı daha kısıtlayıcı olmayan yeni politika ve kontrollü migration ile yapılmalıdır.
+- Kalan risk: Üretim anahtar sağlayıcısı, secret manager, istemci referansının güvenilir ağ sınırı, paylaşımlı üretim deposu ve LDAP lockout değer uyumu banka kararı gerektirir.
 
 ## Onaylar
 
-- Teknik dogrulayan: Codex teknik uygulama ajani
-- Bilgi guvenligi: ComplianceReviewRequired
+- Teknik doğrulayan: Codex teknik uygulama ajanı
+- Bilgi güvenliği: ComplianceReviewRequired
 - IAM: ComplianceReviewRequired
-- Ic kontrol: ComplianceReviewRequired
+- İç kontrol: ComplianceReviewRequired
 - Hukuk/uyum: ComplianceReviewRequired
 
-Bu kanit teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayi anlamina gelmez.
+Bu kanıt teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayı anlamına gelmez.

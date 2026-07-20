@@ -14,46 +14,46 @@ version: iteration-17e-local
 executed_at: 2026-07-16
 ---
 
-# Iterasyon 17E Tarihsel Audit Aktarim Kaniti
+# İterasyon 17E Tarihsel Audit Aktarım Kanıtı
 
-## Degisiklik
+## Değişiklik
 
-- Iterasyon: 17E - Tarihsel `audit_records` envanteri ve kontrollu merkezi aktarim
-- Commit/Artifact: Git deposu bulunmadigi icin commit yok; yerel calisma agaci
-- Bilesen: `veri_kalitesi.audit`, `veri_kalitesi.data_sources`
+- İterasyon: 17E - Tarihsel `audit_records` envanteri ve kontrollü merkezi aktarım
+- Commit/Artifact: Git deposu bulunmadığı için commit yok; yerel çalışma ağacı
+- Bileşen: `veri_kalitesi.audit`, `veri_kalitesi.data_sources`
 - Kontrol/Gereksinim: BFR-AUD-001, BFR-AUD-002, BFR-AUD-003, BFR-AUD-004, BRULE-005, FR-077, FR-079 ve UC-016
 
-## Dogrulama
+## Doğrulama
 
 - Komut: `python3 -m pytest -q`
-- Ortam: Python 3.10.12, yerel prototip, bellek ici sentetik SQLite test verisi
-- Sentetik veri seti: Gecerli, bozuk JSON iceren, desteklenmeyen eylemli ve naive zaman damgali legacy audit satirlari
-- Beklenen: Kaynak yalniz okunur; uygun satirlar redakte edilerek merkezi zincire deterministik ve idempotent eklenir; veri kalitesi sorunlari teknik hatadan ayrilir.
-- Gerceklesen: 170 test gecti. Audit ve veri kaynagi hedef grubu 40 testle gecti. Kaynak trace'inde yalniz `PRAGMA`/`SELECT`, tekrar kosusunda duplicate sonucu, hassas alan redaksiyonu, merkezi zincir butunlugu ve teknik hata ayrimi dogrulandi.
-- Sonuc: PASS
+- Ortam: Python 3.10.12, yerel prototip, bellek içi sentetik SQLite test verisi
+- Sentetik veri seti: Geçerli, bozuk JSON içeren, desteklenmeyen eylemli ve naive zaman damgalı legacy audit satırları
+- Beklenen: Kaynak yalnız okunur; uygun satırlar redakte edilerek merkezi zincire deterministik ve idempotent eklenir; veri kalitesi sorunları teknik hatadan ayrılır.
+- Gerçekleşen: 170 test geçti. Audit ve veri kaynağı hedef grubu 40 testle geçti. Kaynak trace'inde yalnız `PRAGMA`/`SELECT`, tekrar koşusunda duplicate sonucu, hassas alan redaksiyonu, merkezi zincir bütünlüğü ve teknik hata ayrımı doğrulandı.
+- Sonuç: PASS
 
 Ek kontroller:
 
-- Degisen Python dosyalarinda `python3 -m ruff format --check ...`: PASS
+- Değişen Python dosyalarında `python3 -m ruff format --check ...`: PASS
 - `python3 -m ruff check 03-Backend/src 06-Testler`: PASS
 - `python3 -m compileall -q 03-Backend/src 06-Testler`: PASS
-- Hassas deger desen taramasi ve eslesme incelemesi: PASS; yalniz redaksiyon politika belirtecleri ile acikca sentetik test degeri bulundu, gercek kimlik bilgisi bulunmadi.
-- Tam depo format kontrolu bu iterasyonda degismeyen 4 eski dosyanin mevcut format farklari nedeniyle PASS degildir.
+- Hassas değer desen taraması ve eşleşme incelemesi: PASS; yalnız redaksiyon politika belirteçleri ile açıkça sentetik test değeri bulundu, gerçek kimlik bilgisi bulunmadı.
+- Tam depo format kontrolü bu iterasyonda değişmeyen 4 eski dosyanın mevcut format farkları nedeniyle PASS değildir.
 
-## Guvenlik
+## Güvenlik
 
-- Kaynak erisimi: Legacy baglantida yalniz sema envanteri ve sirali okuma yapilir; `INSERT`, `UPDATE`, `DELETE` veya DDL uretilmez.
-- Redaksiyon: Yalniz mevcut allowlist'teki eylemler merkezi zarfa alinip guncel `AuditRedactor` politikasindan gecirilir.
-- Kimlik minimizasyonu: Kaynak ve sorun raporu ham kimlik yerine SHA-256 ozeti; merkezi olay deterministik UUID ve correlation ozeti tasir.
-- Hata ayrimi: Bozuk/desteklenmeyen satir veri kalitesi sorunudur; merkezi SQLite/repository arizasi teknik hatadir.
-- Kalan risk: Gercek uretim verisi envanteri ve aktarimi, yedek/geri donus onayi, publisher worker'i ve WORM/SIEM bu teknik kanitin disindadir.
+- Kaynak erişimi: Legacy bağlantıda yalnız sema envanteri ve sıralı okuma yapılır; `INSERT`, `UPDATE`, `DELETE` veya DDL üretilmez.
+- Redaksiyon: Yalnız mevcut allowlist'teki eylemler merkezi zarfa alınıp güncel `AuditRedactor` politikasından geçirilir.
+- Kimlik minimizasyonu: Kaynak ve sorun raporu ham kimlik yerine SHA-256 özeti; merkezi olay deterministik UUID ve correlation özeti taşır.
+- Hata ayrımı: Bozuk/desteklenmeyen satır veri kalitesi sorunudur; merkezi SQLite/repository arızası teknik hatadır.
+- Kalan risk: Gerçek üretim verisi envanteri ve aktarımı, yedek/geri dönüş onayı, publisher worker'ı ve WORM/SIEM bu teknik kanıtın dışındadır.
 
 ## Onaylar
 
-- Teknik dogrulayan: Codex teknik uygulama ajani
-- Bilgi guvenligi: ComplianceReviewRequired
-- Ic kontrol: ComplianceReviewRequired
+- Teknik doğrulayan: Codex teknik uygulama ajanı
+- Bilgi güvenliği: ComplianceReviewRequired
+- İç kontrol: ComplianceReviewRequired
 - Hukuk/uyum: ComplianceReviewRequired
-- Is sahibi: ComplianceReviewRequired
+- İş sahibi: ComplianceReviewRequired
 
-Bu kanit teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayi anlamina gelmez.
+Bu kanıt teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayı anlamına gelmez.

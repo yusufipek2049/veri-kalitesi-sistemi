@@ -21,7 +21,7 @@ from veri_kalitesi.data_sources.models import (
     Dataset,
 )
 from veri_kalitesi.data_sources.postgresql import is_read_only_sql
-from veri_kalitesi.identity import ActorContext, is_trusted_actor_context
+from veri_kalitesi.identity import ActorContext, ActorType, is_trusted_actor_context
 from veri_kalitesi.rules.errors import (
     RuleAuthorizationError,
     RuleTestTechnicalError,
@@ -65,6 +65,13 @@ class RuleTestExecutor(Protocol):
     ) -> RuleTestComputation: ...
 
 
+class BusinessCalendar(Protocol):
+    @property
+    def version(self) -> str: ...
+
+    def add_business_days(self, start_at: datetime, business_days: int) -> datetime: ...
+
+
 class RuleService:
     def __init__(
         self,
@@ -75,6 +82,7 @@ class RuleService:
         audit_sink: AuditSink,
         transactional_audit: SQLiteTransactionalAudit,
         approval_policy: RuleApprovalPolicy | None = None,
+        approval_calendar: BusinessCalendar | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ) -> None:
         self.repository = repository
@@ -83,9 +91,11 @@ class RuleService:
         self.audit_sink = audit_sink
         self.transactional_audit = transactional_audit
         self.approval_policy = approval_policy
+        self.approval_calendar = approval_calendar
         self.clock = clock
         if approval_policy is not None:
             _validate_approval_policy(approval_policy)
+            _validate_approval_calendar(approval_policy, approval_calendar)
 
     def create_rule(
         self,
@@ -391,11 +401,18 @@ class RuleService:
             raise RuleValidationError("Rule approval requires a successful latest-version test.")
         if not rule.owner_user_id.strip():
             raise RuleValidationError("Rule approval requires an owner.")
+        requested_at = self.clock()
+        if not _is_aware(requested_at):
+            raise RuleValidationError("Rule approval clock must be timezone-aware.")
+        target_at, expires_at, calendar_version = self._approval_timing(requested_at)
         request = RuleApprovalRequest(
             rule_version_id=version.rule_version_id,
             maker_actor_id=context.actor_id,
             policy_version=policy.version,
-            requested_at=self.clock(),
+            requested_at=requested_at,
+            target_at=target_at,
+            expires_at=expires_at,
+            business_calendar_version=calendar_version,
         )
         audit_event = self._build_audit_event(
             context.actor_id,
@@ -409,6 +426,9 @@ class RuleService:
                 "approval_request_id": request.approval_request_id,
                 "policy_version": policy.version,
                 "status": request.status.value,
+                "target_at": target_at.isoformat() if target_at else None,
+                "expires_at": expires_at.isoformat() if expires_at else None,
+                "business_calendar_version": calendar_version,
             },
             actor_type=context.actor_type.value,
             session_id=context.session_id,
@@ -440,6 +460,8 @@ class RuleService:
         )
         if request.status is not RuleApprovalStatus.PENDING:
             raise RuleValidationError("Rule approval request is not pending.")
+        if self._approval_request_expired(request):
+            raise RuleValidationError("Rule approval request has expired and must be recreated.")
         if request.policy_version != policy.version:
             raise RuleValidationError("Rule approval policy version changed.")
         if request.maker_actor_id == context.actor_id:
@@ -460,6 +482,9 @@ class RuleService:
             status=status,
             decision_reason_code=normalized_reason,
             requested_at=request.requested_at,
+            target_at=request.target_at,
+            expires_at=request.expires_at,
+            business_calendar_version=request.business_calendar_version,
             decided_at=self.clock(),
         )
         audit_event = self._build_audit_event(
@@ -507,6 +532,8 @@ class RuleService:
         )
         if request.status is not RuleApprovalStatus.PENDING:
             raise RuleValidationError("Rule approval request is not pending.")
+        if self._approval_request_expired(request):
+            raise RuleValidationError("Rule approval request has expired and must be recreated.")
         if request.maker_actor_id != context.actor_id:
             raise RuleAuthorizationError("Only the approval request maker can withdraw it.")
         if version.prepared_by_actor_id != context.actor_id:
@@ -525,6 +552,9 @@ class RuleService:
             status=RuleApprovalStatus.WITHDRAWN,
             decision_reason_code=normalized_reason,
             requested_at=request.requested_at,
+            target_at=request.target_at,
+            expires_at=request.expires_at,
+            business_calendar_version=request.business_calendar_version,
             decided_at=withdrawn_at,
         )
         audit_event = self._build_audit_event(
@@ -551,6 +581,113 @@ class RuleService:
         )
         self.transactional_audit.publish_pending()
         return stored
+
+    def expire_due_rule_approvals(
+        self,
+        *,
+        actor_context: ActorContext | None,
+    ) -> tuple[RuleApprovalRequest, ...]:
+        context = self._authorize_expiry_actor(actor_context)
+        expired_at = self.clock()
+        if not _is_aware(expired_at):
+            raise RuleValidationError("Rule approval clock must be timezone-aware.")
+        due = self.repository.list_due_approval_requests(expired_at)
+        resolved: list[tuple[RuleApprovalRequest, RuleVersion, QualityRule]] = []
+        for request in due:
+            version = self.repository.get_version(request.rule_version_id)
+            rule = self.repository.get_rule(version.quality_rule_id)
+            if rule.dataset_id not in context.permitted_dataset_ids:
+                raise RuleAuthorizationError("Expiry worker is outside the rule dataset scope.")
+            resolved.append((request, version, rule))
+
+        expired_requests = []
+        for request, version, rule in resolved:
+            expired = RuleApprovalRequest(
+                approval_request_id=request.approval_request_id,
+                rule_version_id=request.rule_version_id,
+                maker_actor_id=request.maker_actor_id,
+                policy_version=request.policy_version,
+                status=RuleApprovalStatus.EXPIRED,
+                decision_reason_code="RULE.APPROVAL.EXPIRED",
+                requested_at=request.requested_at,
+                target_at=request.target_at,
+                expires_at=request.expires_at,
+                business_calendar_version=request.business_calendar_version,
+                decided_at=expired_at,
+            )
+            audit_event = self._build_audit_event(
+                context.actor_id,
+                context.correlation_id,
+                "QUALITY_RULE_APPROVAL_EXPIRED",
+                rule.quality_rule_id,
+                AuditResult.SUCCESS,
+                "RULE_APPROVAL_EXPIRED",
+                {
+                    "rule_version_id": version.rule_version_id,
+                    "approval_request_id": request.approval_request_id,
+                    "policy_version": request.policy_version,
+                    "business_calendar_version": request.business_calendar_version,
+                    "status": RuleApprovalStatus.EXPIRED.value,
+                },
+                old_values={"status": RuleApprovalStatus.PENDING.value},
+                actor_type=context.actor_type.value,
+                session_id=context.session_id,
+            )
+            stored = self.repository.expire_approval_request(
+                expired,
+                audit_event=self.transactional_audit.prepare(audit_event),
+                audit_outbox=self.transactional_audit,
+            )
+            self.transactional_audit.publish_pending()
+            expired_requests.append(stored)
+        return tuple(expired_requests)
+
+    def _approval_timing(
+        self, requested_at: datetime
+    ) -> tuple[datetime | None, datetime | None, str | None]:
+        policy = self._require_approval_policy()
+        if policy.expiration_business_days is None:
+            return None, None, None
+        assert policy.target_business_days is not None
+        assert policy.business_calendar_version is not None
+        assert self.approval_calendar is not None
+        target_at = self.approval_calendar.add_business_days(
+            requested_at, policy.target_business_days
+        )
+        expires_at = self.approval_calendar.add_business_days(
+            requested_at, policy.expiration_business_days
+        )
+        if not _is_aware(target_at) or not _is_aware(expires_at):
+            raise RuleValidationError("Rule approval calendar must return timezone-aware values.")
+        if not requested_at < target_at < expires_at:
+            raise RuleValidationError("Rule approval calendar returned an invalid time window.")
+        return target_at, expires_at, policy.business_calendar_version
+
+    def _approval_request_expired(self, request: RuleApprovalRequest) -> bool:
+        if request.expires_at is None:
+            return False
+        now = self.clock()
+        if not _is_aware(now):
+            raise RuleValidationError("Rule approval clock must be timezone-aware.")
+        return now >= request.expires_at
+
+    def _authorize_expiry_actor(self, context: ActorContext | None) -> ActorContext:
+        policy = self._require_approval_policy()
+        now = self.clock()
+        if not _is_aware(now):
+            raise RuleValidationError("Rule approval clock must be timezone-aware.")
+        if not is_trusted_actor_context(context):
+            raise RuleAuthorizationError("Trusted expiry service context is required.")
+        assert context is not None
+        if context.issued_at > now or context.expires_at <= now:
+            raise RuleAuthorizationError("Expiry service context is not currently valid.")
+        if context.policy_version != policy.actor_policy_version:
+            raise RuleAuthorizationError("Expiry service policy version is not accepted.")
+        if context.actor_type is not ActorType.SERVICE:
+            raise RuleAuthorizationError("Rule approval expiry requires a service account.")
+        if not policy.expiry_service_roles or context.roles.isdisjoint(policy.expiry_service_roles):
+            raise RuleAuthorizationError("Service account cannot expire rule approvals.")
+        return context
 
     def _requires_approval(self, criticality: RuleCriticality) -> bool:
         if self.approval_policy is None:
@@ -698,6 +835,44 @@ def _validate_approval_policy(policy: RuleApprovalPolicy) -> None:
         raise RuleValidationError("Rule approval policy scope is required.")
     if any(not role.strip() for role in (*policy.maker_roles, *policy.checker_roles)):
         raise RuleValidationError("Rule approval policy roles must not be blank.")
+    timing = (
+        policy.target_business_days,
+        policy.expiration_business_days,
+        policy.business_calendar_version,
+    )
+    if any(value is not None for value in timing) and not all(
+        value is not None for value in timing
+    ):
+        raise RuleValidationError("Rule approval timing policy must be complete.")
+    if policy.expiration_business_days is not None:
+        target = policy.target_business_days
+        expiration = policy.expiration_business_days
+        if (
+            isinstance(target, bool)
+            or isinstance(expiration, bool)
+            or not isinstance(target, int)
+            or not isinstance(expiration, int)
+            or target < 1
+            or expiration <= target
+        ):
+            raise RuleValidationError("Rule approval business-day limits are invalid.")
+        if not policy.business_calendar_version or not policy.business_calendar_version.strip():
+            raise RuleValidationError("Rule approval business calendar version is required.")
+        if not policy.expiry_service_roles or any(
+            not role.strip() for role in policy.expiry_service_roles
+        ):
+            raise RuleValidationError("Rule approval expiry service roles are required.")
+
+
+def _validate_approval_calendar(
+    policy: RuleApprovalPolicy, calendar: BusinessCalendar | None
+) -> None:
+    if policy.expiration_business_days is None:
+        return
+    if calendar is None:
+        raise RuleValidationError("Rule approval business calendar is required.")
+    if calendar.version != policy.business_calendar_version:
+        raise RuleValidationError("Rule approval business calendar version does not match policy.")
 
 
 def _parse_approval_decision(decision: str) -> RuleApprovalStatus:

@@ -1,5 +1,5 @@
 # Bildirim
 
-Sistem ici bildirim, veri minimizasyonu, yetki ve tekrar kontrolu teknik kanitlari.
+Sistem içi bildirim, veri minimizasyonu, yetki ve tekrar kontrolü teknik kanıtları.
 
-Gercek banka verisi, kullanici kimligi, ham hata kaydi veya secret eklenmez.
+Gerçek banka verisi, kullanıcı kimliği, ham hata kaydi veya secret eklenmez.

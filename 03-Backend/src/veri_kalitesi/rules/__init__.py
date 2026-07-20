@@ -23,12 +23,13 @@ from veri_kalitesi.rules.models import (
     RuleVersion,
 )
 from veri_kalitesi.rules.repository import SQLiteRuleRepository
-from veri_kalitesi.rules.service import RuleService, RuleTestExecutor
+from veri_kalitesi.rules.service import BusinessCalendar, RuleService, RuleTestExecutor
 from veri_kalitesi.rules.templates import build_rule_plan
 
 __all__ = [
     "QualityDimension",
     "QualityRule",
+    "BusinessCalendar",
     "RuleApprovalPolicy",
     "RuleApprovalRequest",
     "RuleApprovalStatus",

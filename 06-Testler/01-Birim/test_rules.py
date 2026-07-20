@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import pytest
 
@@ -22,6 +22,7 @@ from veri_kalitesi.audit import (
 from veri_kalitesi.data_sources import DataField, DataSource, DataSourceStatus, Dataset, SourceType
 from veri_kalitesi.identity import ActorContext, ActorContextIssuer, ActorType
 from veri_kalitesi.rules import (
+    BusinessCalendar,
     RuleApprovalPolicy,
     RuleApprovalStatus,
     RuleAuthorizationError,
@@ -122,12 +123,37 @@ class FakeRuleExecutor:
         return self.outcome
 
 
+@dataclass(frozen=True)
+class FakeBusinessCalendar:
+    version: str = "BANK_BUSINESS_CALENDAR_V1"
+    holidays: frozenset[date] = frozenset()
+
+    def add_business_days(self, start_at: datetime, business_days: int) -> datetime:
+        current = start_at
+        remaining = business_days
+        while remaining:
+            current += timedelta(days=1)
+            if current.weekday() < 5 and current.date() not in self.holidays:
+                remaining -= 1
+        return current
+
+
+@dataclass
+class MutableClock:
+    now: datetime
+
+    def __call__(self) -> datetime:
+        return self.now
+
+
 def _rule_service(
     repository: SQLiteRuleRepository,
     catalog: FakeMetadataCatalog,
     executor: FakeRuleExecutor,
     *,
     approval_policy: RuleApprovalPolicy | None = None,
+    approval_calendar: BusinessCalendar | None = None,
+    clock: Callable[[], datetime] = lambda: NOW,
 ) -> RuleService:
     audit_repository = SQLiteAuditRepository()
     redactor = AuditRedactor(build_default_redaction_policy())
@@ -147,7 +173,8 @@ def _rule_service(
             policy_version="AUDIT_OUTBOX_TEST_V1",
         ),
         approval_policy=approval_policy,
-        clock=lambda: NOW,
+        approval_calendar=approval_calendar,
+        clock=clock,
     )
 
 
@@ -820,6 +847,183 @@ def test_br_rule_001_bfr_sod_003_rule_withdrawal_rejects_unauthorized_actor(
     assert repository.get_rule(rule.quality_rule_id).status is RuleStatus.DRAFT
 
 
+def test_fr_035_bfr_sod_004_rule_approval_uses_versioned_business_day_window() -> None:
+    repository = SQLiteRuleRepository()
+    calendar = FakeBusinessCalendar(holidays=frozenset({date(2026, 7, 17)}))
+    service = _approval_rule_service(repository, calendar=calendar)
+
+    _, _, request = _pending_critical_rule_approval(service)
+
+    assert request.requested_at == NOW
+    assert request.target_at == datetime(2026, 7, 22, 15, 0, tzinfo=timezone.utc)
+    assert request.expires_at == datetime(2026, 7, 31, 15, 0, tzinfo=timezone.utc)
+    assert request.business_calendar_version == "BANK_BUSINESS_CALENDAR_V1"
+    stored = repository.get_approval_request(request.approval_request_id)
+    assert stored == request
+
+
+def test_fr_035_bfr_sod_004_expired_request_cannot_be_decided_and_can_be_recreated() -> None:
+    repository = SQLiteRuleRepository()
+    clock = MutableClock(NOW)
+    service = _approval_rule_service(repository, clock=clock)
+    rule, version, request = _pending_critical_rule_approval(service)
+    assert request.expires_at is not None
+    clock.now = request.expires_at
+
+    with pytest.raises(RuleValidationError, match="expired and must be recreated"):
+        service.decide_rule_approval(
+            actor_context=_actor_context_at(clock.now, "checker-1", {"RULE_CHECKER"}),
+            approval_request_id=request.approval_request_id,
+            decision="APPROVE",
+            reason_code="RULE.TEST.PASSED",
+        )
+
+    expired = service.expire_due_rule_approvals(
+        actor_context=_actor_context_at(
+            clock.now,
+            "rule-expiry-worker",
+            {"RULE_APPROVAL_EXPIRY_WORKER"},
+            actor_type=ActorType.SERVICE,
+        )
+    )
+
+    assert len(expired) == 1
+    assert expired[0].status is RuleApprovalStatus.EXPIRED
+    assert expired[0].decision_reason_code == "RULE.APPROVAL.EXPIRED"
+    assert expired[0].decided_at == clock.now
+    assert repository.get_rule(rule.quality_rule_id).status is RuleStatus.DRAFT
+    audit = _audit_events(service)[-1]
+    assert audit.action == "QUALITY_RULE_APPROVAL_EXPIRED"
+    assert audit.reason_code == "RULE_APPROVAL_EXPIRED"
+    assert audit.old_value_summary == {"status": "PENDING"}
+    assert audit.new_value_summary["status"] == "EXPIRED"
+    assert "maker-1" not in str(audit)
+
+    recreated = service.request_rule_approval(
+        actor_context=_actor_context_at(clock.now, "maker-1", {"RULE_MAKER"}),
+        quality_rule_id=rule.quality_rule_id,
+    )
+    assert recreated.status is RuleApprovalStatus.PENDING
+    assert recreated.rule_version_id == version.rule_version_id
+    assert recreated.approval_request_id != request.approval_request_id
+
+
+@pytest.mark.parametrize(
+    "actor_context",
+    [
+        None,
+        pytest.param(
+            lambda now: _actor_context_at(now, "human", {"RULE_APPROVAL_EXPIRY_WORKER"}),
+            id="human-account",
+        ),
+        pytest.param(
+            lambda now: _actor_context_at(
+                now, "service-wrong-role", {"RULE_CHECKER"}, actor_type=ActorType.SERVICE
+            ),
+            id="service-wrong-role",
+        ),
+        pytest.param(
+            lambda now: _actor_context_at(
+                now,
+                "service-wrong-scope",
+                {"RULE_APPROVAL_EXPIRY_WORKER"},
+                dataset_ids={"dataset-other"},
+                actor_type=ActorType.SERVICE,
+            ),
+            id="service-wrong-scope",
+        ),
+    ],
+)
+def test_br_rule_001_bfr_sod_003_expiry_rejects_unauthorized_actor(
+    actor_context: ActorContext | Any,
+) -> None:
+    repository = SQLiteRuleRepository()
+    clock = MutableClock(NOW)
+    service = _approval_rule_service(repository, clock=clock)
+    rule, _, request = _pending_critical_rule_approval(service)
+    assert request.expires_at is not None
+    clock.now = request.expires_at
+    resolved_context = actor_context(clock.now) if callable(actor_context) else actor_context
+
+    with pytest.raises(RuleAuthorizationError):
+        service.expire_due_rule_approvals(actor_context=resolved_context)
+
+    assert repository.get_approval_request(request.approval_request_id).status is (
+        RuleApprovalStatus.PENDING
+    )
+    assert repository.get_rule(rule.quality_rule_id).status is RuleStatus.DRAFT
+
+
+def test_bfr_aud_004_outbox_failure_rolls_back_rule_approval_expiry() -> None:
+    repository = SQLiteRuleRepository()
+    clock = MutableClock(NOW)
+    service = _approval_rule_service(repository, clock=clock)
+    _, _, request = _pending_critical_rule_approval(service)
+    assert request.expires_at is not None
+    clock.now = request.expires_at
+    _use_failing_stage(service)
+
+    with pytest.raises(sqlite3.OperationalError, match="outbox write failure"):
+        service.expire_due_rule_approvals(
+            actor_context=_actor_context_at(
+                clock.now,
+                "rule-expiry-worker",
+                {"RULE_APPROVAL_EXPIRY_WORKER"},
+                actor_type=ActorType.SERVICE,
+            )
+        )
+
+    assert repository.get_approval_request(request.approval_request_id).status is (
+        RuleApprovalStatus.PENDING
+    )
+
+
+def test_bfr_sod_004_legacy_approval_schema_migrates_without_losing_history(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "legacy-rule-approval.sqlite"
+    connection = sqlite3.connect(database)
+    connection.executescript(
+        """
+        CREATE TABLE rule_approval_requests (
+            approval_request_id TEXT PRIMARY KEY,
+            rule_version_id TEXT NOT NULL UNIQUE,
+            maker_actor_id TEXT NOT NULL,
+            checker_actor_id TEXT,
+            policy_version TEXT NOT NULL,
+            status TEXT NOT NULL,
+            decision_reason_code TEXT,
+            requested_at TEXT NOT NULL,
+            decided_at TEXT
+        );
+        INSERT INTO rule_approval_requests (
+            approval_request_id, rule_version_id, maker_actor_id,
+            policy_version, status, requested_at
+        ) VALUES (
+            'approval-legacy', 'version-legacy', 'maker-legacy',
+            'RULE_APPROVAL_POLICY_LEGACY', 'APPROVED', '2026-07-16T15:00:00+00:00'
+        );
+        """
+    )
+    connection.close()
+
+    repository = SQLiteRuleRepository(str(database))
+
+    stored = repository.get_approval_request("approval-legacy")
+    assert stored.status is RuleApprovalStatus.APPROVED
+    assert stored.target_at is None
+    assert stored.expires_at is None
+    columns = {
+        row["name"]
+        for row in repository.connection.execute(
+            "PRAGMA table_info(rule_approval_requests)"
+        ).fetchall()
+    }
+    assert {"target_at", "expires_at", "business_calendar_version"} <= columns
+    indexes = repository.connection.execute("PRAGMA index_list(rule_approval_requests)").fetchall()
+    assert any(row["name"] == "ux_rule_approval_pending_version" for row in indexes)
+
+
 def test_rule_007_stale_rule_approval_can_be_withdrawn_without_affecting_new_version() -> None:
     repository = SQLiteRuleRepository()
     service = _approval_rule_service(repository)
@@ -1019,7 +1223,12 @@ def _create_required_rule(
     )
 
 
-def _approval_rule_service(repository: SQLiteRuleRepository) -> RuleService:
+def _approval_rule_service(
+    repository: SQLiteRuleRepository,
+    *,
+    clock: Callable[[], datetime] = lambda: NOW,
+    calendar: BusinessCalendar = FakeBusinessCalendar(),
+) -> RuleService:
     return _rule_service(
         repository,
         FakeMetadataCatalog(),
@@ -1029,7 +1238,13 @@ def _approval_rule_service(repository: SQLiteRuleRepository) -> RuleService:
             actor_policy_version=ACTOR_POLICY_VERSION,
             maker_roles=frozenset({"RULE_MAKER"}),
             checker_roles=frozenset({"RULE_CHECKER"}),
+            target_business_days=3,
+            expiration_business_days=10,
+            business_calendar_version="BANK_BUSINESS_CALENDAR_V1",
+            expiry_service_roles=frozenset({"RULE_APPROVAL_EXPIRY_WORKER"}),
         ),
+        approval_calendar=calendar,
+        clock=clock,
     )
 
 
@@ -1064,6 +1279,31 @@ def _actor_context(
         privileged=privileged,
         issued_at=NOW - timedelta(minutes=5),
         expires_at=expires_at,
+        policy_version=ACTOR_POLICY_VERSION,
+        correlation_id=f"correlation-{actor_id}",
+    )
+
+
+def _actor_context_at(
+    now: datetime,
+    actor_id: str,
+    roles: set[str],
+    *,
+    dataset_ids: set[str] | None = None,
+    actor_type: ActorType = ActorType.USER,
+) -> ActorContext:
+    return ActorContextIssuer().issue(
+        actor_id=actor_id,
+        actor_type=actor_type,
+        authentication_source="synthetic-identity-adapter",
+        session_id=f"session-{actor_id}",
+        roles=frozenset(roles),
+        permitted_source_ids=frozenset({"source-main"}),
+        permitted_dataset_ids=frozenset(dataset_ids or {DATASET_ID}),
+        can_view_enterprise=False,
+        privileged=False,
+        issued_at=now - timedelta(minutes=5),
+        expires_at=now + timedelta(hours=1),
         policy_version=ACTOR_POLICY_VERSION,
         correlation_id=f"correlation-{actor_id}",
     )

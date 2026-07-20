@@ -1,5 +1,5 @@
 # Sorun Yonetimi
 
-Issue olusturma, atama, durum gecisi, gecmis, yetki ve veri minimizasyonu teknik kanitlari.
+Issue oluşturma, atama, durum geçişi, geçmiş, yetki ve veri minimizasyonu teknik kanıtları.
 
-Gercek banka verisi, kullanici kimligi, ham hatali kayit, serbest hassas metin veya secret eklenmez.
+Gerçek banka verisi, kullanıcı kimliği, ham hatalı kayıt, serbest hassas metin veya secret eklenmez.

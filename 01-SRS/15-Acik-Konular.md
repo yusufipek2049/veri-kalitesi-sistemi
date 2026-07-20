@@ -4,7 +4,7 @@ project: Veri Kalitesi İzleme ve Skorlama Sistemi
 source_document: Veri_Kalitesi_Izleme_ve_Skorlama_Sistemi_SRS_v0.1.md
 source_version: "0.1"
 source_section: "15"
-generated_at: 2026-07-16
+created_at: 2026-07-16
 tags:
   - srs
   - open-topic
@@ -17,7 +17,7 @@ Bu bölüm, kesinleştirilmemiş kararları uydurmadan görünür kılar. Hedef 
 | Konu ID | Açıklama | Kategori | Karar sahibi | Hedef karar tarihi | Etkilenen gereksinimler |
 | --- | --- | --- | --- | --- | --- |
 | OPEN-001 | Üretim ortamındaki kesin kaynak, veri kümesi, alan ve aktif kural sayısı | Varsayım | Proje Sponsoru / Veri Yönetişimi | TBD | NFR-SCL-003, NFR-PERF |
-| OPEN-002 | Üretim worker sayısı ve kaynak bazlı eş zamanlı sorgu kotası | Teknik karar gerekli | Yazılım Mimarı / DBA | TBD | FR-039, RULE-012, NFR-PERF-006 |
+| OPEN-002 | Üretim worker sayısı ve kaynak bazlı eş zamanlı sorgu kotası | Teknik karar gerekli | Yazılım Mimari / DBA | TBD | FR-039, RULE-012, NFR-PERF-006 |
 | OPEN-003 | Kaynak sistemlerde izin verilen CPU/IO ve çalışma penceresi | İş birimi kararı gerekli | DBA / Uygulama Sahibi | TBD | FR-031, FR-039, NFR-PERF-008 |
 | OPEN-004 | Kurumsal secret manager ürünü ve erişim modeli | Güvenlik onayı gerekli | Bilgi Güvenliği | TBD | FR-009, NFR-SEC-005 |
 | OPEN-005 | LDAP şema, grup-rol eşleme ve yüksek erişilebilirlik ayrıntıları | Teknik karar gerekli | Kimlik Yönetimi Ekibi | TBD | FR-001, FR-003, NFR-AVL |

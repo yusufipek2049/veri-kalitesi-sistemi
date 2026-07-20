@@ -1,5 +1,5 @@
 # Veri Koruma
 
-Siniflandirma, maskeleme, veri minimizasyonu ve isleme envanteri teknik kanitlari.
+Sınıflandırma, maskeleme, veri minimizasyonu ve işleme envanteri teknik kanıtları.
 
-Gercek musteri verisi, banka etiketi eslemesi veya secret eklenmez.
+Gerçek müşteri verisi, banka etiketi eşlemesi veya secret eklenmez.

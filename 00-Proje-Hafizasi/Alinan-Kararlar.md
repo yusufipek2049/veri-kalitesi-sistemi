@@ -192,8 +192,172 @@ tags:
 | --- | --- | --- | --- | --- |
 | 2026-07-20 | Exception ile kesin sonlanan kimlik yardımcıları `NoReturn` olarak modellenecek; test double'ları geniş `object` veya davranışı gizleyen cast yerine uygulama protokolleriyle eşleşecektir. | Tam type-check sonucunu davranış değiştirmeden güvenilir hale getirmek ve gerçek sözleşme sapmalarını görünür tutmak gerekir. | Hataları global ignore, `Any` veya toplu cast ile bastırmak. | Tam depo mypy baseline'ı 109 dosyada sıfır hatadır; gelecekteki sapmalar yeni teknik borç sayılacaktır. |
 
+## 2026-07-20 İterasyon 19D Kararları
+
+| Tarih | Karar | Gerekçe | Alternatif | Sonuç |
+| --- | --- | --- | --- | --- |
+| 2026-07-20 | Kural onay isteği hedefi 3 iş günü, otomatik sona ermesi 10 iş günü olacak; süre istek oluşturma anında başlayacak ve sürümlü iş takvimiyle hesaplanacaktır. | Kullanıcı karar paketindeki süre politikası uygulanırken gerçek banka tatil takvimi kod içine gömülmemeli ve geçmiş istek hangi takvimle hesaplandığını korumalıdır. | Takvim günü kullanmak, hafta sonu/tatili sabit kodlamak veya sona erme zamanını sorgu anında yeniden hesaplamak. | İstek hedef/sona erme zamanı ve takvim sürümünü saklar; enjekte edilen takvim olmadan zamanlı politika fail-closed kapanır. |
+| 2026-07-20 | Süre aşımı yalnız güvenilir servis `ActorContext` ile, dataset kapsamı ve sürümlü teknik rolle yürütülecek; durum ve audit outbox atomik yazılacaktır. | Serbest scheduler aktörü veya best-effort audit, bekleyen kritik değişikliğin izsiz kapatılmasına yol açabilir. | Aktörsüz toplu SQL güncellemesi, normal checker'ın isteği sona erdirmesi veya audit'i sonradan yazmak. | Yetkisiz kullanıcı/servis reddedilir; audit-stage arızasında istek `PENDING` kalır. Banka rol eşlemesi `ComplianceReviewRequired` durumundadır. |
+| 2026-07-20 | Aynı RuleVersion için yalnız bir `PENDING` istek bulunacak; `EXPIRED` geçmiş silinmeden aynı sürüm için yeni istek oluşturulabilecektir. | Sona eren isteğin yeniden oluşturulması gerekirken mevcut tam benzersizlik kısıtı tarihsel kayıt ile yeni iş akışını birbirine kilitliyordu. | Eski isteği yerinde tekrar açmak, silmek veya her sona ermede yapay RuleVersion oluşturmak. | SQLite şeması kısmi benzersiz indekse geriye uyumlu taşınır; eski karar geçmişi korunur. |
+
 ## İlişkili Notlar
 
 - [Sistem Açıklaması](../01-SRS/02-Sistem-Aciklamasi.md)
 - [Güvenlik NFR](../01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.05-Guvenlik.md)
 - [Açık Konular ve Varsayımlar](../01-SRS/15-Acik-Konular.md)
+
+## 2026-07-20 Açık Konulardan Aktarılan Karar Paketi
+
+# Alınan Kararlar
+
+> Karar tarihi: 20 Temmuz 2026  
+> Kapsam: Veri Kalitesi İzleme ve Skorlama Sistemi  
+> Durum sözlüğü:
+> - `KararAlındı`: Teknik yön kesinleşti.
+> - `ProvisionalDecision`: Teknik yön seçildi; banka kurulu, hukuk, uyum, IAM, bilgi güvenliği veya iç kontrol onayı bekleniyor.
+> - `Tamamlandı`: Kullanıcı beyanına göre uygulaması tamamlandı.
+> - `Açık`: Ürün, rol eşlemesi, kapsam veya kurumsal onay henüz belirlenmedi.
+
+## Teknik ve Mimari Kararlar
+
+1. **Bağlayıcı geliştirme sırası:** Önce PostgreSQL bağlayıcısı üretim seviyesine çıkarılacak, ardından CSV bağlayıcısı tamamlanacaktır. `KararAlındı`
+2. **PostgreSQL erişim yaklaşımı:** `psycopg 3` ve SQLAlchemy bağlantı havuzu kullanılan senkron worker modeli uygulanacaktır. `KararAlındı`
+3. **Entegrasyon test ortamı:** CI içinde geçici PostgreSQL konteyneri ve kurum içinde kalıcı entegrasyon veritabanı birlikte kullanılacaktır. `ProvisionalDecision`
+4. **20 milyon satırlık performans verisi:** Önce gerçek dağılımları taklit eden sentetik veri, ardından anonimleştirilmiş veriyle kabul testi yapılacaktır. `ProvisionalDecision`
+5. **HEAVY/LIGHT sınıflandırması:** Tahmini satır sayısı, sorgu maliyeti, geçmiş çalışma süresi ve kaynak kapasitesi birlikte değerlendirilerek birleşik maliyet skoru üretilecektir. `KararAlındı`
+6. **Kaynak bazlı sorgu kotası:** Her kaynak için ayrı `LIGHT`, `HEAVY` ve toplam eşzamanlı sorgu kotası tutulacaktır. Nihai değerler kapasite testiyle belirlenecektir. `ProvisionalDecision`
+7. **Üretim iş kuyruğu:** Bankanın kurumsal broker standardı kullanılacaktır. Kurumsal standart bulunmaması halinde RabbitMQ tercih edilecektir. `ProvisionalDecision`
+8. **Timeout ve iptal:** Bağlantı, sorgu ve toplam çalışma timeoutları ayrı, kaynak bazında ve sürümlü konfigürasyonla taşınacaktır. Süre dolduğunda sürücü seviyesinde gerçek sorgu iptali zorunludur. `KararAlındı`
+9. **Dağıtım platformu:** Pilot aşamada VM/konteyner, üretimde kurum içi OpenShift/Kubernetes veya bankanın eşdeğer konteyner platformu kullanılacaktır. `ProvisionalDecision`
+10. **Üretim veritabanı:** Kurum tarafından işletilen yüksek erişilebilir PostgreSQL kullanılacaktır. Kurumsal PostgreSQL hizmeti yoksa bankanın standart ilişkisel veritabanı ürünü esas alınacaktır. `ProvisionalDecision`
+11. **İş sürekliliği:** Normal iç sistem kapsamı için `RTO=4 saat`, `RPO=15 dakika`; sistem BCBS 239, risk verisi veya düzenleyici raporlama zincirine girerse `RTO=1 saat`, `RPO=5 dakika` uygulanacaktır. `ProvisionalDecision`
+12. **Zamanlama grameri:** Beş alanlı POSIX cron alt kümesi, zorunlu timezone ve tanımlı DST davranışı desteklenecektir. `KararAlındı`
+13. **Secret yönetimi:** Bankanın kurumsal secret manager/PAM ürünü kullanılacaktır. Platform secret mekanizması yalnız geçici entegrasyon katmanı olabilir; açık metin ortam değişkeni kalıcı çözüm değildir. `ProvisionalDecision`
+14. **Kimlik doğrulama:** Kurumsal IdP üzerinden OIDC veya SAML SSO kullanılacak; LDAP grupları rol ve scope yetkilendirmesine kaynak olacaktır. `ProvisionalDecision`
+15. **Ayrıcalıklı erişim:** IdP MFA, PAM, süreli ayrıcalık ve çift onaylı break-glass modeli uygulanacaktır. `ProvisionalDecision`
+16. **ActorContext sınırı:** `ActorContext` yalnız güvenilir kimlik/session adaptörü tarafından üretilebilecek; servislerdeki serbest `actor_id` kullanımı kademeli olarak kaldırılacaktır. `KararAlındı`
+17. **Başarısız giriş sınırlandırması:** Asıl kullanıcı kilitleme IdP/LDAP tarafından yönetilecek; uygulama endpoint ve güvenilir istemci referansı bazlı rate limit uygulayacaktır. `ProvisionalDecision`
+18. **Kullanıcı oturumu:** Sunucu taraflı opak session; `Secure`, `HttpOnly`, uygun `SameSite` cookie ve CSRF koruması kullanılacaktır. Hareketsizlik süresi **1 saat**, mutlak oturum süresi **10 saat**, kullanıcı başına eşzamanlı aktif oturum sayısı **1** olacaktır. Yeni başarılı giriş mevcut aktif oturumu iptal edip audit kaydı oluşturacaktır. Session geçmişi kapanıştan sonra `P1Y` saklanacaktır. `ProvisionalDecision`
+19. **Şema değişikliği:** Yalnız değişen tablo/kolonla ilişkili aktif kurallar `REVIEW_REQUIRED` durumuna alınacaktır. `KararAlındı`
+20. **QualityDimension kimliği:** Kalıcı UUID’ye sahip boyut tablosu oluşturulacak; `COMPLETENESS` gibi değişmez iş kodu ayrıca korunacaktır. `KararAlındı`
+21. **Dataset kritiklik ağırlığı:** Temel katsayılar `LOW=0.75`, `MEDIUM=1.00`, `HIGH=1.25`, `CRITICAL=1.50` olacaktır. Dataset türüne göre farklı katsayı tanımlanabilecek ve bu bilgi sürümlü politika tablosunda tutulacaktır. Aktif özel kayıt yoksa temel katsayıya dönülecektir. `KararAlındı`
+22. **Kurum skorunda kaynak ağırlığı:** Dataset kritiklik ve iş etkisine göre normalize edilmiş ağırlık kullanılacak; gerekçeli ve maker-checker onaylı kontrollü override desteklenecektir. `ProvisionalDecision`
+23. **Kısmi çalıştırma skoru:** Kısmi çalıştırmalar hiçbir durumda resmi skora katılmayacak; ayrı `PROVISIONAL` skor ve kapsama oranıyla gösterilecektir. `KararAlındı`
+24. **Maker-checker kapsamı:** Kritik kurallar, veri kaynağı aktivasyonu, skor konfigürasyonu, hassas dışa aktarma ve güvenlik istisnaları maker-checker kapsamındadır. Onay için hedef süre **3 iş günü**, otomatik sona erme süresi **10 iş günü** olacaktır. Süre istek oluşturulduğunda başlar; banka iş günü takvimi kullanılır; sona eren istek onaylanamaz ve yeniden oluşturulmalıdır. `ProvisionalDecision`
+25. **Veri sınıflandırma eşlemesi:** Banka sözlüğüne eşlenmeyen teknik sınıflandırma kodlarında fail-closed davranışı uygulanacaktır. `ProvisionalDecision`
+26. **Audit hata davranışı:** Kritik değişiklikler audit yazılamadığında fail-closed olacaktır. Salt okunur veya düşük riskli işlemler durable buffer’a alınabilir; buffer da kullanılamıyorsa işlem fail-closed olur. `ProvisionalDecision`
+27. **Durable buffer/outbox:** PostgreSQL transactional outbox ve ayrı publisher worker kullanılacaktır. İş kaydıyla outbox kaydı aynı veritabanı transaction’ında oluşturulacaktır. `ProvisionalDecision`
+28. **Audit bütünlüğü:** Resmî audit kopyası kurumsal log/SIEM veya immutable object storage üzerinde WORM, imza ve hash doğrulamasıyla tutulacaktır. Uygulama içi hash-chain ek savunma katmanı olabilir. `ProvisionalDecision`
+29. **Saklama ve imha:** Aşağıdaki kayıt türü bazlı politika uygulanacaktır. Süreler teknik politika olarak seçilmiş olup hukuk/KVKK komitesi ve iç denetim onayına kadar `ProvisionalDecision` durumundadır.
+30. **Eski SQLite audit aktarımı:** Tek değişiklik penceresinde; kaynak yedeği, idempotent aktarım, kayıt sayısı/hash mutabakatı ve geri dönüş planıyla merkezi depoya geçirilecektir. `ProvisionalDecision`
+31. **ServiceNow entegrasyonu:** Asenkron outbox, veri-minimum allowlist, güvenilir servis hesabı, TLS/mTLS, retry, DLQ ve circuit breaker kullanılacaktır. `ProvisionalDecision`
+32. **Issue ana kayıt kaynağı:** Uygulama ana kayıt sistemi olacaktır. Yalnız `HIGH/CRITICAL` veya SLA ihlali oluşturan issue’lar ServiceNow’a aktarılacaktır. `ProvisionalDecision`
+33. **Bildirim ve atama çözümlemesi:** Veri sahibi → yedek sorumlu grup → Veri Yönetişimi operasyon grubu fallback zinciri uygulanacaktır. `ProvisionalDecision`
+34. **SIEM/SOC ve kişisel veri ihlali:** Güvenlik olayları SIEM’e aktarılacak, banka olay sözlüğüyle seviyelendirilecek, 72 saat hedefi farkındalık anından başlayacak ve dış bildirim farklı yetkili aktörün insan kararını gerektirecektir. `ProvisionalDecision`
+35. **Frontend ve dashboard:** React + TypeScript + MUI + ECharts, Vite, Storybook ve Playwright kullanılacaktır. Banka ana rengi `#fdb813` design-token olarak tanımlanacak; 7/30/90 gün ve özel tarih aralığı desteklenecektir. `ProvisionalDecision`
+36. **Kod kalitesi ve güvenli SDLC:** Kullanıcı beyanına göre tamamlanmıştır. Ayrıntılı scanner, CI/CD, mypy, SAST, secret, SCA/SBOM, DAST, pentest ve kanıt kayıtları proje deposundaki teknik kanıtlarda tutulacaktır. `Tamamlandı`
+
+## Dataset Kritiklik Ağırlığı Politika Modeli
+
+Temel politika kaydı bütün dataset türleri için fallback oluşturur:
+
+| Dataset türü | LOW | MEDIUM | HIGH | CRITICAL |
+| --- | ---: | ---: | ---: | ---: |
+| `*` | 0.75 | 1.00 | 1.25 | 1.50 |
+
+Dataset türü özelindeki katsayılar daha yüksek öncelikli kayıtlarla değiştirilebilir; bu dosyada henüz tür bazlı özel katsayı belirlenmemiştir.
+
+Önerilen kalıcı tablo:
+
+```sql
+CREATE TABLE dataset_criticality_weight_policy (
+    policy_id UUID PRIMARY KEY,
+    policy_version INTEGER NOT NULL,
+    dataset_type_code VARCHAR(100) NOT NULL,
+    criticality_level VARCHAR(20) NOT NULL,
+    weight NUMERIC(8,4) NOT NULL CHECK (weight > 0),
+    valid_from TIMESTAMPTZ NOT NULL,
+    valid_to TIMESTAMPTZ NULL,
+    status VARCHAR(20) NOT NULL,
+    reason TEXT NOT NULL,
+    maker_actor_id UUID NOT NULL,
+    checker_actor_id UUID NULL,
+    approved_at TIMESTAMPTZ NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    UNIQUE (policy_version, dataset_type_code, criticality_level)
+);
+```
+
+Çözümleme sırası:
+
+1. Aktif dataset türü + kritiklik seviyesi kaydı.
+2. Aktif `*` + kritiklik seviyesi temel kaydı.
+3. Eşleşme yoksa fail-closed konfigürasyon hatası.
+
+## KVKK ve Bankacılık Saklama–İmha Politikası
+
+### Hesaplama kuralı
+
+- Hukuki süreler sabit `365 × yıl` biçiminde hesaplanmayacaktır; `P10Y`, `P5Y`, `P3Y`, `P1Y` gibi takvimsel ISO-8601 süreleri kullanılacaktır.
+- `expires_at = trigger_at + calendar_duration`
+- İmha yükümlülüğü doğduktan sonra periyodik imha aralığı en fazla `P180D` olacaktır.
+- Legal hold, dava, denetim veya resmî inceleme varsa otomatik imha askıya alınır; erişim kapsamı daraltılır ve hold kaldırılınca kayıt yeniden değerlendirilir.
+- Aşağıdaki “kapasite günü”, depolama kapasitesi hesabı için üst sınırdır; hukuki son tarih takvimsel süreyle hesaplanır.
+
+| Politika kodu | Kayıt sınıfı ve örnekleri | Süre başlangıcı | Takvimsel süre | Kapasite günü | İmha yöntemi / not |
+| --- | --- | --- | --- | ---: | --- |
+| `RET-10Y-BANKING` | Resmî veri kalitesi çalıştırması ve skor metadata’sı; kural/konfigürasyon sürümleri; maker-checker kararları; kritik audit; issue/incident yaşam döngüsü; ServiceNow eşleme kaydı; rapor metadata’sı, onayı ve indirme auditi; kişisel veri ihlali karar ve kanıtları | Kayıt kapanışı, sürümün yürürlükten kalkması veya olayın kapanışı | `P10Y` | 3653 | Süre sonunda silme/yok etme; kanıtın kişisel veri içermeyen bölümü anonimleştirilebilir |
+| `RET-5Y-REGLOG` | Diğer kurum/kuruluş verilerine web servis/API sorgu izleri; rutin yetki/audit görüntüleme logları; SIEM olay özeti; sürüm bazlı SBOM, SAST/DAST/pentest kanıt özeti | Sorgu, erişim, olay veya sürüm kapanışı | `P5Y` | 1827 | Kişisel alanlar minimize edilir; süre sonunda yok etme |
+| `RET-3Y-ERASURE` | Silme, yok etme ve anonimleştirme işlemlerinin kanıt kayıtları | İmha işlemi tarihi | En az `P3Y` | 1096 | Değişmez/auditli saklama; üç yıl dolmadan silinemez |
+| `RET-1Y-OPS` | Kapanmış session geçmişi; sistem içi bildirim teslim kayıtları; geçici atama resolver sonucu; resmî skora girmeyen test çalıştırması geçmişi | Session/işlem kapanışı | `P1Y` | 366 | Süre sonunda yok etme; resmî karara dönüşen kayıt `RET-10Y-BANKING` sınıfına yükseltilir |
+| `RET-90D-TRANSIENT` | Başarısız giriş/rate-limit opak anahtarları; terminal durumdaki retry/outbox/DLQ payloadları; ayrıntılı teknik uygulama logları ve geçici hata içerikleri | Son başarısız giriş veya terminal iş durumu | `P90D` | 90 | Uzun süreli audit için yalnız veri-minimum olay özeti ayrıştırılır |
+| `RET-30D-EXPORT` | Üretilmiş PDF/XLSX/CSV dosyası; rapor önizleme cache’i; maskeli geçici test extract’i; kontrollü kaynak örneği | Dosya üretimi veya test kapanışı | `P30D` | 30 | Şifreli depolama; süre sonunda kriptografik silme/yok etme; indirme bağlantısı en fazla 7 gün |
+| `RET-ACTIVE-SESSION` | Aktif opak session | Son etkinlik veya session oluşturma | `PT1H` inactivity ve `PT10H` absolute | — | Süre dolunca session iptal edilir; metadata `RET-1Y-OPS` sınıfına geçer |
+| `RET-ANON` | Geri döndürülemez biçimde anonimleştirilmiş toplulaştırılmış metrikler | Anonimleştirme tarihi | Amaç devam ettiği sürece | — | Kişisel veri sayılmaz; yıllık yeniden kimliklendirme riski değerlendirmesi yapılır |
+
+### Yedek ve periyodik imha
+
+- Birincil kayıtta süre dolduğunda kayıt normal kullanıcılar için derhal erişilemez hâle getirilir.
+- Yedeklerde kalan kopyalar, yedek döngüsü içinde ve en geç `P180D` içinde geri getirilemez biçimde imha edilir.
+- Yedekten geri yükleme yapılırsa süresi dolmuş kayıtlar otomatik “re-delete” işiyle yeniden silinir.
+- İmha işinin kendisi `RET-3Y-ERASURE` kapsamında kayıt altına alınır.
+- İlgili kişi talebi en geç 30 gün içinde sonuçlandırılır; başka bir hukuki işleme şartı sürüyorsa gerekçeli ret/erteleme kaydı üretilir.
+
+### Hukuki dayanak notu
+
+Bu sınıflandırma şu kuralları birlikte uygular:
+
+- KVKK kapsamında veri, ilgili mevzuatta öngörülen veya işleme amacı için gerekli olan süre kadar tutulur; amaç ortadan kalkınca silinir, yok edilir veya anonimleştirilir.
+- Kişisel veri saklama ve imha politikasında kayıt türü bazlı süre tablosu bulunur; periyodik imha aralığı altı ayı geçemez.
+- Silme, yok etme ve anonimleştirme işlemlerinin kayıtları diğer hukuki yükümlülükler hariç en az üç yıl saklanır.
+- 5411 sayılı Bankacılık Kanunu madde 42 kapsamına giren bankacılık faaliyeti belgeleri on yıl saklanır.
+- Diğer kurum/kuruluş verilerine web servis veya API üzerinden yapılan sorguların iz kayıtları için BDDK düzenlemesindeki beş yıllık süre uygulanır.
+- Mevzuatta özel süre bulunmayan geçici ve operasyonel kayıtların süreleri amaçla sınırlılık ve ölçülülük ilkesiyle belirlenmiştir.
+
+> Bu tablo teknik politika taslağıdır. `RET-10Y-BANKING` kapsamına hangi uygulama kayıtlarının kesin olarak girdiği ve BDDK düzenlemelerinin uygulamaya madde bazında uygulanabilirliği banka hukuk/uyum ve bilgi güvenliği tarafından teyit edilmelidir.
+
+## Bankacılık Geçiş Açık Konuları
+
+| ID | Konu | Karar sahibi | Durum |
+| --- | --- | --- | --- |
+| OPEN-BNK-001 | BDDK bilgi sistemleri düzenlemelerinin bu uygulamaya uygulanabilir maddelerinin banka uyum/hukuk tarafından teyidi | Uyum / Hukuk / Bilgi Güvenliği | `ComplianceReviewRequired` |
+| OPEN-BNK-002 | LDAP grup-rol-scope eşleme tablosu ve joiner/mover/leaver kaynağı | IAM / İnsan Kaynakları / Bilgi Güvenliği | `Açık` |
+| OPEN-BNK-003 | IdP MFA, PAM, süreli ayrıcalık ve çift onaylı break-glass modelinin ürün ve rol eşlemeleri | Bilgi Güvenliği / IAM | `ProvisionalDecision` |
+| OPEN-BNK-004 | Maker-checker kapsamı seçildi; banka onaylı maker/checker rol kodları ve görevler ayrılığı matrisi | Veri Yönetişimi / İç Kontrol | `ProvisionalDecision` |
+| OPEN-BNK-005 | Kritik işlemde fail-closed, düşük riskli işlemde durable-buffer politikası | Bilgi Güvenliği / Mimari / Operasyon | `ProvisionalDecision` |
+| OPEN-BNK-006 | Kurumsal WORM/imza/hash doğrulamalı audit deposu ürünü | Bilgi Güvenliği / İç Denetim | `ProvisionalDecision` |
+| OPEN-BNK-007 | Eşlenmeyen sınıflandırmada fail-closed seçildi; banka sözlüğü ve müşteri/banka sırrı kod eşlemesi bekleniyor | Veri Yönetişimi / Hukuk / Bilgi Güvenliği | `ProvisionalDecision` |
+| OPEN-BNK-008 | Kayıt türü bazlı `P10Y/P5Y/P3Y/P1Y/P90D/P30D` politika taslağı, `P180D` imha aralığı ve legal hold modeli | Hukuk / KVKK Komitesi / İç Denetim | `ProvisionalDecision` |
+| OPEN-BNK-009 | Asenkron ServiceNow modeli seçildi; kurulum yeri, veri işleyen/alt işleyen ve yurt dışı aktarım etkisi | Hukuk / Tedarik / Bilgi Güvenliği | `Açık` |
+| OPEN-BNK-010 | SIEM entegrasyonu ve 72 saat akışı seçildi; ürün, olay sözlüğü, alarm seviyesi ve SOC eskalasyon eşlemesi | SOC / Bilgi Güvenliği | `ProvisionalDecision` |
+| OPEN-BNK-011 | Normal kapsam için 4 saat/15 dakika, kritik düzenleyici kapsam için 1 saat/5 dakika RTO/RPO | İş Sürekliliği / Operasyon | `ProvisionalDecision` |
+| OPEN-BNK-012 | Pilot VM, üretim konteyner platformu, yönetilen PostgreSQL, kurumsal broker ve secret manager yönü seçildi; ürün adları bekleniyor | Mimari Kurul / Operasyon | `ProvisionalDecision` |
+| OPEN-BNK-013 | Sistem risk verisi veya düzenleyici raporlama üretim zincirine girecek mi; BCBS 239 kapsamı | Risk Yönetimi / Veri Yönetişimi | `Açık` |
+| OPEN-BNK-014 | Asenkron dışa aktarma, gerekçe, maker-checker, DLP, watermark ve süreli indirme modeli | Bilgi Güvenliği / Veri Sahibi | `ProvisionalDecision` |
+| OPEN-BNK-015 | `ActorContext` yalnız güvenilir identity/session adaptöründen üretilecek; issuer sahipliği ve session assertion doğrulaması | IAM / Bilgi Güvenliği / Mimari | `ProvisionalDecision` |
+| OPEN-BNK-016 | PostgreSQL transactional outbox seçildi; şifreleme, sahiplik, replay ve operasyon prosedürü | Mimari / Operasyon / Bilgi Güvenliği | `ProvisionalDecision` |
+| OPEN-BNK-017 | Onay hedefi 3 iş günü, otomatik sona erme 10 iş günü; banka iş takvimi ve rol sahibi onayı | Veri Yönetişimi / İç Kontrol / Mimari | `ProvisionalDecision` |
+| OPEN-BNK-018 | Gerçek LDAP endpoint/topolojisi, TLS sertifika güveni, timeout ve teknik hata sahipliği | IAM / Altyapı / Bilgi Güvenliği | `Açık` |
+| OPEN-BNK-019 | Kullanıcı kilitleme IdP/LDAP’ta; uygulama istemci/endpoint rate limit uygular. Nihai eşik/pencere ve paylaşımlı depo bekleniyor | IAM / Bilgi Güvenliği / Mimari / Altyapı / İç Kontrol | `ComplianceReviewRequired` |
+| OPEN-BNK-020 | Opak server-side session; 1 saat inactivity, 10 saat absolute, tek aktif oturum, cookie/CSRF ve bir yıllık geçmiş | IAM / Bilgi Güvenliği / Mimari / Hukuk / İç Kontrol | `ProvisionalDecision` |
+| OPEN-BNK-021 | Kısmi çalıştırmalar resmî skora girmez; yalnız `PROVISIONAL` skor ve kapsama oranı gösterilir | Veri Yönetişimi / İş Birimi | `KararAlındı` |

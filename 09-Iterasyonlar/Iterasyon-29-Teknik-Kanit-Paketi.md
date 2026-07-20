@@ -97,7 +97,7 @@ Durum: `TechnicallyVerified`
   SHA-256 kanıt özetini taşır; bulgu yolu, advisory, pentest referansı veya ham
   rapor içeriğini çoğaltmaz.
 - 20 yeni sentetik vakayla güvenli SDLC hedef grubu 204, toplam test sayısı 702
-  olmuştur.
+  ölmüştür.
 
 ### Kapsam Dışı
 

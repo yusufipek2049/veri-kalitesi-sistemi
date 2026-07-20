@@ -64,7 +64,7 @@ class ReportPreviewFilter:
 @dataclass(frozen=True)
 class ReportPreview:
     report_type: ReportType
-    generated_at: datetime
+    created_at: datetime
     filters: ReportPreviewFilter
     rows: tuple[ReportSummaryRow, ...]
     source_count: int
