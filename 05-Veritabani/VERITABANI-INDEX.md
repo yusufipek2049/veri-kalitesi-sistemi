@@ -23,3 +23,10 @@ tags:
 - Audit kayıtları değişmezlik / bütünlük mekanizmasıyla korunmalı.
 - Beş yıllık geçmiş için bölümleme, arşiv katmanı ve özet tablolar değerlendirilmeli.
 - Ham kişisel veri kalıcı depoya gereksiz yere kopyalanmamalı.
+
+## İterasyon 19E Şema Artımı
+
+- `data_sources.revision`, aktivasyon onayını belirli bağlantı yapılandırması revizyonuna bağlayan pozitif sürüm alanıdır; legacy kayıtlar `1` ile geriye uyumlu taşınır.
+- `data_source_activation_requests`, maker/checker kararı ve gerekçe kodunu tarihsel olarak saklar; secret, bağlantı yapılandırması veya ham sahiplik verisi kopyalamaz.
+- `(data_source_id, data_source_revision)` üzerinde yalnız `PENDING` kayıtları kapsayan benzersiz indeks aynı revizyona eş zamanlı birden fazla açık istek oluşmasını engeller.
+- Onay kaydı, `ACTIVE` durum geçişi ve merkezi audit outbox aynı SQLite transaction içinde yazılır; üretim veritabanı ve migration aracı seçimi `OPEN-BNK-012` kapsamında açıktır.

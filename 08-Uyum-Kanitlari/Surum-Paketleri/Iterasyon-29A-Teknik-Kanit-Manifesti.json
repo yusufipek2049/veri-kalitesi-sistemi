@@ -217,6 +217,10 @@
         {
           "relative_path": "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19D-Kural-Onay-Sure-Asimi-Kaniti.md",
           "sha256": "2a6780818c3529fb7a06fd1acd3ea9cd28979ddc1e50123af5a7af7e61bf0047"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19E-Veri-Kaynagi-Aktivasyon-Maker-Checker-Kaniti.md",
+          "sha256": "08917a029ab777a1480177d7818049da46cf32079837e360a4fe7e704456bf4c"
         }
       ],
       "review_status": "ComplianceReviewRequired",
@@ -358,7 +362,7 @@
       "technical_status": "Missing"
     }
   ],
-  "controls_digest": "a5e0b6044a47e053a8d9a33ed25a7f57e745dee834e81d23ad0d4a4e36a927ab",
+  "controls_digest": "d48791f722a26eaf9677689eea4eb9480d9612a61dc07892dc2f65c4e47680b8",
   "missing_control_ids": [
     "CTRL-BDDK-BCP-001",
     "CTRL-KVKK-DEL-001",
@@ -378,5 +382,5 @@
     "Partial": 12,
     "TechnicallyVerified": 0
   },
-  "unique_evidence_artifact_count": 27
+  "unique_evidence_artifact_count": 28
 }

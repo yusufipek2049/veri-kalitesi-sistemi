@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from datetime import datetime, timezone
+from typing import Any, Callable
 from uuid import uuid4
 
 from veri_kalitesi.audit import (
@@ -26,12 +27,20 @@ from veri_kalitesi.data_protection import (
     validate_inventory,
 )
 from veri_kalitesi.data_sources.connectors import ConnectorRegistry
-from veri_kalitesi.data_sources.errors import SecretResolutionError, TechnicalError, ValidationError
+from veri_kalitesi.data_sources.errors import (
+    AuthorizationError,
+    SecretResolutionError,
+    TechnicalError,
+    ValidationError,
+)
 from veri_kalitesi.data_sources.models import (
     ConnectionTestResult,
     DataField,
     DataProfile,
     DataSource,
+    DataSourceActivationPolicy,
+    DataSourceActivationRequest,
+    DataSourceActivationStatus,
     DataSourceStatus,
     Dataset,
     ErrorClass,
@@ -45,6 +54,7 @@ from veri_kalitesi.data_sources.models import (
     SourceType,
     utc_now,
 )
+from veri_kalitesi.identity import ActorContext, is_trusted_actor_context
 from veri_kalitesi.data_sources.postgresql import is_read_only_sql
 from veri_kalitesi.data_sources.repository import SQLiteDataSourceRepository
 from veri_kalitesi.data_sources.secrets import EmptySecretResolver, SecretResolver
@@ -73,6 +83,8 @@ class DataSourceService:
         transactional_audit: SQLiteTransactionalAudit,
         classification_policy: ClassificationPolicy | None = None,
         masking_policy: MaskingPolicy | None = None,
+        activation_policy: DataSourceActivationPolicy | None = None,
+        clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ) -> None:
         self.repository = repository
         self.registry = registry
@@ -81,6 +93,10 @@ class DataSourceService:
         self.transactional_audit = transactional_audit
         self.classification_policy = classification_policy or DefaultClassificationPolicy()
         self.masking_policy = masking_policy or DefaultMaskingPolicy(self.classification_policy)
+        self.activation_policy = activation_policy
+        self.clock = clock
+        if activation_policy is not None:
+            _validate_activation_policy(activation_policy)
 
     def create_data_source(
         self,
@@ -189,6 +205,140 @@ class DataSourceService:
         self.transactional_audit.publish_pending()
         return result
 
+    def request_activation(
+        self,
+        *,
+        actor_context: ActorContext | None,
+        data_source_id: str,
+    ) -> DataSourceActivationRequest:
+        policy = self._require_activation_policy()
+        context = self._authorize_activation_actor(
+            actor_context,
+            required_roles=policy.maker_roles,
+            data_source_id=data_source_id,
+        )
+        source = self.repository.get_data_source(data_source_id)
+        if source.status is not DataSourceStatus.TEST_SUCCEEDED:
+            raise ValidationError("Activation requires a successfully tested data source.")
+        if not source.owner_user_id or not source.owner_user_id.strip():
+            raise ValidationError("Activation requires a data owner.")
+        latest_test = self.repository.latest_connection_test(data_source_id)
+        if (
+            latest_test is None
+            or not latest_test.succeeded
+            or source.last_test_at is None
+            or latest_test.tested_at != source.last_test_at
+        ):
+            raise ValidationError("Activation requires the current revision's successful test.")
+        requested_at = self.clock()
+        _require_aware_time(requested_at, "Data source activation clock")
+        request = DataSourceActivationRequest(
+            data_source_id=data_source_id,
+            data_source_revision=source.revision,
+            maker_actor_id=context.actor_id,
+            policy_version=policy.version,
+            requested_at=requested_at,
+        )
+        event = self._build_audit_event(
+            actor_id=context.actor_id,
+            actor_type=context.actor_type.value,
+            session_id=context.session_id,
+            correlation_id=context.correlation_id,
+            action="DATA_SOURCE_ACTIVATION_REQUESTED",
+            object_type="DataSource",
+            object_id=data_source_id,
+            result=AuditResult.SUCCESS,
+            reason_code="DATA_SOURCE_ACTIVATION_REQUESTED",
+            new_values={
+                "activation_request_id": request.activation_request_id,
+                "data_source_revision": source.revision,
+                "policy_version": policy.version,
+                "status": request.status.value,
+            },
+        )
+        stored = self.repository.add_activation_request(
+            request,
+            audit_event=self.transactional_audit.prepare(event),
+            audit_outbox=self.transactional_audit,
+        )
+        self.transactional_audit.publish_pending()
+        return stored
+
+    def decide_activation(
+        self,
+        *,
+        actor_context: ActorContext | None,
+        activation_request_id: str,
+        decision: str,
+        reason_code: str,
+    ) -> DataSourceActivationRequest:
+        policy = self._require_activation_policy()
+        request = self.repository.get_activation_request(activation_request_id)
+        source = self.repository.get_data_source(request.data_source_id)
+        context = self._authorize_activation_actor(
+            actor_context,
+            required_roles=policy.checker_roles,
+            data_source_id=source.data_source_id,
+        )
+        if request.status is not DataSourceActivationStatus.PENDING:
+            raise ValidationError("Data source activation request is not pending.")
+        if request.policy_version != policy.version:
+            raise ValidationError("Data source activation policy version changed.")
+        if request.data_source_revision != source.revision:
+            raise ValidationError("Data source activation request is for a stale revision.")
+        if request.maker_actor_id == context.actor_id:
+            raise AuthorizationError("Activation maker cannot approve the same change.")
+        normalized_reason = reason_code.strip()
+        if not normalized_reason:
+            raise ValidationError("Activation decision reason code is required.")
+        status = _parse_activation_decision(decision)
+        decided_at = self.clock()
+        _require_aware_time(decided_at, "Data source activation clock")
+        decided = DataSourceActivationRequest(
+            activation_request_id=request.activation_request_id,
+            data_source_id=request.data_source_id,
+            data_source_revision=request.data_source_revision,
+            maker_actor_id=request.maker_actor_id,
+            checker_actor_id=context.actor_id,
+            policy_version=request.policy_version,
+            status=status,
+            decision_reason_code=normalized_reason,
+            requested_at=request.requested_at,
+            decided_at=decided_at,
+        )
+        source_status = (
+            DataSourceStatus.ACTIVE
+            if status is DataSourceActivationStatus.APPROVED
+            else DataSourceStatus.TEST_SUCCEEDED
+        )
+        event = self._build_audit_event(
+            actor_id=context.actor_id,
+            actor_type=context.actor_type.value,
+            session_id=context.session_id,
+            correlation_id=context.correlation_id,
+            action="DATA_SOURCE_ACTIVATION_DECIDED",
+            object_type="DataSource",
+            object_id=source.data_source_id,
+            result=AuditResult.SUCCESS,
+            reason_code=f"DATA_SOURCE_ACTIVATION_{status.value}",
+            old_values={"status": source.status.value},
+            new_values={
+                "activation_request_id": request.activation_request_id,
+                "data_source_revision": request.data_source_revision,
+                "policy_version": request.policy_version,
+                "status": status.value,
+                "source_status": source_status.value,
+            },
+        )
+        stored = self.repository.decide_activation_request(
+            decided,
+            activate_source=status is DataSourceActivationStatus.APPROVED,
+            audit_event=self.transactional_audit.prepare(event),
+            audit_outbox=self.transactional_audit,
+        )
+        self.transactional_audit.publish_pending()
+        return stored
+
     def discover_metadata(
         self,
         *,
@@ -201,7 +351,10 @@ class DataSourceService:
         options = options or MetadataDiscoveryOptions()
         _validate_metadata_options(options)
         data_source = self.repository.get_data_source(data_source_id)
-        if data_source.status is not DataSourceStatus.TEST_SUCCEEDED:
+        if data_source.status not in {
+            DataSourceStatus.TEST_SUCCEEDED,
+            DataSourceStatus.ACTIVE,
+        }:
             raise ValidationError("Metadata discovery requires a successful connection test.")
 
         connector = self.registry.get(data_source.source_type)
@@ -341,7 +494,10 @@ class DataSourceService:
             raise ValidationError("Profile requires discovered DataField metadata.")
         _validate_profile_field_selection(options, fields)
         data_source = self.repository.get_data_source(dataset.data_source_id)
-        if data_source.status is not DataSourceStatus.TEST_SUCCEEDED:
+        if data_source.status not in {
+            DataSourceStatus.TEST_SUCCEEDED,
+            DataSourceStatus.ACTIVE,
+        }:
             raise ValidationError("Profile requires a successful connection test.")
         connector = self.registry.get(data_source.source_type)
         if connector is None:
@@ -599,20 +755,54 @@ class DataSourceService:
         result: AuditResult,
         reason_code: str,
         new_values: dict[str, Any],
+        old_values: dict[str, Any] | None = None,
+        actor_type: str = "USER",
+        session_id: str | None = None,
     ) -> AuditEventInput:
         return AuditEventInput(
             actor_id=actor_id,
-            actor_type="USER",
+            actor_type=actor_type,
             correlation_id=correlation_id,
             action=action,
             object_type=object_type,
             object_id=object_id,
             result=result,
             reason_code=reason_code,
-            old_values={},
+            old_values=old_values or {},
             new_values=new_values,
             occurred_at=utc_now(),
+            session_id=session_id,
         )
+
+    def _require_activation_policy(self) -> DataSourceActivationPolicy:
+        if self.activation_policy is None:
+            raise AuthorizationError("Data source activation policy is not configured.")
+        return self.activation_policy
+
+    def _authorize_activation_actor(
+        self,
+        context: ActorContext | None,
+        *,
+        required_roles: frozenset[str],
+        data_source_id: str,
+    ) -> ActorContext:
+        policy = self._require_activation_policy()
+        now = self.clock()
+        _require_aware_time(now, "Data source activation clock")
+        if not is_trusted_actor_context(context):
+            raise AuthorizationError("Trusted actor context is required for source activation.")
+        assert context is not None
+        if context.issued_at > now or context.expires_at <= now:
+            raise AuthorizationError("Actor context is not currently valid.")
+        if context.policy_version != policy.actor_policy_version:
+            raise AuthorizationError("Actor context policy version is not accepted.")
+        if context.actor_type.value not in policy.allowed_actor_types:
+            raise AuthorizationError("Actor type is not allowed for source activation.")
+        if context.roles.isdisjoint(required_roles):
+            raise AuthorizationError("Actor lacks the required source activation role.")
+        if data_source_id not in context.permitted_source_ids:
+            raise AuthorizationError("Actor is outside the data source scope.")
+        return context
 
 
 def _parse_source_type(source_type: str) -> SourceType:
@@ -632,6 +822,31 @@ def _resolve_correlation_id(correlation_id: str | None) -> str:
 
 def _error_reason(error_class: ErrorClass | None) -> str:
     return error_class.value if error_class is not None else "UNKNOWN_TECHNICAL_ERROR"
+
+
+def _parse_activation_decision(decision: str) -> DataSourceActivationStatus:
+    normalized = decision.strip().upper()
+    if normalized == "APPROVE":
+        return DataSourceActivationStatus.APPROVED
+    if normalized == "REJECT":
+        return DataSourceActivationStatus.REJECTED
+    raise ValidationError("Activation decision must be APPROVE or REJECT.")
+
+
+def _validate_activation_policy(policy: DataSourceActivationPolicy) -> None:
+    if not policy.version.strip() or not policy.actor_policy_version.strip():
+        raise ValidationError("Data source activation policy versions are required.")
+    if not policy.maker_roles or not policy.checker_roles:
+        raise ValidationError("Data source activation maker and checker roles are required.")
+    if any(not role.strip() for role in (*policy.maker_roles, *policy.checker_roles)):
+        raise ValidationError("Data source activation roles must not be blank.")
+    if not policy.allowed_actor_types or not policy.allowed_actor_types <= {"USER", "SERVICE"}:
+        raise ValidationError("Data source activation actor types are invalid.")
+
+
+def _require_aware_time(value: datetime, label: str) -> None:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValidationError(f"{label} must be timezone-aware.")
 
 
 def _validate_name(name: str) -> None:

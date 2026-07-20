@@ -200,6 +200,14 @@ tags:
 | 2026-07-20 | Süre aşımı yalnız güvenilir servis `ActorContext` ile, dataset kapsamı ve sürümlü teknik rolle yürütülecek; durum ve audit outbox atomik yazılacaktır. | Serbest scheduler aktörü veya best-effort audit, bekleyen kritik değişikliğin izsiz kapatılmasına yol açabilir. | Aktörsüz toplu SQL güncellemesi, normal checker'ın isteği sona erdirmesi veya audit'i sonradan yazmak. | Yetkisiz kullanıcı/servis reddedilir; audit-stage arızasında istek `PENDING` kalır. Banka rol eşlemesi `ComplianceReviewRequired` durumundadır. |
 | 2026-07-20 | Aynı RuleVersion için yalnız bir `PENDING` istek bulunacak; `EXPIRED` geçmiş silinmeden aynı sürüm için yeni istek oluşturulabilecektir. | Sona eren isteğin yeniden oluşturulması gerekirken mevcut tam benzersizlik kısıtı tarihsel kayıt ile yeni iş akışını birbirine kilitliyordu. | Eski isteği yerinde tekrar açmak, silmek veya her sona ermede yapay RuleVersion oluşturmak. | SQLite şeması kısmi benzersiz indekse geriye uyumlu taşınır; eski karar geçmişi korunur. |
 
+## 2026-07-20 İterasyon 19E Kararları
+
+| Tarih | Karar | Gerekçe | Alternatif | Sonuç |
+| --- | --- | --- | --- | --- |
+| 2026-07-20 | Veri kaynağı aktivasyonu, güncel kaynak revizyonuna bağlı sürümlü maker-checker isteğiyle yürütülecektir. | Onayın daha sonraki bağlantı değişikliğine taşınmasını önlemek ve BFR-SOD-003/004 tarihsel bağını korumak gerekir. | Kaynak kimliğine süresiz onay vermek veya bağlantı testi sonucunu değişiklik sürümü saymak. | `DataSource.revision` ve aktivasyon isteği birlikte saklanır; eski revizyon kararı fail-closed reddedilir. |
+| 2026-07-20 | Aktivasyon için Data Owner ve güncel revizyona ait başarılı son bağlantı testi zorunlu olacaktır. | Sahipsiz veya salt okunurluğu doğrulanmamış kaynağın kalite çalıştırmalarına açılması yönetişim ve güvenlik riski oluşturur. | Checker kararını tek önkoşul saymak veya başarısız/eski testi kabul etmek. | Eksik sahip veya güncel başarılı test bulunmadığında istek oluşmaz; secret ve bağlantı ayrıntıları audit özetine girmez. |
+| 2026-07-20 | Checker kararı, kaynak durum geçişi ve audit outbox aynı transaction içinde yazılacaktır. | Aktivasyonun audit kaydı olmadan gerçekleşmesi veya karar kaydıyla kaynak durumunun ayrışması kabul edilemez. | Önce kaynağı aktive edip audit'i sonradan yazmak ya da best-effort audit kullanmak. | Audit-stage arızasında istek `PENDING`, kaynak `TEST_SUCCEEDED` kalır; banka rol eşlemesi `ComplianceReviewRequired` durumundadır. |
+
 ## İlişkili Notlar
 
 - [Sistem Açıklaması](../01-SRS/02-Sistem-Aciklamasi.md)

@@ -1,6 +1,7 @@
 import sqlite3
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Mapping, TypedDict, cast
+from typing import Any, Callable, Mapping, TypedDict, cast
 
 import pytest
 
@@ -21,8 +22,11 @@ from veri_kalitesi.data_sources import (
     ClassificationCode,
     ConnectorRegistry,
     DNSConnectionError,
+    DataSource,
     DataField,
     Dataset,
+    DataSourceActivationPolicy,
+    DataSourceActivationStatus,
     DataSourceService,
     DataSourceStatus,
     ErrorClass,
@@ -43,8 +47,13 @@ from veri_kalitesi.data_sources import (
     SQLiteDataSourceRepository,
     TimeoutConnectionError,
 )
-from veri_kalitesi.data_sources.errors import ValidationError
+from veri_kalitesi.data_sources.errors import AuthorizationError, ValidationError
 from veri_kalitesi.data_protection import CLASSIFICATION_POLICY_VERSION
+from veri_kalitesi.identity import ActorContext, ActorContextIssuer, ActorType
+
+
+NOW = datetime(2026, 7, 20, 12, 0, tzinfo=timezone.utc)
+ACTOR_POLICY_VERSION = "IDENTITY_POLICY_TEST_V1"
 
 
 @pytest.fixture
@@ -58,6 +67,9 @@ def _data_source_service(
     repository: SQLiteDataSourceRepository,
     registry: ConnectorRegistry,
     resolver: InMemorySecretResolver | None = None,
+    *,
+    activation_policy: DataSourceActivationPolicy | None = None,
+    clock: Callable[[], datetime] = lambda: NOW,
 ) -> DataSourceService:
     audit_repository = SQLiteAuditRepository()
     redactor = AuditRedactor(build_default_redaction_policy())
@@ -77,6 +89,8 @@ def _data_source_service(
             audit_repository,
             policy_version="AUDIT_OUTBOX_TEST_V1",
         ),
+        activation_policy=activation_policy,
+        clock=clock,
     )
 
 
@@ -1511,3 +1525,396 @@ def test_bfr_data_004_inventory_coverage_read_failure_is_technical_error() -> No
         match="coverage could not be read",
     ):
         service.get_processing_inventory_coverage()
+
+
+def test_fr_010_bfr_sod_003_approved_source_revision_becomes_active(tmp_path: Path) -> None:
+    service, source = _tested_activation_source(tmp_path)
+    maker = _activation_context(source.data_source_id, "source-maker", {"SOURCE_MAKER"})
+    checker = _activation_context(source.data_source_id, "source-checker", {"SOURCE_CHECKER"})
+
+    request = service.request_activation(
+        actor_context=maker,
+        data_source_id=source.data_source_id,
+    )
+    decided = service.decide_activation(
+        actor_context=checker,
+        activation_request_id=request.activation_request_id,
+        decision="APPROVE",
+        reason_code="SOURCE.READ_ONLY.TESTED",
+    )
+
+    assert request.status is DataSourceActivationStatus.PENDING
+    assert request.data_source_revision == 1
+    assert decided.status is DataSourceActivationStatus.APPROVED
+    assert (
+        service.repository.get_data_source(source.data_source_id).status is DataSourceStatus.ACTIVE
+    )
+    audits = _audit_events(service)[-2:]
+    assert [event.action for event in audits] == [
+        "DATA_SOURCE_ACTIVATION_REQUESTED",
+        "DATA_SOURCE_ACTIVATION_DECIDED",
+    ]
+    assert audits[-1].old_value_summary == {"status": "TEST_SUCCEEDED"}
+    assert audits[-1].new_value_summary["source_status"] == "ACTIVE"
+    assert "secret://" not in str(audits)
+    assert str(source.connection_config) not in str(audits)
+    assert source.owner_user_id is not None
+    assert source.owner_user_id not in str(audits)
+    discovery = service.discover_metadata(
+        actor_id="legacy-metadata-reader",
+        data_source_id=source.data_source_id,
+    )
+    assert discovery.succeeded is True
+    service.test_connection(
+        actor_id="legacy-source-retester",
+        data_source_id=source.data_source_id,
+    )
+    assert (
+        service.repository.get_data_source(source.data_source_id).status is DataSourceStatus.ACTIVE
+    )
+
+
+def test_fr_010_bfr_sod_002_activation_rejects_same_actor() -> None:
+    service, source = _tested_activation_source_without_file()
+    maker = _activation_context(
+        source.data_source_id,
+        "source-maker-checker",
+        {"SOURCE_MAKER", "SOURCE_CHECKER"},
+    )
+    request = service.request_activation(
+        actor_context=maker,
+        data_source_id=source.data_source_id,
+    )
+
+    with pytest.raises(AuthorizationError, match="maker cannot approve"):
+        service.decide_activation(
+            actor_context=maker,
+            activation_request_id=request.activation_request_id,
+            decision="APPROVE",
+            reason_code="SOURCE.READ_ONLY.TESTED",
+        )
+
+    assert service.repository.get_activation_request(request.activation_request_id).status is (
+        DataSourceActivationStatus.PENDING
+    )
+    assert service.repository.get_data_source(source.data_source_id).status is (
+        DataSourceStatus.TEST_SUCCEEDED
+    )
+
+
+def test_nfr_sec_001_activation_rejects_untrusted_role_scope_and_service_actor() -> None:
+    service, source = _tested_activation_source_without_file()
+    invalid_contexts: tuple[ActorContext | None, ...] = (
+        None,
+        _activation_context(source.data_source_id, "wrong-role", {"SOURCE_VIEWER"}),
+        _activation_context(
+            source.data_source_id,
+            "wrong-scope",
+            {"SOURCE_MAKER"},
+            source_ids={"source-other"},
+        ),
+        _activation_context(
+            source.data_source_id,
+            "service-maker",
+            {"SOURCE_MAKER"},
+            actor_type=ActorType.SERVICE,
+        ),
+    )
+
+    for context in invalid_contexts:
+        with pytest.raises(AuthorizationError):
+            service.request_activation(
+                actor_context=context,
+                data_source_id=source.data_source_id,
+            )
+
+    assert (
+        service.repository.connection.execute(
+            "SELECT COUNT(*) FROM data_source_activation_requests"
+        ).fetchone()[0]
+        == 0
+    )
+
+
+def test_nfr_sec_001_checker_rejects_invalid_context_and_privileged_role_bypass() -> None:
+    service, source = _tested_activation_source_without_file()
+    request = service.request_activation(
+        actor_context=_activation_context(source.data_source_id, "maker-1", {"SOURCE_MAKER"}),
+        data_source_id=source.data_source_id,
+    )
+    invalid_contexts = (
+        _activation_context(source.data_source_id, "wrong-role", {"SOURCE_VIEWER"}),
+        _activation_context(
+            source.data_source_id,
+            "wrong-scope",
+            {"SOURCE_CHECKER"},
+            source_ids={"source-other"},
+        ),
+        _activation_context(
+            source.data_source_id,
+            "service-checker",
+            {"SOURCE_CHECKER"},
+            actor_type=ActorType.SERVICE,
+        ),
+        _activation_context(
+            source.data_source_id,
+            "privileged-without-role",
+            {"SOURCE_VIEWER"},
+            privileged=True,
+        ),
+        _activation_context(
+            source.data_source_id,
+            "expired-checker",
+            {"SOURCE_CHECKER"},
+            expires_at=NOW,
+        ),
+    )
+
+    for context in invalid_contexts:
+        with pytest.raises(AuthorizationError):
+            service.decide_activation(
+                actor_context=context,
+                activation_request_id=request.activation_request_id,
+                decision="APPROVE",
+                reason_code="SOURCE.READ_ONLY.TESTED",
+            )
+
+    assert service.repository.get_activation_request(request.activation_request_id).status is (
+        DataSourceActivationStatus.PENDING
+    )
+
+
+@pytest.mark.parametrize("with_owner,with_test", [(False, True), (True, False)])
+def test_fr_010_fr_014_activation_requires_owner_and_successful_current_test(
+    tmp_path: Path,
+    with_owner: bool,
+    with_test: bool,
+) -> None:
+    service = _activation_service()
+    csv_file = tmp_path / f"activation-precondition-{with_owner}-{with_test}.csv"
+    csv_file.write_text("id\n1\n", encoding="utf-8")
+    source = service.create_data_source(
+        actor_id="legacy-source-creator",
+        name=f"Activation Preconditions {with_owner} {with_test}",
+        source_type="CSV",
+        connection_config={"file_path": str(csv_file)},
+        secret_reference="secret://datasources/activation-precondition",
+        owner_user_id="owner-ref" if with_owner else None,
+    )
+    if with_test:
+        service.test_connection(
+            actor_id="legacy-source-tester",
+            data_source_id=source.data_source_id,
+        )
+
+    with pytest.raises(ValidationError, match="owner|successfully tested"):
+        service.request_activation(
+            actor_context=_activation_context(
+                source.data_source_id, "source-maker", {"SOURCE_MAKER"}
+            ),
+            data_source_id=source.data_source_id,
+        )
+
+
+def test_bfr_sod_003_rejected_activation_keeps_source_tested_and_allows_new_request() -> None:
+    service, source = _tested_activation_source_without_file()
+    first = service.request_activation(
+        actor_context=_activation_context(source.data_source_id, "maker-1", {"SOURCE_MAKER"}),
+        data_source_id=source.data_source_id,
+    )
+    rejected = service.decide_activation(
+        actor_context=_activation_context(source.data_source_id, "checker-1", {"SOURCE_CHECKER"}),
+        activation_request_id=first.activation_request_id,
+        decision="REJECT",
+        reason_code="SOURCE.OWNERSHIP.REVIEW_REQUIRED",
+    )
+    second = service.request_activation(
+        actor_context=_activation_context(source.data_source_id, "maker-2", {"SOURCE_MAKER"}),
+        data_source_id=source.data_source_id,
+    )
+
+    assert rejected.status is DataSourceActivationStatus.REJECTED
+    assert service.repository.get_data_source(source.data_source_id).status is (
+        DataSourceStatus.TEST_SUCCEEDED
+    )
+    assert second.status is DataSourceActivationStatus.PENDING
+    assert second.activation_request_id != first.activation_request_id
+
+
+def test_bfr_sod_004_stale_source_revision_cannot_be_activated() -> None:
+    service, source = _tested_activation_source_without_file()
+    request = service.request_activation(
+        actor_context=_activation_context(source.data_source_id, "maker-1", {"SOURCE_MAKER"}),
+        data_source_id=source.data_source_id,
+    )
+    with service.repository.connection:
+        service.repository.connection.execute(
+            "UPDATE data_sources SET revision = revision + 1 WHERE data_source_id = ?",
+            (source.data_source_id,),
+        )
+
+    with pytest.raises(ValidationError, match="stale revision"):
+        service.decide_activation(
+            actor_context=_activation_context(
+                source.data_source_id, "checker-1", {"SOURCE_CHECKER"}
+            ),
+            activation_request_id=request.activation_request_id,
+            decision="APPROVE",
+            reason_code="SOURCE.READ_ONLY.TESTED",
+        )
+
+    assert service.repository.get_data_source(source.data_source_id).status is (
+        DataSourceStatus.TEST_SUCCEEDED
+    )
+
+
+def test_bfr_aud_004_activation_rolls_back_when_outbox_stage_fails() -> None:
+    service, source = _tested_activation_source_without_file()
+    request = service.request_activation(
+        actor_context=_activation_context(source.data_source_id, "maker-1", {"SOURCE_MAKER"}),
+        data_source_id=source.data_source_id,
+    )
+    _use_failing_stage(service)
+
+    with pytest.raises(sqlite3.OperationalError, match="outbox write failure"):
+        service.decide_activation(
+            actor_context=_activation_context(
+                source.data_source_id, "checker-1", {"SOURCE_CHECKER"}
+            ),
+            activation_request_id=request.activation_request_id,
+            decision="APPROVE",
+            reason_code="SOURCE.READ_ONLY.TESTED",
+        )
+
+    assert service.repository.get_activation_request(request.activation_request_id).status is (
+        DataSourceActivationStatus.PENDING
+    )
+    assert service.repository.get_data_source(source.data_source_id).status is (
+        DataSourceStatus.TEST_SUCCEEDED
+    )
+
+
+def test_fr_010_legacy_data_source_schema_adds_revision_without_data_loss(tmp_path: Path) -> None:
+    database = tmp_path / "legacy-data-source.sqlite"
+    connection = sqlite3.connect(database)
+    connection.executescript(
+        """
+        CREATE TABLE data_sources (
+            data_source_id TEXT PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            source_type TEXT NOT NULL,
+            connection_config TEXT NOT NULL,
+            secret_reference TEXT NOT NULL,
+            owner_user_id TEXT,
+            status TEXT NOT NULL,
+            last_test_at TEXT,
+            created_at TEXT NOT NULL
+        );
+        INSERT INTO data_sources VALUES (
+            'source-legacy', 'Legacy Source', 'CSV', '{"file_path": "/safe/legacy.csv"}',
+            'secret://datasources/legacy', 'owner-legacy', 'TEST_SUCCEEDED',
+            '2026-07-20T10:00:00+00:00', '2026-07-20T09:00:00+00:00'
+        );
+        """
+    )
+    connection.close()
+
+    repository = SQLiteDataSourceRepository(str(database))
+
+    stored = repository.get_data_source("source-legacy")
+    assert stored.revision == 1
+    assert stored.status is DataSourceStatus.TEST_SUCCEEDED
+    assert (
+        repository.connection.execute(
+            "SELECT COUNT(*) FROM data_source_activation_requests"
+        ).fetchone()[0]
+        == 0
+    )
+
+
+def _activation_service() -> DataSourceService:
+    return _data_source_service(
+        SQLiteDataSourceRepository(),
+        ConnectorRegistry([CSVConnector()]),
+        activation_policy=DataSourceActivationPolicy(
+            version="SOURCE_ACTIVATION_POLICY_V1",
+            actor_policy_version=ACTOR_POLICY_VERSION,
+            maker_roles=frozenset({"SOURCE_MAKER"}),
+            checker_roles=frozenset({"SOURCE_CHECKER"}),
+        ),
+    )
+
+
+def _tested_activation_source(tmp_path: Path) -> tuple[DataSourceService, DataSource]:
+    service = _activation_service()
+    csv_file = tmp_path / "activation-source.csv"
+    csv_file.write_text("id\n1\n", encoding="utf-8")
+    source = service.create_data_source(
+        actor_id="legacy-source-creator",
+        name="Activation Source",
+        source_type="CSV",
+        connection_config={"file_path": str(csv_file)},
+        secret_reference="secret://datasources/activation-source",
+        owner_user_id="owner-ref",
+    )
+    service.test_connection(actor_id="legacy-source-tester", data_source_id=source.data_source_id)
+    return service, service.repository.get_data_source(source.data_source_id)
+
+
+def _tested_activation_source_without_file() -> tuple[DataSourceService, DataSource]:
+    service = _activation_service()
+    source = service.create_data_source(
+        actor_id="legacy-source-creator",
+        name="Synthetic Tested Source",
+        source_type="CSV",
+        connection_config={"file_path": "/safe/synthetic-tested.csv"},
+        secret_reference="secret://datasources/synthetic-tested",
+        owner_user_id="owner-ref",
+    )
+    tested_at = NOW - timedelta(minutes=10)
+    with service.repository.connection:
+        service.repository.connection.execute(
+            """
+            INSERT INTO connection_test_results (
+                data_source_id, succeeded, duration_ms, error_class, message,
+                source_info, tested_at
+            ) VALUES (?, 1, 1, NULL, 'Connection test succeeded.', '{}', ?)
+            """,
+            (source.data_source_id, tested_at.isoformat()),
+        )
+        service.repository.connection.execute(
+            "UPDATE data_sources SET status = ?, last_test_at = ? WHERE data_source_id = ?",
+            (
+                DataSourceStatus.TEST_SUCCEEDED.value,
+                tested_at.isoformat(),
+                source.data_source_id,
+            ),
+        )
+    return service, service.repository.get_data_source(source.data_source_id)
+
+
+def _activation_context(
+    data_source_id: str,
+    actor_id: str,
+    roles: set[str],
+    *,
+    source_ids: set[str] | None = None,
+    actor_type: ActorType = ActorType.USER,
+    privileged: bool = False,
+    expires_at: datetime = NOW + timedelta(hours=1),
+) -> ActorContext:
+    return ActorContextIssuer().issue(
+        actor_id=actor_id,
+        actor_type=actor_type,
+        authentication_source="synthetic-identity-adapter",
+        session_id=f"session-{actor_id}",
+        roles=frozenset(roles),
+        permitted_source_ids=frozenset(source_ids or {data_source_id}),
+        permitted_dataset_ids=frozenset(),
+        can_view_enterprise=False,
+        privileged=privileged,
+        issued_at=NOW - timedelta(minutes=5),
+        expires_at=expires_at,
+        policy_version=ACTOR_POLICY_VERSION,
+        correlation_id=f"correlation-{actor_id}",
+    )

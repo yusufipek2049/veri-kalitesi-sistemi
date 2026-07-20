@@ -122,6 +122,23 @@ def build_default_redaction_policy() -> AuditRedactionPolicy:
             ),
             "DATA_SOURCE_CREATED": frozenset({"source_type", "status"}),
             "DATA_SOURCE_CONNECTION_TESTED": frozenset({"succeeded", "duration_ms", "error_class"}),
+            "DATA_SOURCE_ACTIVATION_REQUESTED": frozenset(
+                {
+                    "activation_request_id",
+                    "data_source_revision",
+                    "policy_version",
+                    "status",
+                }
+            ),
+            "DATA_SOURCE_ACTIVATION_DECIDED": frozenset(
+                {
+                    "activation_request_id",
+                    "data_source_revision",
+                    "policy_version",
+                    "status",
+                    "source_status",
+                }
+            ),
             "DATA_SOURCE_METADATA_DISCOVERED": frozenset(
                 {
                     "succeeded",

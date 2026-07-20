@@ -75,3 +75,17 @@ Kural sürüm aktivasyonu ve scoring configuration aktivasyonu.
 - Sekiz yeni testle toplam 710 test geçti; kural hedef grubu 67 testle geçti.
 
 Gerçek banka iş günü/tatil kaynağı, banka onaylı süre aşımı servis rolü, worker operasyonu, veri kaynağı aktivasyonu, legacy maker geçişi ve kurum onayları `ComplianceReviewRequired` durumundadır.
+
+## Dilim 19E Kapanışı
+
+`TechnicallyVerified` kapsam:
+
+- Başarılı güncel bağlantı testi ve Data Owner bulunan kaynak revizyonu yalnız güvenilir maker context'iyle onaya sunulur.
+- Farklı checker rolü ve aynı source kapsamındaki aktör onaylarsa kaynak `ACTIVE` olur; ret kaynağı `TEST_SUCCEEDED` bırakır.
+- Maker=checker, eksik/süresi dolmuş context, yanlış rol/kapsam, servis hesabı ve ayrıcalıkla rol atlama girişimi fail-closed reddedilir.
+- Onay belirli veri kaynağı revizyonuna bağlıdır; eski revizyon aktive edilemez ve aynı revizyon için tek bekleyen istek tutulur.
+- Karar, kaynak durum geçişi ve veri-minimum audit outbox aynı transaction'dadır; stage arızasında istek ve kaynak durumu geri alınır.
+- Legacy SQLite veri kaynağı şeması revizyon alanına veri kaybetmeden taşınır; aktif kaynak metadata, kural ve execution önkoşullarında test edilmiş kaynak olarak kabul edilir.
+- 10 yeni testle toplam 720 test geçti; veri kaynağı hedef grubu 47 testle geçti.
+
+Gerçek banka maker/checker rol kodları ve LDAP eşlemesi, kaynak kritiklik sözlüğü, bağlantı güncellemesinde revizyon artırma, pasife alma, kaynak onay isteği geri çekme/süre aşımı ve kurum onayları `ComplianceReviewRequired` durumundadır.

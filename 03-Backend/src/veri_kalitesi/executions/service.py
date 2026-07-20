@@ -200,15 +200,11 @@ class ExecutionService:
         stored, _ = self.repository.create_or_get(execution)
         return stored
 
-    def cancel_execution(
-        self, *, actor_id: str, execution_id: str, reason: str
-    ) -> RuleExecution:
+    def cancel_execution(self, *, actor_id: str, execution_id: str, reason: str) -> RuleExecution:
         if not actor_id.strip():
             raise ExecutionValidationError("actor_id is required.")
         if not reason.strip() or len(reason) > 500:
-            raise ExecutionValidationError(
-                "Cancellation reason must contain 1 to 500 characters."
-            )
+            raise ExecutionValidationError("Cancellation reason must contain 1 to 500 characters.")
         previous = self.repository.get(execution_id)
         cancelled = self.repository.request_cancel(
             execution_id,
@@ -229,9 +225,7 @@ class ExecutionService:
         execution = self.repository.claim_next(self.clock(), self.concurrency_policy)
         if execution is None:
             return None
-        versions = tuple(
-            self.rule_catalog.get_version(item) for item in execution.rule_version_ids
-        )
+        versions = tuple(self.rule_catalog.get_version(item) for item in execution.rule_version_ids)
         last_error: ExecutionTechnicalError | None = None
         for attempt_no in range(1, self.retry_policy.max_attempts + 1):
             try:
@@ -268,9 +262,7 @@ class ExecutionService:
                 _validate_partial_computations(execution, exc.partial_results)
                 _validate_partitions(exc.completed_partitions)
                 attempt_status = (
-                    ExecutionStatus.PARTIAL
-                    if exc.partial_results
-                    else ExecutionStatus.TIMEOUT
+                    ExecutionStatus.PARTIAL if exc.partial_results else ExecutionStatus.TIMEOUT
                 )
                 self.repository.add_attempt(
                     ExecutionAttempt(
@@ -353,13 +345,9 @@ class ExecutionService:
         for execution in self.repository.list_cancel_requested():
             if execution.started_at is None:
                 continue
-            deadline = execution.started_at + timedelta(
-                seconds=self.timeouts.total_seconds
-            )
+            deadline = execution.started_at + timedelta(seconds=self.timeouts.total_seconds)
             if deadline <= now:
-                closed.append(
-                    self.repository.complete_cancelled(execution.execution_id, now)
-                )
+                closed.append(self.repository.complete_cancelled(execution.execution_id, now))
         return tuple(closed)
 
     def _validate_versions(self, versions: tuple[RuleVersion, ...]) -> tuple[str, ...]:
@@ -373,7 +361,10 @@ class ExecutionService:
                 raise ExecutionValidationError("Manual execution requires the latest rule version.")
             dataset = self.source_catalog.get_dataset(rule.dataset_id)
             source = self.source_catalog.get_data_source(dataset.data_source_id)
-            if source.status is not DataSourceStatus.TEST_SUCCEEDED:
+            if source.status not in {
+                DataSourceStatus.TEST_SUCCEEDED,
+                DataSourceStatus.ACTIVE,
+            }:
                 raise ExecutionValidationError(
                     "Manual execution requires a successfully tested data source."
                 )
@@ -414,10 +405,7 @@ def _validate_concurrency_policy(policy: ConcurrencyPolicy) -> None:
     if any(isinstance(value, bool) or not isinstance(value, int) or value <= 0 for value in limits):
         raise ExecutionValidationError("Concurrency limits must be positive integers.")
     if any(
-        not source_id
-        or isinstance(value, bool)
-        or not isinstance(value, int)
-        or value <= 0
+        not source_id or isinstance(value, bool) or not isinstance(value, int) or value <= 0
         for source_id, value in {
             **policy.per_source_limits,
             **policy.per_source_heavy_limits,
@@ -439,7 +427,9 @@ def _validate_computations(
             item.failed_count,
             item.not_evaluated_count,
         )
-        if any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in counts):
+        if any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in counts
+        ):
             raise ExecutionValidationError("Execution counts must be non-negative integers.")
         if item.checked_count != sum(counts[1:]):
             raise ExecutionValidationError("Execution counts are inconsistent.")
@@ -464,22 +454,16 @@ def _validate_partial_computations(
             item.not_evaluated_count,
         )
         if any(
-            isinstance(value, bool) or not isinstance(value, int) or value < 0
-            for value in counts
+            isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in counts
         ):
-            raise ExecutionValidationError(
-                "Execution counts must be non-negative integers."
-            )
+            raise ExecutionValidationError("Execution counts must be non-negative integers.")
         if item.checked_count != sum(counts[1:]):
             raise ExecutionValidationError("Execution counts are inconsistent.")
         _validate_partitions(item.completed_partitions)
 
 
 def _validate_partitions(partitions: tuple[str, ...]) -> None:
-    if any(
-        not isinstance(partition, str) or not partition.strip()
-        for partition in partitions
-    ):
+    if any(not isinstance(partition, str) or not partition.strip() for partition in partitions):
         raise ExecutionValidationError("Completed partition identifiers are invalid.")
 
 
