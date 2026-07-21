@@ -877,6 +877,30 @@ tags:
 - Kanıt `08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-25A-Saklama-Politikasi-Uygunluk-Kaniti.md` içinde `TechnicallyVerified` olarak kaydedildi.
 - Hukuk/KVKK komitesi/iç denetim onayı, gerçek kayıt türü eşlemesi, kalıcı legal hold yaşam döngüsü, idempotent imha/audit, arşiv geri çağırma ve yedek re-delete açık kalır.
 
+### 2026-07-21 — İterasyon 25B: Kalıcı legal hold yaşam döngüsü ve audit
+
+- `BFR-LCM-002`, `BFR-AUD-001`–`BFR-AUD-004`, `BFR-SOD-002`, `FR-077`,
+  `FR-079`, `NFR-SEC-001/008/011` ve `NFR-CMP-001/003` için append-only legal
+  hold yaşam döngüsü tamamlandı.
+- Hold oluşturma ve serbest bırakma ayrı `PLACED`/`RELEASED` olaylarıdır;
+  SQLite tetikleyicileri geçmişte `UPDATE/DELETE` işlemlerini engeller ve
+  resolver değerlendirme anındaki aktif hold'ları yeniden kurar.
+- Güvenilir ve geçerli normal kullanıcı context'i, sürümlü rol/reason code
+  politikası ve source/dataset/enterprise kapsamı zorunludur. Servis hesabı,
+  break-glass, yanlış rol/kapsam ve oluşturan aktörle serbest bırakma reddedilir.
+- Aynı kayıt birden fazla bağımsız hold taşıyabilir; yalnız tüm hold'lar
+  kaldırıldığında 25A uygunluk değerlendirmesindeki legal hold engeli kalkar.
+- Hold olayı ve redakte audit outbox atomiktir. Stage arızası domain olayını geri
+  alır; merkezi publisher kesintisi domain kaydını koruyup audit olayını
+  `PENDING` bırakır. Audit özeti ham kayıt, kapsam kimliği ve serbest metin taşımaz.
+- 17 yeni testle retention hedef grubu 26, toplam test sayısı 776 oldu. Tam mypy
+  116 dosyada, Ruff, format ve derleme kontrolleri hatasız geçti.
+- Kanıt `08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-25B-Kalici-Legal-Hold-Yasam-Dongusu-Kaniti.md`
+  içinde `TechnicallyVerified` olarak kaydedildi.
+- Banka rol/reason code eşlemesi, üretim PostgreSQL/WORM yetkileri, çoklu süreç
+  eşzamanlılığı, fiziksel imha, anonimleştirme, arşiv geri çağırma ve yedek
+  re-delete açık kalır.
+
 ## İlgili Notlar
 
 - [Alınan Kararlar](Alinan-Kararlar.md)
@@ -885,9 +909,9 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A, Iterasyon 26A–26B, Iterasyon 28A–28E, Iterasyon 29A–29C ve Bakım İterasyonu 29C.1 çıktıları korunacaktır.
-- `pytest` ile 759 testin geçtiği doğrulanmıştır.
-- Tam mypy kontrolü 114 kaynak dosyada sıfır hata vermektedir.
-- Sıradaki teknik aday 25B kalıcı legal hold kayıt/serbest bırakma yaşam döngüsü ve audit dilimidir. Fiziksel imha, arşiv geri çağırma, 29D, 21B/frontend, hassas dışa aktarma, DR ve gerçek SIEM banka/altyapı kararlarını beklemektedir.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25B, Iterasyon 26A–26B, Iterasyon 28A–28E, Iterasyon 29A–29C ve Bakım İterasyonu 29C.1 çıktıları korunacaktır.
+- `pytest` ile 776 testin geçtiği doğrulanmıştır.
+- Tam mypy kontrolü 116 kaynak dosyada sıfır hata vermektedir.
+- Sıradaki teknik aday 25C idempotent imha işi ve veri-minimum kanıt zarfı sözleşmesidir. Fiziksel imha adaptörü, arşiv geri çağırma, 29D, 21B/frontend, hassas dışa aktarma, DR ve gerçek SIEM banka/altyapı kararlarını beklemektedir.
 - Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

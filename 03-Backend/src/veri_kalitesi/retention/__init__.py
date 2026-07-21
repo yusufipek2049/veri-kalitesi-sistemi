@@ -1,7 +1,10 @@
 """Retention lifecycle public API."""
 
 from veri_kalitesi.retention.errors import (
+    RetentionAuthorizationError,
+    RetentionConflictError,
     RetentionError,
+    RetentionNotFoundError,
     RetentionTechnicalError,
     RetentionValidationError,
 )
@@ -9,6 +12,10 @@ from veri_kalitesi.retention.models import (
     CalendarDuration,
     DisposalMethod,
     LegalHold,
+    LegalHoldAccessPolicy,
+    LegalHoldEvent,
+    LegalHoldEventType,
+    LegalHoldTarget,
     RetentionDisposition,
     RetentionEvaluation,
     RetentionPolicy,
@@ -16,8 +23,11 @@ from veri_kalitesi.retention.models import (
     RetentionRecordClass,
     RetentionRecordReference,
     RetentionReviewStatus,
+    RetentionScopeType,
 )
+from veri_kalitesi.retention.repository import SQLiteLegalHoldRepository
 from veri_kalitesi.retention.service import (
+    LegalHoldService,
     LegalHoldResolver,
     RetentionEvaluator,
     add_calendar_duration,
@@ -28,18 +38,28 @@ __all__ = [
     "CalendarDuration",
     "DisposalMethod",
     "LegalHold",
+    "LegalHoldAccessPolicy",
+    "LegalHoldEvent",
+    "LegalHoldEventType",
     "LegalHoldResolver",
+    "LegalHoldService",
+    "LegalHoldTarget",
+    "RetentionAuthorizationError",
+    "RetentionConflictError",
     "RetentionDisposition",
     "RetentionError",
     "RetentionEvaluation",
     "RetentionEvaluator",
+    "RetentionNotFoundError",
     "RetentionPolicy",
     "RetentionPolicyCatalog",
     "RetentionRecordClass",
     "RetentionRecordReference",
     "RetentionReviewStatus",
+    "RetentionScopeType",
     "RetentionTechnicalError",
     "RetentionValidationError",
+    "SQLiteLegalHoldRepository",
     "add_calendar_duration",
     "provisional_retention_catalog",
 ]

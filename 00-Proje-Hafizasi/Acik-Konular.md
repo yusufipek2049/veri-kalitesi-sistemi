@@ -91,9 +91,13 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
 52. `25A-v1` altı zaman bazlı saklama sınıfını takvimsel, sürümlü ve
     `ComplianceReviewRequired` katalogla salt okunur değerlendirir; aktif legal
     hold ve resolver arızası imha uygunluğunu fail-closed engeller. Hukuk/KVKK
-    komitesi/iç denetim onayı, gerçek kayıt türü eşlemesi, kalıcı hold yaşam
-    döngüsü, maker-checker, idempotent imha/audit, arşiv geri çağırma ve yedek
-    re-delete açık kalır.
+    komitesi/iç denetim onayı, gerçek kayıt türü eşlemesi, idempotent imha/audit,
+    arşiv geri çağırma ve yedek re-delete açık kalır.
+53. `25B-v1` append-only legal hold oluşturma/serbest bırakma geçmişini, farklı
+    yetkili aktörü, rol/kapsam kontrolünü ve atomik veri-minimum audit outbox'ı
+    teknik olarak doğruladı. Banka LDAP rol/reason code eşlemesi, üretim
+    PostgreSQL/WORM yetkileri, çoklu süreç eşzamanlılığı, fiziksel imha,
+    arşiv geri çağırma ve yedek re-delete açık kalır.
 
 ## Bankacılık Geçiş Açık Konuları
 
@@ -106,7 +110,7 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
 | OPEN-BNK-005 | Audit yazılamadığında işlem bazlı fail-closed / durable-buffer politikası | Bilgi Güvenliği / Mimari / Operasyon | Açık |
 | OPEN-BNK-006 | Audit bütünlüğü için WORM, hash-chain, imza veya kurumsal log platformu kararı | Bilgi Güvenliği / İç Denetim | Açık |
 | OPEN-BNK-007 | Kurumsal veri sınıflandırma sözlüğü; müşteri sırrı ve banka sırrı etiketlerinin eşlemesi | Veri Yönetişimi / Hukuk / Bilgi Güvenliği | Açık |
-| OPEN-BNK-008 | Kayıt türü bazlı `P10Y/P5Y/P3Y/P1Y/P90D/P30D` politika taslağı, `P180D` imha aralığı ve legal hold modeli; banka onayı ve operasyonlaştırma bekleniyor | Hukuk / KVKK Komitesi / İç Denetim | ProvisionalDecision |
+| OPEN-BNK-008 | Kayıt türü bazlı `P10Y/P5Y/P3Y/P1Y/P90D/P30D` politika taslağı, `P180D` imha aralığı ve append-only legal hold yaşam döngüsü teknik olarak uygulandı; banka politika/rol/reason code onayı ile fiziksel imha ve geri çağırma bekleniyor | Hukuk / KVKK Komitesi / İç Denetim | ProvisionalDecision |
 | OPEN-BNK-009 | ServiceNow kurulum yeri, veri işleyen/alt işleyen durumu ve yurt dışı aktarım etkisi | Hukuk / Tedarik / Bilgi Güvenliği | Açık |
 | OPEN-BNK-010 | SIEM ürün, olay sözlüğü, alarm seviyesi ve SOC eskalasyon akışı | SOC / Bilgi Güvenliği | Açık |
 | OPEN-BNK-011 | Banka onaylı RTO, RPO, yedek şifreleme ve geri yükleme test sıklığı | İş Sürekliliği / Operasyon | Açık |
