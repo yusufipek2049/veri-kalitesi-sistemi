@@ -1191,6 +1191,26 @@ tags:
   kontrolünde değişiklik dışındaki bir tarihsel dosyanın biçim farkı sürer.
   `28A-v1` taraması 389 dosyada secret bulgusu üretmedi.
 
+### 2026-07-21 — İterasyon 34B: Deterministik Golden ilişkisel üretici
+
+- `FR-089`, `FR-090` temel yapay ilişki alt kapsamı, `FR-093`, `UC-017`,
+  `RULE-016/017` ve `AC/TS-048/049` için tamamen yapay
+  `GOLDEN_RELATIONAL_GENERATOR_V1` eklendi.
+- Üretici yalnız kayıtlı run ile `GOLDEN`, `FUNCTIONAL_V1`, kusursuz,
+  eksiksiz ve `FULLY_ARTIFICIAL_V1` senaryoyu kabul eder; üretim profili veya
+  gerçek kaynak erişimi yoktur.
+- Yapay subject/observation kayıtları benzersiz anahtar, yabancı anahtar,
+  segment-durum ilişkisi, referans kodu, iki ondalıklı tutar ve sıralı zaman
+  alanlarıyla üretilir. Şema ve konfigürasyon kodları yalnız teknik sentetik V1
+  sözleşmesidir; banka iş anlamı veya üretim dağılımı iddiası taşımaz.
+- Aynı seed ve sürümler farklı run kimlikleri altında byte eşdeğeri kanonik JSON
+  ve aynı SHA-256 çıktı referansını üretir. Run kimliği digest kapsamına girmez;
+  farklı seed farklı çıktı üretir.
+- 9 yeni test vakasıyla toplam test sayısı 948 oldu. Tam mypy 139 dosyada, Ruff
+  lint, `compileall`, değişen kapsam formatı ve güvenli SDLC taraması hatasız
+  geçti. Tam depo format kontrolünde değişiklik dışındaki bir tarihsel dosyanın
+  biçim farkı sürer; `28A-v1` taraması 391 dosyada secret bulgusu üretmedi.
+
 ## İlgili Notlar
 
 ### OPEN-001–OPEN-018 Dokümantasyon Uyumlaştırması
@@ -1206,9 +1226,9 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A ve İterasyon 34A çıktıları korunacaktır.
-- `pytest` ile 939 testin geçtiği doğrulanmıştır.
-- Tam mypy kontrolü 137 kaynak dosyada sıfır hata vermektedir.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A ve İterasyon 34A–34B çıktıları korunacaktır.
+- `pytest` ile 948 testin geçtiği doğrulanmıştır.
+- Tam mypy kontrolü 139 kaynak dosyada sıfır hata vermektedir.
 - Kısmi politika maker-checker onay/ret, geri çekme ve atomik audit akışı 32D ile tamamlandı. Süre aşımı açık kalır; güvenilir `PartialExecutionFacts` üretimi kapsama ve eksik kayıt oranı formüllerini beklemektedir. 31D hız sınırı sayaç/pencere semantiğini; CPU/IO sınırları güvenilir kaynak ölçüm adaptörünü beklemektedir. 27B restore tatbikat kanıtı `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını bekler; gerçek arşiv/fiziksel imha adaptörü, 29D, 21B/frontend, hassas dışa aktarma ve gerçek SIEM de banka/altyapı kararlarına bağlıdır.
 - Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

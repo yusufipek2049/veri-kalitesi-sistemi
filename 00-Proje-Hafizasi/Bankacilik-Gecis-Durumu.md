@@ -17,8 +17,8 @@ tags:
 
 Yüklenen mevcut vault ve kod üzerinden doğrulanan durum:
 
-- İterasyon 1–16, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Iterasyon 31A–31C, Iterasyon 32A–32D, İterasyon 33A ve İterasyon 34A teknik dikeyleri tamamlanmış ve proje hafızasına kaydedilmiştir.
-- `pytest` sonucu: **939 test geçti**; tam mypy kontrolü 137 kaynak dosyada
+- İterasyon 1–16, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Iterasyon 31A–31C, Iterasyon 32A–32D, İterasyon 33A ve İterasyon 34A–34B teknik dikeyleri tamamlanmış ve proje hafızasına kaydedilmiştir.
+- `pytest` sonucu: **948 test geçti**; tam mypy kontrolü 139 kaynak dosyada
   sıfır hata vermektedir.
 - Mevcut çalışan domain paketleri:
   - `data_sources`
@@ -50,8 +50,9 @@ Yüklenen mevcut vault ve kod üzerinden doğrulanan durum:
 - Sürümlü dataset kısmi skor politikası güvenilir maker-checker onay/ret, maker'a ait auditli geri çekme ve atomik audit outbox akışıyla yönetilir; ölçülmüş çalışma olgularını fail-closed değerlendirerek `OFFICIAL` veya `PROVISIONAL` kararı üretir. Resmî kısmi sonuç `PARTIAL` statüsüyle sayısal skor ve üst agregasyonlara taşınır; provizyonel sonuç resmî agregasyon, trend ve rapor önizlemesinden çıkarılır. Politika süre aşımı ve olguların worker/execution tarafından güvenilir üretimi açıktır.
 - `DQ-SCR-001`–`DQ-SCR-033` bağlayıcı skorlama kararları ve kanonik ölçüm yeterliliği hedef tasarımı gereksinim, mimari, veri modeli, API, arayüz ve test sözleşmelerine işlenmiştir. Kanonik sayaçlar ve kural skoru paydası 33A ile runtime'a taşındı; ham/nihai skor, sekiz yeterlilik durumu, kapsam/güven/güncellik kapıları, ayrı kullanım kararı, kritiklik/risk ve override yapıları henüz uygulanmadı. İlişkili `OPEN-023` ve `OPEN-BNK` kayıtları banka onayı olmadan kapatılmamıştır.
 - Sentetik veri ve gizlilik hedef tasarımı `ADR-016`, `FR-088–FR-096` ve
-  `AC/TS-048–056` ile belgelendi. Politika, senaryo ve run kayıt çekirdeği 34A
-  ile runtime'a taşındı; üretici, ground truth ve gizlilik kapısı uygulanmadı. Sentetik çıktı anonimlik
+  `AC/TS-048–056` ile belgelendi. Politika, senaryo ve run kayıt çekirdeği 34A,
+  tamamen yapay deterministik Golden ilişkisel üretici 34B ile runtime'a taşındı;
+  kalıcı çıktı/run tamamlama, ground truth ve gizlilik kapısı uygulanmadı. Sentetik çıktı anonimlik
   veya banka onayı sayılmaz, gerçek operasyon hedeflerini tetikleyemez ve
   `OPEN-014` kapsamındaki nihai anonimleştirilmiş üretim örneği kabulinin yerine
   geçmez. Nicel eşikler ile üretim profili/örneği erişimi `OPEN-024/025`
@@ -69,7 +70,7 @@ Aşağıdaki davranışlar geriye dönük bozulmamalıdır:
 5. RuleVersion ve scoring configuration geçmişinin değişmez kalması.
 6. İdempotent execution ve scheduler tetikleme.
 7. Yetkisiz SOURCE drill-down'ın repository çağrısından önce reddedilmesi.
-8. 939 mevcut birim testinin ve sıfır hatalı tam mypy baseline'ının geriye dönük korunması.
+8. 948 mevcut birim testinin ve sıfır hatalı tam mypy baseline'ının geriye dönük korunması.
 9. Sınıflandırılmamış veya hassas alanların ham profil değerlerinin kalıcılaştırılmaması.
 
 ## En Kritik Kontrol Boşlukları
@@ -104,7 +105,7 @@ Aşağıdaki maddeler tamamlanmadan yeni HTTP yüzeyi, hassas dışa aktarma vey
 
 ## Kontrol Durumu
 
-- Teknik geçiş: **Devam ediyor; İterasyon 17A–17E, 18A–18C, 19A–19H, 20A–20C, 21A, 22A–22I, 23A–23D, 24A–24B, 25A–25D, 26A–26B, 27A, 28A–28E, 29A–29C, 31A–31C, 32A–32D, 33A ve 34A TechnicallyVerified**
+- Teknik geçiş: **Devam ediyor; İterasyon 17A–17E, 18A–18C, 19A–19H, 20A–20C, 21A, 22A–22I, 23A–23D, 24A–24B, 25A–25D, 26A–26B, 27A, 28A–28E, 29A–29C, 31A–31C, 32A–32D, 33A ve 34A–34B TechnicallyVerified**
 - BDDK/KVKK teknik kontrol eşlemesi: **Proposed**
 - Banka bilgi güvenliği onayı: **ComplianceReviewRequired**
 - Banka hukuk/uyum onayı: **ComplianceReviewRequired**

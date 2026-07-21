@@ -167,10 +167,12 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
     kullanım/blokaj yetkileri ile remediation/eskalasyon
     hedefleri `TBD`'dir. Bu değerler `OPEN-023` ve `OPEN-BNK-004/008/010/013/017`
     kararı olmadan kodlanmamalıdır.
-69. Sentetik dataset politika, senaryo ve run kayıt çekirdeği 34A ile runtime'a
-    taşındı. Politika ve senaryo oluşturma/onay yaşam döngüsü, gerçek kalıcı depo,
-    üretici, çıktı tamamlama geçişi, ground truth deposu, bağımsız karşılaştırıcı,
-    gizlilik değerlendiricisi ve dataset kataloğu uygulanmadı.
+69. Sentetik dataset politika, senaryo ve run kayıt çekirdeği 34A, tamamen yapay
+    deterministik Golden ilişkisel üretici 34B ile runtime'a taşındı. Politika ve
+    senaryo oluşturma/onay yaşam döngüsü, gerçek kalıcı çıktı deposu, run tamamlama
+    geçişi, sürümlü genel şema yükleyici, kusur enjeksiyonu, ground truth deposu,
+    bağımsız karşılaştırıcı, gizlilik değerlendiricisi ve dataset kataloğu
+    uygulanmadı.
     Dağılım/korelasyon/görev faydası/gizlilik eşikleri, kusur yoğunluğu oranları,
     skor toleransı ve izinli üretim yöntemleri `OPEN-024` kapsamında
     `DecisionRequired` durumundadır.

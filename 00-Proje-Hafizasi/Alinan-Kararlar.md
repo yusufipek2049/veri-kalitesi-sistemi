@@ -532,3 +532,9 @@ Bu sınıflandırma şu kuralları birlikte uygular:
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
 | --- | --- | --- | --- |
 | Sentetik üretim işi yalnız güvenilir kullanıcı bağlamı, dataset kapsamı ve tek etkili onaylı politika ile kaydedilir; politika, senaryo ve run sürümleri append-only tutulur. Aynı lineage girdisinin tekrar talebi yeni run kimliği oluşturur. | Politika belirsizliğinin sessizce çözülmesi, geçmiş lineage'ın değiştirilmesi veya audit olmadan run kabulü yeniden üretilebilirlik ve fail-closed güven sınırını bozar. | En son eklenen politikayı örtük seçmek; aynı seed için mevcut run'ı döndürmek; audit'i işlem sonrasında best-effort yazmak. | Run ve merkezi audit outbox aynı transaction'da yazılır. Seed lineage kaydında korunur, audit özetinde yalnız `seed_present` bulunur. Politika/senaryo yönetim yaşam döngüsü, üretici, ground truth ve gizlilik kapısı sonraki ayrı artımlardır. |
+
+## 2026-07-21 — İterasyon 34B Teknik Kararı
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| İlk Golden üretici yalnız tamamen yapay, kusursuz ve eksiksiz teknik V1 profili kabul eder; dış veri/profil/saat bağımlılığı kullanmaz. Kanonik digest run kimliğini dışarıda bırakır fakat tüm veri lineage'ını içerir. | `OPEN-024/025` kapanmadan üretim benzerliği veya gerçek profil erişimi varsayılamaz. Operasyonel run kimliği replay içeriğine katılırsa aynı seed ve sürümlerin byte eşdeğerliği bozulur. | Üretim profilinden örnek okumak; rastgele sistem saati/UUID kullanmak; run kimliğini veri digest'ine katmak; nicel dağılım hedefi uydurmak. | `GOLDEN_RELATIONAL_GENERATOR_V1`, `GOLDEN_RELATIONAL_SCHEMA_V1` ve `GOLDEN_RELATIONAL_CONFIG_V1` yalnız sentetik teknik sözleşmelerdir. Aynı giriş aynı kanonik çıktı ve SHA-256 referansı üretir; çıktı kalıcılığı ve run tamamlama geçişi sonraki artıma bırakılmıştır. |
