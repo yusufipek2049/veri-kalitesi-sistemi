@@ -208,6 +208,14 @@ tags:
 | 2026-07-20 | Aktivasyon için Data Owner ve güncel revizyona ait başarılı son bağlantı testi zorunlu olacaktır. | Sahipsiz veya salt okunurluğu doğrulanmamış kaynağın kalite çalıştırmalarına açılması yönetişim ve güvenlik riski oluşturur. | Checker kararını tek önkoşul saymak veya başarısız/eski testi kabul etmek. | Eksik sahip veya güncel başarılı test bulunmadığında istek oluşmaz; secret ve bağlantı ayrıntıları audit özetine girmez. |
 | 2026-07-20 | Checker kararı, kaynak durum geçişi ve audit outbox aynı transaction içinde yazılacaktır. | Aktivasyonun audit kaydı olmadan gerçekleşmesi veya karar kaydıyla kaynak durumunun ayrışması kabul edilemez. | Önce kaynağı aktive edip audit'i sonradan yazmak ya da best-effort audit kullanmak. | Audit-stage arızasında istek `PENDING`, kaynak `TEST_SUCCEEDED` kalır; banka rol eşlemesi `ComplianceReviewRequired` durumundadır. |
 
+## 2026-07-21 İterasyon 19F Kararları
+
+| Tarih | Karar | Gerekçe | Alternatif | Sonuç |
+| --- | --- | --- | --- | --- |
+| 2026-07-21 | Veri kaynağı aktivasyon onayları da 3 iş günü hedef ve 10 iş günü otomatik sona erme politikasını istek oluşturma anından itibaren kullanacaktır. | Kural ve kaynak kritik değişikliklerinin aynı karar paketine göre tutarlı, sürümlü ve tarihsel olarak açıklanabilir süre yönetimi gerekir. | Kaynak onaylarında süresiz beklemek, takvim günü kullanmak veya süreyi sorgu anında yeniden hesaplamak. | İstek hedef/sona erme zamanı ve takvim sürümünü saklar; eksik veya uyumsuz takvimle süreli politika fail-closed kapanır. |
+| 2026-07-21 | Bekleyen aktivasyon isteğini yalnız kayıtlı maker geri çekebilecek; süre aşımını yalnız güvenilir, yetkili ve source kapsamı içindeki servis hesabı işletecektir. | Başka aktörün kritik isteği izinsiz kapatması ve aktörsüz toplu güncelleme görevler ayrılığı ile audit güven sınırını bozar. | Checker'ın geri çekmesi, aktörsüz SQL işi veya genel ayrıcalığın rol/kapsam yerine kabul edilmesi. | `WITHDRAWN` ve `EXPIRED` terminal durumları korunur; yetkisiz kullanıcı/servis reddedilir ve kaynak `TEST_SUCCEEDED` kalır. |
+| 2026-07-21 | Geri çekme/süre aşımı durum geçişi ile veri-minimum audit outbox aynı transaction içinde yazılacaktır. | İsteğin audit izi olmadan kapanması veya audit ile domain durumunun ayrışması kabul edilemez. | Best-effort audit veya durum değişikliğinden sonra ayrı audit yazımı. | Audit-stage arızasında istek `PENDING` kalır; secret, bağlantı yapılandırması, owner, maker ve gerekçe audit özetine alınmaz. |
+
 ## İlişkili Notlar
 
 - [Sistem Açıklaması](../01-SRS/02-Sistem-Aciklamasi.md)

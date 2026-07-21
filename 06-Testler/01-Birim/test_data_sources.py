@@ -1,5 +1,6 @@
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, TypedDict, cast
 
@@ -69,6 +70,7 @@ def _data_source_service(
     resolver: InMemorySecretResolver | None = None,
     *,
     activation_policy: DataSourceActivationPolicy | None = None,
+    activation_calendar: "FakeBusinessCalendar | None" = None,
     clock: Callable[[], datetime] = lambda: NOW,
 ) -> DataSourceService:
     audit_repository = SQLiteAuditRepository()
@@ -90,6 +92,7 @@ def _data_source_service(
             policy_version="AUDIT_OUTBOX_TEST_V1",
         ),
         activation_policy=activation_policy,
+        activation_calendar=activation_calendar,
         clock=clock,
     )
 
@@ -343,6 +346,29 @@ def _use_failing_stage(service: DataSourceService) -> None:
         current_audit.repository,
         policy_version="AUDIT_OUTBOX_TEST_V1",
     )
+
+
+@dataclass(frozen=True)
+class FakeBusinessCalendar:
+    version: str = "BANK_BUSINESS_CALENDAR_V1"
+    holidays: frozenset[date] = frozenset()
+
+    def add_business_days(self, start_at: datetime, business_days: int) -> datetime:
+        current = start_at
+        remaining = business_days
+        while remaining:
+            current += timedelta(days=1)
+            if current.weekday() < 5 and current.date() not in self.holidays:
+                remaining -= 1
+        return current
+
+
+@dataclass
+class MutableClock:
+    now: datetime
+
+    def __call__(self) -> datetime:
+        return self.now
 
 
 def test_bfr_aud_004_outbox_failure_rolls_back_data_source_creation() -> None:
@@ -1832,16 +1858,368 @@ def test_fr_010_legacy_data_source_schema_adds_revision_without_data_loss(tmp_pa
     )
 
 
-def _activation_service() -> DataSourceService:
+def test_bfr_sod_001_activation_uses_three_and_ten_bank_business_days() -> None:
+    calendar = FakeBusinessCalendar(holidays=frozenset({date(2026, 7, 22)}))
+    service = _activation_service(calendar=calendar)
+    service, source = _tested_activation_source_without_file(service)
+
+    request = service.request_activation(
+        actor_context=_activation_context(source.data_source_id, "maker-1", {"SOURCE_MAKER"}),
+        data_source_id=source.data_source_id,
+    )
+
+    assert request.target_at == datetime(2026, 7, 24, 12, 0, tzinfo=timezone.utc)
+    assert request.expires_at == datetime(2026, 8, 4, 12, 0, tzinfo=timezone.utc)
+    assert request.business_calendar_version == "BANK_BUSINESS_CALENDAR_V1"
+    requested_audit = _audit_events(service)[-1]
+    assert requested_audit.new_value_summary["target_at"] == request.target_at.isoformat()
+    assert requested_audit.new_value_summary["expires_at"] == request.expires_at.isoformat()
+
+
+def test_bfr_sod_003_maker_withdraws_and_recreates_activation_request() -> None:
+    service, source = _tested_activation_source_without_file()
+    maker = _activation_context(source.data_source_id, "maker-1", {"SOURCE_MAKER"})
+    first = service.request_activation(
+        actor_context=maker,
+        data_source_id=source.data_source_id,
+    )
+
+    withdrawn = service.withdraw_activation(
+        actor_context=maker,
+        activation_request_id=first.activation_request_id,
+        reason_code="SOURCE.CONFIG.REVIEW_REQUIRED",
+    )
+    second = service.request_activation(
+        actor_context=maker,
+        data_source_id=source.data_source_id,
+    )
+
+    assert withdrawn.status is DataSourceActivationStatus.WITHDRAWN
+    assert withdrawn.checker_actor_id is None
+    assert second.activation_request_id != first.activation_request_id
+    assert service.repository.get_data_source(source.data_source_id).status is (
+        DataSourceStatus.TEST_SUCCEEDED
+    )
+    audit = _audit_events(service)[-2]
+    assert audit.action == "DATA_SOURCE_ACTIVATION_WITHDRAWN"
+    assert audit.new_value_summary["source_status"] == "TEST_SUCCEEDED"
+    assert "SOURCE.CONFIG.REVIEW_REQUIRED" not in str(audit)
+    assert source.owner_user_id is not None
+    assert source.owner_user_id not in str(audit)
+    assert "secret://" not in str(audit)
+
+
+def test_nfr_sec_001_withdrawal_rejects_other_maker_role_scope_and_service() -> None:
+    service, source = _tested_activation_source_without_file()
+    maker = _activation_context(source.data_source_id, "maker-1", {"SOURCE_MAKER"})
+    request = service.request_activation(
+        actor_context=maker,
+        data_source_id=source.data_source_id,
+    )
+    invalid_contexts = (
+        _activation_context(source.data_source_id, "maker-2", {"SOURCE_MAKER"}),
+        _activation_context(source.data_source_id, "viewer-1", {"SOURCE_VIEWER"}),
+        _activation_context(
+            source.data_source_id,
+            "maker-wrong-scope",
+            {"SOURCE_MAKER"},
+            source_ids={"source-other"},
+        ),
+        _activation_context(
+            source.data_source_id,
+            "service-maker",
+            {"SOURCE_MAKER"},
+            actor_type=ActorType.SERVICE,
+        ),
+    )
+
+    for context in invalid_contexts:
+        with pytest.raises(AuthorizationError):
+            service.withdraw_activation(
+                actor_context=context,
+                activation_request_id=request.activation_request_id,
+                reason_code="SOURCE.CONFIG.REVIEW_REQUIRED",
+            )
+
+    assert service.repository.get_activation_request(request.activation_request_id).status is (
+        DataSourceActivationStatus.PENDING
+    )
+
+
+def test_bfr_sod_001_expired_activation_cannot_be_decided_or_withdrawn() -> None:
+    clock = MutableClock(NOW)
+    service = _activation_service(clock=clock)
+    service, source = _tested_activation_source_without_file(service)
+    maker = _activation_context(source.data_source_id, "maker-1", {"SOURCE_MAKER"})
+    request = service.request_activation(
+        actor_context=maker,
+        data_source_id=source.data_source_id,
+    )
+    assert request.expires_at is not None
+    clock.now = request.expires_at
+
+    with pytest.raises(ValidationError, match="expired and must be recreated"):
+        service.decide_activation(
+            actor_context=_activation_context(
+                source.data_source_id, "checker-1", {"SOURCE_CHECKER"}
+            ),
+            activation_request_id=request.activation_request_id,
+            decision="APPROVE",
+            reason_code="SOURCE.READ_ONLY.TESTED",
+        )
+    with pytest.raises(ValidationError, match="expired and must be recreated"):
+        service.withdraw_activation(
+            actor_context=maker,
+            activation_request_id=request.activation_request_id,
+            reason_code="SOURCE.CONFIG.REVIEW_REQUIRED",
+        )
+
+    assert service.repository.get_data_source(source.data_source_id).status is (
+        DataSourceStatus.TEST_SUCCEEDED
+    )
+
+
+def test_bfr_sod_001_expiry_worker_expires_and_allows_recreation() -> None:
+    clock = MutableClock(NOW)
+    service = _activation_service(clock=clock)
+    service, source = _tested_activation_source_without_file(service)
+    request = service.request_activation(
+        actor_context=_activation_context(source.data_source_id, "maker-1", {"SOURCE_MAKER"}),
+        data_source_id=source.data_source_id,
+    )
+    assert request.expires_at is not None
+    clock.now = request.expires_at
+    worker = _activation_context(
+        source.data_source_id,
+        "expiry-worker",
+        {"SOURCE_ACTIVATION_EXPIRY_WORKER"},
+        actor_type=ActorType.SERVICE,
+    )
+
+    expired = service.expire_due_activations(actor_context=worker)
+    recreated = service.request_activation(
+        actor_context=_activation_context(source.data_source_id, "maker-2", {"SOURCE_MAKER"}),
+        data_source_id=source.data_source_id,
+    )
+
+    assert len(expired) == 1
+    assert expired[0].status is DataSourceActivationStatus.EXPIRED
+    assert expired[0].decision_reason_code == "DATA_SOURCE.ACTIVATION.EXPIRED"
+    assert recreated.status is DataSourceActivationStatus.PENDING
+    assert service.repository.get_data_source(source.data_source_id).status is (
+        DataSourceStatus.TEST_SUCCEEDED
+    )
+    audit = _audit_events(service)[-2]
+    assert audit.action == "DATA_SOURCE_ACTIVATION_EXPIRED"
+    assert audit.actor_type == "SERVICE"
+    assert "DATA_SOURCE.ACTIVATION.EXPIRED" not in str(audit.new_value_summary)
+    assert "secret://" not in str(audit)
+
+
+def test_nfr_sec_001_expiry_rejects_human_wrong_role_and_wrong_scope() -> None:
+    clock = MutableClock(NOW)
+    service = _activation_service(clock=clock)
+    service, source = _tested_activation_source_without_file(service)
+    request = service.request_activation(
+        actor_context=_activation_context(source.data_source_id, "maker-1", {"SOURCE_MAKER"}),
+        data_source_id=source.data_source_id,
+    )
+    assert request.expires_at is not None
+    clock.now = request.expires_at
+    invalid_contexts = (
+        _activation_context(
+            source.data_source_id,
+            "human-worker",
+            {"SOURCE_ACTIVATION_EXPIRY_WORKER"},
+        ),
+        _activation_context(
+            source.data_source_id,
+            "wrong-role-service",
+            {"SOURCE_VIEWER"},
+            actor_type=ActorType.SERVICE,
+        ),
+        _activation_context(
+            source.data_source_id,
+            "wrong-scope-service",
+            {"SOURCE_ACTIVATION_EXPIRY_WORKER"},
+            source_ids={"source-other"},
+            actor_type=ActorType.SERVICE,
+        ),
+    )
+
+    for context in invalid_contexts:
+        with pytest.raises(AuthorizationError):
+            service.expire_due_activations(actor_context=context)
+
+    assert service.repository.get_activation_request(request.activation_request_id).status is (
+        DataSourceActivationStatus.PENDING
+    )
+
+
+def test_bfr_aud_004_withdrawal_rolls_back_when_outbox_stage_fails() -> None:
+    service, source = _tested_activation_source_without_file()
+    maker = _activation_context(source.data_source_id, "maker-1", {"SOURCE_MAKER"})
+    request = service.request_activation(
+        actor_context=maker,
+        data_source_id=source.data_source_id,
+    )
+    _use_failing_stage(service)
+
+    with pytest.raises(sqlite3.OperationalError, match="outbox write failure"):
+        service.withdraw_activation(
+            actor_context=maker,
+            activation_request_id=request.activation_request_id,
+            reason_code="SOURCE.CONFIG.REVIEW_REQUIRED",
+        )
+
+    assert service.repository.get_activation_request(request.activation_request_id).status is (
+        DataSourceActivationStatus.PENDING
+    )
+
+
+def test_bfr_aud_004_expiry_rolls_back_when_outbox_stage_fails() -> None:
+    clock = MutableClock(NOW)
+    service = _activation_service(clock=clock)
+    service, source = _tested_activation_source_without_file(service)
+    request = service.request_activation(
+        actor_context=_activation_context(source.data_source_id, "maker-1", {"SOURCE_MAKER"}),
+        data_source_id=source.data_source_id,
+    )
+    assert request.expires_at is not None
+    clock.now = request.expires_at
+    _use_failing_stage(service)
+
+    with pytest.raises(sqlite3.OperationalError, match="outbox write failure"):
+        service.expire_due_activations(
+            actor_context=_activation_context(
+                source.data_source_id,
+                "expiry-worker",
+                {"SOURCE_ACTIVATION_EXPIRY_WORKER"},
+                actor_type=ActorType.SERVICE,
+            )
+        )
+
+    assert service.repository.get_activation_request(request.activation_request_id).status is (
+        DataSourceActivationStatus.PENDING
+    )
+
+
+def test_fr_010_legacy_activation_schema_adds_nullable_timing_without_data_loss(
+    tmp_path: Path,
+) -> None:
+    database = tmp_path / "legacy-activation.sqlite"
+    connection = sqlite3.connect(database)
+    connection.executescript(
+        f"""
+        CREATE TABLE data_sources (
+            data_source_id TEXT PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            source_type TEXT NOT NULL,
+            connection_config TEXT NOT NULL,
+            secret_reference TEXT NOT NULL,
+            owner_user_id TEXT,
+            status TEXT NOT NULL,
+            revision INTEGER NOT NULL DEFAULT 1,
+            last_test_at TEXT,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE data_source_activation_requests (
+            activation_request_id TEXT PRIMARY KEY,
+            data_source_id TEXT NOT NULL,
+            data_source_revision INTEGER NOT NULL,
+            maker_actor_id TEXT NOT NULL,
+            checker_actor_id TEXT,
+            policy_version TEXT NOT NULL,
+            status TEXT NOT NULL,
+            decision_reason_code TEXT,
+            requested_at TEXT NOT NULL,
+            decided_at TEXT
+        );
+        INSERT INTO data_sources VALUES (
+            'source-legacy', 'Legacy Activation Source', 'CSV',
+            '{{"file_path": "/safe/legacy.csv"}}', 'secret://datasources/legacy',
+            'owner-legacy', 'TEST_SUCCEEDED', 1, '{NOW.isoformat()}', '{NOW.isoformat()}'
+        );
+        INSERT INTO data_source_activation_requests VALUES (
+            'activation-legacy', 'source-legacy', 1, 'maker-legacy', 'checker-legacy',
+            'SOURCE_ACTIVATION_POLICY_V1', 'APPROVED', 'SOURCE.READ_ONLY.TESTED',
+            '{NOW.isoformat()}', '{NOW.isoformat()}'
+        );
+        """
+    )
+    connection.close()
+
+    migrated = SQLiteDataSourceRepository(str(database))
+    stored = migrated.get_activation_request("activation-legacy")
+
+    assert stored.status is DataSourceActivationStatus.APPROVED
+    assert stored.target_at is None
+    assert stored.expires_at is None
+    assert stored.business_calendar_version is None
+
+
+@pytest.mark.parametrize(
+    "policy,calendar,error",
+    [
+        (
+            DataSourceActivationPolicy(
+                version="V2",
+                actor_policy_version=ACTOR_POLICY_VERSION,
+                maker_roles=frozenset({"SOURCE_MAKER"}),
+                checker_roles=frozenset({"SOURCE_CHECKER"}),
+                target_business_days=3,
+            ),
+            None,
+            "timing policy must be complete",
+        ),
+        (
+            DataSourceActivationPolicy(
+                version="V2",
+                actor_policy_version=ACTOR_POLICY_VERSION,
+                maker_roles=frozenset({"SOURCE_MAKER"}),
+                checker_roles=frozenset({"SOURCE_CHECKER"}),
+                target_business_days=3,
+                expiration_business_days=10,
+                business_calendar_version="BANK_BUSINESS_CALENDAR_V1",
+                expiry_service_roles=frozenset({"SOURCE_ACTIVATION_EXPIRY_WORKER"}),
+            ),
+            FakeBusinessCalendar(version="BANK_BUSINESS_CALENDAR_V2"),
+            "version does not match",
+        ),
+    ],
+)
+def test_bfr_sod_001_activation_timing_policy_fails_closed(
+    policy: DataSourceActivationPolicy,
+    calendar: FakeBusinessCalendar | None,
+    error: str,
+) -> None:
+    with pytest.raises(ValidationError, match=error):
+        _activation_service(policy=policy, calendar=calendar)
+
+
+def _activation_service(
+    *,
+    clock: Callable[[], datetime] = lambda: NOW,
+    calendar: FakeBusinessCalendar | None = None,
+    policy: DataSourceActivationPolicy | None = None,
+) -> DataSourceService:
+    activation_calendar = calendar or FakeBusinessCalendar()
     return _data_source_service(
         SQLiteDataSourceRepository(),
         ConnectorRegistry([CSVConnector()]),
-        activation_policy=DataSourceActivationPolicy(
-            version="SOURCE_ACTIVATION_POLICY_V1",
+        activation_policy=policy
+        or DataSourceActivationPolicy(
+            version="SOURCE_ACTIVATION_POLICY_V2",
             actor_policy_version=ACTOR_POLICY_VERSION,
             maker_roles=frozenset({"SOURCE_MAKER"}),
             checker_roles=frozenset({"SOURCE_CHECKER"}),
+            target_business_days=3,
+            expiration_business_days=10,
+            business_calendar_version=activation_calendar.version,
+            expiry_service_roles=frozenset({"SOURCE_ACTIVATION_EXPIRY_WORKER"}),
         ),
+        activation_calendar=activation_calendar,
+        clock=clock,
     )
 
 
@@ -1861,8 +2239,10 @@ def _tested_activation_source(tmp_path: Path) -> tuple[DataSourceService, DataSo
     return service, service.repository.get_data_source(source.data_source_id)
 
 
-def _tested_activation_source_without_file() -> tuple[DataSourceService, DataSource]:
-    service = _activation_service()
+def _tested_activation_source_without_file(
+    service: DataSourceService | None = None,
+) -> tuple[DataSourceService, DataSource]:
+    service = service or _activation_service()
     source = service.create_data_source(
         actor_id="legacy-source-creator",
         name="Synthetic Tested Source",
@@ -1901,7 +2281,7 @@ def _activation_context(
     source_ids: set[str] | None = None,
     actor_type: ActorType = ActorType.USER,
     privileged: bool = False,
-    expires_at: datetime = NOW + timedelta(hours=1),
+    expires_at: datetime = NOW + timedelta(days=30),
 ) -> ActorContext:
     return ActorContextIssuer().issue(
         actor_id=actor_id,

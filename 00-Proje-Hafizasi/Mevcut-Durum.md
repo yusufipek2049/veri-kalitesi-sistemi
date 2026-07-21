@@ -2,7 +2,7 @@
 type: project-memory
 status: draft
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-last_updated: 2026-07-20
+last_updated: 2026-07-21
 tags:
   - proje
   - mevcut-durum
@@ -832,6 +832,17 @@ tags:
 - Kanıt `08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19E-Veri-Kaynagi-Aktivasyon-Maker-Checker-Kaniti.md` içinde `TechnicallyVerified` olarak kaydedildi.
 - Banka rol eşlemesi, kaynak kritiklik sözlüğü, bağlantı güncellemesinde revizyon artırma, pasife alma ve kaynak onay isteği geri çekme/süre aşımı açık; kurum onayları `ComplianceReviewRequired` kalır.
 
+### 2026-07-21 — İterasyon 19F: Veri kaynağı onay geri çekme ve süre aşımı
+
+- `FR-010`, `FR-014`, `UC-002`, `UC-003`, `NFR-SEC-001/008/011` ve `BFR-SOD-001/002/003/004` için kaynak aktivasyon onayı yaşam döngüsü tamamlandı.
+- Yalnız kayıtlı maker bekleyen isteği geri çekebilir; kaynak `TEST_SUCCEEDED` kalır ve aynı revizyon için yeni istek oluşturulabilir.
+- Hedef 3, otomatik sona erme 10 iş günüdür. Sürümlü ve enjekte edilen takvim zamanları istek anında üretir; süresi dolmuş istek karar veya geri çekmeye kapalıdır.
+- Yalnız güvenilir `SERVICE` context'i, sürümlü worker rolü ve source kapsamı doğrulandıktan sonra isteği `EXPIRED` yapabilir.
+- Geri çekme/süre aşımı ve veri-minimum audit outbox atomiktir; stage arızasında istek `PENDING` kalır. Legacy istek kayıtları nullable zaman alanlarına veri kaybetmeden taşınır.
+- 11 yeni testle veri kaynağı hedef grubu 58, toplam test sayısı 731 oldu. Tam mypy 109 dosyada, Ruff ve derleme kontrolleri hatasız geçti.
+- Kanıt `08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19F-Veri-Kaynagi-Onay-Geri-Cekme-Sure-Asimi-Kaniti.md` içinde `TechnicallyVerified` olarak kaydedildi.
+- Gerçek banka takvimi, maker/checker/worker rol eşlemesi ve üretim worker işletimi `ComplianceReviewRequired`; bağlantı güncellemesinde revizyon artırma/onay geçersizleştirme ve pasife alma açıktır.
+
 ## İlgili Notlar
 
 - [Alınan Kararlar](Alinan-Kararlar.md)
@@ -840,9 +851,9 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19E, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B, Iterasyon 28A–28E, Iterasyon 29A–29C ve Bakım İterasyonu 29C.1 çıktıları korunacaktır.
-- `pytest` ile 720 testin geçtiği doğrulanmıştır.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19F, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B, Iterasyon 28A–28E, Iterasyon 29A–29C ve Bakım İterasyonu 29C.1 çıktıları korunacaktır.
+- `pytest` ile 731 testin geçtiği doğrulanmıştır.
 - Tam mypy kontrolü 109 kaynak dosyada sıfır hata vermektedir.
-- Sıradaki teknik aday veri kaynağı aktivasyon isteği geri çekme ve süre aşımı dilimidir. 29D, 21B/frontend, hassas dışa aktarma, saklama/DR ve gerçek SIEM banka/altyapı kararlarını beklemektedir.
+- Sıradaki teknik aday bağlantı yapılandırması güncellemesinde kaynak revizyonunu artırma ve bekleyen onayı geçersizleştirme dilimidir. 29D, 21B/frontend, hassas dışa aktarma, saklama/DR ve gerçek SIEM banka/altyapı kararlarını beklemektedir.
 - Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

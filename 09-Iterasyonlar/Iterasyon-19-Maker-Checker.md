@@ -89,3 +89,17 @@ Gerçek banka iş günü/tatil kaynağı, banka onaylı süre aşımı servis ro
 - 10 yeni testle toplam 720 test geçti; veri kaynağı hedef grubu 47 testle geçti.
 
 Gerçek banka maker/checker rol kodları ve LDAP eşlemesi, kaynak kritiklik sözlüğü, bağlantı güncellemesinde revizyon artırma, pasife alma, kaynak onay isteği geri çekme/süre aşımı ve kurum onayları `ComplianceReviewRequired` durumundadır.
+
+## Dilim 19F Kapanışı
+
+`TechnicallyVerified` kapsam:
+
+- Bekleyen kaynak aktivasyon isteğini yalnız kayıtlı maker, güncel güvenilir rol ve source kapsamıyla geri çekebilir.
+- Kaynak onay hedefi 3 iş günü, otomatik sona erme 10 iş günü olarak sürümlü politikaya bağlandı; süre istek oluşturma anında başlar.
+- Sürümlü iş takvimi hedef ve sona erme zamanlarını üretir; eksik/uyumsuz takvim veya geçersiz zaman penceresi fail-closed reddedilir.
+- Süresi dolmuş istek onaylanamaz veya geri çekilemez; yalnız güvenilir, yetkili ve kapsam içi servis context'i isteği `EXPIRED` yapabilir.
+- Geri çekme/süre aşımı ve redakte audit outbox aynı transaction'dadır; audit-stage arızasında istek `PENDING` kalır.
+- `WITHDRAWN` ve `EXPIRED` geçmiş silinmeden aynı kaynak revizyonu için yeni istek oluşturulabilir; legacy SQLite kayıtları nullable zaman alanlarına veri kaybetmeden taşınır.
+- 11 yeni testle toplam 731 test geçti; veri kaynağı hedef grubu 58 testle geçti.
+
+Gerçek banka iş günü/tatil kaynağı, banka onaylı maker/checker/worker rol kodları, LDAP eşlemesi ve üretim worker işletimi `ComplianceReviewRequired` durumundadır. Bağlantı güncellemesinde revizyon artırma/onay geçersizleştirme ve pasife alma ayrı ürün artımlarıdır.

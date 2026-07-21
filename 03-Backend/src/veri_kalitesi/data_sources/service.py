@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import datetime, timezone
-from typing import Any, Callable
+from typing import Any, Callable, Protocol
 from uuid import uuid4
 
 from veri_kalitesi.audit import (
@@ -54,7 +54,7 @@ from veri_kalitesi.data_sources.models import (
     SourceType,
     utc_now,
 )
-from veri_kalitesi.identity import ActorContext, is_trusted_actor_context
+from veri_kalitesi.identity import ActorContext, ActorType, is_trusted_actor_context
 from veri_kalitesi.data_sources.postgresql import is_read_only_sql
 from veri_kalitesi.data_sources.repository import SQLiteDataSourceRepository
 from veri_kalitesi.data_sources.secrets import EmptySecretResolver, SecretResolver
@@ -72,6 +72,13 @@ _FORBIDDEN_CONFIG_KEYS = {"password", "passwd", "token", "secret", "private_key"
 _POSTGRESQL_SSL_MODES = {"require", "verify-ca", "verify-full"}
 
 
+class BusinessCalendar(Protocol):
+    @property
+    def version(self) -> str: ...
+
+    def add_business_days(self, start_at: datetime, business_days: int) -> datetime: ...
+
+
 class DataSourceService:
     def __init__(
         self,
@@ -84,6 +91,7 @@ class DataSourceService:
         classification_policy: ClassificationPolicy | None = None,
         masking_policy: MaskingPolicy | None = None,
         activation_policy: DataSourceActivationPolicy | None = None,
+        activation_calendar: BusinessCalendar | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ) -> None:
         self.repository = repository
@@ -94,9 +102,11 @@ class DataSourceService:
         self.classification_policy = classification_policy or DefaultClassificationPolicy()
         self.masking_policy = masking_policy or DefaultMaskingPolicy(self.classification_policy)
         self.activation_policy = activation_policy
+        self.activation_calendar = activation_calendar
         self.clock = clock
         if activation_policy is not None:
             _validate_activation_policy(activation_policy)
+            _validate_activation_calendar(activation_policy, activation_calendar)
 
     def create_data_source(
         self,
@@ -232,12 +242,16 @@ class DataSourceService:
             raise ValidationError("Activation requires the current revision's successful test.")
         requested_at = self.clock()
         _require_aware_time(requested_at, "Data source activation clock")
+        target_at, expires_at, calendar_version = self._activation_timing(requested_at)
         request = DataSourceActivationRequest(
             data_source_id=data_source_id,
             data_source_revision=source.revision,
             maker_actor_id=context.actor_id,
             policy_version=policy.version,
             requested_at=requested_at,
+            target_at=target_at,
+            expires_at=expires_at,
+            business_calendar_version=calendar_version,
         )
         event = self._build_audit_event(
             actor_id=context.actor_id,
@@ -254,6 +268,9 @@ class DataSourceService:
                 "data_source_revision": source.revision,
                 "policy_version": policy.version,
                 "status": request.status.value,
+                "target_at": target_at.isoformat() if target_at else None,
+                "expires_at": expires_at.isoformat() if expires_at else None,
+                "business_calendar_version": calendar_version,
             },
         )
         stored = self.repository.add_activation_request(
@@ -282,6 +299,10 @@ class DataSourceService:
         )
         if request.status is not DataSourceActivationStatus.PENDING:
             raise ValidationError("Data source activation request is not pending.")
+        if self._activation_request_expired(request):
+            raise ValidationError(
+                "Data source activation request has expired and must be recreated."
+            )
         if request.policy_version != policy.version:
             raise ValidationError("Data source activation policy version changed.")
         if request.data_source_revision != source.revision:
@@ -304,6 +325,9 @@ class DataSourceService:
             status=status,
             decision_reason_code=normalized_reason,
             requested_at=request.requested_at,
+            target_at=request.target_at,
+            expires_at=request.expires_at,
+            business_calendar_version=request.business_calendar_version,
             decided_at=decided_at,
         )
         source_status = (
@@ -338,6 +362,181 @@ class DataSourceService:
         )
         self.transactional_audit.publish_pending()
         return stored
+
+    def withdraw_activation(
+        self,
+        *,
+        actor_context: ActorContext | None,
+        activation_request_id: str,
+        reason_code: str,
+    ) -> DataSourceActivationRequest:
+        policy = self._require_activation_policy()
+        request = self.repository.get_activation_request(activation_request_id)
+        source = self.repository.get_data_source(request.data_source_id)
+        context = self._authorize_activation_actor(
+            actor_context,
+            required_roles=policy.maker_roles,
+            data_source_id=source.data_source_id,
+        )
+        if request.status is not DataSourceActivationStatus.PENDING:
+            raise ValidationError("Data source activation request is not pending.")
+        if self._activation_request_expired(request):
+            raise ValidationError(
+                "Data source activation request has expired and must be recreated."
+            )
+        if request.data_source_revision != source.revision:
+            raise ValidationError("Data source activation request is for a stale revision.")
+        if request.maker_actor_id != context.actor_id:
+            raise AuthorizationError("Only the activation request maker can withdraw it.")
+        normalized_reason = reason_code.strip()
+        if not normalized_reason:
+            raise ValidationError("Activation withdrawal reason code is required.")
+        withdrawn_at = self.clock()
+        _require_aware_time(withdrawn_at, "Data source activation clock")
+        withdrawn = DataSourceActivationRequest(
+            activation_request_id=request.activation_request_id,
+            data_source_id=request.data_source_id,
+            data_source_revision=request.data_source_revision,
+            maker_actor_id=request.maker_actor_id,
+            policy_version=request.policy_version,
+            status=DataSourceActivationStatus.WITHDRAWN,
+            decision_reason_code=normalized_reason,
+            requested_at=request.requested_at,
+            target_at=request.target_at,
+            expires_at=request.expires_at,
+            business_calendar_version=request.business_calendar_version,
+            decided_at=withdrawn_at,
+        )
+        event = self._build_audit_event(
+            actor_id=context.actor_id,
+            actor_type=context.actor_type.value,
+            session_id=context.session_id,
+            correlation_id=context.correlation_id,
+            action="DATA_SOURCE_ACTIVATION_WITHDRAWN",
+            object_type="DataSource",
+            object_id=source.data_source_id,
+            result=AuditResult.SUCCESS,
+            reason_code="DATA_SOURCE_ACTIVATION_WITHDRAWN",
+            old_values={"status": DataSourceActivationStatus.PENDING.value},
+            new_values={
+                "activation_request_id": request.activation_request_id,
+                "data_source_revision": request.data_source_revision,
+                "policy_version": request.policy_version,
+                "status": DataSourceActivationStatus.WITHDRAWN.value,
+                "source_status": source.status.value,
+            },
+        )
+        stored = self.repository.withdraw_activation_request(
+            withdrawn,
+            audit_event=self.transactional_audit.prepare(event),
+            audit_outbox=self.transactional_audit,
+        )
+        self.transactional_audit.publish_pending()
+        return stored
+
+    def expire_due_activations(
+        self, *, actor_context: ActorContext | None
+    ) -> tuple[DataSourceActivationRequest, ...]:
+        context = self._authorize_activation_expiry_actor(actor_context)
+        expired_at = self.clock()
+        _require_aware_time(expired_at, "Data source activation clock")
+        due = self.repository.list_due_activation_requests(expired_at)
+        for request in due:
+            if request.data_source_id not in context.permitted_source_ids:
+                raise AuthorizationError("Expiry worker is outside the data source scope.")
+
+        expired_requests = []
+        for request in due:
+            source = self.repository.get_data_source(request.data_source_id)
+            expired = DataSourceActivationRequest(
+                activation_request_id=request.activation_request_id,
+                data_source_id=request.data_source_id,
+                data_source_revision=request.data_source_revision,
+                maker_actor_id=request.maker_actor_id,
+                policy_version=request.policy_version,
+                status=DataSourceActivationStatus.EXPIRED,
+                decision_reason_code="DATA_SOURCE.ACTIVATION.EXPIRED",
+                requested_at=request.requested_at,
+                target_at=request.target_at,
+                expires_at=request.expires_at,
+                business_calendar_version=request.business_calendar_version,
+                decided_at=expired_at,
+            )
+            event = self._build_audit_event(
+                actor_id=context.actor_id,
+                actor_type=context.actor_type.value,
+                session_id=context.session_id,
+                correlation_id=context.correlation_id,
+                action="DATA_SOURCE_ACTIVATION_EXPIRED",
+                object_type="DataSource",
+                object_id=request.data_source_id,
+                result=AuditResult.SUCCESS,
+                reason_code="DATA_SOURCE_ACTIVATION_EXPIRED",
+                old_values={"status": DataSourceActivationStatus.PENDING.value},
+                new_values={
+                    "activation_request_id": request.activation_request_id,
+                    "data_source_revision": request.data_source_revision,
+                    "policy_version": request.policy_version,
+                    "business_calendar_version": request.business_calendar_version,
+                    "status": DataSourceActivationStatus.EXPIRED.value,
+                    "source_status": source.status.value,
+                },
+            )
+            stored = self.repository.expire_activation_request(
+                expired,
+                audit_event=self.transactional_audit.prepare(event),
+                audit_outbox=self.transactional_audit,
+            )
+            self.transactional_audit.publish_pending()
+            expired_requests.append(stored)
+        return tuple(expired_requests)
+
+    def _activation_timing(
+        self, requested_at: datetime
+    ) -> tuple[datetime | None, datetime | None, str | None]:
+        policy = self._require_activation_policy()
+        if policy.expiration_business_days is None:
+            return None, None, None
+        assert policy.target_business_days is not None
+        assert policy.business_calendar_version is not None
+        assert self.activation_calendar is not None
+        target_at = self.activation_calendar.add_business_days(
+            requested_at, policy.target_business_days
+        )
+        expires_at = self.activation_calendar.add_business_days(
+            requested_at, policy.expiration_business_days
+        )
+        _require_aware_time(target_at, "Data source activation calendar")
+        _require_aware_time(expires_at, "Data source activation calendar")
+        if not requested_at < target_at < expires_at:
+            raise ValidationError(
+                "Data source activation calendar returned an invalid time window."
+            )
+        return target_at, expires_at, policy.business_calendar_version
+
+    def _activation_request_expired(self, request: DataSourceActivationRequest) -> bool:
+        if request.expires_at is None:
+            return False
+        now = self.clock()
+        _require_aware_time(now, "Data source activation clock")
+        return now >= request.expires_at
+
+    def _authorize_activation_expiry_actor(self, context: ActorContext | None) -> ActorContext:
+        policy = self._require_activation_policy()
+        now = self.clock()
+        _require_aware_time(now, "Data source activation clock")
+        if not is_trusted_actor_context(context):
+            raise AuthorizationError("Trusted activation expiry service context is required.")
+        assert context is not None
+        if context.issued_at > now or context.expires_at <= now:
+            raise AuthorizationError("Activation expiry service context is not currently valid.")
+        if context.policy_version != policy.actor_policy_version:
+            raise AuthorizationError("Activation expiry service policy version is not accepted.")
+        if context.actor_type is not ActorType.SERVICE:
+            raise AuthorizationError("Activation expiry requires a service account.")
+        if not policy.expiry_service_roles or context.roles.isdisjoint(policy.expiry_service_roles):
+            raise AuthorizationError("Service account cannot expire activation requests.")
+        return context
 
     def discover_metadata(
         self,
@@ -842,6 +1041,46 @@ def _validate_activation_policy(policy: DataSourceActivationPolicy) -> None:
         raise ValidationError("Data source activation roles must not be blank.")
     if not policy.allowed_actor_types or not policy.allowed_actor_types <= {"USER", "SERVICE"}:
         raise ValidationError("Data source activation actor types are invalid.")
+    timing = (
+        policy.target_business_days,
+        policy.expiration_business_days,
+        policy.business_calendar_version,
+    )
+    if any(value is not None for value in timing) and not all(
+        value is not None for value in timing
+    ):
+        raise ValidationError("Data source activation timing policy must be complete.")
+    if policy.expiration_business_days is not None:
+        target = policy.target_business_days
+        expiration = policy.expiration_business_days
+        if (
+            isinstance(target, bool)
+            or isinstance(expiration, bool)
+            or not isinstance(target, int)
+            or not isinstance(expiration, int)
+            or target < 1
+            or expiration <= target
+        ):
+            raise ValidationError("Data source activation business-day limits are invalid.")
+        if not policy.business_calendar_version or not policy.business_calendar_version.strip():
+            raise ValidationError("Data source activation business calendar version is required.")
+        if not policy.expiry_service_roles or any(
+            not role.strip() for role in policy.expiry_service_roles
+        ):
+            raise ValidationError("Data source activation expiry service roles are required.")
+
+
+def _validate_activation_calendar(
+    policy: DataSourceActivationPolicy, calendar: BusinessCalendar | None
+) -> None:
+    if policy.expiration_business_days is None:
+        return
+    if calendar is None:
+        raise ValidationError("Data source activation business calendar is required.")
+    if calendar.version != policy.business_calendar_version:
+        raise ValidationError(
+            "Data source activation business calendar version does not match policy."
+        )
 
 
 def _require_aware_time(value: datetime, label: str) -> None:

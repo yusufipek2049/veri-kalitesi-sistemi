@@ -128,6 +128,9 @@ def build_default_redaction_policy() -> AuditRedactionPolicy:
                     "data_source_revision",
                     "policy_version",
                     "status",
+                    "target_at",
+                    "expires_at",
+                    "business_calendar_version",
                 }
             ),
             "DATA_SOURCE_ACTIVATION_DECIDED": frozenset(
@@ -135,6 +138,25 @@ def build_default_redaction_policy() -> AuditRedactionPolicy:
                     "activation_request_id",
                     "data_source_revision",
                     "policy_version",
+                    "status",
+                    "source_status",
+                }
+            ),
+            "DATA_SOURCE_ACTIVATION_WITHDRAWN": frozenset(
+                {
+                    "activation_request_id",
+                    "data_source_revision",
+                    "policy_version",
+                    "status",
+                    "source_status",
+                }
+            ),
+            "DATA_SOURCE_ACTIVATION_EXPIRED": frozenset(
+                {
+                    "activation_request_id",
+                    "data_source_revision",
+                    "policy_version",
+                    "business_calendar_version",
                     "status",
                     "source_status",
                 }
