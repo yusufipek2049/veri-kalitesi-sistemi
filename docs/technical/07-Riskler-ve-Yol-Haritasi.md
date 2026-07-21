@@ -30,6 +30,8 @@ değildir.
 | Operasyon ekibinin arızayı görememesi | Yüksek | Yüksek | P0 | Metric/log/health/alarm yok | Observability minimum baseline |
 | Kullanıcı akışının doğrulanamaması | Yüksek | Orta-Yüksek | P2 | UI/API/E2E yok | Dikey API+UI artımları ve E2E |
 | Banka kontrol kararlarının açık kalması | Yüksek | Yüksek | P0 | `OPEN-BNK-*` listesi | Karar sahibi ve kanıt kapısı |
+| Kabul edilen skorlama modeliyle runtime'ın ayrışması | Yüksek | Yüksek | P1 | `DQ-SCR-001`–`DQ-SCR-033` dokümante; standart durumlar, kapsam/güven ve override kodda yok | Küçük, geriye uyumlu skorlama dilimleri |
+| Dataset kritikliğinin kalite skoruna karışması | Yüksek | Orta-Yüksek | P1 | Mevcut `SOURCE` formülü; `ADR-015` hedefinde `Superseded` | Kritiklik/risk göstergelerini kalite agregasyonundan ayır |
 
 ## P0 - Üretime Çıkışı Engelleyen İşler
 

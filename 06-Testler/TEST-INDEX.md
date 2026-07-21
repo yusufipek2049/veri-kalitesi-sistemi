@@ -46,11 +46,25 @@ tags:
 | OPEN-017 | Kritik işlem audit arızasında fail-closed; rutin outbox kesintisinde kayıpsız retry/alarm |
 | OPEN-018 | Politika koşullarının tamamında kısmi resmî skor; her eksik koşul ve politika yokluğunda provizyonel dışlama |
 
+## DQ-SCR Doğrulama Kapsamı
+
+| Karar grubu | Zorunlu test kapsamı |
+| --- | --- |
+| `DQ-SCR-001`–`DQ-SCR-006` | Amaç/KPI metni, payda ve sayaç eşitlikleri, sekiz ayrı ölçüm durumu, teknik hata/son başarılı skor eskiliği |
+| `DQ-SCR-007`–`DQ-SCR-013` | Tamlık koşulları, geçerlilik türleri/sürümleri, otoriter doğruluk, mutabakat toleransı, kesin/olası duplicate, güncellik politikası ve ölçüm türü normalizasyonu |
+| `DQ-SCR-014`–`DQ-SCR-017` | Sürümlü eşik/ağırlık, iki aşamalı agregasyon, `NotApplicable` dağıtımı, kritik kural veto/tavan/alarm/blokajı |
+| `DQ-SCR-018`–`DQ-SCR-021` | Kritikliğin kalite skoruna katılmaması; kalite, kapsam, güven, risk ve teknik sağlığın ayrı API/UI alanları |
+| `DQ-SCR-022`, `DQ-SCR-023`, `DQ-SCR-030` | Süreli istisna/override, maker-checker, yetkisiz/servis/ayrıcalıklı negatifleri, audit rollback, ham skor değişmezliği ve anti-gaming işlemleri |
+| `DQ-SCR-024`–`DQ-SCR-027`, `DQ-SCR-032` | Kural yaşam döngüsü/backtest, tüm sürüm referansları, açıklama drill-down'ı, trend sürüm sınırı, replay/idempotency ve orijinal skor koruması |
+| `DQ-SCR-028`, `DQ-SCR-029` | Teknik/kalite alarm ayrımı, korelasyon, risk bazlı atama/SLA ve kanıtsız/geçici iyileşmeyle kapatma reddi |
+| `DQ-SCR-031` | Tam tarama, kaynakta toplulaştırma, bölümleme, artımlı kontrol ve kontrollü örneklemede yöntem/hacim/güven kanıtı |
+| `DQ-SCR-033` | Yetki matrisi, görevler ayrılığı, veri sahibi/teknik sahip/operasyon sorumluluk sınırları |
+
 ## Güncel Otomasyon Baseline'ı
 
-- 855 test geçmektedir.
+- 913 test geçmektedir.
 - Tam statik tip kontrolü `python3 -m mypy 03-Backend/src 06-Testler` komutuyla
-  127 kaynak dosyada sıfır hata vermektedir.
+  131 kaynak dosyada sıfır hata vermektedir.
 - `incident_response` hedef grubu, güvenlik olayı/ihlal ayrımı, 72 saat hedefi, veri işleyen kanıtı, maker-checker kararı, yetki/scope redleri, veri-minimum timeline görünümü, audit minimizasyonu ve rollback için 39 sentetik vaka içerir.
 - `secure_sdlc` hedef grubu; gerçek pozitif/yanlış pozitif, binary/büyük/dışlanan
   dosya, sembolik bağlantı, salt okunurluk, deterministik sıra, teknik hata ve

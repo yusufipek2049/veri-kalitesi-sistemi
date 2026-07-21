@@ -11,7 +11,7 @@
 | `03-Backend/01-*` ... `12-*` | Modül talimatları ve backend indeksi | Kod değil, yönlendirme |
 | `04-Frontend/` | Frontend hedef modülleri | Plan; yalnız indeks var |
 | `05-Veritabani/` | Veritabanı çalışma alanı | Plan; migration kodu burada yok |
-| `06-Testler/01-Birim/` | 20 test dosyası ve 702 test | Aktif |
+| `06-Testler/01-Birim/` | 27 test dosyası ve 913 test | Aktif |
 | `06-Testler/02-Entegrasyon/` | Entegrasyon test alanı | Boş |
 | `06-Testler/03-Uctan-Uca/` | E2E test alanı | Boş |
 | `07-Operasyon/` | Runbook ve politika taslakları | Belge; çalışan otomasyon değil |

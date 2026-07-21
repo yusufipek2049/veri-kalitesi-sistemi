@@ -26,12 +26,41 @@ tags:
 | ADR-012 | Token tabanlı kurumsal görsel dil; marka rengi ile semantik durum renklerinin ayrılması | Tasarım baseline'ı kabul edildi; frontend uygulaması bekliyor |
 | ADR-013 | Storybook component doğrulaması ve Playwright görsel regression süreci | Önerilen; toolchain/dependency onayı ve frontend uygulaması bekliyor |
 | ADR-014 | OPEN-001–OPEN-018 karar paketinin kapasite, politika, güvenlik, yaşam döngüsü ve hibrit dağıtım sınırı | Kabul edildi; sayısal ve ürün bazlı TBD değerler korunuyor |
+| ADR-015 | Açıklanabilir, sürümlü ve riskten ayrılmış veri kalitesi skorlama mimarisi (`DQ-SCR-001`–`DQ-SCR-033`) | Kabul edildi; mevcut uygulama farkları ve kurumsal değerler TBD |
 
 ## ADR-014 — Bağlayıcı Karar Paketi
 
 Bu karar; düşük/beklenen/yüksek kapasite senaryolarını, kaynak bazlı kullanım politikasını, kayıt sınıfı bazlı saklama ile bileşen bazlı RPO/RTO'yu, kurumsal katalog/DLP sınıflandırmasını, katmanlı rapor saklamayı, risk bazlı maker-checker'ı, anonimleştirilmiş performans verisini, WCAG 2.2 AA hedefini, hibrit üretim dağıtımını, olay sınıfı bazlı audit davranışını ve dataset politikası kontrollü kısmi resmî skoru bağlayıcı kabul eder.
 
 Belirli ürünler; kapasite, kota, timeout, saklama, dosya boyutu ve RPO/RTO değerleri ilgili kurumsal analiz veya onaya kadar TBD kalır. Teknik uygulama banka onayı anlamına gelmez.
+
+## ADR-015 — Açıklanabilir ve Riskten Ayrılmış Skorlama
+
+**Bağlam:** Mevcut teknik uygulama kural, boyut, dataset, kaynak ve kurum
+agregasyonlarını üretmektedir; ancak kapsam ve ölçüm güveni ayrı sözleşme olarak
+tam değildir. Kaynak skoru dataset kritiklik ağırlığını kalite agregasyonuna
+katmaktadır. Bu davranış `DQ-SCR-018` ile çelişir. Mevcut durum kod tabanı için
+gerçek bir uyarlama backlogudur; doküman güncellemesi uygulanmış runtime kanıtı
+değildir.
+
+**Karar:** `DQ-SCR-001`–`DQ-SCR-033` bağlayıcıdır. Ham kalite skoru kural → veri
+öğesi → boyut → dataset hiyerarşisinde hesaplanır. Kapsam, güven, dataset
+kritikliği, veri riski ve teknik sağlık ayrı çıktıdır. Kritik kural veto/tavanı
+ağırlıklı ortalamadan bağımsızdır. Normalizasyon, eşik, ağırlık, güven ve kritik
+kural davranışları sürümlü politikalardır. İstisna ve override süreli,
+maker-checker kontrollü ve auditlidir; ham skoru değiştirmez. Skor ve replay
+sonucu tüm model/politika/uygulama sürümlerini korur.
+
+**Superseded karar:** Dataset kritikliğini `SOURCE` kalite skorunda ağırlık olarak
+kullanan tarihsel teknik yaklaşım, hedef mimaride `DQ-SCR-018` ile
+`Superseded` durumundadır. Geçmiş skorlar değiştirilmez; yeni modele geçiş
+sürüm sınırı ve ayrı yeniden hesaplama kaydıyla yapılır.
+
+**Sonuç:** Skorlama motoru, politika çözümleyici, risk/remediation ve teknik sağlık
+sınırları ayrılır. API/UI kalite, kapsam, güven, risk/kritiklik ve teknik durumu
+tek yüzdeye eritmez. Üretim eşikleri, ağırlıkları, veto/tavan davranışı, güven ve
+risk katsayıları, dataset türleri ve `OPEN-BNK-013` kapsamı `TBD` kalır. Karar
+banka uyum onayı anlamına gelmez.
 
 ## ADR-012 — Token Tabanlı Kurumsal Görsel Dil
 

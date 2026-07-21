@@ -34,3 +34,26 @@ Bu bölüm, karar kayıtlarının durumunu uydurmadan görünür kılar. Hedef t
 | OPEN-016 | Stateless API ve worker'ların kurumsal konteyner platformunda, veritabanının ayrı yüksek erişilebilirlik kümesinde çalıştığı hibrit mimari | Karara bağlandı | BT Mimari Kurulu | TBD | Bölüm 2.2, NFR-SCL, NFR-AVL |
 | OPEN-017 | Kritik işlem sınıflarında fail-closed; rutin olaylarda dayanıklı kuyruk/transactional outbox | Karara bağlandı | Bilgi Güvenliği / Mimari Kurul | TBD | FR-077, NFR-SEC-011 |
 | OPEN-018 | Dataset bazlı sürümlü politika sağlanırsa kısmi sonucun resmî skora alınması; aksi halde provizyonel davranış | Karara bağlandı | Veri Yönetişimi Kurulu | TBD | FR-048, RULE-004 |
+| OPEN-019 | `DQ-SCR-013`–`DQ-SCR-021` için üretim normalizasyonları, eşik/ağırlık değerleri, kritik veto/tavan davranışları, kapsam/güven ve veri risk formülleri | Açık | Veri Yönetişimi / Risk Yönetimi / İç Kontrol | TBD | FR-047–FR-052, AC-030–AC-032; OPEN-BNK-004/013 |
+| OPEN-020 | Dataset türü ile isteğe bağlı veri ürünü/rapor/veri alanı hiyerarşisinin kurumsal sözlüğü ve `OPEN-BNK-013` düzenleyici kapsam kararı | Açık | Veri Yönetişimi / Risk Yönetimi | TBD | FR-050, DQ-SCR-002/003/018/019 |
+| OPEN-021 | İstisna ve ham skordan ayrı değerlendirme/override için banka rol matrisi, izinli türler, azami süre, risk kabulü ve raporlama politikası | Açık | Veri Yönetişimi / İç Kontrol / Bilgi Güvenliği | TBD | FR-035, FR-077, DQ-SCR-022/023/030; OPEN-BNK-004/005/006/008 |
+| OPEN-022 | Mevcut fiziksel skor durumlarının standart ölçüm durumlarına eşlenmesi ve dataset kritiklik ağırlıklı `SOURCE` skorundan ayrı kritiklik/risk modeline geçiş planı | Açık | Mimari / Veri Yönetişimi / Operasyon | TBD | FR-048–FR-052, ADR-015, DQ-SCR-005/006/018/025/032 |
+
+## DQ-SCR Kararlarının Bankacılık Açık Konularıyla İlişkisi
+
+`DQ-SCR` kararlarının kabulü aşağıdaki `OPEN-BNK` kayıtlarını otomatik olarak
+kapatmaz. Bu ilişkiler banka kararı, kurumsal politika veya üretim kanıtı gereken
+bağımlılıkları gösterir.
+
+| DQ-SCR kararları | İlişkili OPEN-BNK kayıtları | Açık kalan karar alanı |
+| --- | --- | --- |
+| DQ-SCR-003, DQ-SCR-015, DQ-SCR-018, DQ-SCR-019 | OPEN-BNK-013 | Düzenleyici raporlama/risk zinciri kapsamı ve kurumsal veri hiyerarşisi |
+| DQ-SCR-005, DQ-SCR-023, DQ-SCR-030, DQ-SCR-032 | OPEN-BNK-005, OPEN-BNK-006, OPEN-BNK-016 | Kritik işlem auditi, bütünlük, kalıcı outbox ve yeniden oynatma altyapısı |
+| DQ-SCR-014, DQ-SCR-015, DQ-SCR-017, DQ-SCR-022, DQ-SCR-023, DQ-SCR-030 | OPEN-BNK-004 | Skorlama politikası, istisna ve override için maker-checker kapsamı ve banka rolleri |
+| DQ-SCR-014, DQ-SCR-015 | OPEN-BNK-007 | Kurumsal sınıflandırma ve hassasiyet bağlamına göre politika seçimi |
+| DQ-SCR-022, DQ-SCR-032 | OPEN-BNK-008 | İstisna, override ve yeniden hesaplama kayıtlarının saklama/imha politikası |
+| DQ-SCR-028 | OPEN-BNK-010 | Skor alarmı olay sözlüğü, seviye ve SOC eskalasyon akışı |
+| DQ-SCR-026 | OPEN-BNK-014 | Skor ve eğilim dışa aktarımlarında DLP, gerekçe, onay ve watermark politikası |
+| DQ-SCR-012, DQ-SCR-028, DQ-SCR-029, DQ-SCR-031 | OPEN-BNK-017 | Zaman bağımlı politika/onay işlemlerinin süre aşımı ve politika sahipliği |
+| DQ-SCR-031 | OPEN-BNK-011, OPEN-BNK-012 | Yeniden üretilebilirlik için yedekleme hedefleri ve üretim platformu |
+| DQ-SCR-033 | OPEN-BNK-001, OPEN-BNK-004, OPEN-BNK-013 | Yönetişim modelinin uyum, iç kontrol ve risk kapsamı onayı |

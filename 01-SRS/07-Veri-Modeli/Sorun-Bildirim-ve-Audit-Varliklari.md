@@ -19,11 +19,12 @@ tags:
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | notification_id | UUID | 36 | Evet | Evet | Otomatik | Bildirim anahtarı | Hayır | UUID |
 | recipient_user_id | UUID | 36 | Evet | Hayır | Yok | Alıcı | Kişisel | Aktif User veya fallback grup |
-| event_type | ENUM | 50 | Evet | Hayır | Yok | Eşik/teknik hata/atama vb. | Hayır | Onaylı sözlük |
+| event_type | ENUM | 50 | Evet | Hayır | Yok | Kalite alarmı/teknik alarm/atama vb. | Hayır | Teknik ve kalite alarmı ayrı sözlük değeri |
 | title | VARCHAR | 250 | Evet | Hayır | Yok | Bildirim başlığı | Hayır | Ham hassas veri içermez |
 | body | TEXT | TBD | Evet | Hayır | Yok | Maskeli bildirim içeriği | Hassas olabilir | Şablon ve maskeleme |
 | status | ENUM | 20 | Evet | Hayır | UNREAD | UNREAD/READ/SUPPRESSED/FAILED | Hayır | İzinli geçiş |
 | deduplication_key | VARCHAR | 200 | Evet | Koşullu benzersiz | Yok | Tekrar önleme anahtarı | Hayır | Pencere içinde benzersiz |
+| correlation_key | VARCHAR | 200 | Evet | Hayır | Yok | Aynı kök olayı birleştirme anahtarı | Hayır | Olay türü ve kapsamla tutarlı |
 
 ## DataQualityIssue
 
@@ -32,13 +33,23 @@ tags:
 | issue_id | UUID | 36 | Evet | Evet | Otomatik | Sorun anahtarı | Hayır | UUID |
 | issue_no | VARCHAR | 40 | Evet | Evet | Otomatik | Kullanıcı görünen numara | Hayır | Tanımlı biçim |
 | source_event_type | ENUM | 40 | Evet | Hayır | QUALITY | QUALITY/TECHNICAL/SCHEMA_CHANGE | Hayır | İzinli enum |
+| quality_score_id | UUID | 36 | Kalite olayında koşullu | Hayır | NULL | Değiştirilmeyen ham kalite skoru | Hayır | Geçerli QualityScore; teknik olayda zorunlu değil |
+| data_risk_score_id | UUID | 36 | Hayır | Hayır | NULL | Önceliklendirmede kullanılan ayrı risk skoru | Hayır | Geçerli DataRiskScore |
+| remediation_policy_version | VARCHAR | 80 | Evet | Hayır | Yok | Kritiklik/öneme göre hedef ve kapanış politikası | Hayır | Geçerli sürüm |
 | status | ENUM | 30 | Evet | Hayır | NEW | Tanımlı issue durumları | Hayır | Geçiş matrisi |
 | priority | ENUM | 20 | Evet | Hayır | MEDIUM | LOW/MEDIUM/HIGH/CRITICAL | Hayır | İzinli enum |
 | assignee_user_id | UUID | 36 | Hayır | Hayır | NULL | Atanan kullanıcı | Kişisel | Aktif ve kapsam içi User |
 | due_at | TIMESTAMP | TBD | Hayır | Hayır | NULL | Son tarih UTC | Hayır | Geçmiş olamaz |
 | root_cause | TEXT | TBD | Çözümde evet | Hayır | NULL | Kök neden | Hassas olabilir | HTML temizlenir |
 | corrective_action | TEXT | TBD | Çözümde evet | Hayır | NULL | Düzeltici faaliyet | Hassas olabilir | HTML temizlenir |
+| verification_execution_id | UUID | 36 | Kapanışta koşullu | Hayır | NULL | Düzeltmeyi doğrulayan yeniden çalışma | Hayır | Başarılı ve kapsamla eşleşen execution |
+| persistence_check_reference | VARCHAR | 200 | Kapanışta koşullu | Hayır | NULL | Gerekli kalıcılık kontrolü kanıtı | Hassas olabilir | Güvenli opak referans |
 | servicenow_ticket_no | VARCHAR | 100 | Hayır | Hayır | NULL | Harici ticket numarası | Hassas olabilir | Issue başına tek aktif |
+
+Kalite alarmı, teknik alarm ve remediation yaşam döngüsü `DQ-SCR-028` ve
+`DQ-SCR-029` uyarınca ayrıdır. Geçici skor yükselişi tek başına issue kapatmaz;
+etkin politika kök neden, doğrulama çalışması ve kalıcılık kanıtından hangilerinin
+zorunlu olduğunu belirler. Kesin hedef süreler `TBD`'dir.
 
 ## OutboundIntegrationRecord
 

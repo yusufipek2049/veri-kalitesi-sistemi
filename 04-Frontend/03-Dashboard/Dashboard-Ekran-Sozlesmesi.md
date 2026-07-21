@@ -14,8 +14,9 @@ tags:
 
 ## İzlenebilirlik ve Sınır
 
-Bu sözleşme `FR-054`–`FR-058`, `UC-010`, `NFR-USA-001`–`NFR-USA-006`,
-`NFR-SEC-001`, `AC-010` ve `AC-011` ile birlikte uygulanır. Görsel dil için
+Bu sözleşme `FR-046`–`FR-058`, `UC-009`, `UC-010`, `DQ-SCR-001`–`DQ-SCR-033`,
+`NFR-USA-001`–`NFR-USA-006`, `NFR-SEC-001`, `AC-010`, `AC-011` ve
+`AC-027`–`AC-038` ile birlikte uygulanır. Görsel dil için
 [Görsel Tasarım Sistemi](../Gorsel-Tasarim-Sistemi.md) esas alınır.
 
 Referans: [Kurumsal dashboard referansı](../references/reference-dashboard.png)
@@ -36,7 +37,8 @@ kural, execution veya issue detayına güvenli drill-down yapabilmelidir.
 
 1. Uygulama kabuğu: koyu navigasyon, üst bar, kullanıcı/kapsam bilgisi.
 2. Sayfa başlığı: “Genel Bakış”, güncellik ve aktif filtre özeti.
-3. KPI satırı: genel skor, kritik ihlal, aktif kural, teknik hata.
+3. Birincil göstergeler: kalite skoru, kural/ölçüm kapsamı, skor güvenilirliği ve
+   veri riski/dataset kritikliği; teknik sağlık bunlardan ayrı durum özetidir.
 4. Birincil analiz: kalite trendi ve kritik alarm akışı.
 5. Karşılaştırma: veri alanı skorları ve kalite boyutu matrisi.
 6. Operasyonel detay: son ihlaller tablosu ve güvenli drill-down.
@@ -49,14 +51,17 @@ yerleşimde kalır.
 
 | Bölüm | Görsel/component örüntüsü | Veri alanları | Etkileşim |
 | --- | --- | --- | --- |
-| Genel Kalite Skoru | KPI | `score_value`, `score_status`, `level`, `calculated_at` | Skor ağacı/drill-down |
+| Genel Kalite Skoru | KPI | `quality_score`, `quality_status`, `calculated_at`, `last_successful_calculation_at`, `score_model_version` | Skor ağacı/drill-down |
+| Kural/Ölçüm Kapsamı | KPI + açıklama | `coverage_ratio`, çalışan/toplam kural, değerlendirilen kayıt oranı | Kapsam kırılımı |
+| Skor Güvenilirliği | KPI + güven etiketi | `confidence_score`, örnekleme ve teknik hata özeti | Güven açıklaması |
+| Veri Riski/Kritiklik | Ayrı KPI | `risk_score`, `dataset_criticality`, risk modeli sürümü | Risk/remediation detayı |
 | Kritik İhlaller | KPI | Açık kritik issue sayısı, dönem farkı | Kritik filtreli tablo |
 | Aktif Kurallar | KPI | Aktif kural sayısı, güncellik | Kural listesi |
 | Teknik Hatalar | KPI, mor semantik | Teknik hata sayısı, son olay zamanı | Execution hata filtresi |
 | Veri Kalitesi Trendi | Line chart + tablo görünümü | `period_start`, `period_end`, observations | Tarih/kapsam filtreleme |
 | Kritik Alarm Akışı | Sıkı alarm listesi | Durum kodu, kapsam etiketi, zaman, güvenli referans | Yetkili detay |
 | Veri Alanı Bazlı Skorlar | Horizontal bar | Scope etiketi, skor, durum, güncellik | Kaynak/dataset drill-down |
-| Kalite Boyutu Matrisi | Heatmap + erişilebilir tablo | Alan × kalite boyutu skor/durum | Hücre detayı |
+| Kalite Boyutu Matrisi | Heatmap + erişilebilir tablo | Alan × kalite boyutu skor/durum; `NotApplicable` ayrı | Hücre detayı |
 | Son İhlaller | Data table | Kapsam, kural kodu, durum, skor, zaman, issue ref | Sayfalama/sıralama/detay |
 
 Issue, aktif kural ve operasyon listesi alanları backend sözleşmesi oluşana kadar mock
@@ -67,11 +72,16 @@ kullanılmaz.
 ## Ortak View-Model İlkesi
 
 - Grafik ve tablo aynı normalize edilmiş view-model'den beslenir.
-- `score_value`, `score_status`, `level` ve `calculated_at` ortak formatter kullanır.
+- Kalite, kapsam, güven, kritiklik/risk ve teknik sağlık ayrı formatter kullanır;
+  tek yüzdede birleştirilmez.
 - Ortak status mapper teknik hata, kalite ihlali, uyarı, başarı, bilgi ve veri yok
   anlamlarını ikon + etiket + token'a dönüştürür.
-- `NO_DATA`, teknik hata ve hesaplanmamış skor `0` değerine çevrilmez; değer `—`,
-  yazılı durum ve açıklamayla sunulur.
+- `NotApplicable`, `NotMeasured`, `NoData`, `TechnicalError` ve hesaplanmamış
+  skor `0` değerine çevrilmez; değer `—`, yazılı durum ve açıklamayla sunulur.
+- `SuppressedByException`, istisna oranı ve geçerlilik bitişiyle; override ham
+  skorun yanında ve onu değiştirmeden gösterilir.
+- Son başarılı skor fallback olarak gösterilirse ölçüm zamanı, eskilik ve mevcut
+  teknik sağlık olayı görünür olur.
 - Grafik toplamı ile tablo toplamı aynı filtre ve snapshot altında eşit olmalıdır.
 - Eksik trend dönemi çizgiyi sıfıra indirmez; boşluk ve “Hesaplanmadı” durumuyla
   gösterilir.
@@ -84,7 +94,7 @@ kullanılmaz.
 | Veri kaynağı | Yalnız backend tarafından yetkilendirilmiş seçenekler |
 | Veri alanı/birim | Yetkili scope içinde; alan sözleşmesi kesinleşince |
 | Sahip | Yetkili ve veri-minimum dizin sonucu |
-| Kalite boyutu | Tanımlı yedi kalite boyutu |
+| Kalite boyutu | Dataset için uygulanabilir temel ve isteğe bağlı boyutlar; `NotApplicable` seçeneği ayrı |
 | Seviye/durum | Kalite seviyesi ve teknik durum ayrı gruplar |
 | Kural | Yetkili scope'a bağlı arama/seçim |
 
@@ -97,7 +107,9 @@ API tasarımında açıkça kararlaştırılmalıdır. Kullanıcı girdisi yetki
 
 - Line chart; günlük gözlemler ve belirgin veri noktaları.
 - Kritik eşik kesikli çizgi ve yazılı legend ile gösterilir.
-- Tooltip dönem, skor, seviye ve durum içerir.
+- Tooltip dönem, skor, seviye, durum, kapsam/güven ve model sürümü içerir.
+- Kural, eşik veya skor modeli sürümü değişiminde çizgide sürüm sınırı ve
+  karşılaştırılabilirlik uyarısı gösterilir.
 - Teknik hata ayrı mor marker, veri yok gri boşluk olarak görünür.
 - Erişilebilir tablo görünümüne segment/tab üzerinden erişilir.
 
