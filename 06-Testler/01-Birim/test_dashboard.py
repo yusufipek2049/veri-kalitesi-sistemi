@@ -376,6 +376,59 @@ def test_fr_055_enterprise_trend_requires_explicit_permission() -> None:
     assert trend.periods[-1].observations[0].score_value == Decimal("91.00")
 
 
+def test_fr_048_fr_055_provisional_partial_is_excluded_from_official_trend() -> None:
+    repository = SQLiteScoreRepository()
+    repository.add_or_get(
+        _score(
+            ScoreScopeType.SOURCE,
+            "source-a",
+            "80.00",
+            execution_id="trend-official-old",
+            calculated_at=NOW - timedelta(days=1),
+        )
+    )
+    repository.add_or_get(
+        _score(
+            ScoreScopeType.SOURCE,
+            "source-a",
+            None,
+            status=ScoreStatus.PARTIAL,
+            level=None,
+            official=False,
+            execution_id="trend-provisional-new",
+            calculated_at=NOW,
+        )
+    )
+    service, context, _ = _secure_service(repository, source_ids={"source-a"})
+
+    trend = service.get_score_trend(context)
+
+    observations = [item for period in trend.periods for item in period.observations]
+    assert [item.score_value for item in observations] == [Decimal("80.00")]
+
+
+def test_fr_048_fr_055_official_partial_is_visible_in_official_trend() -> None:
+    repository = SQLiteScoreRepository()
+    repository.add_or_get(
+        _score(
+            ScoreScopeType.SOURCE,
+            "source-a",
+            "85.00",
+            status=ScoreStatus.PARTIAL,
+            official=True,
+            execution_id="trend-official-partial",
+            calculated_at=NOW,
+        )
+    )
+    service, context, _ = _secure_service(repository, source_ids={"source-a"})
+
+    trend = service.get_score_trend(context)
+
+    observation = trend.periods[-1].observations[0]
+    assert observation.score_status is ScoreStatus.PARTIAL
+    assert observation.score_value == Decimal("85.00")
+
+
 def test_fr_055_missing_and_no_data_periods_are_never_zero_filled() -> None:
     repository = SQLiteScoreRepository()
     repository.add_or_get(
@@ -726,7 +779,11 @@ def _score(
     level: ScoreLevel | None = ScoreLevel.ACCEPTABLE,
     execution_id: str = "execution-dashboard",
     calculated_at: datetime = datetime(2026, 7, 16, 14, 0, tzinfo=timezone.utc),
+    official: bool | None = None,
 ) -> QualityScore:
+    details: dict[str, object] = {"formula_version": "TEST_ONLY"}
+    if official is not None:
+        details["included_in_official_aggregation"] = official
     return QualityScore(
         execution_id=execution_id,
         rule_version_id=None,
@@ -735,6 +792,6 @@ def _score(
         score_value=Decimal(score_value) if score_value is not None else None,
         score_status=status,
         level=level,
-        calculation_details={"formula_version": "TEST_ONLY"},
+        calculation_details=details,
         calculated_at=calculated_at,
     )

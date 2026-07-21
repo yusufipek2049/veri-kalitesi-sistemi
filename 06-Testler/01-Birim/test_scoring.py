@@ -35,10 +35,14 @@ from veri_kalitesi.rules import (
 )
 from veri_kalitesi.scoring import (
     DATASET_FORMULA_VERSION,
+    DatasetPartialScorePolicy,
+    DatasetPartialScorePolicyService,
     DIMENSION_FORMULA_VERSION,
     ENTERPRISE_FORMULA_VERSION,
     DEFAULT_THRESHOLD_SET,
     QualityScore,
+    PartialExecutionFacts,
+    PartialScorePolicyStatus,
     ScoreLevel,
     ScoreScopeType,
     FORMULA_VERSION,
@@ -48,9 +52,11 @@ from veri_kalitesi.scoring import (
     ScoringApprovalStatus,
     ScoringAuthorizationError,
     ScoringService,
+    ScoringTechnicalError,
     ScoringConfigurationService,
     ScoringValidationError,
     SQLiteScoreRepository,
+    SQLiteDatasetPartialScorePolicyRepository,
     ThresholdSet,
     calculate_rule_score,
     calculate_weighted_score,
@@ -322,6 +328,133 @@ def test_fr_048_ac_012_partial_result_is_excluded_from_official_score() -> None:
     assert score.score_value is None
     assert score.calculation_details["completed_partitions"] == ("2026-01", "2026-02")
     assert score.calculation_details["included_in_official_aggregation"] is False
+
+
+def test_fr_048_fr_049_fr_050_official_partial_score_propagates_to_all_aggregates() -> None:
+    service, _, execution_repository, versions, _ = _source_service()
+    policy_repository = SQLiteDatasetPartialScorePolicyRepository()
+    for dataset_id, rule_id in (
+        ("dataset-high", "source-rule-1"),
+        ("dataset-low", "source-rule-2"),
+    ):
+        policy_repository.save(_partial_policy(dataset_id, rule_id))
+    service.partial_score_policy_service = DatasetPartialScorePolicyService(policy_repository)
+    execution = _source_execution(versions)
+    execution_repository.create_or_get(execution)
+    execution_repository.complete_timeout(
+        execution.execution_id,
+        "QUERY_TIMEOUT",
+        tuple(
+            _version_result(execution, version, checked=10, passed=9, failed=1)
+            for version in versions
+        ),
+        datetime(2026, 7, 16, 12, 5, tzinfo=timezone.utc),
+    )
+    facts = {
+        dataset_id: _partial_facts(dataset_id, rule_id)
+        for dataset_id, rule_id in (
+            ("dataset-high", "source-rule-1"),
+            ("dataset-low", "source-rule-2"),
+        )
+    }
+
+    rule_scores = service.calculate_execution(
+        execution.execution_id,
+        partial_facts_by_dataset=facts,
+    )
+    dataset_scores = tuple(
+        service.calculate_dataset_score(execution.execution_id, dataset_id)
+        for dataset_id in ("dataset-high", "dataset-low")
+    )
+    dimension_score = service.calculate_dimension_score(
+        execution.execution_id,
+        QualityDimension.COMPLETENESS,
+    )
+    source_score = service.calculate_source_score(execution.execution_id, "source-main")
+    enterprise_score = service.calculate_enterprise_score(execution.execution_id)
+
+    assert all(score.score_status is ScoreStatus.PARTIAL for score in rule_scores)
+    assert all(score.score_value == Decimal("90.00") for score in rule_scores)
+    assert all(
+        score.calculation_details["included_in_official_aggregation"] is True
+        for score in rule_scores
+    )
+    assert rule_scores[0].calculation_details["score_eligibility"] == "OFFICIAL"
+    assert rule_scores[0].calculation_details["coverage_ratio"] == "1"
+    assert rule_scores[0].calculation_details["working_rule_count"] == 1
+    assert rule_scores[0].calculation_details["non_working_rule_count"] == 0
+    assert rule_scores[0].calculation_details["missing_partitions"] == ()
+    assert rule_scores[0].calculation_details["partial_score_policy_version"] == (
+        "DATASET_PARTIAL_V1"
+    )
+    assert rule_scores[0].calculation_details["eligibility_reason_codes"] == (
+        "ALL_POLICY_CONDITIONS_MET",
+    )
+    assert all(score.score_status is ScoreStatus.PARTIAL for score in dataset_scores)
+    assert all(score.score_value == Decimal("90.00") for score in dataset_scores)
+    assert dimension_score.score_status is ScoreStatus.PARTIAL
+    assert dimension_score.score_value == Decimal("90.00")
+    assert source_score.score_status is ScoreStatus.PARTIAL
+    assert source_score.score_value == Decimal("90.00")
+    assert enterprise_score.score_status is ScoreStatus.PARTIAL
+    assert enterprise_score.score_value == Decimal("90.00")
+    assert enterprise_score.calculation_details["included_in_official_aggregation"] is True
+
+
+def test_fr_048_missing_policy_keeps_partial_result_provisional() -> None:
+    service, score_repository, execution_repository, versions = _aggregate_service(weights=(1, 1))
+    service.partial_score_policy_service = DatasetPartialScorePolicyService(
+        SQLiteDatasetPartialScorePolicyRepository()
+    )
+    execution = _aggregate_execution(versions)
+    execution_repository.create_or_get(execution)
+    execution_repository.complete_timeout(
+        execution.execution_id,
+        "QUERY_TIMEOUT",
+        (_version_result(execution, versions[0], checked=10, passed=9, failed=1),),
+        datetime(2026, 7, 16, 10, 5, tzinfo=timezone.utc),
+    )
+
+    scores = service.calculate_execution(
+        execution.execution_id,
+        partial_facts_by_dataset={
+            "dataset-main": _partial_facts("dataset-main", "rule-1", total_rule_count=2)
+        },
+    )
+
+    assert scores[0].score_status is ScoreStatus.PARTIAL
+    assert scores[0].score_value is None
+    assert scores[0].calculation_details["score_eligibility"] == "PROVISIONAL"
+    assert scores[0].calculation_details["eligibility_reason_codes"] == ("POLICY_NOT_FOUND",)
+    assert all(
+        score.score_value is None
+        for score in score_repository.list_for_execution(execution.execution_id)
+    )
+
+
+def test_fr_048_partial_policy_storage_failure_writes_no_scores() -> None:
+    service, score_repository, execution_repository, versions = _aggregate_service(weights=(1, 1))
+    policy_repository = SQLiteDatasetPartialScorePolicyRepository()
+    policy_repository.connection.close()
+    service.partial_score_policy_service = DatasetPartialScorePolicyService(policy_repository)
+    execution = _aggregate_execution(versions)
+    execution_repository.create_or_get(execution)
+    execution_repository.complete_timeout(
+        execution.execution_id,
+        "QUERY_TIMEOUT",
+        (_version_result(execution, versions[0], checked=10, passed=9, failed=1),),
+        datetime(2026, 7, 16, 10, 5, tzinfo=timezone.utc),
+    )
+
+    with pytest.raises(ScoringTechnicalError):
+        service.calculate_execution(
+            execution.execution_id,
+            partial_facts_by_dataset={
+                "dataset-main": _partial_facts("dataset-main", "rule-1", total_rule_count=2)
+            },
+        )
+
+    assert score_repository.list_for_execution(execution.execution_id) == []
 
 
 def test_fr_046_rule_004_inconsistent_counts_are_rejected_without_score() -> None:
@@ -1628,4 +1761,43 @@ def _result(
         failed_count=failed,
         completed_partitions=completed_partitions,
         eligible_for_official_scoring=eligible_for_official_scoring,
+    )
+
+
+def _partial_policy(dataset_id: str, required_rule_id: str) -> DatasetPartialScorePolicy:
+    now = datetime(2026, 7, 16, 10, 0, tzinfo=timezone.utc)
+    return DatasetPartialScorePolicy(
+        policy_id=f"policy-{dataset_id}",
+        dataset_id=dataset_id,
+        policy_version="DATASET_PARTIAL_V1",
+        allow_official_partial_score=True,
+        minimum_coverage_ratio=Decimal("0.90"),
+        required_critical_rule_ids=(required_rule_id,),
+        required_partitions=("partition-required",),
+        maximum_missing_record_ratio=Decimal("0.05"),
+        maximum_technical_error_ratio=Decimal("0.10"),
+        minimum_successful_rule_ratio=Decimal("0.75"),
+        effective_from=now,
+        approval_status=PartialScorePolicyStatus.APPROVED,
+        created_by="maker-1",
+        approved_by="checker-1",
+        audit_reference=f"audit-{dataset_id}",
+        created_at=now,
+    )
+
+
+def _partial_facts(
+    dataset_id: str,
+    executed_rule_id: str,
+    *,
+    total_rule_count: int = 1,
+) -> PartialExecutionFacts:
+    return PartialExecutionFacts(
+        dataset_id=dataset_id,
+        coverage_ratio=Decimal("1"),
+        executed_rule_ids=(executed_rule_id,),
+        technical_error_rule_ids=(),
+        completed_partitions=("partition-required",),
+        missing_record_ratio=Decimal("0"),
+        total_rule_count=total_rule_count,
     )

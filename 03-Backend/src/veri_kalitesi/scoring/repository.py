@@ -28,6 +28,7 @@ from veri_kalitesi.scoring.models import (
     ThresholdSet,
     default_criticality_weights,
     default_dimension_weights,
+    is_official_observation,
     thaw,
     utc_now,
 )
@@ -298,7 +299,7 @@ class SQLiteScoreRepository:
         """
         with self._lock:
             rows = self.connection.execute(query, parameters).fetchall()
-        return [_row_to_score(row) for row in rows]
+        return [score for row in rows if is_official_observation(score := _row_to_score(row))]
 
     def add_configuration_with_approval(
         self,

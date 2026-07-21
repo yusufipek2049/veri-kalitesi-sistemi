@@ -79,6 +79,55 @@ def test_fr_072_uc_015_summary_preview_uses_latest_authorized_aggregate() -> Non
     assert SOURCE_B not in repr(preview)
 
 
+def test_fr_048_fr_072_provisional_partial_does_not_replace_latest_official_score() -> None:
+    fixture = _fixture(source_ids={SOURCE_A})
+    official = _score(
+        SOURCE_A,
+        "80.00",
+        NOW - timedelta(days=1),
+        execution_id="execution-official-old",
+    )
+    fixture.score_repository.add_or_get(official)
+    fixture.score_repository.add_or_get(
+        _score(
+            SOURCE_A,
+            None,
+            NOW,
+            execution_id="execution-provisional-new",
+            status=ScoreStatus.PARTIAL,
+            level=None,
+            official=False,
+        )
+    )
+
+    preview = fixture.service.preview_summary(_request(), fixture.context)
+
+    assert preview.source_count == 1
+    assert preview.rows[0].score_value == Decimal("80.00")
+    assert preview.rows[0].calculated_at == official.calculated_at
+
+
+def test_fr_048_fr_072_official_partial_is_included_in_report_summary() -> None:
+    fixture = _fixture(source_ids={SOURCE_A})
+    fixture.score_repository.add_or_get(
+        _score(
+            SOURCE_A,
+            "85.00",
+            NOW,
+            execution_id="execution-official-partial",
+            status=ScoreStatus.PARTIAL,
+            level=ScoreLevel.ACCEPTABLE,
+            official=True,
+        )
+    )
+
+    preview = fixture.service.preview_summary(_request(), fixture.context)
+
+    assert preview.rows[0].score_status is ScoreStatus.PARTIAL
+    assert preview.calculated_source_count == 1
+    assert preview.average_score == Decimal("85.00")
+
+
 def test_fr_072_bfr_aud_005_preview_audit_is_data_minimum() -> None:
     fixture = _fixture(source_ids={SOURCE_A})
     fixture.score_repository.add_or_get(_score(SOURCE_A, "80.00", NOW, execution_id="execution-a"))
@@ -420,13 +469,17 @@ def _score(
     execution_id: str,
     status: ScoreStatus = ScoreStatus.CALCULATED,
     level: ScoreLevel | None = ScoreLevel.GOOD,
+    official: bool | None = None,
 ) -> QualityScore:
+    details: dict[str, object] = {"aggregate": True}
+    if official is not None:
+        details["included_in_official_aggregation"] = official
     return QualityScore(
         execution_id=execution_id,
         rule_version_id=None,
         scope_id=source_id,
         score_status=status,
-        calculation_details={"aggregate": True},
+        calculation_details=details,
         score_value=Decimal(value) if value is not None else None,
         level=level,
         scope_type=ScoreScopeType.SOURCE,

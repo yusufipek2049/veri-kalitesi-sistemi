@@ -29,6 +29,8 @@ from veri_kalitesi.scoring.models import (
     ThresholdSet,
     default_dimension_weights,
     default_criticality_weights,
+    is_official_observation,
+    is_official_score,
 )
 from veri_kalitesi.scoring.repository import SQLiteScoreRepository
 from veri_kalitesi.scoring.service import (
@@ -82,6 +84,8 @@ __all__ = [
     "classify_score",
     "default_dimension_weights",
     "default_criticality_weights",
+    "is_official_observation",
+    "is_official_score",
     "validate_scoring_configuration",
     "validate_threshold_set",
 ]

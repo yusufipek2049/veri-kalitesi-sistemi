@@ -43,3 +43,42 @@ completed_at: 2026-07-21
   davranış değişmeden kalır. SQLite tablosu silinmez.
 - **Sonraki iterasyon:** 32B, kısmi skor politika kararının `QualityScore`
   üretimine ve resmî agregasyon dışlama bilgisine bağlanması.
+
+## 32B — Kısmi skorun resmî agregasyon zincirine bağlanması
+
+- **İterasyon adı:** Kısmi skorun resmî agregasyon zincirine bağlanması
+- **Kullanıcı/sistem değeri:** Onaylı kısmi sonuç, kısmi niteliğini ve karar
+  gerekçesini kaybetmeden resmî skor zincirine katılır; provizyonel sonuç resmî
+  trendi veya raporu değiştiremez.
+- **Mevcut FR/UC/RULE:** `FR-047`–`FR-050`, `FR-054`, `FR-055`, `FR-072`,
+  `UC-009`
+- **BFR/CTRL:** Yeni eşleme yoktur.
+- **Değiştirilen dosyalar:** Skor modeli/servisi/deposu, dashboard trend reader'ı,
+  rapor reader/servisi, birim testleri ve proje hafızası.
+- **Migration/config:** Yeni migration veya üretim konfigürasyonu eklenmedi.
+- **Eklenen testler:** Resmî kısmi kural skorunun dataset, kaynak ve kurum
+  agregasyonuna yayılması; politikasız provizyonel davranış; politika depo
+  hatasında yazmama; provizyonel trend/rapor dışlama; resmî kısmi trend ve rapor
+  görünürlüğü.
+- **Çalıştırılan komutlar:** `pytest -q`, tam `mypy`, tam `ruff check`, değişen
+  kapsam için `ruff format --check` ve `git diff --check`.
+- **Mevcut regresyon sonucu:** 895 test geçti; mypy 131 dosyada ve Ruff lint
+  hatasız tamamlandı. Tam depo format kontrolü değişmeyen üç tarihsel dosyada
+  biçim farkı bildirdi; değişen kapsam temizdir.
+- **Yetkisiz/negatif test sonucu:** Politika yokluğu provizyonel sonuç verdi;
+  provizyonel sonuç resmî trend ve rapordan çıkarıldı; politika depo arızasında
+  skor yazılmadı.
+- **Audit/redaksiyon sonucu:** Skor ayrıntıları yalnız oran, adet, politika sürümü,
+  karar kodu ve opak kural/partition kimliği taşır; ham kayıt veya secret içermez.
+- **Kanıt yolları:** `06-Testler/01-Birim/test_scoring.py`,
+  `06-Testler/01-Birim/test_dashboard.py`, `06-Testler/01-Birim/test_reporting.py`.
+- **Teknik durum:** `TechnicallyVerified`
+- **Banka onayı:** `ComplianceReviewRequired`
+- **Kalan risk:** `PartialExecutionFacts` olgularının worker/execution tarafından
+  güvenilir üretimi, SLA ve resmî denetim çıktısı adaptörleri, merkezi audit
+  outbox'ı ve banka rol eşlemesi.
+- **Geri alma yaklaşımı:** Politika servisi scoring composition'dan çıkarılırsa
+  mevcut güvenli varsayılan tüm kısmi sonuçları sayısal resmî skordan dışlar;
+  mevcut skor kayıtları silinmez.
+- **Sonraki iterasyon:** 32C, güvenilir kısmi çalışma olgusu üretimi ve politika
+  karar auditi.
