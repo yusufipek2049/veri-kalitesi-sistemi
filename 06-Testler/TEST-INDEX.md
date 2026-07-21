@@ -18,6 +18,7 @@ tags:
 - [NFR Doğrulama Yöntemleri](../01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/INDEX.md)
 - [SRS Kalite Kontrolü](../01-SRS/16-Kalite-Kontrolu.md)
 - [Frontend Görsel Doğrulama Stratejisi](03-Uctan-Uca/Gorsel-Dogrulama-Stratejisi.md)
+- [Skorlama ve Ölçüm Yeterliliği Kanonik Tasarımı](../02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md)
 
 ## Önerilen Test Katmanları
 
@@ -59,6 +60,20 @@ tags:
 | `DQ-SCR-028`, `DQ-SCR-029` | Teknik/kalite alarm ayrımı, korelasyon, risk bazlı atama/SLA ve kanıtsız/geçici iyileşmeyle kapatma reddi |
 | `DQ-SCR-031` | Tam tarama, kaynakta toplulaştırma, bölümleme, artımlı kontrol ve kontrollü örneklemede yöntem/hacim/güven kanıtı |
 | `DQ-SCR-033` | Yetki matrisi, görevler ayrılığı, veri sahibi/teknik sahip/operasyon sorumluluk sınırları |
+
+## Ölçüm Yeterliliği Kabul Matrisi
+
+| Kabul/Test | Zorunlu test kapsamı |
+| --- | --- |
+| `AC/TS-039` | Tüm sayaç değişmezleri, sıfır payda ve tutarsız sayaç reddi |
+| `AC/TS-040` | Koşullu kural evreninde uygun, dışlanan ve bilinmeyen kayıt ayrımı |
+| `AC/TS-041` | Kural → boyut → ham dataset skoru; uygulanamaz bileşen dağıtımı |
+| `AC/TS-042` | Kritik tavan/blokaj; ham, nihai, kritik durum ve kullanım kararının ayrılığı |
+| `AC/TS-043` | Sekiz yeterlilik durumu, değerlendirme önceliği ve yüksek skor negatifleri |
+| `AC/TS-044` | Tam tarama/örneklem/bölümleme/toplulaştırma kanıtı, kapsam, güven ve eskime |
+| `AC/TS-045` | Teknik başarısızlık, önceki skor fallback'i ve resmî trend dışlama |
+| `AC/TS-046` | Replay, sürüm izlenebilirliği, RBAC/scope, maskeleme, veri-minimum audit ve hata |
+| `AC/TS-047` | Bildirim, idempotent remediation, yeniden ölçüm ve kanıtlı kapanış |
 
 ## Güncel Otomasyon Baseline'ı
 

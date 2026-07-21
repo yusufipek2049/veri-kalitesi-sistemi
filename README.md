@@ -25,6 +25,7 @@ Bu vault, SRS dokümanını görev bazında küçük bağlam parçalarıyla kull
 - [Bankacılık Geçiş İterasyonları](09-Iterasyonlar/ITERASYON-INDEX.md)
 - [Teknik Mimari ve Sistem Analizi](docs/technical/README.md)
 - [Bağlayıcı Veri Kalitesi Skorlama Kararları](01-SRS/04-Fonksiyonel-Gereksinimler/04.06-Skorlama.md#bağlayıcı-skorlama-kararları)
+- [Skorlama ve Ölçüm Yeterliliği Tasarımı](02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md)
 
 
 ## Güncel Geliştirme Baseline'ı

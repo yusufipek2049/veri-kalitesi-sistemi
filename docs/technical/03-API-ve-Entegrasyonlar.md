@@ -42,12 +42,16 @@ Bu yüzeyler HTTP endpoint'i değil, application/domain servis metotlarıdır.
 | `ReportPreviewService` | `preview_summary` | Rol/source scope, 31 gün ve 500 source sınırı |
 | `IncidentResponseService` | incident/breach/decision/timeline | Güvenilir roller, farklı karar aktörü |
 
-`DQ-SCR-001`–`DQ-SCR-033` hedefinde HTTP skorlama yanıtı ham kalite skoru,
-kapsam, güven, risk/kritiklik, teknik sağlık, istisna/override ve tüm model/politika
-sürümlerini ayrı taşımalıdır. Mevcut `ScoringService` ve `DashboardQueryService`
-bu sözleşmenin yalnız kalite skoru, temel açıklama ve trend alt kümesini sağlar;
-ayrı risk/güven/istisna/override API yüzeyi uygulanmamıştır. Nihai endpoint ve
-OpenAPI şeması `TBD`'dir.
+`DQ-SCR-001`–`DQ-SCR-033` ve
+[kanonik tasarım](../../02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md)
+hedefinde HTTP skorlama yanıtı `raw_quality_score`, `final_quality_score`,
+`quality_status`, `measurement_qualification_status`, `critical_rule_status`,
+`usage_decision`, `execution_status`, kapsam/örneklem/güven/geçerlilik,
+risk/kritiklik, istisna/override ve tüm model/politika/referans sürümlerini ayrı
+taşımalıdır. Mevcut `ScoringService` ve `DashboardQueryService` bu sözleşmenin
+yalnız kalite skoru, temel açıklama ve trend alt kümesini sağlar; ayrı
+yeterlilik/kullanım/risk/güven/istisna/override API yüzeyi uygulanmamıştır. Nihai
+endpoint ve OpenAPI şeması `TBD`'dir.
 
 ## Kimlik Doğrulama ve Yetkilendirme
 

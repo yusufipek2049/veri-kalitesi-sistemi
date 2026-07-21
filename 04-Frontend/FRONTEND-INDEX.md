@@ -14,6 +14,7 @@ tags:
 
 - [Görsel Tasarım Sistemi](Gorsel-Tasarim-Sistemi.md)
 - [Dashboard Ekran Sözleşmesi](03-Dashboard/Dashboard-Ekran-Sozlesmesi.md)
+- [Veri Kalitesi Skorlama ve Ölçüm Yeterliliği](../02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md)
 - [Kurumsal dashboard referansı](references/reference-dashboard.png)
 - [Görsel Doğrulama Stratejisi](../06-Testler/03-Uctan-Uca/Gorsel-Dogrulama-Stratejisi.md)
 

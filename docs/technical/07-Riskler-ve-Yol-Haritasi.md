@@ -30,8 +30,9 @@ değildir.
 | Operasyon ekibinin arızayı görememesi | Yüksek | Yüksek | P0 | Metric/log/health/alarm yok | Observability minimum baseline |
 | Kullanıcı akışının doğrulanamaması | Yüksek | Orta-Yüksek | P2 | UI/API/E2E yok | Dikey API+UI artımları ve E2E |
 | Banka kontrol kararlarının açık kalması | Yüksek | Yüksek | P0 | `OPEN-BNK-*` listesi | Karar sahibi ve kanıt kapısı |
-| Kabul edilen skorlama modeliyle runtime'ın ayrışması | Yüksek | Yüksek | P1 | `DQ-SCR-001`–`DQ-SCR-033` dokümante; standart durumlar, kapsam/güven ve override kodda yok | Küçük, geriye uyumlu skorlama dilimleri |
+| Kabul edilen skorlama/ölçüm yeterliliği modeliyle runtime'ın ayrışması | Yüksek | Yüksek | P1 | Kanonik sayaçlar, ham/nihai skor, yeterlilik/geçerlilik kapısı, kullanım kararı, kapsam/güven ve override kodda yok | İterasyon 33A'dan başlayan küçük, geriye uyumlu skorlama dilimleri |
 | Dataset kritikliğinin kalite skoruna karışması | Yüksek | Orta-Yüksek | P1 | Mevcut `SOURCE` formülü; `ADR-015` hedefinde `Superseded` | Kritiklik/risk göstergelerini kalite agregasyonundan ayır |
+| Yüksek fakat yetersiz/eski ölçümün operasyonel kararda kullanılması | Orta-Yüksek | Yüksek | P1 | Runtime'da ayrı yeterlilik ve `ValidUntil` kapısı yok; `OPEN-023` değerleri açık | Yeterlilik kapısını ve fail-closed kullanım kararını API/UI öncesi uygula |
 
 ## P0 - Üretime Çıkışı Engelleyen İşler
 
