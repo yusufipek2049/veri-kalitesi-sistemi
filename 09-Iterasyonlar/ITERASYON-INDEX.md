@@ -2,11 +2,10 @@
 
 ## Gerçek başlangıç noktası
 
-- 16 iterasyon, İterasyon 17A–17E, İterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, İterasyon 22A–22İ, İterasyon 23A–23D, İterasyon 24A–24B, İterasyon 25A, İterasyon 26A–26B, İterasyon 28A–28E ve İterasyon 29A–29C teknik dikeyleri tamamlandı.
-- 759 birim testi geçiyor; Bakım İterasyonu 29C.1 sonrasında tam mypy kontrolü
-  114 kaynak dosyada sıfır hata veriyor.
-- Son ürün artımı sürümlü saklama politikasını ve legal hold kontrollü dry-run değerlendirmesini uygular.
-- İterasyon 25A saklama politikası dry-run dilimi `TechnicallyVerified` durumundadır. Sıradaki teknik aday 25B kalıcı legal hold yaşam döngüsü ve audit dilimidir; fiziksel imha ve arşiv geri çağırma banka onayını bekler.
+- 16 iterasyon, İterasyon 17A–17E, İterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, İterasyon 22A–22İ, İterasyon 23A–23D, İterasyon 24A–24B, İterasyon 25A–25B, İterasyon 26A–26B, İterasyon 28A–28E ve İterasyon 29A–29C teknik dikeyleri tamamlandı.
+- 776 birim testi geçiyor; tam mypy kontrolü 116 kaynak dosyada sıfır hata veriyor.
+- Son ürün artımı append-only ve atomik auditli legal hold yaşam döngüsünü uygular.
+- İterasyon 25A–25B `TechnicallyVerified` durumundadır. Sıradaki teknik aday 25C idempotent imha işi ve veri-minimum kanıt zarfı sözleşmesidir; fiziksel adaptör ve arşiv geri çağırma banka onayını bekler.
 
 ## Sıra
 
@@ -15,7 +14,7 @@
 3. [Iterasyon-18-Veri-Siniflandirma-ve-Maskeleme](Iterasyon-18-Veri-Siniflandirma-ve-Maskeleme.md) - 18A–18C `TechnicallyVerified`
 4. [Iterasyon-19-Maker-Checker](Iterasyon-19-Maker-Checker.md) - 19A–19H `TechnicallyVerified`; banka rol eşlemesi ve çalışan iş politikası açık
 5. [Iterasyon-20-LDAP-RBAC-Entegrasyonu](Iterasyon-20-LDAP-RBAC-Entegrasyonu.md) - 20A–20C `TechnicallyVerified`; üretim kararları açık
-6. [Kalan-Iterasyonlar-Banka-Yol-Haritasi](Kalan-Iterasyonlar-Banka-Yol-Haritasi.md) - 25A `TechnicallyVerified`; 25B sıradaki aday
+6. [Kalan-Iterasyonlar-Banka-Yol-Haritasi](Kalan-Iterasyonlar-Banka-Yol-Haritasi.md) - 25A–25B `TechnicallyVerified`; 25C sıradaki aday
 7. [Iterasyon-26-Olay-Mudahale-ve-Ihlal-Kaniti](Iterasyon-26-Olay-Mudahale-ve-Ihlal-Kaniti.md) - 26A–26B `TechnicallyVerified`
 8. [Iterasyon-28-Guvenli-SDLC](Iterasyon-28-Guvenli-SDLC.md) - 28A–28E `TechnicallyVerified`
 9. [Iterasyon-29-Teknik-Kanit-Paketi](Iterasyon-29-Teknik-Kanit-Paketi.md) - 29A–29C `TechnicallyVerified`; 29D engelli

@@ -240,6 +240,14 @@ tags:
 | 2026-07-21 | Retention uygunluğu yalnız salt okunur dry-run olarak hesaplanacak; aktif legal hold her koşulda engelleyici olacak ve resolver arızası teknik hata sayılacaktır. | Gerçek imha için yetki, maker-checker, audit, idempotency, yedek ve hukuk onayı henüz tamamlanmamıştır. | Bu dilimde fiziksel silme/anonimleştirme yapmak veya hold durumu okunamazsa kaydı uygun saymak. | Fiziksel veri değişmez; hold veya teknik belirsizlik fail-closed kapanır, yalnız opak yaşam döngüsü metadata'sı işlenir. |
 | 2026-07-21 | `ApprovedByBank` retention politikası opak onay referansı olmadan kabul edilmeyecektir. | Teknik bir enum değerinin tek başına banka onayı kanıtı sayılması kontrol durum sözlüğünü aşar. | Onay referansı olmadan `ApprovedByBank` durumuna izin vermek. | Varsayılan katalog provisional kalır; sentetik test dışında onaylı uygunluk üretmek için dış güvenilir katalog ve kanıt referansı gerekir. |
 
+## 2026-07-21 İterasyon 25B Kararları
+
+| Tarih | Karar | Gerekçe | Alternatif | Sonuç |
+| --- | --- | --- | --- | --- |
+| 2026-07-21 | Legal hold geçmişi yerinde güncellenmeyen `PLACED` ve `RELEASED` olayları olarak saklanacak; aynı kayıt birden fazla eş zamanlı hold taşıyabilecektir. | Dava, denetim ve resmî inceleme hold'ları birbirinden bağımsızdır; bir hold'un kaldırılması diğerinin engelini düşürmemelidir. | Tek aktif hold sınırı koymak veya mevcut satırı `released_at` ile güncellemek. | Geçmiş append-only kalır; resolver değerlendirme anına göre tüm aktif hold'ları yeniden kurar ve yalnız hepsi kalkınca engel sona erer. |
+| 2026-07-21 | Hold oluşturma ve serbest bırakma güvenilir normal kullanıcı context'i, sürümlü rol/reason code politikası ve veri kapsamıyla yetkilendirilecek; oluşturan aktör aynı hold'u serbest bırakamayacaktır. | Serbest aktör/rol/kapsam veya tek aktör kararı legal hold'un hukuki ve operasyonel güven sınırını zayıflatır. | Çağıranın verdiği aktör/rolü kabul etmek, servis ya da break-glass hesabına örtük yetki vermek veya aynı aktörle kaldırmak. | Yanlış rol/kapsam, servis hesabı ve break-glass fail-closed reddedilir; banka rol ve karar kodu eşlemesi `ComplianceReviewRequired` kalır. |
+| 2026-07-21 | Hold olayı ve redakte audit outbox aynı transaction'da yazılacak; stage arızası işlemi geri alırken merkezi publisher kesintisi kalıcı `PENDING` olay bırakacaktır. | Kritik yaşam döngüsü kararı audit izi olmadan commit edilmemeli, geçici merkezi audit kesintisi de hazırlanmış kanıtı kaybettirmemelidir. | Best-effort audit, domain commitinden sonra yeni audit olayı üretmek veya audit kesintisinde olayı düşürmek. | Domain/audit hazırlığı atomiktir; audit özeti ham kayıt, kapsam kimliği veya serbest metin taşımaz ve güvenli tekrar mevcut outbox sözleşmesine bırakılır. |
+
 ## İlişkili Notlar
 
 - [Sistem Açıklaması](../01-SRS/02-Sistem-Aciklamasi.md)
