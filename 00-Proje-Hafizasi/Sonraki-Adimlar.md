@@ -87,24 +87,24 @@ Bu maddeler `ADR-016` hedef tasarımını küçük dikeylere böler.
 | ID | Ürün artımı | Gereksinim | Çıkış kriteri | Durum |
 | --- | --- | --- | --- | --- |
 | SYN-001 | Sentetik dataset politika, senaryo ve run kayıt çekirdeği | FR-088, FR-093; AC/TS-049 | Fail-closed politika çözümleme, değişmez sürüm/seed/run kaydı ve veri-minimum audit | 34A `TechnicallyVerified` |
-| SYN-002 | Deterministik Golden ilişkisel üretici | FR-089, FR-090; AC/TS-048/049 | Şema, anahtar, referans, durum ve temel dağılım ilişkileri aynı seed ile tekrar üretilebilir | Planlı; `OPEN-025` olmadan yalnız tamamen yapay profil |
+| SYN-002 | Deterministik Golden ilişkisel üretici | FR-089, FR-090; AC/TS-048/049 | Şema, anahtar, referans, durum ve temel dağılım ilişkileri aynı seed ile tekrar üretilebilir | 34B `TechnicallyVerified`; yalnız tamamen yapay teknik V1 profil |
 | SYN-003 | Kusur enjeksiyonu, ground truth ve bağımsız karşılaştırıcı | FR-091, FR-092; AC/TS-050–052 | Geçerli uç/kusur ayrımı, boyut-kural bağı ve runtime'dan bağımsız beklenen sonuç | `OPEN-024` nicel toleransları için kısmen engelli |
 | SYN-004 | Zaman, eksiklik, drift ve hacim profilleri | FR-090, FR-094; AC/TS-054/056 | Zaman alanı anlamları, eksiklik mekanizmaları, drift ve kaynak bütçeli hacim replay'i | Planlı; üretim performans kabulü `OPEN-014` ile ayrı |
 | SYN-005 | Gizlilik kapısı, yaşam döngüsü ve izole olay testi | FR-095, FR-096; AC/TS-053/055/056 | Gizlilik sonucu, retention yaşam döngüsü ve üretim hedefi fail-closed negatifleri | `OPEN-024/025` ve banka politikalarıyla engelli |
 
 ## Önerilen Sonraki İterasyon
 
-**İterasyon 34A — Sentetik dataset politika, senaryo ve run kayıt çekirdeği**
-`FR-088`, `FR-093`, `UC-017`, `RULE-016/017` ve `AC/TS-049`un politika,
-ayrı run ve lineage alt kapsamı tamamlandı. Politika çözümleme fail-closed,
-lineage kayıtları append-only ve run yazımı atomik auditlidir. Deterministik
-çıktı eşdeğerliği `SYN-002` kapsamındadır.
+**İterasyon 34B — Deterministik Golden ilişkisel üretici** `FR-089`, `FR-090`
+temel yapay ilişki alt kapsamı, `FR-093`, `UC-017`, `RULE-016/017` ve
+`AC/TS-048/049` kapsamında tamamlandı. Tamamen yapay Golden kayıtları yapısal
+bütünlüğü korur; aynı seed ve sürümler byte eşdeğeri kanonik çıktı üretir.
 
 Skorlama zincirinin sıradaki normalizasyon, agregasyon/kritik davranış ve ölçüm
 yeterliliği dilimleri `OPEN-019`, `OPEN-022/023` ve ilişkili banka kararlarını
-beklemektedir. Sıradaki hazır ve engellenmemiş artım **SYN-002 — Deterministik
-Golden ilişkisel üretici** olmalıdır; `OPEN-025` kapanmadan yalnız tamamen yapay
-profil kullanmalı, gerçek veri veya üretim profili okumamalıdır.
+beklemektedir. Sentetik zincirde sıradaki dar artım, `OPEN-024` gerektiren nicel
+skor toleransını dışarıda bırakarak **SYN-003A — Değişmez Golden ground truth ve
+yapısal bağımsız karşılaştırıcı** olabilir. Kusur yoğunluğu ve skor toleransı
+kararları olmadan kapsam genişletilmemelidir.
 
 Sonraki dilimler sırasıyla ayrı kapsamda planlanmalıdır: sürümlü normalizasyon ve
 model kanıtı; kural → boyut → dataset agregasyonu ve kritik davranış;

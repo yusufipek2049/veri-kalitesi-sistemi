@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from enum import Enum
 from uuid import uuid4
@@ -110,3 +110,57 @@ class SyntheticGenerationRun:
     validation_reference: str | None = None
     generation_run_id: str = field(default_factory=lambda: str(uuid4()))
     created_at: datetime = field(default_factory=utc_now)
+
+
+@dataclass(frozen=True)
+class GoldenSubjectRecord:
+    subject_id: str
+    segment_code: str
+    previous_status: str
+    current_status: str
+    source_system_code: str
+    effective_date: date
+
+
+@dataclass(frozen=True)
+class GoldenObservationRecord:
+    observation_id: str
+    subject_id: str
+    amount: Decimal
+    currency_code: str
+    event_time: datetime
+    source_created_at: datetime
+    source_updated_at: datetime
+
+
+@dataclass(frozen=True)
+class GoldenStructuralValidation:
+    subject_count: int
+    observation_count: int
+    primary_keys_unique: bool
+    foreign_keys_valid: bool
+    status_transitions_valid: bool
+    reference_codes_valid: bool
+    temporal_order_valid: bool
+    passed: bool
+
+
+@dataclass(frozen=True)
+class GoldenRelationalDataset:
+    generation_run_id: str
+    dataset_id: str
+    scenario_id: str
+    scenario_version: str
+    generator_version: str
+    configuration_version: str
+    schema_version: str
+    policy_version: str
+    random_seed: int
+    requested_record_count: int
+    synthetic_origin: bool
+    subjects: tuple[GoldenSubjectRecord, ...]
+    observations: tuple[GoldenObservationRecord, ...]
+    validation: GoldenStructuralValidation
+    canonical_payload: bytes
+    canonical_sha256: str
+    output_reference: str

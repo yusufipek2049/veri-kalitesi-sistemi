@@ -41,3 +41,41 @@
   audit geçmişi silinmez veya değiştirilmez.
 - **Sonraki iterasyon:** `SYN-002` kapsamında yalnız tamamen yapay profille
   deterministik Golden ilişkisel üretici.
+
+## 34B — Deterministik Golden ilişkisel üretici
+
+- **İterasyon adı:** Deterministik Golden ilişkisel üretici
+- **Kullanıcı/sistem değeri:** Gerçek banka verisi veya üretim profili okunmadan,
+  yapısal olarak geçerli ilişkisel test dataseti aynı seed ile tekrar üretilebilir.
+- **Mevcut FR/UC/RULE:** `FR-089`, `FR-090` temel yapay ilişki alt kapsamı,
+  `FR-093`, `UC-017`, `RULE-016/017`, `AC/TS-048/049`
+- **BFR/CTRL:** Yeni eşleme yoktur.
+- **Değiştirilen dosyalar:** `synthetic_data` model ve paket dışa aktarımları,
+  yeni Golden üretici, birim testleri, test indeksi ve proje hafızası.
+- **Migration/config:** Migration yoktur. Teknik sürümler
+  `GOLDEN_RELATIONAL_GENERATOR_V1`, `GOLDEN_RELATIONAL_SCHEMA_V1` ve
+  `GOLDEN_RELATIONAL_CONFIG_V1` olarak sabitlendi; üretim politika değeri değildir.
+- **Eklenen testler:** Byte/SHA-256 replay eşdeğerliği, farklı run kimliği,
+  farklı seed, anahtar/yabancı anahtar, segment-durum, referans, tutar ve zaman
+  bütünlüğü, lineage içeriği ile Golden dışı profil/sürüm negatifleri.
+- **Çalıştırılan komutlar:** Hedefli ve tam `pytest -q`, tam `mypy`, tam
+  `ruff check`, değişen kapsam ve tam depo format kontrolleri, `compileall`,
+  `git diff --check` ve güvenli SDLC preflight.
+- **Mevcut regresyon sonucu:** 948 test geçti; mypy 139 dosyada ve Ruff lint
+  hatasız tamamlandı. Tam depo format kontrolü değişiklik dışındaki bir tarihsel
+  dosyada biçim farkı bildirdi. `28A-v1` taraması 391 dosyada secret bulgusu
+  üretmedi.
+- **Güvenlik/veri gizliliği sonucu:** Üretici dış veri, ağ, saat, gerçek profil,
+  kullanıcı veya secret bağımlılığı almaz. Çıktı `synthetic_origin=true` taşır;
+  yapay teknik kodlar banka/müşteri gerçeği veya anonimlik kanıtı değildir.
+- **Kanıt yolları:** `06-Testler/01-Birim/test_synthetic_generator.py`.
+- **Teknik durum:** `TechnicallyVerified`
+- **Banka onayı:** `ComplianceReviewRequired`
+- **Kalan risk:** Çıktı geçicidir; kalıcı artifact/run tamamlama, genel şema
+  yükleyici, kusur enjeksiyonu, ground truth, bağımsız karşılaştırıcı ve gizlilik
+  kapısı açık. Nicel değerler `OPEN-024`, üretim profili erişimi `OPEN-025`
+  kapsamındadır.
+- **Geri alma yaklaşımı:** `GoldenRelationalGenerator` composition'dan çıkarılarak
+  yeni üretim durdurulabilir; append-only run ve audit geçmişi değiştirilmez.
+- **Sonraki iterasyon:** `OPEN-024` nicel toleransını dışarıda bırakan değişmez
+  Golden ground truth ve yapısal bağımsız karşılaştırıcı dilimi.
