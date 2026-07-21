@@ -9,6 +9,23 @@
 | Test/UAT | Maskeli ve onaylı | UAT IAM | UAT store | UAT |
 | Production | Banka onaylı gerçek veri | Üretim IAM/PAM | Üretim secret manager | Üretim |
 
+## Fail-Closed Ortam Başlangıç Kapısı
+
+`27A-v1` ortam kapısı ortam adını çağıranın serbest metninden veya sıradan uygulama
+ayarından almaz. Yalnız `27A-trusted-source-v1` sözleşmesini uygulayan ve dağıtım
+bileşiminde güvenilir kabul edilen sağlayıcının sürümlü konfigürasyonunu yükler.
+Kaynak okunamazsa teknik hata üretilir ve uygulama güvenli başlangıç kanıtı alamaz.
+
+Kapı `LOCAL`, `DEVELOPMENT`, `TEST`, `ACCEPTANCE` ve `PRODUCTION` sınıflarını
+ayırır. Üretim dışı ortamda `BANK_PRODUCTION` veri kökeni veya
+`secret://production/...` kapsamı reddedilir. Ayrıca her ortam yalnız kendi secret
+kapsamını kullanabilir. Secret referansı sıkı URI allowlist'iyle doğrulanır; kanıt
+yalnız secret kapsamını taşır, referans yolunu taşımaz.
+
+Bu sözleşme gerçek verinin kökenini kendisi keşfetmez ve secret çözmez. Güvenilir
+sağlayıcının gerçek deployment platformuna, veri hazırlama kanıtına ve kurumsal
+secret manager'a bağlanması `OPEN-BNK-012` kapsamında kalır.
+
 ## Güvenli Pipeline Kapıları
 
 - Test

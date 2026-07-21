@@ -109,6 +109,11 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
     teknik olarak doğruladı. Gerçek arşiv deposu/resolver'ı, veri getirme/taşıma,
     erişim süresi, indirme/DLP, üretim rol/gerekçe eşlemesi, PostgreSQL/WORM
     yetkileri ve geri çağrılan kopyanın yeniden imhası açık kalır.
+56. `27A-v1` güvenilir sağlayıcı sözleşmeli ortam kimliği, ortam-secret kapsamı
+    eşleşmesi ve üretim dışı gerçek banka verisi/üretim secret engelini teknik
+    olarak doğruladı. Gerçek deployment/attestation sağlayıcısı, konfigürasyon
+    imzası, kurumsal secret manager bağlantısı, veri hazırlama/provenance kanıtı
+    ve ortam bazlı ağ/IAM ayrımı açık kalır.
 
 ## Bankacılık Geçiş Açık Konuları
 
@@ -125,7 +130,7 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
 | OPEN-BNK-009 | ServiceNow kurulum yeri, veri işleyen/alt işleyen durumu ve yurt dışı aktarım etkisi | Hukuk / Tedarik / Bilgi Güvenliği | Açık |
 | OPEN-BNK-010 | SIEM ürün, olay sözlüğü, alarm seviyesi ve SOC eskalasyon akışı | SOC / Bilgi Güvenliği | Açık |
 | OPEN-BNK-011 | Banka onaylı RTO, RPO, yedek şifreleme ve geri yükleme test sıklığı | İş Sürekliliği / Operasyon | Açık |
-| OPEN-BNK-012 | Üretim veritabanı, broker, secret manager ve deployment platformu | Mimari Kurul / Operasyon | Açık |
+| OPEN-BNK-012 | 27A ortam/secret kapsam kapısı teknik olarak uygulandı; üretim veritabanı, broker, kurumsal secret manager, deployment/attestation sağlayıcısı, konfigürasyon imzası ve ortam bazlı ağ/IAM ayrımı bekleniyor | Mimari Kurul / Operasyon / Bilgi Güvenliği | Açık |
 | OPEN-BNK-013 | Sistem risk verisi veya düzenleyici raporlama üretim zincirine girecek mi; BCBS 239 kapsamı | Risk Yönetimi / Veri Yönetişimi | Açık |
 | OPEN-BNK-014 | Hassas rapor dışa aktarma için gerekçe, onay, DLP ve watermark politikası | Bilgi Güvenliği / Veri Sahibi | Açık |
 | OPEN-BNK-015 | 20A ile LDAP adaptör iddiasından `ActorContext` üretim yolu eklendi; doğrudan `ActorContextIssuer` kullanımlarının süreç sınırı, issuer sahipliği ve session assertion doğrulaması henüz kesinleşmedi. | IAM / Bilgi Güvenliği / Mimari | Açık |

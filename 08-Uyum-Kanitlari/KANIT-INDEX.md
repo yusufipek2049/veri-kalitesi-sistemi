@@ -60,6 +60,7 @@
 - [İterasyon 25D - Yetkili Arşiv Geri Çağırma Kanıtı](Veri-Koruma/Iterasyon-25D-Yetkili-Arsiv-Geri-Cagirma-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 26A - Veri Minimum İhlal Şüphesi Kanıtı](Olay-Mudahale/Iterasyon-26A-Veri-Minimum-Ihlal-Suphesi-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 26B - Yetki Filtreli İhlal Zaman Çizelgesi Kanıtı](Olay-Mudahale/Iterasyon-26B-Yetki-Filtreli-Ihlal-Zaman-Cizelgesi-Kaniti.md) - `TechnicallyVerified`
+- [İterasyon 27A - Fail-Closed Ortam Kimliği Kanıtı](Yedek-Geri-Yukleme/Iterasyon-27A-Fail-Closed-Ortam-Kimligi-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 28A - Yerel Veri Minimum Secret Tarama Kanıtı](Guvenlik-Testleri/Iterasyon-28A-Yerel-Veri-Minimum-Secret-Tarama-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 28B - Deterministik Bağımlılık ve SBOM Kanıtı](Guvenlik-Testleri/Iterasyon-28B-Deterministik-Bagimlilik-SBOM-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 28C - Yerel SAST Sürüm Kapısı Kanıtı](Guvenlik-Testleri/Iterasyon-28C-Yerel-SAST-Surum-Kapisi-Kaniti.md) - `TechnicallyVerified`

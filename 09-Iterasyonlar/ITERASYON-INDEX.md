@@ -2,10 +2,10 @@
 
 ## Gerçek başlangıç noktası
 
-- 16 iterasyon, İterasyon 17A–17E, İterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, İterasyon 22A–22İ, İterasyon 23A–23D, İterasyon 24A–24B, İterasyon 25A–25D, İterasyon 26A–26B, İterasyon 28A–28E ve İterasyon 29A–29C teknik dikeyleri tamamlandı.
-- 821 birim testi geçiyor; tam mypy kontrolü 122 kaynak dosyada sıfır hata veriyor.
-- Son ürün artımı append-only, görevler ayrılığı kontrollü ve atomik auditli arşiv geri çağırma talep/karar sözleşmesini uygular; arşiv içeriğine erişmez.
-- İterasyon 25A–25D `TechnicallyVerified` durumundadır. Sıradaki teknik aday 27A fail-closed ortam kimliği ve üretim dışı veri/secret kullanım sınırı sözleşmesidir; gerçek platform kararı açıktır.
+- 16 iterasyon, İterasyon 17A–17E, İterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, İterasyon 22A–22İ, İterasyon 23A–23D, İterasyon 24A–24B, İterasyon 25A–25D, İterasyon 26A–26B, İterasyon 27A, İterasyon 28A–28E ve İterasyon 29A–29C teknik dikeyleri tamamlandı.
+- 855 birim testi geçiyor; tam mypy kontrolü 127 kaynak dosyada sıfır hata veriyor.
+- Son ürün artımı güvenilir kaynaktan sürümlü ortam kimliği yükler; üretim dışı gerçek banka verisi ve üretim secret kapsamını fail-closed engeller.
+- İterasyon 27A `TechnicallyVerified` durumundadır. Restore/DR dilimleri `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını bekler.
 
 ## Sıra
 
@@ -16,9 +16,10 @@
 5. [Iterasyon-20-LDAP-RBAC-Entegrasyonu](Iterasyon-20-LDAP-RBAC-Entegrasyonu.md) - 20A–20C `TechnicallyVerified`; üretim kararları açık
 6. [Kalan-Iterasyonlar-Banka-Yol-Haritasi](Kalan-Iterasyonlar-Banka-Yol-Haritasi.md) - 25A–25D `TechnicallyVerified`; gerçek adaptörler engelli
 7. [Iterasyon-26-Olay-Mudahale-ve-Ihlal-Kaniti](Iterasyon-26-Olay-Mudahale-ve-Ihlal-Kaniti.md) - 26A–26B `TechnicallyVerified`
-8. [Iterasyon-28-Guvenli-SDLC](Iterasyon-28-Guvenli-SDLC.md) - 28A–28E `TechnicallyVerified`
-9. [Iterasyon-29-Teknik-Kanit-Paketi](Iterasyon-29-Teknik-Kanit-Paketi.md) - 29A–29C `TechnicallyVerified`; 29D engelli
-10. [Iterasyon-30-Frontend-Tasarim-Sistemi](Iterasyon-30-Frontend-Tasarim-Sistemi.md) - 30A dökümantasyon tabanı tamamlandı; uygulama geçiş kapısına bağlı
-11. [Bakım-Iterasyonu-29C1-Tam-Depo-Tip-Kontrolu](Bakim-Iterasyonu-29C1-Tam-Depo-Tip-Kontrolu.md) - `TechnicallyVerified`
+8. [Iterasyon-27-Ortam-Ayrimi-ve-DR](Iterasyon-27-Ortam-Ayrimi-ve-DR.md) - 27A `TechnicallyVerified`; restore/DR engelli
+9. [Iterasyon-28-Guvenli-SDLC](Iterasyon-28-Guvenli-SDLC.md) - 28A–28E `TechnicallyVerified`
+10. [Iterasyon-29-Teknik-Kanit-Paketi](Iterasyon-29-Teknik-Kanit-Paketi.md) - 29A–29C `TechnicallyVerified`; 29D engelli
+11. [Iterasyon-30-Frontend-Tasarim-Sistemi](Iterasyon-30-Frontend-Tasarim-Sistemi.md) - 30A dökümantasyon tabanı tamamlandı; uygulama geçiş kapısına bağlı
+12. [Bakım-Iterasyonu-29C1-Tam-Depo-Tip-Kontrolu](Bakim-Iterasyonu-29C1-Tam-Depo-Tip-Kontrolu.md) - `TechnicallyVerified`
 
 Her iterasyon [Iterasyon-Kapanis-Sablonu](Iterasyon-Kapanis-Sablonu.md) ile kapatılır.
