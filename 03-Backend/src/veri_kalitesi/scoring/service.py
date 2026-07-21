@@ -11,6 +11,7 @@ from veri_kalitesi.audit import AuditEventInput, AuditResult, SQLiteTransactiona
 from veri_kalitesi.data_sources.models import Criticality, Dataset
 from veri_kalitesi.executions.models import (
     ExecutionStatus,
+    MeasurementStatus,
     RuleExecution,
     RuleExecutionResult,
 )
@@ -44,7 +45,7 @@ from veri_kalitesi.scoring.partial_score_policies import (
 from veri_kalitesi.scoring.repository import SQLiteScoreRepository
 
 
-FORMULA_VERSION = "RULE_SCORE_V1"
+FORMULA_VERSION = "RULE_SCORE_V2_EVALUATED_DENOMINATOR"
 DATASET_FORMULA_VERSION = "DATASET_WEIGHTED_V1"
 DIMENSION_FORMULA_VERSION = "DIMENSION_WEIGHTED_V1"
 SOURCE_FORMULA_VERSION = "SOURCE_WEIGHTED_V1"
@@ -723,13 +724,18 @@ class ScoringService:
         configuration: ScoringConfiguration,
         partial_decision: PartialScoreDecision | None = None,
     ) -> QualityScore:
-        status = _score_status(execution, result)
+        if result is not None:
+            _validate_counts(result)
+        measurement_status = _measurement_status(execution, result)
+        status = _score_status(execution, result, measurement_status)
         official_partial = (
             status is ScoreStatus.PARTIAL
             and partial_decision is not None
             and partial_decision.eligibility is PartialScoreEligibility.OFFICIAL
             and result is not None
-            and result.checked_count > 0
+            and result.evaluated_count is not None
+            and result.evaluated_count > 0
+            and measurement_status in _SCOREABLE_MEASUREMENT_STATUSES
         )
         details: dict[str, Any] = {
             "formula_version": FORMULA_VERSION,
@@ -742,20 +748,25 @@ class ScoringService:
         value: Decimal | None = None
         level: ScoreLevel | None = None
         if result is not None:
-            _validate_counts(result)
             details["counts"] = {
-                "checked": result.checked_count,
+                "population": result.population_count,
+                "eligible": result.eligible_count,
+                "evaluated": result.evaluated_count,
                 "passed": result.passed_count,
                 "failed": result.failed_count,
-                "not_evaluated": result.not_evaluated_count,
+                "excluded": result.excluded_count,
+                "technical_error": result.technical_error_count,
+                "unknown": result.unknown_count,
             }
-            if result.checked_count > 0:
+            if result.evaluated_count is not None and result.evaluated_count > 0:
+                assert result.passed_count is not None
+                assert result.failed_count is not None
                 details["rates"] = {
-                    "passed": _percentage(result.passed_count, result.checked_count),
-                    "failed": _percentage(result.failed_count, result.checked_count),
-                    "not_evaluated": _percentage(result.not_evaluated_count, result.checked_count),
+                    "passed": _percentage(result.passed_count, result.evaluated_count),
+                    "failed": _percentage(result.failed_count, result.evaluated_count),
                 }
             details["completed_partitions"] = list(result.completed_partitions)
+        details["measurement_status"] = measurement_status.value
         if partial_decision is not None:
             details["partial_result"] = True
             details["score_eligibility"] = partial_decision.eligibility.value
@@ -767,9 +778,11 @@ class ScoringService:
             details["eligibility_reason_codes"] = list(partial_decision.reason_codes)
         if status is ScoreStatus.CALCULATED or official_partial:
             assert result is not None
-            value = calculate_rule_score(result.passed_count, result.checked_count)
+            assert result.passed_count is not None
+            assert result.evaluated_count is not None
+            value = calculate_rule_score(result.passed_count, result.evaluated_count)
             level = classify_score(value, configuration.threshold_set)
-            details["formula"] = "passed_count / checked_count * 100"
+            details["formula"] = "passed_count / evaluated_count * 100"
             details["threshold_version"] = configuration.threshold_set.version
         else:
             details["excluded_reason"] = status.value
@@ -781,6 +794,7 @@ class ScoringService:
             scope_id=version.quality_rule_id,
             score_value=value,
             score_status=status,
+            measurement_status=measurement_status,
             level=level,
             calculation_details=details,
             calculated_at=self.clock(),
@@ -868,12 +882,12 @@ def _validate_aware_time(value: datetime) -> None:
         raise ScoringValidationError("Scoring approval time must be timezone-aware.")
 
 
-def calculate_rule_score(passed_count: int, checked_count: int) -> Decimal:
-    if checked_count <= 0:
-        raise ScoringValidationError("checked_count must be greater than zero.")
-    if passed_count < 0 or passed_count > checked_count:
-        raise ScoringValidationError("passed_count must be between zero and checked_count.")
-    return (Decimal(passed_count) * Decimal(100) / Decimal(checked_count)).quantize(
+def calculate_rule_score(passed_count: int, evaluated_count: int) -> Decimal:
+    if evaluated_count <= 0:
+        raise ScoringValidationError("evaluated_count must be greater than zero.")
+    if passed_count < 0 or passed_count > evaluated_count:
+        raise ScoringValidationError("passed_count must be between zero and evaluated_count.")
+    return (Decimal(passed_count) * Decimal(100) / Decimal(evaluated_count)).quantize(
         _TWO_PLACES, rounding=ROUND_HALF_UP
     )
 
@@ -963,7 +977,33 @@ def _percentage(part_count: int, total_count: int) -> float:
     return float(value)
 
 
-def _score_status(execution: RuleExecution, result: RuleExecutionResult | None) -> ScoreStatus:
+_SCOREABLE_MEASUREMENT_STATUSES = frozenset(
+    {
+        MeasurementStatus.PASSED,
+        MeasurementStatus.WARNING,
+        MeasurementStatus.FAILED,
+    }
+)
+
+
+def _measurement_status(
+    execution: RuleExecution,
+    result: RuleExecutionResult | None,
+) -> MeasurementStatus:
+    if execution.status in {ExecutionStatus.TECHNICAL_ERROR, ExecutionStatus.TIMEOUT}:
+        return MeasurementStatus.TECHNICAL_ERROR
+    if execution.status is ExecutionStatus.PARTIAL and result is None:
+        return MeasurementStatus.NOT_MEASURED
+    if result is None or result.measurement_status is None:
+        raise ScoringValidationError("Rule result measurement status is required.")
+    return result.measurement_status
+
+
+def _score_status(
+    execution: RuleExecution,
+    result: RuleExecutionResult | None,
+    measurement_status: MeasurementStatus,
+) -> ScoreStatus:
     if execution.status in {ExecutionStatus.TECHNICAL_ERROR, ExecutionStatus.TIMEOUT}:
         return ScoreStatus.NOT_CALCULATED_TECHNICAL_ERROR
     if execution.status is ExecutionStatus.PARTIAL or (
@@ -974,19 +1014,51 @@ def _score_status(execution: RuleExecution, result: RuleExecutionResult | None) 
         raise ScoringValidationError("Execution is not in a scoreable terminal status.")
     if result is None:
         raise ScoringValidationError("Successful execution requires a rule result.")
-    if result.checked_count == 0:
+    if measurement_status is MeasurementStatus.NO_DATA:
         return ScoreStatus.NO_DATA
-    return ScoreStatus.CALCULATED
+    if measurement_status is MeasurementStatus.TECHNICAL_ERROR:
+        return ScoreStatus.NOT_CALCULATED_TECHNICAL_ERROR
+    if measurement_status in _SCOREABLE_MEASUREMENT_STATUSES:
+        return ScoreStatus.CALCULATED
+    return ScoreStatus.NOT_CALCULATED
 
 
 def _validate_counts(result: RuleExecutionResult) -> None:
     counts = (
-        result.checked_count,
+        result.population_count,
+        result.eligible_count,
+        result.evaluated_count,
         result.passed_count,
         result.failed_count,
-        result.not_evaluated_count,
+        result.excluded_count,
+        result.technical_error_count,
+        result.unknown_count,
     )
-    if any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in counts):
+    if any(
+        value is None or isinstance(value, bool) or not isinstance(value, int) or value < 0
+        for value in counts
+    ):
         raise ScoringValidationError("Rule result counts must be non-negative integers.")
-    if result.checked_count != sum(counts[1:]):
+    assert result.population_count is not None
+    assert result.eligible_count is not None
+    assert result.evaluated_count is not None
+    assert result.passed_count is not None
+    assert result.failed_count is not None
+    assert result.excluded_count is not None
+    assert result.technical_error_count is not None
+    assert result.unknown_count is not None
+    if not (
+        result.population_count
+        == result.eligible_count + result.excluded_count + result.unknown_count
+        and result.eligible_count == result.evaluated_count + result.technical_error_count
+        and result.evaluated_count == result.passed_count + result.failed_count
+    ):
         raise ScoringValidationError("Rule result counts are inconsistent.")
+    if result.measurement_status is None:
+        raise ScoringValidationError("Rule result measurement status is required.")
+    if (result.evaluated_count > 0) != (
+        result.measurement_status in _SCOREABLE_MEASUREMENT_STATUSES
+    ):
+        raise ScoringValidationError(
+            "Rule result measurement status is inconsistent with evaluated_count."
+        )

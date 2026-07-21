@@ -95,18 +95,16 @@ skorlama artımının önceliğini değiştirmez.
 
 ## Önerilen Sonraki İterasyon
 
-`DQ-SCR-001`–`DQ-SCR-033` ile skorlama ve ölçüm yeterliliği hedef dokümantasyon
-sözleşmesi kesinleşti. İlk hazır
-uygulama dilimi **İterasyon 33A — Standart ölçüm durumları ve kural skoru payda
-sözleşmesi** olmalıdır. Bu dilim yalnız `DQ-SCR-004`–`DQ-SCR-006` kapsamında
-`RuleResult` kanonik sayaç/değişmezlerini, standart durum eşlemesini ve oran
-paydasını ele almalı; yeterlilik kapısı, risk, güven formülü, kritik veto veya UI kapsamına
-genişlememelidir.
+**İterasyon 33A — Standart ölçüm durumları ve kural skoru payda sözleşmesi**
+`DQ-SCR-004`–`DQ-SCR-006` kapsamında tamamlandı. Kanonik sayaçlar ve durumlar
+kalıcılaştırıldı; kural skoru yalnız `EvaluatedCount` paydasını kullanır ve
+bilinmeyen tarihsel sayaçlar tahmin edilmez.
 
-Sentetik veri `SYN-001`–`SYN-005` backlogu tasarlanmıştır; bu dokümantasyon
-artımı `33A` sırasını değiştirmez. `SYN-001/002` tamamen yapay profille ayrı bir
-gelecek iterasyonda hazır hâle getirilebilir; nicel kabul ve üretim profili
-kullanımı `OPEN-024/025` kararlarını bekler.
+Skorlama zincirinin sıradaki normalizasyon, agregasyon/kritik davranış ve ölçüm
+yeterliliği dilimleri `OPEN-019`, `OPEN-022/023` ve ilişkili banka kararlarını
+beklemektedir. Sıradaki hazır ve engellenmemiş artım **SYN-001 — Sentetik dataset
+politika, senaryo ve run kayıt çekirdeği** olmalıdır; yalnız tamamen yapay profil
+ve teknoloji bağımsız politika/depo sınırıyla ele alınmalıdır.
 
 Sonraki dilimler sırasıyla ayrı kapsamda planlanmalıdır: sürümlü normalizasyon ve
 model kanıtı; kural → boyut → dataset agregasyonu ve kritik davranış;

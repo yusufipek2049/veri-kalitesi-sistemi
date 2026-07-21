@@ -1,5 +1,6 @@
 """Veri kalitesi skorlama bileşenleri."""
 
+from veri_kalitesi.executions import MeasurementStatus
 from veri_kalitesi.scoring.errors import (
     ScoreNotFoundError,
     ScoringAuthorizationError,
@@ -59,6 +60,7 @@ __all__ = [
     "DIMENSION_FORMULA_VERSION",
     "ENTERPRISE_FORMULA_VERSION",
     "FORMULA_VERSION",
+    "MeasurementStatus",
     "SOURCE_FORMULA_VERSION",
     "QualityScore",
     "PartialExecutionFacts",

@@ -22,6 +22,7 @@ from veri_kalitesi.executions import (
     ConcurrencyPolicy,
     ExecutionService,
     ExecutionStatus,
+    MeasurementStatus,
     ExecutionTechnicalError,
     ExecutionTimeoutError,
     ExecutionTimeouts,
@@ -523,9 +524,15 @@ def test_fr_040_ac_012_timeout_persists_partial_results_outside_official_scoring
         partial_results=(
             RuleResultComputation(
                 rule_version_id="version-main",
-                checked_count=50,
+                population_count=50,
+                eligible_count=50,
+                evaluated_count=50,
                 passed_count=45,
                 failed_count=5,
+                excluded_count=0,
+                technical_error_count=0,
+                unknown_count=0,
+                measurement_status=MeasurementStatus.FAILED,
                 completed_partitions=("2026-01", "2026-02"),
             ),
         ),
@@ -1138,6 +1145,16 @@ def test_fr_039_repository_migrates_existing_execution_queue_columns(tmp_path: A
         "cancel_reason",
         "cancelled_at",
     } <= columns
+    assert {
+        "population_count",
+        "eligible_count",
+        "evaluated_count",
+        "excluded_count",
+        "technical_error_count",
+        "unknown_count",
+        "measurement_status",
+    } <= result_columns
+    assert {"checked_count", "not_evaluated_count"}.isdisjoint(result_columns)
     assert {"completed_partitions", "eligible_for_official_scoring"} <= result_columns
 
 
@@ -1237,9 +1254,15 @@ def _start(service: ExecutionService, version: RuleVersion) -> Any:
 def _computation(checked: int, passed: int, failed: int) -> RuleResultComputation:
     return RuleResultComputation(
         rule_version_id="version-main",
-        checked_count=checked,
+        population_count=checked,
+        eligible_count=checked,
+        evaluated_count=checked,
         passed_count=passed,
         failed_count=failed,
+        excluded_count=0,
+        technical_error_count=0,
+        unknown_count=0,
+        measurement_status=(MeasurementStatus.PASSED if failed == 0 else MeasurementStatus.FAILED),
     )
 
 

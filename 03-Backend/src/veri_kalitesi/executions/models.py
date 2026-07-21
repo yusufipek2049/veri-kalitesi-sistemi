@@ -30,6 +30,17 @@ class ExecutionStatus(str, Enum):
     CANCELLED = "CANCELLED"
 
 
+class MeasurementStatus(str, Enum):
+    PASSED = "Passed"
+    WARNING = "Warning"
+    FAILED = "Failed"
+    NOT_APPLICABLE = "NotApplicable"
+    NOT_MEASURED = "NotMeasured"
+    NO_DATA = "NoData"
+    TECHNICAL_ERROR = "TechnicalError"
+    SUPPRESSED_BY_EXCEPTION = "SuppressedByException"
+
+
 class WorkloadClass(str, Enum):
     HEAVY = "HEAVY"
     LIGHT = "LIGHT"
@@ -61,7 +72,9 @@ class ConcurrencyPolicy:
     per_source_allowed: Mapping[str, bool] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "per_source_limits", MappingProxyType(dict(self.per_source_limits)))
+        object.__setattr__(
+            self, "per_source_limits", MappingProxyType(dict(self.per_source_limits))
+        )
         object.__setattr__(
             self,
             "per_source_heavy_limits",
@@ -77,9 +90,7 @@ class ConcurrencyPolicy:
         return self.per_source_limits.get(source_id, self.default_source_limit)
 
     def heavy_source_limit(self, source_id: str) -> int:
-        return self.per_source_heavy_limits.get(
-            source_id, self.default_heavy_source_limit
-        )
+        return self.per_source_heavy_limits.get(source_id, self.default_heavy_source_limit)
 
     def source_allowed(self, source_id: str) -> bool:
         return self.per_source_allowed.get(source_id, self.default_source_allowed)
@@ -115,10 +126,15 @@ class RuleExecution:
 @dataclass(frozen=True)
 class RuleResultComputation:
     rule_version_id: str
-    checked_count: int
-    passed_count: int
-    failed_count: int
-    not_evaluated_count: int = 0
+    population_count: int | None
+    eligible_count: int | None
+    evaluated_count: int | None
+    passed_count: int | None
+    failed_count: int | None
+    excluded_count: int | None
+    technical_error_count: int | None
+    unknown_count: int | None
+    measurement_status: MeasurementStatus | None
     completed_partitions: tuple[str, ...] = ()
 
 
@@ -126,13 +142,33 @@ class RuleResultComputation:
 class RuleExecutionResult:
     execution_id: str
     rule_version_id: str
-    checked_count: int
-    passed_count: int
-    failed_count: int
-    not_evaluated_count: int = 0
+    population_count: int | None
+    eligible_count: int | None
+    evaluated_count: int | None
+    passed_count: int | None
+    failed_count: int | None
+    excluded_count: int | None
+    technical_error_count: int | None
+    unknown_count: int | None
+    measurement_status: MeasurementStatus | None
     completed_partitions: tuple[str, ...] = ()
     eligible_for_official_scoring: bool = True
     rule_result_id: str = field(default_factory=lambda: str(uuid4()))
+
+    @property
+    def checked_count(self) -> int | None:
+        """Geçiş dönemi istemcileri için toplam aday kayıt karşılığı."""
+
+        return self.population_count
+
+    @property
+    def not_evaluated_count(self) -> int | None:
+        """Kanonik değerlendirilmeyen kayıt sınıflarının toplam karşılığı."""
+
+        counts = (self.excluded_count, self.technical_error_count, self.unknown_count)
+        if any(value is None for value in counts):
+            return None
+        return sum(value for value in counts if value is not None)
 
 
 @dataclass(frozen=True)

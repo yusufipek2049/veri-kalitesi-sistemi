@@ -20,6 +20,7 @@ from veri_kalitesi.data_sources import Dataset
 from veri_kalitesi.data_sources.models import Criticality
 from veri_kalitesi.executions import (
     ExecutionStatus,
+    MeasurementStatus,
     RuleExecution,
     RuleExecutionResult,
     SQLiteExecutionRepository,
@@ -230,24 +231,138 @@ def test_fr_046_fr_047_ac_009_successful_result_persists_explainable_score() -> 
     assert len(scores) == 1
     score = scores[0]
     assert score.score_status is ScoreStatus.CALCULATED
+    assert score.measurement_status is MeasurementStatus.FAILED
     assert score.score_value == Decimal("80.00")
     assert score.level is ScoreLevel.ACCEPTABLE
     assert score.rule_version_id == version.rule_version_id
     assert score.scope_id == version.quality_rule_id
     assert score.calculation_details["formula_version"] == FORMULA_VERSION
     assert score.calculation_details["counts"] == {
-        "checked": 125,
+        "population": 125,
+        "eligible": 125,
+        "evaluated": 125,
         "passed": 100,
         "failed": 25,
-        "not_evaluated": 0,
+        "excluded": 0,
+        "technical_error": 0,
+        "unknown": 0,
     }
     assert score.calculation_details["rates"] == {
         "passed": 80.0,
         "failed": 20.0,
-        "not_evaluated": 0.0,
     }
     assert score.calculation_details["included_in_official_aggregation"] is True
     assert score_repository.get(score.quality_score_id) == score
+
+
+def test_fr_046_fr_047_ac_039_conditional_universe_uses_only_evaluated_denominator() -> None:
+    service, score_repository, execution_repository, version = _service()
+    execution = _execution(version)
+    execution_repository.create_or_get(execution)
+    execution_repository.complete_success(
+        execution.execution_id,
+        (
+            RuleExecutionResult(
+                execution_id=execution.execution_id,
+                rule_version_id=version.rule_version_id,
+                population_count=150,
+                eligible_count=130,
+                evaluated_count=125,
+                passed_count=100,
+                failed_count=25,
+                excluded_count=15,
+                technical_error_count=5,
+                unknown_count=5,
+                measurement_status=MeasurementStatus.WARNING,
+            ),
+        ),
+        datetime(2026, 7, 16, 9, 5, tzinfo=timezone.utc),
+    )
+
+    score = service.calculate_execution(execution.execution_id)[0]
+
+    assert score.score_value == Decimal("80.00")
+    assert score.measurement_status is MeasurementStatus.WARNING
+    assert score.calculation_details["formula"] == ("passed_count / evaluated_count * 100")
+    assert score.calculation_details["counts"] == {
+        "population": 150,
+        "eligible": 130,
+        "evaluated": 125,
+        "passed": 100,
+        "failed": 25,
+        "excluded": 15,
+        "technical_error": 5,
+        "unknown": 5,
+    }
+    assert score_repository.get(score.quality_score_id).measurement_status is (
+        MeasurementStatus.WARNING
+    )
+
+
+@pytest.mark.parametrize(
+    ("measurement_status", "counts", "expected_score_status"),
+    [
+        (
+            MeasurementStatus.NOT_APPLICABLE,
+            (10, 0, 0, 0, 0, 10, 0, 0),
+            ScoreStatus.NOT_CALCULATED,
+        ),
+        (
+            MeasurementStatus.NOT_MEASURED,
+            (0, 0, 0, 0, 0, 0, 0, 0),
+            ScoreStatus.NOT_CALCULATED,
+        ),
+        (
+            MeasurementStatus.NO_DATA,
+            (0, 0, 0, 0, 0, 0, 0, 0),
+            ScoreStatus.NO_DATA,
+        ),
+        (
+            MeasurementStatus.TECHNICAL_ERROR,
+            (1, 1, 0, 0, 0, 0, 1, 0),
+            ScoreStatus.NOT_CALCULATED_TECHNICAL_ERROR,
+        ),
+        (
+            MeasurementStatus.SUPPRESSED_BY_EXCEPTION,
+            (10, 0, 0, 0, 0, 10, 0, 0),
+            ScoreStatus.NOT_CALCULATED,
+        ),
+    ],
+)
+def test_fr_048_dq_scr_006_zero_denominator_statuses_never_produce_zero_score(
+    measurement_status: MeasurementStatus,
+    counts: tuple[int, int, int, int, int, int, int, int],
+    expected_score_status: ScoreStatus,
+) -> None:
+    service, _, execution_repository, version = _service()
+    execution = _execution(version)
+    execution_repository.create_or_get(execution)
+    execution_repository.complete_success(
+        execution.execution_id,
+        (
+            RuleExecutionResult(
+                execution_id=execution.execution_id,
+                rule_version_id=version.rule_version_id,
+                population_count=counts[0],
+                eligible_count=counts[1],
+                evaluated_count=counts[2],
+                passed_count=counts[3],
+                failed_count=counts[4],
+                excluded_count=counts[5],
+                technical_error_count=counts[6],
+                unknown_count=counts[7],
+                measurement_status=measurement_status,
+            ),
+        ),
+        datetime(2026, 7, 16, 9, 5, tzinfo=timezone.utc),
+    )
+
+    score = service.calculate_execution(execution.execution_id)[0]
+
+    assert score.score_value is None
+    assert score.measurement_status is measurement_status
+    assert score.score_status is expected_score_status
+    assert score.calculation_details["excluded_reason"] == expected_score_status.value
 
 
 def test_rule_011_repeated_scoring_is_idempotent_for_execution_and_version() -> None:
@@ -280,6 +395,7 @@ def test_fr_048_ac_011_zero_records_produce_no_data_without_numeric_score() -> N
     score = service.calculate_execution(execution.execution_id)[0]
 
     assert score.score_status is ScoreStatus.NO_DATA
+    assert score.measurement_status is MeasurementStatus.NO_DATA
     assert score.score_value is None
     assert score.calculation_details["included_in_official_aggregation"] is False
 
@@ -298,6 +414,7 @@ def test_fr_048_rule_003_ac_010_technical_end_has_no_zero_score(
     score = service.calculate_execution(execution.execution_id)[0]
 
     assert score.score_status is ScoreStatus.NOT_CALCULATED_TECHNICAL_ERROR
+    assert score.measurement_status is MeasurementStatus.TECHNICAL_ERROR
     assert score.score_value is None
     assert score.rule_result_id is None
     assert score.calculation_details["excluded_reason"] == ("NOT_CALCULATED_TECHNICAL_ERROR")
@@ -470,6 +587,38 @@ def test_fr_046_rule_004_inconsistent_counts_are_rejected_without_score() -> Non
     with pytest.raises(ScoringValidationError, match="inconsistent"):
         service.calculate_execution(execution.execution_id)
 
+    assert score_repository.list_for_execution(execution.execution_id) == []
+
+
+def test_fr_046_ac_039_unknown_technical_counter_remains_null_and_is_not_scored() -> None:
+    service, score_repository, execution_repository, version = _service()
+    execution = _execution(version)
+    execution_repository.create_or_get(execution)
+    execution_repository.complete_success(
+        execution.execution_id,
+        (
+            RuleExecutionResult(
+                execution_id=execution.execution_id,
+                rule_version_id=version.rule_version_id,
+                population_count=125,
+                eligible_count=125,
+                evaluated_count=125,
+                passed_count=100,
+                failed_count=25,
+                excluded_count=0,
+                technical_error_count=None,
+                unknown_count=0,
+                measurement_status=MeasurementStatus.FAILED,
+            ),
+        ),
+        datetime(2026, 7, 16, 9, 5, tzinfo=timezone.utc),
+    )
+
+    stored = execution_repository.list_results(execution.execution_id)[0]
+
+    assert stored.technical_error_count is None
+    with pytest.raises(ScoringValidationError, match="non-negative integers"):
+        service.calculate_execution(execution.execution_id)
     assert score_repository.list_for_execution(execution.execution_id) == []
 
 
@@ -1720,9 +1869,21 @@ def _version_result(
     return RuleExecutionResult(
         execution_id=execution.execution_id,
         rule_version_id=version.rule_version_id,
-        checked_count=checked,
+        population_count=checked,
+        eligible_count=checked,
+        evaluated_count=checked,
         passed_count=passed,
         failed_count=failed,
+        excluded_count=0,
+        technical_error_count=0,
+        unknown_count=0,
+        measurement_status=(
+            MeasurementStatus.NO_DATA
+            if checked == 0
+            else MeasurementStatus.PASSED
+            if failed == 0
+            else MeasurementStatus.FAILED
+        ),
     )
 
 
@@ -1756,9 +1917,21 @@ def _result(
     return RuleExecutionResult(
         execution_id=execution.execution_id,
         rule_version_id=execution.rule_version_ids[0],
-        checked_count=checked,
+        population_count=checked,
+        eligible_count=checked,
+        evaluated_count=checked,
         passed_count=passed,
         failed_count=failed,
+        excluded_count=0,
+        technical_error_count=0,
+        unknown_count=0,
+        measurement_status=(
+            MeasurementStatus.NO_DATA
+            if checked == 0
+            else MeasurementStatus.PASSED
+            if failed == 0
+            else MeasurementStatus.FAILED
+        ),
         completed_partitions=completed_partitions,
         eligible_for_official_scoring=eligible_for_official_scoring,
     )
