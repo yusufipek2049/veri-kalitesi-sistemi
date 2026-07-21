@@ -16,7 +16,7 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
 ## Geliştirmeyi En Çok Etkileyen Kararlar
 
 1. Bağlayıcı geliştirme sırası kesinleşti; ilk ve ikinci ilişkisel veritabanı ürünleri, gerçek sürücü paketleri ve canlı entegrasyon ortamı TBD'dir.
-2. Kaynak kullanım politika modeli, sürümlü SQLite deposu, global/kaynak override çözümlemesi ve claim sırasında worker/sorgu kotası teknik olarak uygulandı. Üretim worker/kota/CPU/IO/timeout/rate değerleri ile çalışma penceresi, yoğun saat, CPU/IO, hız sınırı, timeout ve retry çalışma zamanı uygulaması TBD'dir.
+2. Kaynak kullanım politika modeli, sürümlü SQLite deposu, global/kaynak override çözümlemesi, claim sırasında worker/sorgu kotası ve çalışma/yasaklı pencere koruması teknik olarak uygulandı. Üretim worker/kota/pencere/CPU/IO/timeout/rate değerleri ile CPU/IO, hız sınırı, timeout ve retry çalışma zamanı uygulaması TBD'dir.
 3. Kurumsal secret manager ve servis/workload identity yönü kesinleşti; ürün ve erişim eşlemesi TBD'dir.
 4. Kurumsal IdP/SSO, OIDC veya SAML ve tüm kullanıcılar için MFA kesinleşti; ürün, grup-rol eşleme değerleri ve break-glass ayrıntıları TBD'dir.
 5. 20 milyon satırlık testin onaylı anonimleştirilmiş üretim örneğiyle yapılması kesinleşti; veri sahibi onayı, dataset ve test ortamı henüz hazırlanmadı.
@@ -117,9 +117,13 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
 57. `31A` sürümlü kaynak kullanım politikası, aktif sürüm değişimi, globalden
     kaynak türü/kaynağa override ve fail-closed claim kotasını teknik olarak
     doğruladı. Üretim politika değerleri, PostgreSQL migration/çoklu instance
-    eşzamanlılığı, çalışma penceresi, yoğun saat, CPU/IO ve hız sınırı ölçümü,
-    dinamik timeout/retry uygulaması ile politika değişikliği audit olayının
-    merkezi outbox'a bağlanması açık kalır.
+    eşzamanlılığı, CPU/IO ve hız sınırı ölçümü, dinamik timeout/retry uygulaması
+    ile politika değişikliği audit olayının merkezi outbox'a bağlanması açık kalır.
+58. `31B` IANA saat dilimli izinli/yasaklı çalışma penceresini, gece yarısını
+    aşan aralığı, yasaklı pencere önceliğini ve pencere dışı fail-closed claim
+    kararını teknik olarak doğruladı. Üretim pencere değerleri, tatil/istisna
+    günleri, `REJECT` için terminal durum modeli, politika karar metriği/alarmı ve
+    banka onaylı yoğun saat davranış sözlüğü açık kalır.
 
 ## Bankacılık Geçiş Açık Konuları
 

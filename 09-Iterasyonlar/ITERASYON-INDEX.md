@@ -2,9 +2,9 @@
 
 ## Gerçek başlangıç noktası
 
-- 16 iterasyon, İterasyon 17A–17E, İterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, İterasyon 22A–22İ, İterasyon 23A–23D, İterasyon 24A–24B, İterasyon 25A–25D, İterasyon 26A–26B, İterasyon 27A, İterasyon 28A–28E ve İterasyon 29A–29C teknik dikeyleri tamamlandı.
-- 863 birim testi geçiyor; tam mypy kontrolü 129 kaynak dosyada sıfır hata veriyor.
-- Son ürün artımı sürümlü kaynak kullanım politikasını kalıcılaştırır; global ve kaynak bazlı kotayı worker claim sınırında fail-closed uygular.
+- 16 iterasyon, İterasyon 17A–17E, İterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, İterasyon 22A–22İ, İterasyon 23A–23D, İterasyon 24A–24B, İterasyon 25A–25D, İterasyon 26A–26B, İterasyon 27A, İterasyon 28A–28E, İterasyon 29A–29C ve İterasyon 31A–31B teknik dikeyleri tamamlandı.
+- 871 birim testi geçiyor; tam mypy kontrolü 129 kaynak dosyada sıfır hata veriyor.
+- Son ürün artımı IANA saat dilimli kaynak çalışma/yasaklı pencerelerini worker claim sınırında fail-closed uygular.
 - İterasyon 27A `TechnicallyVerified` durumundadır. Restore/DR dilimleri `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını bekler.
 
 ## Sıra
@@ -21,6 +21,6 @@
 10. [Iterasyon-29-Teknik-Kanit-Paketi](Iterasyon-29-Teknik-Kanit-Paketi.md) - 29A–29C `TechnicallyVerified`; 29D engelli
 11. [Iterasyon-30-Frontend-Tasarim-Sistemi](Iterasyon-30-Frontend-Tasarim-Sistemi.md) - 30A dökümantasyon tabanı tamamlandı; uygulama geçiş kapısına bağlı
 12. [Bakım-Iterasyonu-29C1-Tam-Depo-Tip-Kontrolu](Bakim-Iterasyonu-29C1-Tam-Depo-Tip-Kontrolu.md) - `TechnicallyVerified`
-13. [Iterasyon-31-Kaynak-Kullanim-Politikasi](Iterasyon-31-Kaynak-Kullanim-Politikasi.md) - 31A `TechnicallyVerified`; çalışma zamanı politika alanları açık
+13. [Iterasyon-31-Kaynak-Kullanim-Politikasi](Iterasyon-31-Kaynak-Kullanim-Politikasi.md) - 31A–31B `TechnicallyVerified`; timeout/retry ve kaynak ölçüm alanları açık
 
 Her iterasyon [Iterasyon-Kapanis-Sablonu](Iterasyon-Kapanis-Sablonu.md) ile kapatılır.

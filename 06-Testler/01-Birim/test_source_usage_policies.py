@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 
 import pytest
 
@@ -14,9 +14,28 @@ from veri_kalitesi.executions import (
     SourceUsagePolicyStatus,
     SourceUsagePolicyTechnicalError,
     SourceUsagePolicyUnavailableError,
+    SourceUsageWindow,
     WorkloadClass,
 )
 from veri_kalitesi.executions.models import RuleExecution
+
+
+AT = datetime(2026, 7, 21, 8, 0, tzinfo=timezone.utc)
+ALL_DAYS = (1, 2, 3, 4, 5, 6, 7)
+
+
+def _window(
+    starts_at: time = time(8),
+    ends_at: time = time(18),
+    *,
+    weekdays: tuple[int, ...] = ALL_DAYS,
+) -> SourceUsageWindow:
+    return SourceUsageWindow(
+        timezone="Europe/Istanbul",
+        weekdays=weekdays,
+        starts_at=starts_at,
+        ends_at=ends_at,
+    )
 
 
 def _policy(
@@ -27,6 +46,8 @@ def _policy(
     source_type: str | None = None,
     max_concurrent_queries: int = 4,
     max_workers: int = 6,
+    allowed_windows: tuple[SourceUsageWindow, ...] | None = None,
+    blocked_windows: tuple[SourceUsageWindow, ...] = (),
 ) -> SourceUsagePolicy:
     return SourceUsagePolicy(
         policy_id=policy_id,
@@ -40,11 +61,11 @@ def _policy(
         retry_count=2,
         retry_delay_seconds=1.5,
         rate_limit={"limit": 30, "period": "MINUTE"},
-        allowed_windows=("WORKING_HOURS",),
-        blocked_windows=("PEAK_HOURS",),
+        allowed_windows=allowed_windows if allowed_windows is not None else (_window(),),
+        blocked_windows=blocked_windows,
         cpu_limit_percent=40,
         io_limit_percent=50,
-        peak_hours_behavior="REJECT",
+        peak_hours_behavior="DEFER",
         timeout_cancel_behavior="CANCEL",
         approved_by="checker-1",
         audit_reference=f"audit-{policy_id}",
@@ -58,7 +79,7 @@ def test_fr_039_open_002_persists_complete_active_global_policy() -> None:
     repository.save(policy)
 
     assert repository.list_policies() == [policy]
-    resolved = repository.resolve_concurrency_policy()
+    resolved = repository.resolve_concurrency_policy(at=AT)
     assert resolved.max_total == 6
     assert resolved.default_source_limit == 4
 
@@ -85,7 +106,7 @@ def test_fr_039_open_002_source_id_override_precedes_source_type_override() -> N
         )
     )
 
-    resolved = repository.resolve_concurrency_policy()
+    resolved = repository.resolve_concurrency_policy(at=AT)
 
     assert resolved.source_limit("source-a") == 1
     assert resolved.source_limit("source-b") == 2
@@ -113,7 +134,7 @@ def test_fr_039_uc_008_resolved_worker_quota_limits_queue_claims() -> None:
             )
         )
 
-    policy = policy_repository.resolve_concurrency_policy()
+    policy = policy_repository.resolve_concurrency_policy(at=AT)
     first = execution_repository.claim_next(created_at, policy)
     blocked = execution_repository.claim_next(created_at, policy)
 
@@ -132,14 +153,14 @@ def test_fr_039_open_002_new_active_version_retires_previous_scope() -> None:
         SourceUsagePolicyStatus.RETIRED,
         SourceUsagePolicyStatus.ACTIVE,
     ]
-    assert repository.resolve_concurrency_policy().max_total == 3
+    assert repository.resolve_concurrency_policy(at=AT).max_total == 3
 
 
 def test_fr_039_open_003_missing_active_global_policy_fails_closed() -> None:
     repository = SQLiteSourceUsagePolicyRepository()
 
     with pytest.raises(SourceUsagePolicyUnavailableError):
-        repository.resolve_concurrency_policy()
+        repository.resolve_concurrency_policy(at=AT)
 
 
 def test_fr_039_open_002_rejects_unapproved_active_policy() -> None:
@@ -157,4 +178,122 @@ def test_fr_039_open_002_policy_repository_failure_is_technical_error() -> None:
     repository.connection.close()
 
     with pytest.raises(SourceUsagePolicyTechnicalError):
-        repository.resolve_concurrency_policy()
+        repository.resolve_concurrency_policy(at=AT)
+
+
+def test_nfr_perf_008_blocked_window_overrides_allowed_window() -> None:
+    repository = SQLiteSourceUsagePolicyRepository()
+    repository.save(
+        _policy(
+            "global-v1",
+            allowed_windows=(_window(time(8), time(18)),),
+            blocked_windows=(_window(time(12), time(13)),),
+        )
+    )
+    peak_time = datetime(2026, 7, 21, 9, 30, tzinfo=timezone.utc)
+
+    resolved = repository.resolve_concurrency_policy(at=peak_time)
+
+    assert resolved.default_source_allowed is False
+
+
+def test_nfr_perf_008_outside_allowed_window_fails_closed() -> None:
+    repository = SQLiteSourceUsagePolicyRepository()
+    repository.save(_policy("global-v1"))
+    after_hours = datetime(2026, 7, 21, 18, 0, tzinfo=timezone.utc)
+
+    resolved = repository.resolve_concurrency_policy(at=after_hours)
+
+    assert resolved.default_source_allowed is False
+
+
+def test_nfr_perf_008_window_start_is_inclusive_and_end_is_exclusive() -> None:
+    repository = SQLiteSourceUsagePolicyRepository()
+    repository.save(_policy("global-v1"))
+
+    at_start = repository.resolve_concurrency_policy(
+        at=datetime(2026, 7, 21, 5, 0, tzinfo=timezone.utc)
+    )
+    at_end = repository.resolve_concurrency_policy(
+        at=datetime(2026, 7, 21, 15, 0, tzinfo=timezone.utc)
+    )
+
+    assert at_start.default_source_allowed is True
+    assert at_end.default_source_allowed is False
+
+
+def test_nfr_perf_008_empty_allowed_windows_fail_closed() -> None:
+    repository = SQLiteSourceUsagePolicyRepository()
+    repository.save(_policy("global-v1", allowed_windows=()))
+
+    resolved = repository.resolve_concurrency_policy(at=AT)
+
+    assert resolved.default_source_allowed is False
+
+
+def test_rule_012_overnight_window_uses_start_day() -> None:
+    repository = SQLiteSourceUsagePolicyRepository()
+    repository.save(
+        _policy(
+            "global-v1",
+            allowed_windows=(_window(time(22), time(2), weekdays=(1,)),),
+        )
+    )
+    tuesday_after_midnight = datetime(2026, 7, 20, 22, 30, tzinfo=timezone.utc)
+
+    resolved = repository.resolve_concurrency_policy(at=tuesday_after_midnight)
+
+    assert resolved.default_source_allowed is True
+
+
+def test_fr_039_source_window_override_skips_blocked_head() -> None:
+    policy_repository = SQLiteSourceUsagePolicyRepository()
+    policy_repository.save(_policy("global-v1", allowed_windows=(_window(time(0), time(23, 59)),)))
+    policy_repository.save(
+        _policy(
+            "source-a-v1",
+            source_id="source-a",
+            blocked_windows=(_window(time(12), time(13)),),
+        )
+    )
+    execution_repository = SQLiteExecutionRepository()
+    peak_time = datetime(2026, 7, 21, 9, 30, tzinfo=timezone.utc)
+    for index, source_id in enumerate(("source-a", "source-b")):
+        execution_repository.create_or_get(
+            RuleExecution(
+                execution_id=f"execution-{source_id}",
+                idempotency_key_hash=f"key-{source_id}",
+                payload_hash=f"payload-{source_id}",
+                rule_version_ids=("version-main",),
+                scope={},
+                triggered_by="scheduler",
+                correlation_id=f"correlation-{source_id}",
+                source_ids=(source_id,),
+                workload_class=WorkloadClass.LIGHT,
+                created_at=peak_time + timedelta(seconds=index),
+            )
+        )
+
+    policy = policy_repository.resolve_concurrency_policy(at=peak_time)
+    claimed = execution_repository.claim_next(peak_time, policy)
+
+    assert claimed is not None and claimed.execution_id == "execution-source-b"
+    assert execution_repository.get("execution-source-a").status is ExecutionStatus.QUEUED
+
+
+def test_rule_015_policy_evaluation_rejects_non_utc_time() -> None:
+    repository = SQLiteSourceUsagePolicyRepository()
+    repository.save(_policy("global-v1"))
+
+    with pytest.raises(ExecutionValidationError, match="must be UTC"):
+        repository.resolve_concurrency_policy(at=datetime(2026, 7, 21, 8, 0))
+
+
+def test_nfr_perf_008_window_rejects_unknown_timezone() -> None:
+    with pytest.raises(ExecutionValidationError, match="valid IANA timezone"):
+        SourceUsageWindow(
+            timezone="Invalid/Timezone",
+            weekdays=(1,),
+            starts_at=time(8),
+            ends_at=time(9),
+        )
