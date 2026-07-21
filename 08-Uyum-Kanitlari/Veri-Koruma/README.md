@@ -3,3 +3,7 @@
 Sınıflandırma, maskeleme, veri minimizasyonu ve işleme envanteri teknik kanıtları.
 
 Gerçek müşteri verisi, banka etiketi eşlemesi veya secret eklenmez.
+
+## Teknik Doğrulamalar
+
+- [İterasyon 25A - Saklama Politikası Uygunluk Kanıtı](Iterasyon-25A-Saklama-Politikasi-Uygunluk-Kaniti.md) - `TechnicallyVerified`

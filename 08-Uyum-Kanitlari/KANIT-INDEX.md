@@ -54,6 +54,7 @@
 - [İterasyon 23D - ServiceNow Circuit Breaker Kanıtı](Sorun-Yonetimi/Iterasyon-23D-ServiceNow-Circuit-Breaker-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 24A - Yetki Filtreli Audit İnceleme Kanıtı](Audit/Iterasyon-24A-Yetki-Filtreli-Audit-Inceleme-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 24B - Yetki Filtreli Rapor Onizleme Kanıtı](Raporlama/Iterasyon-24B-Yetki-Filtreli-Rapor-Onizleme-Kaniti.md) - `TechnicallyVerified`
+- [İterasyon 25A - Saklama Politikası Uygunluk Kanıtı](Veri-Koruma/Iterasyon-25A-Saklama-Politikasi-Uygunluk-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 26A - Veri Minimum İhlal Şüphesi Kanıtı](Olay-Mudahale/Iterasyon-26A-Veri-Minimum-Ihlal-Suphesi-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 26B - Yetki Filtreli İhlal Zaman Çizelgesi Kanıtı](Olay-Mudahale/Iterasyon-26B-Yetki-Filtreli-Ihlal-Zaman-Cizelgesi-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 28A - Yerel Veri Minimum Secret Tarama Kanıtı](Guvenlik-Testleri/Iterasyon-28A-Yerel-Veri-Minimum-Secret-Tarama-Kaniti.md) - `TechnicallyVerified`

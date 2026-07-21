@@ -866,6 +866,17 @@ tags:
 - Kanıt `08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19H-Kontrollu-Kaynak-Pasiflestirme-Kaniti.md` içinde `TechnicallyVerified` olarak kaydedildi.
 - Banka onaylı deactivator rolü/LDAP eşlemesi, çalışan işin tamamlanması veya iptali politikası, üretim eşzamanlılığı ve operasyon bildirimi açık kalır; arşivleme ayrı artımdır.
 
+### 2026-07-21 — İterasyon 25A: Saklama politikası uygunluk değerlendirmesi
+
+- `BFR-LCM-001/002`, `RULE-014`, `NFR-PRV-005`, `NFR-CMP-001/003`, `CTRL-KVKK-INV-001` ve `CTRL-KVKK-DEL-001` için salt okunur yaşam döngüsü dry-run dilimi tamamlandı.
+- Kullanıcı karar paketindeki altı zaman bazlı kayıt sınıfı sürümlü `ComplianceReviewRequired` katalog olarak modellendi; yıllık süreler sabit gün sayısı yerine takvimsel hesaplanır ve periyodik imha üst aralığı 180 günle sınırlandırılır.
+- Süresi dolmamış kayıt `RETAIN`, aktif legal hold altındaki kayıt `LEGAL_HOLD`, süresi dolmuş provisional kayıt `COMPLIANCE_REVIEW_REQUIRED` olur. Yalnız opak onay referanslı `ApprovedByBank` politika sentetik sözleşmede `ELIGIBLE_FOR_DISPOSAL` üretebilir.
+- Legal hold resolver kesintisi teknik hata, eksik/geçersiz kayıt veya hold metadata'sı doğrulama hatasıdır. Değerlendirme yalnız opak referans ve yaşam döngüsü metadata'sı taşır.
+- Fiziksel silme, anonimleştirme, arşivleme, geri çağırma ve auditli imha işi uygulanmadı; `CTRL-KVKK-DEL-001` bu nedenle `Partial` kaldı.
+- 9 yeni testle toplam 759 test geçti. Tam mypy 114 dosyada, Ruff, format ve derleme kontrolleri hatasız geçti.
+- Kanıt `08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-25A-Saklama-Politikasi-Uygunluk-Kaniti.md` içinde `TechnicallyVerified` olarak kaydedildi.
+- Hukuk/KVKK komitesi/iç denetim onayı, gerçek kayıt türü eşlemesi, kalıcı legal hold yaşam döngüsü, idempotent imha/audit, arşiv geri çağırma ve yedek re-delete açık kalır.
+
 ## İlgili Notlar
 
 - [Alınan Kararlar](Alinan-Kararlar.md)
@@ -874,9 +885,9 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B, Iterasyon 28A–28E, Iterasyon 29A–29C ve Bakım İterasyonu 29C.1 çıktıları korunacaktır.
-- `pytest` ile 750 testin geçtiği doğrulanmıştır.
-- Tam mypy kontrolü 109 kaynak dosyada sıfır hata vermektedir.
-- Hazır ve engellenmemiş yeni teknik aday bulunmamaktadır. 29D, 21B/frontend, hassas dışa aktarma, saklama/arşivleme/DR, gerçek SIEM ve çalışan iş pasifleştirme politikası banka/altyapı kararlarını beklemektedir.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A, Iterasyon 26A–26B, Iterasyon 28A–28E, Iterasyon 29A–29C ve Bakım İterasyonu 29C.1 çıktıları korunacaktır.
+- `pytest` ile 759 testin geçtiği doğrulanmıştır.
+- Tam mypy kontrolü 114 kaynak dosyada sıfır hata vermektedir.
+- Sıradaki teknik aday 25B kalıcı legal hold kayıt/serbest bırakma yaşam döngüsü ve audit dilimidir. Fiziksel imha, arşiv geri çağırma, 29D, 21B/frontend, hassas dışa aktarma, DR ve gerçek SIEM banka/altyapı kararlarını beklemektedir.
 - Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.
