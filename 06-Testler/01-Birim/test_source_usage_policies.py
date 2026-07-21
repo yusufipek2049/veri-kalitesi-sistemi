@@ -46,6 +46,9 @@ def _policy(
     source_type: str | None = None,
     max_concurrent_queries: int = 4,
     max_workers: int = 6,
+    query_timeout_seconds: int = 900,
+    retry_count: int = 2,
+    retry_delay_seconds: float = 1.5,
     allowed_windows: tuple[SourceUsageWindow, ...] | None = None,
     blocked_windows: tuple[SourceUsageWindow, ...] = (),
 ) -> SourceUsagePolicy:
@@ -57,9 +60,9 @@ def _policy(
         source_type=source_type,
         max_concurrent_queries=max_concurrent_queries,
         max_workers=max_workers,
-        query_timeout_seconds=900,
-        retry_count=2,
-        retry_delay_seconds=1.5,
+        query_timeout_seconds=query_timeout_seconds,
+        retry_count=retry_count,
+        retry_delay_seconds=retry_delay_seconds,
         rate_limit={"limit": 30, "period": "MINUTE"},
         allowed_windows=allowed_windows if allowed_windows is not None else (_window(),),
         blocked_windows=blocked_windows,
@@ -111,6 +114,36 @@ def test_fr_039_open_002_source_id_override_precedes_source_type_override() -> N
     assert resolved.source_limit("source-a") == 1
     assert resolved.source_limit("source-b") == 2
     assert resolved.source_limit("unmapped-source") == 4
+
+
+def test_fr_039_fr_040_fr_041_multi_source_runtime_policy_uses_strictest_values() -> None:
+    repository = SQLiteSourceUsagePolicyRepository()
+    repository.save(_policy("global-v1"))
+    repository.save(
+        _policy(
+            "source-a-v1",
+            source_id="source-a",
+            query_timeout_seconds=300,
+            retry_count=2,
+            retry_delay_seconds=2,
+        )
+    )
+    repository.save(
+        _policy(
+            "source-b-v1",
+            source_id="source-b",
+            query_timeout_seconds=600,
+            retry_count=0,
+            retry_delay_seconds=5,
+        )
+    )
+
+    resolved = repository.resolve_policy(at=AT)
+    runtime = resolved.runtime_policy_for(("source-a", "source-b"))
+
+    assert runtime.query_timeout_seconds == 300
+    assert runtime.retry_count == 0
+    assert runtime.retry_delay_seconds == 5
 
 
 def test_fr_039_uc_008_resolved_worker_quota_limits_queue_claims() -> None:

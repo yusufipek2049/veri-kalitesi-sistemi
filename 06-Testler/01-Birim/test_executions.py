@@ -36,7 +36,10 @@ from veri_kalitesi.executions import (
     SQLiteExecutionRepository,
     SQLiteScheduleRepository,
     SQLiteSourceUsagePolicyRepository,
+    SourceUsagePolicy,
+    SourceUsagePolicyStatus,
     SourceUsagePolicyUnavailableError,
+    SourceUsageWindow,
     WorkloadClass,
     preview_runs,
 )
@@ -339,6 +342,74 @@ def test_fr_040_nfr_rel_002_passes_separate_timeouts_to_worker() -> None:
     service.run_next()
 
     assert executor.calls[0]["timeouts"] == timeouts
+
+
+def test_fr_039_fr_040_fr_041_source_policy_controls_query_timeout_and_retry() -> None:
+    fixed_now = datetime(2026, 7, 21, 8, 0, tzinfo=timezone.utc)
+    resolver = SQLiteSourceUsagePolicyRepository()
+    resolver.save(
+        _active_source_policy(
+            query_timeout_seconds=120,
+            retry_count=1,
+            retry_delay_seconds=4,
+        )
+    )
+    executor = FakeExecutionExecutor(
+        [
+            ExecutionTechnicalError("NETWORK", retryable=True),
+            (_computation(1, 1, 0),),
+        ]
+    )
+    delays: list[float] = []
+    service, _, version = _service(
+        executor,
+        timeouts=ExecutionTimeouts(
+            connection_seconds=10,
+            query_seconds=900,
+            total_seconds=1200,
+        ),
+        source_usage_policy_resolver=resolver,
+        sleeper=delays.append,
+        clock=lambda: fixed_now,
+    )
+    _start(service, version)
+
+    completed = service.run_next()
+
+    assert completed is not None and completed.status is ExecutionStatus.SUCCESS
+    assert len(executor.calls) == 2
+    assert [call["timeouts"] for call in executor.calls] == [
+        ExecutionTimeouts(connection_seconds=10, query_seconds=120, total_seconds=1200),
+        ExecutionTimeouts(connection_seconds=10, query_seconds=120, total_seconds=1200),
+    ]
+    assert delays == [4]
+
+
+def test_fr_041_source_policy_zero_retry_stops_after_first_technical_error() -> None:
+    fixed_now = datetime(2026, 7, 21, 8, 0, tzinfo=timezone.utc)
+    resolver = SQLiteSourceUsagePolicyRepository()
+    resolver.save(_active_source_policy(retry_count=0))
+    executor = FakeExecutionExecutor(
+        [
+            ExecutionTechnicalError("NETWORK", retryable=True),
+            (_computation(1, 1, 0),),
+        ]
+    )
+    delays: list[float] = []
+    service, _, version = _service(
+        executor,
+        source_usage_policy_resolver=resolver,
+        sleeper=delays.append,
+        clock=lambda: fixed_now,
+    )
+    _start(service, version)
+
+    completed = service.run_next()
+
+    assert completed is not None
+    assert completed.status is ExecutionStatus.TECHNICAL_ERROR
+    assert len(executor.calls) == 1
+    assert delays == []
 
 
 def test_fr_042_queued_execution_is_cancelled_immediately_and_idempotently() -> None:
@@ -1124,6 +1195,35 @@ def _service(
         **service_kwargs,
     )
     return service, repository, version
+
+
+def _active_source_policy(
+    *,
+    query_timeout_seconds: int = 900,
+    retry_count: int = 2,
+    retry_delay_seconds: float = 1.5,
+) -> SourceUsagePolicy:
+    return SourceUsagePolicy(
+        policy_id="global-v1",
+        policy_version=1,
+        status=SourceUsagePolicyStatus.ACTIVE,
+        max_concurrent_queries=4,
+        max_workers=6,
+        query_timeout_seconds=query_timeout_seconds,
+        retry_count=retry_count,
+        retry_delay_seconds=retry_delay_seconds,
+        rate_limit={"limit": 30, "period": "MINUTE"},
+        allowed_windows=(
+            SourceUsageWindow(
+                timezone="Europe/Istanbul",
+                weekdays=(1, 2, 3, 4, 5, 6, 7),
+                starts_at=time(0),
+                ends_at=time(23, 59),
+            ),
+        ),
+        approved_by="checker-1",
+        audit_reference="audit-global-v1",
+    )
 
 
 def _start(service: ExecutionService, version: RuleVersion) -> Any:

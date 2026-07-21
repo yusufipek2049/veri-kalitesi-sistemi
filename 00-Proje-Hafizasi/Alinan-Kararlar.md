@@ -471,3 +471,9 @@ Bu sınıflandırma şu kuralları birlikte uygular:
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
 | --- | --- | --- | --- |
 | Kaynak çalışma pencereleri IANA saat dilimi, ISO hafta günü ve yerel saat aralığıyla değerlendirilir; başlangıç dahil, bitiş hariçtir. Yasaklı pencere her zaman izinli pencereye üstündür ve izin penceresi yoksa claim yapılmaz. | `NFR-PERF-008` politikasız veya belirsiz zaman aralığında sorgu çalıştırılmamasını gerektirir; UTC saklama ile kaynak yerel çalışma saatinin ayrılması gerekir. | Sunucu yerel saatini kullanmak, boş pencereyi sınırsız izin saymak veya çakışmada izinli pencereye öncelik vermek. | Global ve kaynak override kararları aynı UTC anı için deterministik çözülür; uygun olmayan işler kuyrukta kalır. Üretim pencere değerleri TBD'dir. |
+
+## 2026-07-21 — İterasyon 31C Teknik Kararı
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| Worker claim ve yürütme ayarları tek kaynak politika snapshot'ından çözülür. Çok kaynaklı işte sorgu timeoutu ve retry sayısının en düşüğü, retry gecikmesinin en yükseği uygulanır; yerel worker ayarları daha gevşek politika değerlerine karşı güvenli sınır olarak korunur. | Claim sonrasında politikanın yeniden okunması aynı işte sürüm tutarsızlığı doğurabilir. Çok kaynaklı işin herhangi bir kaynak için onaylı sınırı aşmaması gerekir. | Claim ve yürütmede ayrı politika okuması yapmak, ilk kaynağın değerlerini kullanmak veya en geniş sınırları seçmek. | Kaynak politikası yalnız sorgu timeoutunu daraltır; bağlantı ve toplam timeout değişmez. `retry_count` yeniden deneme sayısıdır ve sıfır değeri ilk teknik hatadan sonra tekrar denemeyi engeller. Üretim sayısal değerleri TBD kalır. |

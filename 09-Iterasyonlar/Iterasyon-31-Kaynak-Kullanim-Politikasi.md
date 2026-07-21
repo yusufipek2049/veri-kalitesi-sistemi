@@ -81,3 +81,45 @@ completed_at: 2026-07-21
   çıkarılır; mevcut güvenli yerel `ConcurrencyPolicy` yolu korunur. Şema silinmez.
 - **Sonraki iterasyon:** 31C, kaynak politikasındaki timeout ve retry değerlerinin
   worker yürütmesine bağlanması.
+
+## 31C — Kaynak politikası timeout ve retry yürütmesi
+
+- **İterasyon adı:** Kaynak politikasındaki timeout ve retry değerlerinin worker
+  yürütmesine bağlanması
+- **Kullanıcı/sistem değeri:** Worker kaynak için onaylanmış sorgu süresi ve
+  yeniden deneme sınırlarını aşmaz; teknik hata retry davranışı kaynak bazında
+  deterministik uygulanır.
+- **Mevcut FR/UC/RULE:** `FR-039`, `FR-040`, `FR-041`, `UC-008`, `RULE-003`,
+  `RULE-012`, `NFR-REL-001`, `NFR-REL-002`
+- **BFR/CTRL:** Yeni eşleme yoktur.
+- **Değiştirilen dosyalar:** Kaynak kullanım politika çözümleyicisi, execution
+  servisi, paket dışa aktarımları, birim testleri ve proje hafızası.
+- **Migration/config:** Yeni tablo veya üretim değeri eklenmedi. Mevcut
+  `query_timeout_seconds`, `retry_count` ve `retry_delay_seconds` alanları
+  yürütme kararına bağlandı.
+- **Eklenen testler:** Çok kaynakta en koruyucu runtime değerlerinin seçimi,
+  politika timeout/retry değerlerinin executor'a uygulanması ve sıfır retry ile
+  ilk teknik hatadan sonra durma.
+- **Çalıştırılan komutlar:** `pytest -q`, `mypy 03-Backend/src
+  06-Testler/01-Birim`, `ruff check .`, hedefli `ruff format` ve `python3 -m
+  compileall -q 03-Backend/src`.
+- **Mevcut regresyon sonucu:** 874 test geçti; mypy 129 dosyada, Ruff ve derleme
+  hatasız tamamlandı.
+- **Yetkisiz/negatif test sonucu:** Sıfır retry politikası retry edilebilir teknik
+  hatada dahi ikinci çağrıyı engelledi. Aktif global politika bulunmayan fail-closed
+  claim davranışı korundu.
+- **Audit/redaksiyon sonucu:** Runtime çözümü yalnız kaynak kimliği ve sayısal
+  politika sınırlarını taşır; secret, bağlantı bilgisi veya ham kaynak verisi
+  eklenmedi.
+- **Kanıt yolları:** `06-Testler/01-Birim/test_source_usage_policies.py` ve
+  `06-Testler/01-Birim/test_executions.py`.
+- **Teknik durum:** `TechnicallyVerified`
+- **Banka onayı:** `ComplianceReviewRequired`
+- **Kalan risk:** Üretim timeout/retry değerleri, gerçek bağlayıcılarda duvar
+  saati iptali, CPU/IO ve hız sınırı, retry metriği/alarmı ve çoklu instance
+  politika önbelleği.
+- **Geri alma yaklaşımı:** Kalıcı politika çözümleyicisi worker
+  yapılandırmasından çıkarılır; mevcut yerel timeout, retry ve concurrency yolu
+  korunur. Şema silinmez.
+- **Sonraki iterasyon:** 31D, kaynak hız sınırı politikasının worker admission
+  sınırına bağlanması.

@@ -92,8 +92,42 @@ class SourceUsagePolicy:
         object.__setattr__(self, "blocked_windows", tuple(self.blocked_windows))
 
 
+@dataclass(frozen=True)
+class SourceRuntimePolicy:
+    query_timeout_seconds: int
+    retry_count: int
+    retry_delay_seconds: float
+
+
+@dataclass(frozen=True)
+class ResolvedSourceUsagePolicy:
+    concurrency_policy: ConcurrencyPolicy
+    default_runtime_policy: SourceRuntimePolicy
+    per_source_runtime_policies: Mapping[str, SourceRuntimePolicy]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "per_source_runtime_policies",
+            MappingProxyType(dict(self.per_source_runtime_policies)),
+        )
+
+    def runtime_policy_for(self, source_ids: tuple[str, ...]) -> SourceRuntimePolicy:
+        policies = tuple(
+            self.per_source_runtime_policies.get(source_id, self.default_runtime_policy)
+            for source_id in source_ids
+        )
+        if not policies:
+            return self.default_runtime_policy
+        return SourceRuntimePolicy(
+            query_timeout_seconds=min(item.query_timeout_seconds for item in policies),
+            retry_count=min(item.retry_count for item in policies),
+            retry_delay_seconds=max(item.retry_delay_seconds for item in policies),
+        )
+
+
 class SourceUsagePolicyResolver(Protocol):
-    def resolve_concurrency_policy(self, *, at: datetime) -> ConcurrencyPolicy: ...
+    def resolve_policy(self, *, at: datetime) -> ResolvedSourceUsagePolicy: ...
 
 
 class SQLiteSourceUsagePolicyRepository:
@@ -201,6 +235,9 @@ class SQLiteSourceUsagePolicyRepository:
         return _rows_to_policies(rows)
 
     def resolve_concurrency_policy(self, *, at: datetime) -> ConcurrencyPolicy:
+        return self.resolve_policy(at=at).concurrency_policy
+
+    def resolve_policy(self, *, at: datetime) -> ResolvedSourceUsagePolicy:
         _validate_evaluation_time(at)
         try:
             rows = self.connection.execute(
@@ -242,24 +279,32 @@ class SQLiteSourceUsagePolicyRepository:
         resolved_allowed = {
             source_id: _policy_allows_at(policy, at) for source_id, policy in by_source.items()
         }
+        resolved_runtime = {
+            source_id: _runtime_policy(policy) for source_id, policy in by_source.items()
+        }
         for source_id, source_type in self.source_types_by_id.items():
             override = by_source.get(source_id) or by_type.get(source_type)
             if override is not None:
                 resolved_limits[source_id] = _effective_source_limit(override)
                 resolved_allowed[source_id] = _policy_allows_at(override, at)
+                resolved_runtime[source_id] = _runtime_policy(override)
 
         global_worker_limit = global_policy.max_workers
         global_source_limit = _effective_source_limit(global_policy)
-        return ConcurrencyPolicy(
-            max_total=global_worker_limit,
-            max_heavy=global_worker_limit,
-            max_light=global_worker_limit,
-            default_source_limit=global_source_limit,
-            default_heavy_source_limit=global_source_limit,
-            default_source_allowed=_policy_allows_at(global_policy, at),
-            per_source_limits=resolved_limits,
-            per_source_heavy_limits=resolved_limits,
-            per_source_allowed=resolved_allowed,
+        return ResolvedSourceUsagePolicy(
+            concurrency_policy=ConcurrencyPolicy(
+                max_total=global_worker_limit,
+                max_heavy=global_worker_limit,
+                max_light=global_worker_limit,
+                default_source_limit=global_source_limit,
+                default_heavy_source_limit=global_source_limit,
+                default_source_allowed=_policy_allows_at(global_policy, at),
+                per_source_limits=resolved_limits,
+                per_source_heavy_limits=resolved_limits,
+                per_source_allowed=resolved_allowed,
+            ),
+            default_runtime_policy=_runtime_policy(global_policy),
+            per_source_runtime_policies=resolved_runtime,
         )
 
     def _retire_active_scope(self, policy: SourceUsagePolicy) -> None:
@@ -333,6 +378,14 @@ def _validate_source_usage_policy(policy: SourceUsagePolicy) -> None:
 
 def _effective_source_limit(policy: SourceUsagePolicy) -> int:
     return min(policy.max_concurrent_queries, policy.max_workers)
+
+
+def _runtime_policy(policy: SourceUsagePolicy) -> SourceRuntimePolicy:
+    return SourceRuntimePolicy(
+        query_timeout_seconds=policy.query_timeout_seconds,
+        retry_count=policy.retry_count,
+        retry_delay_seconds=policy.retry_delay_seconds,
+    )
 
 
 def _validate_evaluation_time(at: datetime) -> None:
