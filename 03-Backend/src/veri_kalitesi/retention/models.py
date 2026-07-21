@@ -53,6 +53,22 @@ class DisposalJobStatus(str, Enum):
     FAILED_TECHNICAL = "FAILED_TECHNICAL"
 
 
+class ArchiveRecordType(str, Enum):
+    AUDIT_LOG = "AUDIT_LOG"
+    QUALITY_SCORE = "QUALITY_SCORE"
+
+
+class ArchiveRecallStatus(str, Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
+class ArchiveRecallDecisionType(str, Enum):
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
 @dataclass(frozen=True)
 class CalendarDuration:
     years: int = 0
@@ -118,6 +134,20 @@ class DisposalJobAccessPolicy:
     )
     allowed_result_actor_types: frozenset[ActorType] = field(
         default_factory=lambda: frozenset({ActorType.SERVICE})
+    )
+
+
+@dataclass(frozen=True)
+class ArchiveRecallAccessPolicy:
+    version: str
+    actor_policy_version: str
+    request_roles: frozenset[str]
+    decision_roles: frozenset[str]
+    purpose_codes: frozenset[str]
+    approval_reason_codes: frozenset[str]
+    rejection_reason_codes: frozenset[str]
+    allowed_actor_types: frozenset[ActorType] = field(
+        default_factory=lambda: frozenset({ActorType.USER})
     )
 
 
@@ -203,3 +233,36 @@ class DisposalJob:
         if self.result is None:
             return DisposalJobStatus.PREPARED
         return self.result.status
+
+
+@dataclass(frozen=True)
+class ArchiveRecallDecision:
+    decision_id: str
+    request_id: str
+    decision: ArchiveRecallDecisionType
+    reason_code: str
+    decided_by_actor_id: str
+    decided_by_role: str
+    decided_at: datetime
+
+
+@dataclass(frozen=True)
+class ArchiveRecallRequest:
+    request_id: str
+    idempotency_key_digest: str
+    payload_digest: str
+    archive_reference_digest: str
+    record_type: ArchiveRecordType
+    scope_type: RetentionScopeType
+    scope_digest: str | None
+    purpose_code: str
+    requested_by_actor_id: str
+    requested_by_role: str
+    requested_at: datetime
+    decision: ArchiveRecallDecision | None = None
+
+    @property
+    def status(self) -> ArchiveRecallStatus:
+        if self.decision is None:
+            return ArchiveRecallStatus.PENDING
+        return ArchiveRecallStatus(self.decision.decision.value)

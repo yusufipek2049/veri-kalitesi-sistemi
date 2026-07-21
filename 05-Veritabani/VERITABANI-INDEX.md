@@ -49,3 +49,16 @@ tags:
 - SQLite yerel teknik prototiptir; üretim PostgreSQL migration'ı, uygulama
   rolünden ayrılmış değişmezlik yetkisi, bölümleme ve WORM kararı `OPEN-BNK-012`
   ve `OPEN-BNK-006` kapsamında açıktır.
+
+## İterasyon 25D Şema Artımı
+
+- `archive_recall_requests`, audit veya kalite skoru arşivi için idempotent ve
+  değişmez talep snapshot'ını saklar; arşiv/kapsam kimlikleri yalnız SHA-256
+  özeti olarak tutulur.
+- `archive_recall_decisions`, talep başına tek `APPROVED` veya `REJECTED` kararı
+  ve farklı karar aktörünü append-only saklar.
+- Talep/karar tablolarındaki `UPDATE` ve `DELETE` tetikleyicilerle reddedilir;
+  her yazım audit outbox ile aynı SQLite transaction'ındadır.
+- Sık kullanılan zaman ve kapsam alanları indekslidir. Üretim PostgreSQL
+  migration'ı, arşiv ürünü, bölümleme, at-rest şifreleme ve uygulama rolünden
+  ayrılmış değişmezlik yetkisi açık kalır.

@@ -924,6 +924,28 @@ tags:
   üretim claim/lease, banka rol/reason code eşlemesi, yedek re-delete ve arşiv
   geri çağırma açık kalır.
 
+### 2026-07-21 — İterasyon 25D: Yetkili arşiv geri çağırma talep ve kararı
+
+- `BFR-LCM-004`, `BFR-SOD-001/002/004`, `BFR-AUD-001/002/004`, `FR-077`,
+  `FR-079` ve `NFR-SEC-001/008/011` için audit/kalite skoru arşiv geri çağırma
+  talep ve karar sözleşmesi tamamlandı.
+- Talep güvenilir normal kullanıcı, sürümlü requester rolü, veri kapsamı ve
+  allowlist amaç kodu gerektirir; arşiv/kapsam kimlikleri özetlenir.
+- Talebi açan aktör karar veremez. Farklı güvenilir normal kullanıcı, ayrı karar
+  rolü, aynı kapsam ve allowlist gerekçeyle `APPROVED` veya `REJECTED` kararı verir.
+- Talep idempotent, karar terminal ve her ikisi append-only'dir. Farklı payload
+  veya ikinci farklı karar reddedilir; domain olayı ile redakte audit outbox
+  atomiktir.
+- Audit özeti yalnız durum, arşiv kayıt türü ve kapsam türünü taşır. Ham arşiv
+  referansı, kapsam kimliği, idempotency anahtarı ve serbest metin içermez.
+- 25 yeni testle retention hedef grubu 71, toplam test sayısı 821 oldu. Tam mypy
+  122 dosyada, Ruff, format ve derleme kontrolleri hatasız geçti.
+- Kanıt `08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-25D-Yetkili-Arsiv-Geri-Cagirma-Kaniti.md`
+  içinde `TechnicallyVerified` olarak kaydedildi.
+- Gerçek arşiv deposu/getirme adaptörü, erişim süresi, indirme/DLP, üretim rol
+  eşlemesi, PostgreSQL/WORM yetkileri ve geri çağrılan kopyanın yeniden imhası
+  açık kalır.
+
 ## İlgili Notlar
 
 - [Alınan Kararlar](Alinan-Kararlar.md)
@@ -932,9 +954,9 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25C, Iterasyon 26A–26B, Iterasyon 28A–28E, Iterasyon 29A–29C ve Bakım İterasyonu 29C.1 çıktıları korunacaktır.
-- `pytest` ile 796 testin geçtiği doğrulanmıştır.
-- Tam mypy kontrolü 119 kaynak dosyada sıfır hata vermektedir.
-- Sıradaki teknik aday 25D yetkili arşiv geri çağırma talebi ve veri-minimum audit sözleşmesidir. Gerçek arşiv/fiziksel imha adaptörü, 29D, 21B/frontend, hassas dışa aktarma, DR ve gerçek SIEM banka/altyapı kararlarını beklemektedir.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 28A–28E, Iterasyon 29A–29C ve Bakım İterasyonu 29C.1 çıktıları korunacaktır.
+- `pytest` ile 821 testin geçtiği doğrulanmıştır.
+- Tam mypy kontrolü 122 kaynak dosyada sıfır hata vermektedir.
+- Sıradaki teknik aday 27A fail-closed ortam kimliği ve üretim dışı veri/secret kullanım sınırı sözleşmesidir. Gerçek arşiv/fiziksel imha adaptörü, 29D, 21B/frontend, hassas dışa aktarma, DR ve gerçek SIEM banka/altyapı kararlarını beklemektedir.
 - Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.
