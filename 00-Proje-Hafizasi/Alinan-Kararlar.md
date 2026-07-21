@@ -224,6 +224,14 @@ tags:
 | 2026-07-21 | Başarılı aday terfisi kaynağı yeniden aktivasyon bekleyen `TEST_SUCCEEDED` durumuna alacak ve eski revizyona bağlı bekleyen aktivasyon isteklerini `INVALIDATED` yapacaktır. | Eski yapılandırma için verilmiş veya bekleyen onayın yeni bağlantı kapsamına taşınması görevler ayrılığı ve sürüm bağını bozar. | Kaynağı aktif tutmak veya eski onayı yeni revizyona otomatik taşımak. | Yeni revizyon ayrı aktivasyon isteği gerektirir; eski onay geçmişi silinmeden kullanılamaz hâle gelir. |
 | 2026-07-21 | Aday oluşturma ile terfi/onay invalidasyonu işlemleri veri-minimum audit outbox ile atomik olacaktır. | Bağlantı değişikliğinin veya onay geçersizleştirmenin audit izi olmadan gerçekleşmesi kabul edilemez. | Best-effort audit veya yapılandırma ayrıntılarını audit payloadına kopyalamak. | Audit-stage arızasında aday/terfi/test/invalidasyon geri alınır; audit bağlantı ayarı, secret referansı, owner, hazırlayan ve gerekçe içermez. |
 
+## 2026-07-21 İterasyon 19H Kararları
+
+| Tarih | Karar | Gerekçe | Alternatif | Sonuç |
+| --- | --- | --- | --- | --- |
+| 2026-07-21 | Kaynak pasifleştirme sürümlü politikadaki ayrı deactivator rolü, güvenilir kullanıcı context'i ve source kapsamıyla yetkilendirilecektir. | Aktivasyon maker-checker rolleri ile operasyonel pasifleştirme yetkisinin örtük olarak birleştirilmesi en az ayrıcalık ve açıklanabilir yetki sınırını zayıflatır. | Maker, checker veya genel ayrıcalık sahibi aktörün doğrudan pasifleştirebilmesi. | Yanlış rol/kapsam, servis hesabı ve ayrıcalıkla rol atlama reddedilir; banka rol kodu ve LDAP eşlemesi `ComplianceReviewRequired` kalır. |
+| 2026-07-21 | Manual ve scheduled execution yalnız `ACTIVE` veri kaynağı kabul edecektir; `TEST_SUCCEEDED` durumu çalıştırma yetkisi vermeyecektir. | Bağlantı testinin başarılı olması idari aktivasyon veya yeniden aktivasyon onayı değildir; aksi davranış pasifleştirme kapısını dolanabilir. | `TEST_SUCCEEDED` ve `ACTIVE` durumlarını birlikte kabul etmek. | Pasif veya yalnız test edilmiş kaynak yeni execution oluşturamaz; zamanı gelen geçersiz plan mevcut teknik olay akışıyla pasifleştirilir. |
+| 2026-07-21 | Pasifleştirme mevcut çalışan işleri değiştirmeyecek; yeniden aktivasyon mevcut maker-checker akışından geçecek ve durum geçişi audit outbox ile atomik olacaktır. | Çalışan işi tamamlama/iptal etme politikası banka kararı gerektirir; fiziksel silme ve örtük yeniden aktivasyon tarihsel izlenebilirliği bozar. | Pasifleştirmede tüm işleri otomatik iptal etmek, kaynağı arşivlemek veya bağlantı testiyle doğrudan aktif yapmak. | Mevcut işler korunur; ret `INACTIVE` durumunu korur, farklı checker onayı yeniden `ACTIVE` yapar; audit-stage arızasında pasifleştirme geri alınır. |
+
 ## İlişkili Notlar
 
 - [Sistem Açıklaması](../01-SRS/02-Sistem-Aciklamasi.md)

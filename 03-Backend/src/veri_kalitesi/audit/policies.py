@@ -175,6 +175,9 @@ def build_default_redaction_policy() -> AuditRedactionPolicy:
                     "source_status",
                 }
             ),
+            "DATA_SOURCE_DEACTIVATED": frozenset(
+                {"data_source_revision", "policy_version", "status"}
+            ),
             "DATA_SOURCE_METADATA_DISCOVERED": frozenset(
                 {
                     "succeeded",

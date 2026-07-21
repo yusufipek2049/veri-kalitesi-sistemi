@@ -33,6 +33,7 @@ class DataSourceStatus(str, Enum):
     TEST_SUCCEEDED = "TEST_SUCCEEDED"
     TEST_FAILED = "TEST_FAILED"
     ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
     ARCHIVED = "ARCHIVED"
 
 
@@ -57,6 +58,7 @@ class DataSourceActivationPolicy:
     actor_policy_version: str
     maker_roles: frozenset[str]
     checker_roles: frozenset[str]
+    deactivator_roles: frozenset[str] = field(default_factory=frozenset)
     allowed_actor_types: frozenset[str] = field(default_factory=lambda: frozenset({"USER"}))
     target_business_days: int | None = None
     expiration_business_days: int | None = None
