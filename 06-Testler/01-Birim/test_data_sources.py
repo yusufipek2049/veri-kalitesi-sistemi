@@ -21,6 +21,8 @@ from veri_kalitesi.data_sources import (
     AuthenticationConnectionError,
     CSVConnector,
     ClassificationCode,
+    ConnectionRevisionStatus,
+    ConnectionTestResult,
     ConnectorRegistry,
     DNSConnectionError,
     DataSource,
@@ -48,7 +50,7 @@ from veri_kalitesi.data_sources import (
     SQLiteDataSourceRepository,
     TimeoutConnectionError,
 )
-from veri_kalitesi.data_sources.errors import AuthorizationError, ValidationError
+from veri_kalitesi.data_sources.errors import AuthorizationError, TechnicalError, ValidationError
 from veri_kalitesi.data_protection import CLASSIFICATION_POLICY_VERSION
 from veri_kalitesi.identity import ActorContext, ActorContextIssuer, ActorType
 
@@ -369,6 +371,15 @@ class MutableClock:
 
     def __call__(self) -> datetime:
         return self.now
+
+
+class ExplodingCSVConnector(CSVConnector):
+    def test_connection(
+        self,
+        data_source: DataSource,
+        secret: Mapping[str, Any],
+    ) -> ConnectionTestResult:
+        raise RuntimeError("synthetic connector failure")
 
 
 def test_bfr_aud_004_outbox_failure_rolls_back_data_source_creation() -> None:
@@ -2195,6 +2206,404 @@ def test_bfr_sod_001_activation_timing_policy_fails_closed(
 ) -> None:
     with pytest.raises(ValidationError, match=error):
         _activation_service(policy=policy, calendar=calendar)
+
+
+def test_fr_012_successful_connection_revision_promotes_and_invalidates_old_approval(
+    tmp_path: Path,
+) -> None:
+    service, source = _tested_activation_source(tmp_path)
+    maker = _activation_context(source.data_source_id, "maker-1", {"SOURCE_MAKER"})
+    old_request = service.request_activation(
+        actor_context=maker,
+        data_source_id=source.data_source_id,
+    )
+    candidate_file = tmp_path / "activation-source-v2.csv"
+    candidate_file.write_text("id,name\n1,Ada\n", encoding="utf-8")
+    candidate = service.create_connection_revision(
+        actor_context=maker,
+        data_source_id=source.data_source_id,
+        connection_config={"file_path": str(candidate_file), "delimiter": ","},
+        secret_reference="secret://datasources/activation-source-v2",
+        reason_code="SOURCE.ENDPOINT.ROTATION",
+    )
+
+    unchanged = service.repository.get_data_source(source.data_source_id)
+    assert unchanged.revision == 1
+    assert unchanged.connection_config == source.connection_config
+
+    result = service.test_connection_revision(
+        actor_context=maker,
+        connection_revision_id=candidate.connection_revision_id,
+    )
+
+    promoted = service.repository.get_data_source(source.data_source_id)
+    stored_candidate = service.repository.get_connection_revision(candidate.connection_revision_id)
+    invalidated = service.repository.get_activation_request(old_request.activation_request_id)
+    assert result.succeeded is True
+    assert result.data_source_revision == 2
+    assert promoted.revision == 2
+    assert promoted.connection_config == {
+        "file_path": str(candidate_file),
+        "delimiter": ",",
+    }
+    assert promoted.secret_reference == "secret://datasources/activation-source-v2"
+    assert promoted.status is DataSourceStatus.TEST_SUCCEEDED
+    assert stored_candidate.status is ConnectionRevisionStatus.PROMOTED
+    assert invalidated.status is DataSourceActivationStatus.INVALIDATED
+    assert invalidated.decision_reason_code == "DATA_SOURCE.REVISION_CHANGED"
+    with pytest.raises(ValidationError, match="not pending"):
+        service.decide_activation(
+            actor_context=_activation_context(
+                source.data_source_id, "checker-1", {"SOURCE_CHECKER"}
+            ),
+            activation_request_id=old_request.activation_request_id,
+            decision="APPROVE",
+            reason_code="SOURCE.READ_ONLY.TESTED",
+        )
+    new_request = service.request_activation(
+        actor_context=maker,
+        data_source_id=source.data_source_id,
+    )
+    assert new_request.data_source_revision == 2
+    audit = _audit_events(service)[-2]
+    assert audit.action == "DATA_SOURCE_CONNECTION_REVISION_TESTED"
+    assert audit.new_value_summary["invalidated_activation_count"] == 1
+    assert str(candidate_file) not in str(audit)
+    assert candidate.secret_reference not in str(audit)
+    assert candidate.reason_code not in str(audit)
+    assert candidate.prepared_by_actor_id not in str(audit.new_value_summary)
+
+
+def test_fr_012_failed_candidate_preserves_current_revision_and_pending_approval() -> None:
+    service, source = _tested_activation_source_without_file()
+    maker = _activation_context(source.data_source_id, "maker-1", {"SOURCE_MAKER"})
+    request = service.request_activation(
+        actor_context=maker,
+        data_source_id=source.data_source_id,
+    )
+    candidate = service.create_connection_revision(
+        actor_context=maker,
+        data_source_id=source.data_source_id,
+        connection_config={"file_path": "/missing/candidate.csv"},
+        secret_reference="secret://datasources/candidate-failure",
+        reason_code="SOURCE.ENDPOINT.ROTATION",
+    )
+
+    result = service.test_connection_revision(
+        actor_context=maker,
+        connection_revision_id=candidate.connection_revision_id,
+    )
+
+    current = service.repository.get_data_source(source.data_source_id)
+    assert result.succeeded is False
+    assert result.error_class is ErrorClass.FILE_NOT_FOUND
+    assert current == source
+    assert service.repository.get_connection_revision(candidate.connection_revision_id).status is (
+        ConnectionRevisionStatus.TEST_FAILED
+    )
+    assert service.repository.get_activation_request(request.activation_request_id).status is (
+        DataSourceActivationStatus.PENDING
+    )
+    approved = service.decide_activation(
+        actor_context=_activation_context(source.data_source_id, "checker-1", {"SOURCE_CHECKER"}),
+        activation_request_id=request.activation_request_id,
+        decision="APPROVE",
+        reason_code="SOURCE.READ_ONLY.TESTED",
+    )
+    assert approved.status is DataSourceActivationStatus.APPROVED
+
+
+def test_fr_012_failed_candidate_preserves_active_working_source() -> None:
+    service, source = _tested_activation_source_without_file()
+    maker = _activation_context(source.data_source_id, "maker-1", {"SOURCE_MAKER"})
+    request = service.request_activation(
+        actor_context=maker,
+        data_source_id=source.data_source_id,
+    )
+    service.decide_activation(
+        actor_context=_activation_context(source.data_source_id, "checker-1", {"SOURCE_CHECKER"}),
+        activation_request_id=request.activation_request_id,
+        decision="APPROVE",
+        reason_code="SOURCE.READ_ONLY.TESTED",
+    )
+    active = service.repository.get_data_source(source.data_source_id)
+    candidate = service.create_connection_revision(
+        actor_context=maker,
+        data_source_id=source.data_source_id,
+        connection_config={"file_path": "/missing/active-candidate.csv"},
+        secret_reference="secret://datasources/active-candidate",
+        reason_code="SOURCE.ENDPOINT.ROTATION",
+    )
+
+    result = service.test_connection_revision(
+        actor_context=maker,
+        connection_revision_id=candidate.connection_revision_id,
+    )
+
+    assert result.succeeded is False
+    assert service.repository.get_data_source(source.data_source_id) == active
+    assert active.status is DataSourceStatus.ACTIVE
+
+
+def test_nfr_sec_001_connection_revision_creation_rejects_untrusted_role_scope_and_service() -> (
+    None
+):
+    service, source = _tested_activation_source_without_file()
+    invalid_contexts: tuple[ActorContext | None, ...] = (
+        None,
+        _activation_context(source.data_source_id, "viewer", {"SOURCE_VIEWER"}),
+        _activation_context(
+            source.data_source_id,
+            "wrong-scope",
+            {"SOURCE_MAKER"},
+            source_ids={"source-other"},
+        ),
+        _activation_context(
+            source.data_source_id,
+            "service-maker",
+            {"SOURCE_MAKER"},
+            actor_type=ActorType.SERVICE,
+        ),
+    )
+
+    for context in invalid_contexts:
+        with pytest.raises(AuthorizationError):
+            service.create_connection_revision(
+                actor_context=context,
+                data_source_id=source.data_source_id,
+                connection_config={"file_path": "/safe/candidate.csv"},
+                secret_reference="secret://datasources/candidate",
+                reason_code="SOURCE.ENDPOINT.ROTATION",
+            )
+
+    assert service.repository.next_connection_revision(source.data_source_id) == 2
+
+
+def test_nfr_sec_001_connection_revision_test_rejects_wrong_role_scope_and_service() -> None:
+    service, source = _tested_activation_source_without_file()
+    maker = _activation_context(source.data_source_id, "maker-1", {"SOURCE_MAKER"})
+    candidate = service.create_connection_revision(
+        actor_context=maker,
+        data_source_id=source.data_source_id,
+        connection_config={"file_path": "/safe/candidate.csv"},
+        secret_reference="secret://datasources/candidate",
+        reason_code="SOURCE.ENDPOINT.ROTATION",
+    )
+    invalid_contexts = (
+        _activation_context(source.data_source_id, "viewer", {"SOURCE_VIEWER"}),
+        _activation_context(
+            source.data_source_id,
+            "wrong-scope",
+            {"SOURCE_MAKER"},
+            source_ids={"source-other"},
+        ),
+        _activation_context(
+            source.data_source_id,
+            "service-maker",
+            {"SOURCE_MAKER"},
+            actor_type=ActorType.SERVICE,
+        ),
+    )
+
+    for context in invalid_contexts:
+        with pytest.raises(AuthorizationError):
+            service.test_connection_revision(
+                actor_context=context,
+                connection_revision_id=candidate.connection_revision_id,
+            )
+
+    assert service.repository.get_connection_revision(candidate.connection_revision_id).status is (
+        ConnectionRevisionStatus.PENDING_TEST
+    )
+
+
+@pytest.mark.parametrize(
+    "config,secret_reference,reason_code,error",
+    [
+        ({}, "secret://datasources/candidate", "SOURCE.CHANGE", "file_path"),
+        (
+            {"file_path": "/safe/candidate.csv"},
+            "plain-secret",
+            "SOURCE.CHANGE",
+            "[Ss]ecret reference",
+        ),
+        (
+            {"file_path": "/safe/candidate.csv"},
+            "secret://datasources/candidate",
+            " ",
+            "reason code",
+        ),
+    ],
+)
+def test_fr_012_connection_revision_validates_candidate_without_write(
+    config: dict[str, Any],
+    secret_reference: str,
+    reason_code: str,
+    error: str,
+) -> None:
+    service, source = _tested_activation_source_without_file()
+
+    with pytest.raises(ValidationError, match=error):
+        service.create_connection_revision(
+            actor_context=_activation_context(source.data_source_id, "maker-1", {"SOURCE_MAKER"}),
+            data_source_id=source.data_source_id,
+            connection_config=config,
+            secret_reference=secret_reference,
+            reason_code=reason_code,
+        )
+
+    assert service.repository.next_connection_revision(source.data_source_id) == 2
+
+
+def test_fr_012_second_pending_connection_revision_is_rejected() -> None:
+    service, source = _tested_activation_source_without_file()
+    maker = _activation_context(source.data_source_id, "maker-1", {"SOURCE_MAKER"})
+    service.create_connection_revision(
+        actor_context=maker,
+        data_source_id=source.data_source_id,
+        connection_config={"file_path": "/safe/candidate-v2.csv"},
+        secret_reference="secret://datasources/candidate-v2",
+        reason_code="SOURCE.ENDPOINT.ROTATION",
+    )
+
+    with pytest.raises(ValidationError, match="already pending test"):
+        service.create_connection_revision(
+            actor_context=maker,
+            data_source_id=source.data_source_id,
+            connection_config={"file_path": "/safe/candidate-v3.csv"},
+            secret_reference="secret://datasources/candidate-v3",
+            reason_code="SOURCE.ENDPOINT.ROTATION",
+        )
+
+
+def test_fr_012_unexpected_candidate_test_failure_is_technical_and_preserves_state() -> None:
+    service, source = _tested_activation_source_without_file()
+    maker = _activation_context(source.data_source_id, "maker-1", {"SOURCE_MAKER"})
+    candidate = service.create_connection_revision(
+        actor_context=maker,
+        data_source_id=source.data_source_id,
+        connection_config={"file_path": "/safe/candidate.csv"},
+        secret_reference="secret://datasources/candidate",
+        reason_code="SOURCE.ENDPOINT.ROTATION",
+    )
+    service.registry = ConnectorRegistry([ExplodingCSVConnector()])
+
+    with pytest.raises(TechnicalError, match="Unexpected connector failure"):
+        service.test_connection_revision(
+            actor_context=maker,
+            connection_revision_id=candidate.connection_revision_id,
+        )
+
+    assert service.repository.get_data_source(source.data_source_id) == source
+    assert service.repository.get_connection_revision(candidate.connection_revision_id).status is (
+        ConnectionRevisionStatus.PENDING_TEST
+    )
+    assert (
+        service.repository.latest_connection_test(
+            source.data_source_id, data_source_revision=candidate.revision
+        )
+        is None
+    )
+
+
+def test_bfr_aud_004_connection_revision_creation_rolls_back_on_audit_failure() -> None:
+    service, source = _tested_activation_source_without_file()
+    _use_failing_stage(service)
+
+    with pytest.raises(sqlite3.OperationalError, match="outbox write failure"):
+        service.create_connection_revision(
+            actor_context=_activation_context(source.data_source_id, "maker-1", {"SOURCE_MAKER"}),
+            data_source_id=source.data_source_id,
+            connection_config={"file_path": "/safe/candidate.csv"},
+            secret_reference="secret://datasources/candidate",
+            reason_code="SOURCE.ENDPOINT.ROTATION",
+        )
+
+    assert service.repository.next_connection_revision(source.data_source_id) == 2
+
+
+def test_bfr_aud_004_connection_revision_promotion_rolls_back_on_audit_failure(
+    tmp_path: Path,
+) -> None:
+    service, source = _tested_activation_source(tmp_path)
+    maker = _activation_context(source.data_source_id, "maker-1", {"SOURCE_MAKER"})
+    request = service.request_activation(
+        actor_context=maker,
+        data_source_id=source.data_source_id,
+    )
+    candidate_file = tmp_path / "candidate-rollback.csv"
+    candidate_file.write_text("id\n1\n", encoding="utf-8")
+    candidate = service.create_connection_revision(
+        actor_context=maker,
+        data_source_id=source.data_source_id,
+        connection_config={"file_path": str(candidate_file)},
+        secret_reference="secret://datasources/candidate-rollback",
+        reason_code="SOURCE.ENDPOINT.ROTATION",
+    )
+    _use_failing_stage(service)
+
+    with pytest.raises(sqlite3.OperationalError, match="outbox write failure"):
+        service.test_connection_revision(
+            actor_context=maker,
+            connection_revision_id=candidate.connection_revision_id,
+        )
+
+    assert service.repository.get_data_source(source.data_source_id) == source
+    assert service.repository.get_connection_revision(candidate.connection_revision_id).status is (
+        ConnectionRevisionStatus.PENDING_TEST
+    )
+    assert service.repository.get_activation_request(request.activation_request_id).status is (
+        DataSourceActivationStatus.PENDING
+    )
+    assert (
+        service.repository.latest_connection_test(
+            source.data_source_id, data_source_revision=candidate.revision
+        )
+        is None
+    )
+
+
+def test_fr_012_legacy_connection_test_schema_adds_revision_and_history(tmp_path: Path) -> None:
+    database = tmp_path / "legacy-connection-revision.sqlite"
+    connection = sqlite3.connect(database)
+    connection.executescript(
+        f"""
+        CREATE TABLE data_sources (
+            data_source_id TEXT PRIMARY KEY, name TEXT NOT NULL UNIQUE,
+            source_type TEXT NOT NULL, connection_config TEXT NOT NULL,
+            secret_reference TEXT NOT NULL, owner_user_id TEXT, status TEXT NOT NULL,
+            revision INTEGER NOT NULL DEFAULT 1, last_test_at TEXT, created_at TEXT NOT NULL
+        );
+        CREATE TABLE connection_test_results (
+            test_result_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            data_source_id TEXT NOT NULL, succeeded INTEGER NOT NULL,
+            duration_ms INTEGER NOT NULL, error_class TEXT, message TEXT NOT NULL,
+            source_info TEXT NOT NULL, tested_at TEXT NOT NULL
+        );
+        INSERT INTO data_sources VALUES (
+            'source-legacy-v1', 'Legacy Revision Source', 'CSV',
+            '{{"file_path": "/safe/legacy.csv"}}', 'secret://datasources/legacy',
+            'owner-legacy', 'TEST_SUCCEEDED', 1, '{NOW.isoformat()}', '{NOW.isoformat()}'
+        );
+        INSERT INTO connection_test_results (
+            data_source_id, succeeded, duration_ms, error_class, message,
+            source_info, tested_at
+        ) VALUES (
+            'source-legacy-v1', 1, 5, NULL, 'Connection test succeeded.',
+            '{{}}', '{NOW.isoformat()}'
+        );
+        """
+    )
+    connection.close()
+
+    repository = SQLiteDataSourceRepository(str(database))
+    result = repository.latest_connection_test("source-legacy-v1", data_source_revision=1)
+    history = repository.get_connection_revision("legacy-source-legacy-v1-1")
+
+    assert result is not None
+    assert result.data_source_revision == 1
+    assert history.status is ConnectionRevisionStatus.PROMOTED
+    assert history.revision == 1
 
 
 def _activation_service(

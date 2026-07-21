@@ -30,5 +30,8 @@ tags:
 - `data_source_activation_requests`, maker/checker kararı ve gerekçe kodunu tarihsel olarak saklar; secret, bağlantı yapılandırması veya ham sahiplik verisi kopyalamaz.
 - Aktivasyon isteğinin `target_at`, `expires_at` ve `business_calendar_version` alanları nullable'dır; legacy 19E kayıtları değişmeden okunur, yeni süreli istekler hesaplandıkları takvim sürümünü korur.
 - `WITHDRAWN` ve `EXPIRED` terminal kayıtları tarihsel olarak saklanır; kaynak durumu değiştirilmeden aynı revizyon için yeni `PENDING` istek açılabilir.
+- `data_source_connection_revisions`, gizli olmayan bağlantı yapılandırmasını ve yalnız secret referansını değişmez aday/geçmiş revizyon olarak saklar; `PENDING_TEST`, `TEST_FAILED` ve `PROMOTED` durumlarını ayırır.
+- `connection_test_results.data_source_revision`, test sonucunu denenen bağlantı revizyonuna bağlar; legacy sonuçlar revizyon `1` ile taşınır.
+- Başarılı aday terfisi, kaynak revizyon/durum güncellemesi, eski `PENDING` aktivasyon isteklerinin `INVALIDATED` olması ve audit outbox yazımı aynı transaction içindedir.
 - `(data_source_id, data_source_revision)` üzerinde yalnız `PENDING` kayıtları kapsayan benzersiz indeks aynı revizyona eş zamanlı birden fazla açık istek oluşmasını engeller.
 - Onay kaydı, `ACTIVE` durum geçişi ve merkezi audit outbox aynı SQLite transaction içinde yazılır; üretim veritabanı ve migration aracı seçimi `OPEN-BNK-012` kapsamında açıktır.

@@ -225,6 +225,10 @@
         {
           "relative_path": "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19F-Veri-Kaynagi-Onay-Geri-Cekme-Sure-Asimi-Kaniti.md",
           "sha256": "3ead929439b2578d563abbfcd055e68192513f114736e3d17a9504f70a4a6110"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19G-Baglanti-Revizyonu-Onay-Gecersizlestirme-Kaniti.md",
+          "sha256": "70a8ae16fad90d891e138ee3f316970aa55dfd37193eda6161bbd21f4c17b3eb"
         }
       ],
       "review_status": "ComplianceReviewRequired",
@@ -366,7 +370,7 @@
       "technical_status": "Missing"
     }
   ],
-  "controls_digest": "da22c224dca3c5077fc573235d55e291675abd069cad450138816f71330e032e",
+  "controls_digest": "5723746b8a6f6ecb05abdb75ca7a05aaaab0bdd8a49ca764e0c23839d66e7769",
   "missing_control_ids": [
     "CTRL-BDDK-BCP-001",
     "CTRL-KVKK-DEL-001",
@@ -386,5 +390,5 @@
     "Partial": 12,
     "TechnicallyVerified": 0
   },
-  "unique_evidence_artifact_count": 29
+  "unique_evidence_artifact_count": 30
 }

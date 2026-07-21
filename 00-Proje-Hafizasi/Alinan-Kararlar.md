@@ -216,6 +216,14 @@ tags:
 | 2026-07-21 | Bekleyen aktivasyon isteğini yalnız kayıtlı maker geri çekebilecek; süre aşımını yalnız güvenilir, yetkili ve source kapsamı içindeki servis hesabı işletecektir. | Başka aktörün kritik isteği izinsiz kapatması ve aktörsüz toplu güncelleme görevler ayrılığı ile audit güven sınırını bozar. | Checker'ın geri çekmesi, aktörsüz SQL işi veya genel ayrıcalığın rol/kapsam yerine kabul edilmesi. | `WITHDRAWN` ve `EXPIRED` terminal durumları korunur; yetkisiz kullanıcı/servis reddedilir ve kaynak `TEST_SUCCEEDED` kalır. |
 | 2026-07-21 | Geri çekme/süre aşımı durum geçişi ile veri-minimum audit outbox aynı transaction içinde yazılacaktır. | İsteğin audit izi olmadan kapanması veya audit ile domain durumunun ayrışması kabul edilemez. | Best-effort audit veya durum değişikliğinden sonra ayrı audit yazımı. | Audit-stage arızasında istek `PENDING` kalır; secret, bağlantı yapılandırması, owner, maker ve gerekçe audit özetine alınmaz. |
 
+## 2026-07-21 İterasyon 19G Kararları
+
+| Tarih | Karar | Gerekçe | Alternatif | Sonuç |
+| --- | --- | --- | --- | --- |
+| 2026-07-21 | Bağlantı ayarı güncellemesi mevcut kaynak kaydını doğrudan değiştirmeyecek; değişmez aday bağlantı revizyonu olarak oluşturulup salt okunur testten sonra terfi ettirilecektir. | `FR-012`, başarısız testte mevcut çalışan sürümün korunmasını ve değişikliğin sürümlü olmasını zorunlu kılar. | Aday ayarları doğrudan `data_sources` üzerine yazıp başarısızlıkta eski JSON'u geri yüklemek. | Başarısız ve teknik test yolları çalışan yapılandırma, secret referansı, revizyon ve durumu değiştirmez; ilk/legacy revizyon geçmişi korunur. |
+| 2026-07-21 | Başarılı aday terfisi kaynağı yeniden aktivasyon bekleyen `TEST_SUCCEEDED` durumuna alacak ve eski revizyona bağlı bekleyen aktivasyon isteklerini `INVALIDATED` yapacaktır. | Eski yapılandırma için verilmiş veya bekleyen onayın yeni bağlantı kapsamına taşınması görevler ayrılığı ve sürüm bağını bozar. | Kaynağı aktif tutmak veya eski onayı yeni revizyona otomatik taşımak. | Yeni revizyon ayrı aktivasyon isteği gerektirir; eski onay geçmişi silinmeden kullanılamaz hâle gelir. |
+| 2026-07-21 | Aday oluşturma ile terfi/onay invalidasyonu işlemleri veri-minimum audit outbox ile atomik olacaktır. | Bağlantı değişikliğinin veya onay geçersizleştirmenin audit izi olmadan gerçekleşmesi kabul edilemez. | Best-effort audit veya yapılandırma ayrıntılarını audit payloadına kopyalamak. | Audit-stage arızasında aday/terfi/test/invalidasyon geri alınır; audit bağlantı ayarı, secret referansı, owner, hazırlayan ve gerekçe içermez. |
+
 ## İlişkili Notlar
 
 - [Sistem Açıklaması](../01-SRS/02-Sistem-Aciklamasi.md)

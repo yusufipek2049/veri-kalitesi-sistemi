@@ -42,6 +42,13 @@ class DataSourceActivationStatus(str, Enum):
     REJECTED = "REJECTED"
     WITHDRAWN = "WITHDRAWN"
     EXPIRED = "EXPIRED"
+    INVALIDATED = "INVALIDATED"
+
+
+class ConnectionRevisionStatus(str, Enum):
+    PENDING_TEST = "PENDING_TEST"
+    TEST_FAILED = "TEST_FAILED"
+    PROMOTED = "PROMOTED"
 
 
 @dataclass(frozen=True)
@@ -72,6 +79,22 @@ class DataSourceActivationRequest:
     expires_at: datetime | None = None
     business_calendar_version: str | None = None
     decided_at: datetime | None = None
+
+
+@dataclass(frozen=True)
+class DataSourceConnectionRevision:
+    data_source_id: str
+    revision: int
+    base_revision: int
+    connection_config: dict[str, Any]
+    secret_reference: str
+    prepared_by_actor_id: str
+    policy_version: str
+    reason_code: str
+    status: ConnectionRevisionStatus = ConnectionRevisionStatus.PENDING_TEST
+    connection_revision_id: str = field(default_factory=lambda: str(uuid4()))
+    created_at: datetime = field(default_factory=utc_now)
+    tested_at: datetime | None = None
 
 
 class DatasetType(str, Enum):
@@ -252,4 +275,5 @@ class ConnectionTestResult:
     error_class: ErrorClass | None = None
     message: str = ""
     source_info: dict[str, Any] = field(default_factory=dict)
+    data_source_revision: int = 1
     tested_at: datetime = field(default_factory=utc_now)
