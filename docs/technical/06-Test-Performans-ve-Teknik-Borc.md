@@ -44,6 +44,7 @@ secret redaksiyonu ve veri-minimum payload testleri dikkate değer güçlü nokt
 | API | Planlanmış ancak uygulanmamış | API yok |
 | End-to-end | Planlanmış ancak uygulanmamış | Dizin boş; runtime/UI yok |
 | Performance | Planlanmış ancak uygulanmamış | 20 milyon satır ve yük testi yok |
+| Synthetic data | Hedef tasarım belgelenmiş, runtime uygulanmamış | Politika/run/ground truth üreticisi ve gizlilik kapısı yok |
 | Security | Kısmen uygulanmış | Negatif unit, local secret scan, direct SBOM, yerel SAST/bağımlılık zafiyet kapıları, pentest bulgu takibi, teknik kanıt manifesti/drift kapısı ve birleşik preflight; gerçek scanner/SCA/DAST/pentest yok |
 
 Coverage aracı, eşik veya rapor dosyası yapılandırılmamıştır. Test sayısı yüksek olsa
@@ -101,7 +102,9 @@ archive tier ve performans benchmark'ı yoktur. 20 milyon satırlık kabul hedef
 
 ### Önerilen Performans Çalışması
 
-1. Sentetik 20M satır ve yüksek kardinalite profiliyle benchmark bütçesi.
+1. `ADR-016` kapsamında deterministik sentetik 20M satır ve yüksek kardinalite
+   profiliyle ön benchmark bütçesi; bu sonuç `OPEN-014` anonimleştirilmiş üretim
+   örneği kabulinin yerine geçmez.
 2. CSV için bounded sketches/streaming agregat ve gerçek reservoir/hash sample.
 3. PostgreSQL adapterinde kaynakta SQL agregasyon, `EXPLAIN` maliyet kapısı ve cancel.
 4. DB destekli atomik claim (`SKIP LOCKED`/lease), due/status indeksleri ve broker.
@@ -137,6 +140,7 @@ archive tier ve performans benchmark'ı yoktur. 20 milyon satırlık kabul hedef
 | Skorlama hedef modeli runtime'a taşınmadı | `DQ-SCR-001`–`DQ-SCR-033` dokümante; standart durumlar, kapsam/güven, risk ve override modeli kodda yok | Kabul edilen sözleşme ile çalışan prototip ayrışıyor |
 | Dataset kritiklik ağırlıklı SOURCE skoru | Mevcut runtime kritiklik katsayısını kalite agregasyonuna katıyor; `ADR-015` bunu hedef modelde `Superseded` olarak işaretliyor | Kalite ile kritiklik/risk göstergeleri birbirine karışıyor |
 | Dimension weight semantiği | Configte var, dimension/enterprise formülünde kullanılmıyor | İş beklentisiyle sapma riski |
+| Sentetik veri hedef modeli runtime'a taşınmadı | `FR-088–FR-096`, `ADR-016` ve `AC/TS-048–056` dokümante; üretici, bağımsız ground truth/karşılaştırıcı ve gizlilik kapısı kodda yok | Gerçekçi test, yeniden üretilebilirlik ve gizlilik kanıtı üretilemiyor |
 | Paketleme eksik | `[build-system]` ve script yok | Kurulum/dağıtım standart değil |
 | Frontend toolchain yok | Tasarım sistemi ve görsel test stratejisi belgelendi; runtime, Storybook ve Playwright proje kurulumu yok | Referans ekran henüz çalışan ürün veya otomatik regression kanıtı değil |
 
@@ -154,3 +158,5 @@ concrete SQLite repository sınıfı aldığı için port/adapter ayrımı tutar
 7. Backup/restore, hash-chain ve outbox replay E2E.
 8. 20M profil, yüksek rule sayısı ve 30 günlük dashboard yük testi.
 9. SAST/SCA/DAST ve bağımsız sızma testi hazırlığı.
+10. Sentetik Golden/bozulmuş/drift/gizlilik profilleri, kusur ground truth'u,
+    false-positive/negative, bağımsız skor sapması ve üretim hedefi izolasyonu.

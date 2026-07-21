@@ -21,12 +21,12 @@ tags:
 ## Kapsam Durumu
 
 - 8 iş gereksinimi.
-- 87 fonksiyonel gereksinim.
-- 16 kullanım senaryosu.
-- 15 iş kuralı.
-- 19 temel veri varlığı.
+- 96 fonksiyonel gereksinim.
+- 17 kullanım senaryosu.
+- 17 iş kuralı.
+- Temel ve hedef veri varlığı sözlüğü.
 - 11 fonksiyonel olmayan gereksinim kategorisi.
-- 38 sistem kabul kriteri.
+- 56 sistem kabul kriteri.
 
 ## Uygulama Durumu
 
@@ -1130,6 +1130,27 @@ tags:
   geçti. `28A-v1` taraması 378 dosyada secret bulgusu üretmedi. Tam Ruff format
   kontrolünde değişiklik dışındaki üç tarihsel Python dosyasının mevcut biçim
   farkı sürmektedir.
+
+### 2026-07-21 — Sentetik veri ve gizlilik hedef tasarımı
+
+- `FR-088`–`FR-096`, `UC-017`, `RULE-016/017`, `NFR-PERF-010`,
+  `NFR-PRV-007` ve `AC/TS-048–056` ile politika kontrollü sentetik veri hedef
+  sözleşmesi oluşturuldu.
+- Dokuz sentetik profil; şema/iş anlamı, dağılım/ilişki/zaman/eksiklik modeli,
+  parametrik kusur enjeksiyonu, geçerli uç ayrımı, deterministik seed/run
+  lineage'ı ve ayrı ground truth veri modeliyle tanımlandı.
+- `ADR-016`, ground truth'u runtime kural/skor motorundan ve test olaylarını
+  gerçek operasyon hedeflerinden ayırdı. Sentetik veri anonimlik kanıtı veya
+  `OPEN-014` kapsamındaki nihai anonimleştirilmiş üretim örneği kabulünün yerine
+  geçen kanıt sayılmadı.
+- Tasarım runtime'a uygulanmadı. Nicel fayda/gizlilik/kusur yoğunluğu/skor
+  toleransı değerleri `OPEN-024`; üretim profili/örneği erişim ve onay modeli
+  `OPEN-025` altında açık bırakıldı.
+- 35 değişen/yeni Markdown dosyasında yerel bağlantı, tablo sütunu ve
+  `FR/UC/RULE/AC` süreklilik kontrolleri geçti. 913 test, 131 dosyalık tam mypy,
+  Ruff lint ve `compileall` geçti; `28A-v1` taraması 381 dosyada secret bulgusu
+  üretmedi. Tam Ruff format kontrolü değişiklik dışındaki üç tarihsel Python
+  dosyasının mevcut biçim farkını raporlamaya devam etmektedir.
 
 ## İlgili Notlar
 

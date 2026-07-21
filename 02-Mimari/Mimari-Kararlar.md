@@ -2,7 +2,7 @@
 type: architecture-decision-log
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
 status: seed
-last_updated: 2026-07-20
+last_updated: 2026-07-21
 tags:
   - architecture
   - adr
@@ -27,6 +27,7 @@ tags:
 | ADR-013 | Storybook component doğrulaması ve Playwright görsel regression süreci | Önerilen; toolchain/dependency onayı ve frontend uygulaması bekliyor |
 | ADR-014 | OPEN-001–OPEN-018 karar paketinin kapasite, politika, güvenlik, yaşam döngüsü ve hibrit dağıtım sınırı | Kabul edildi; sayısal ve ürün bazlı TBD değerler korunuyor |
 | ADR-015 | Açıklanabilir, sürümlü ve riskten ayrılmış veri kalitesi skorlama mimarisi (`DQ-SCR-001`–`DQ-SCR-033`) | Kabul edildi; mevcut uygulama farkları ve kurumsal değerler TBD |
+| ADR-016 | Politika kontrollü, deterministik ve bağımsız ground truth'lu sentetik veri hedef mimarisi | Kabul edildi hedef tasarım; runtime uygulaması ve nicel eşikler TBD |
 
 ## ADR-014 — Bağlayıcı Karar Paketi
 
@@ -67,6 +68,30 @@ yüzdeye eritmez. Üretim eşikleri, ağırlıkları, veto/tavan davranışı, m
 kapsam ve örneklem güveni, geçerlilik süreleri, kullanım/blokaj yetkisi,
 remediation hedefleri, risk katsayıları, dataset türleri ve `OPEN-BNK-013` kapsamı
 `TBD` kalır. Karar banka uyum onayı anlamına gelmez.
+
+## ADR-016 — Politika Kontrollü Sentetik Veri ve Bağımsız Ground Truth
+
+**Bağlam:** Mevcut testler sentetik vaka kullanmaktadır; ancak üretim verisinin
+gerçekçi fakat birebir olmayan temsili, kusur enjeksiyonu, ground truth,
+tekrarlanabilirlik, gizlilik kapısı ve test olayı izolasyonu için ortak bir
+sözleşme yoktur. Sentetik veriyi anonim kabul etmek veya skor motorunun kendi
+çıktısını beklenen sonuç yapmak gizlilik ve self-validation riski doğurur.
+
+**Karar:** Sentetik veri mevcut modüler monolitte sürümlü
+`SyntheticDatasetPolicy` ile yönetilir. Temel üretim kusur enjeksiyonundan,
+ground truth runtime kural/skor motorundan ve test olayları gerçek operasyon
+hedeflerinden ayrılır. Aynı konfigürasyon, üretici sürümü ve random seed
+deterministik çıktı üretir. Yapısal, istatistiksel, görev faydası, gizlilik ve
+teknik doğrulamalar ayrı sonuçlardır. Sentetik veri anonimlik kanıtı değildir ve
+`OPEN-014` kapsamındaki anonimleştirilmiş 20 milyon satırlık nihai performans
+kabulünün yerine geçmez.
+
+**Sonuç:** Kanonik hedef tasarım
+[Sentetik Veri ve Gizlilik Stratejisi](Sentetik-Veri-ve-Gizlilik-Stratejisi.md),
+gereksinimler `FR-088–FR-096`, kullanım senaryosu `UC-017` ve kabul senaryoları
+`AC/TS-048–056` olur. Nicel fayda/gizlilik/skor toleransları ve üretim profilinden
+öğrenme yöntemi `OPEN-024/025` altında karara kadar `TBD` kalır. Bu karar runtime
+uygulaması, hukuki anonimlik veya banka onayı değildir.
 
 ## ADR-012 — Token Tabanlı Kurumsal Görsel Dil
 

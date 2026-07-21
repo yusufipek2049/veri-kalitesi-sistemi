@@ -388,6 +388,15 @@ Zorunlu test sınıfları:
 9. bildirim, remediation, eskalasyon, yeniden ölçüm ve kapanış,
 10. büyük veri/örnekleme için tekrarlanabilir performans kanıtı.
 
+Sentetik kabul verisinde expected sonuç runtime kural veya skor motorundan
+türetilmez. `SyntheticGroundTruth`, aynı sürümlü politika ve yuvarlama
+sözleşmesini bağımsız oracle ile uygular; expected-versus-actual karşılaştırıcı
+kural sonucu, ham/nihai skor, önem ve olay sapmasını ölçer. Geçerli nadir/sınır
+değerler skoru düşürmemeli; teknik arıza kalite başarısızlığına çevrilmemelidir.
+Nicel skor toleransı `OPEN-024` sonuçlanana kadar `TBD`'dir. Ayrıntılar
+[Sentetik Veri ve Gizlilik Stratejisi](Sentetik-Veri-ve-Gizlilik-Stratejisi.md)
+belgesindedir.
+
 ## 16. Sentetik Hesaplama Örneği
 
 Bu değerler yalnız formülü göstermek içindir; üretim politikası değildir.
@@ -425,6 +434,7 @@ değerleri üretim için bağlayıcı değildir.
 | Kural → boyut → dataset | RuleResult → DimensionScore → Raw/Final DatasetScore |
 | Ölçüm koşulu → yeterlilik | Kapsam/örneklem/güncellik/sürüm/kanıt → MeasurementQualificationStatus |
 | Kritik sonuç → iş akışı | CriticalRuleStatus → UsageDecision → alarm/issue/remediation/eskalasyon |
+| Sentetik senaryo → bağımsız kabul | SyntheticGroundTruth → Expected-versus-Actual Comparator → AC/TS-050–052 |
 
 ## 18. Impact Matrix
 

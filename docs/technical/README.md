@@ -7,6 +7,7 @@ SQLite şemaları ve testlerle verilmiştir.
 
 Hedef skorlama ve ölçüm yeterliliği sözleşmesi için
 [kanonik mimari tasarım](../../02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md)
+ve [sentetik veri ve gizlilik hedef tasarımı](../../02-Mimari/Sentetik-Veri-ve-Gizlilik-Stratejisi.md)
 esas alınır; bu teknik analiz mevcut runtime farklarını ayrıca belirtir.
 
 ## Okuma Sırası

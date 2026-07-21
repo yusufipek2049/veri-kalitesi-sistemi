@@ -30,6 +30,14 @@ başarısız ölçümü geçerli kılamaz. Skor personel performans puanı deği
 Bağlayıcı kaynaklar: [DQ-SCR skorlama kararları](../01-SRS/04-Fonksiyonel-Gereksinimler/04.06-Skorlama.md)
 ve [kanonik skorlama ve ölçüm yeterliliği tasarımı](../02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md).
 
+## Sentetik Test Verisi İlkesi
+
+Sentetik test verisi politika kontrollü, deterministik ve izlenebilir üretilir;
+kusur enjeksiyonu temel veriden, ground truth runtime kural/skor motorundan ve
+test olayları gerçek operasyon hedeflerinden ayrılır. Sentetik veri anonimlik
+kanıtı değildir. Kanonik kaynak:
+[Sentetik Veri ve Gizlilik Stratejisi](../02-Mimari/Sentetik-Veri-ve-Gizlilik-Stratejisi.md).
+
 ## Uçtan Uca Döngü
 
 `Kaynağı tanımla → profille → kuralı oluştur/test et → çalıştır → skorla → dashboardda göster → bildir → issue oluştur → audit et`
@@ -51,5 +59,6 @@ ve [kanonik skorlama ve ölçüm yeterliliği tasarımı](../02-Mimari/Veri-Kali
 - [Genel Sistem Açıklaması](../01-SRS/02-Sistem-Aciklamasi.md)
 - [MVP](../01-SRS/12-MVP.md)
 - [Açık Konular](../01-SRS/15-Acik-Konular.md)
+- [Sentetik Veri ve Gizlilik Stratejisi](../02-Mimari/Sentetik-Veri-ve-Gizlilik-Stratejisi.md)
 - [Frontend Görsel Tasarım Sistemi](../04-Frontend/Gorsel-Tasarim-Sistemi.md)
 - [Dashboard Ekran Sözleşmesi](../04-Frontend/03-Dashboard/Dashboard-Ekran-Sozlesmesi.md)

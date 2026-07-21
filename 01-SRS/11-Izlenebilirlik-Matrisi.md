@@ -12,7 +12,7 @@ tags:
 
 # Gereksinim İzlenebilirlik Matrisi
 
-Bu matris, iş hedeflerini fonksiyonel gereksinim, kullanım senaryosu, iş kuralı, kabul kriteri ve test senaryosuyla ilişkilendirir. Fonksiyonel gereksinimler aralık halinde gösterilmiş olsa da FR-001–FR-087'nin tamamı en az bir satırda kapsanmıştır.
+Bu matris, iş hedeflerini fonksiyonel gereksinim, kullanım senaryosu, iş kuralı, kabul kriteri ve test senaryosuyla ilişkilendirir. Fonksiyonel gereksinimler aralık halinde gösterilmiş olsa da FR-001–FR-096'nın tamamı en az bir satırda kapsanmıştır.
 
 | İş Gereksinimi ID | Fonksiyonel Gereksinim ID | Kullanım Senaryosu ID | İş Kuralı ID | Kabul Kriteri ID | Test Senaryosu ID | Öncelik |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -34,6 +34,24 @@ Bu matris, iş hedeflerini fonksiyonel gereksinim, kullanım senaryosu, iş kura
 | BR-004 | FR-085 | UC-012 | RULE-011 | AC-016 | TS-016 | Could |
 | BR-001, BR-005 | FR-086 | UC-004 | RULE-007 | AC-025 | TS-025 | Could |
 | BR-004, BR-008 | FR-087 | UC-013, UC-014 | RULE-003, RULE-011 | AC-019 | TS-019 | Should |
+| BR-001, BR-002, BR-003, BR-007 | FR-088–FR-096 | UC-017 | RULE-003–RULE-007, RULE-009–RULE-012, RULE-014, RULE-016, RULE-017 | AC-048–AC-056 | TS-048–TS-056 | Must |
+
+## Sentetik Veri İzlenebilirliği
+
+Kanonik hedef tasarım
+`02-Mimari/Sentetik-Veri-ve-Gizlilik-Stratejisi.md`, mimari karar `ADR-016` ve
+açık kararlar `OPEN-024/025`'tir. `OPEN-014` anonimleştirilmiş üretim örneğiyle
+nihai performans kabulünü korur.
+
+| Gereksinim | Mimari bileşen / veri modeli | Test | Risk / karar |
+| --- | --- | --- | --- |
+| FR-088 | Synthetic Data Orchestrator; SyntheticDatasetPolicy | AC/TS-048 | ADR-016; OPEN-024/025 |
+| FR-089–FR-091 | Schema/Constraint Loader; Distribution, Relationship, Temporal Generator; Defect Injection Engine; SyntheticScenario | AC/TS-048, AC/TS-050, AC/TS-051, AC/TS-054 | RISK-017; OPEN-024 |
+| FR-092 | Ground Truth Registry; Expected-versus-Actual Comparator; SyntheticGroundTruth | AC/TS-050–AC/TS-052 | RISK-017; DQ-SCR-004–006/014–018/025/028/032 |
+| FR-093 | Generation Run Registry; SyntheticGenerationRun | AC/TS-049, AC/TS-056 | RULE-007/016; ADR-016 |
+| FR-094 | Synthetic Dataset Catalog; kaynak kullanım politikası | AC/TS-050, AC/TS-056 | NFR-PERF-010; OPEN-014 |
+| FR-095 | Privacy Risk Evaluator; SyntheticValidationResult | AC/TS-053 | RISK-016; NFR-PRV-007; OPEN-024/025; OPEN-BNK-007/008/012 |
+| FR-096 | Synthetic Dataset Validator; izole bildirim/issue adaptörü; RetentionPolicy | AC/TS-052, AC/TS-055, AC/TS-056 | RULE-006/011/014/017; OPEN-BNK-008/009/010 |
 
 ## DQ-SCR Karar İzlenebilirliği
 
@@ -79,7 +97,7 @@ Tüm satırlarda hedef mimari kararı `ADR-015`, kanonik gereksinim kaydı
 | `DQ-SCR-033` | FR-028, FR-035, FR-052 | Yönetişim ve yetki sınırı | Role bağlı yönetim yüzeyi | AC/TS-038 | OPEN-BNK-001/004/013 |
 
 
-**İzlenebilirlik kontrol sonucu:** BR-001–BR-008, FR-001–FR-087,
-`DQ-SCR-001`–`DQ-SCR-033`, UC-001–UC-016, RULE-001–RULE-015 ve
-AC-001–AC-047 matris kapsamındadır. Kapsam aralıkları ayrıntılı test yönetim
+**İzlenebilirlik kontrol sonucu:** BR-001–BR-008, FR-001–FR-096,
+`DQ-SCR-001`–`DQ-SCR-033`, UC-001–UC-017, RULE-001–RULE-017 ve
+AC-001–AC-056 matris kapsamındadır. Kapsam aralıkları ayrıntılı test yönetim
 aracına aktarılırken tekil satırlara bölünmelidir.

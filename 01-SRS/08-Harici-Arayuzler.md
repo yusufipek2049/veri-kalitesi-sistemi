@@ -60,6 +60,7 @@ Bu bölüm, kullanıcı ekranlarını, harici yazılım entegrasyonlarını ve i
 | Veri kaynağı bağlayıcıları | Ürün bağımsız arayüz; kimlik, bağlantı testi, metadata keşfi, sorgu, timeout, iptal, hata sınıflandırması ve gözlemlenebilirlik sözleşmesi. |
 | Dosya depolama servisi | CSV/Excel girdi ve rapor/kanıt dosyaları için kurum içi güvenli depolama. |
 | Kurumsal veri kataloğu/DLP | Hassas sınıflandırma, maskeleme, görüntüleme, raporlama ve loglama kısıtlarının kaynak sistemi. |
+| Sentetik veri yönetim API'si | Hedef iç API; `SyntheticDatasetPolicy`, senaryo, run, doğrulama ve katalog kayıtlarını sürümlü ve yetki kapsamlı sunar. Ground truth iş verisinden ayrı döner; gizlilik kapısı geçmeyen dataset kullanıma açılamaz. Üretim bildirimi/ServiceNow/SIEM hedefi bu API üzerinden seçilemez. Endpoint ve taşıma ayrıntıları runtime iterasyonuna kadar TBD'dir. |
 
 ## 8.3 İletişim Arayüzleri
 
