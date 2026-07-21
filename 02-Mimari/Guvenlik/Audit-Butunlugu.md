@@ -40,7 +40,9 @@
 
 ## Hata Politikası
 
-Kritik değişiklikler için audit yazılamadığında fail-closed veya dayanıklı tampon seçimi banka kararıdır. Sistem bunu işlem sınıfına göre yapılandırılabilir ve test edilebilir modellemelidir; sessizce audit kaybı kabul edilmez.
+Kimlik/rol/yetki ve güvenlik politikası değişiklikleri; kural, eşik ve ağırlık onayları; kritik yapılandırma; hassas erişim kararı ile saklama/imha politikası değişikliği fail-closed'dur. Audit olayı veya kalıcı outbox kaydı aynı işlem sınırında oluşturulamazsa iş işlemi tamamlanmış sayılmaz.
+
+Rutin çalıştırma ve operasyon olayları dayanıklı kuyruk veya transactional outbox üzerinden yazılabilir. Audit altyapısı kesintisinde olay kaybolmaz; olay sırası ve correlation kimliği korunur; retry yapılır; süre/kapasite aşımı alarm üretir ve kuyruk taşması sessiz veri kaybına yol açmaz. Bu ayrım kullanılabilirlik hedefini kritik güvenlik işlemlerini gevşetmeden korur.
 
 ## Tarihsel Aktarım ve Zincir Sırası
 

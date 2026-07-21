@@ -12,10 +12,10 @@
 
 ## Güvenilir Kaynaklar
 
-- Banka tarafından onaylı LDAP/IAM adaptörü
+- LDAP destekli kurumsal IdP/SSO ve IAM adaptörü
 - Sürümlü rol-scope eşleme politikası
 - Merkezi secret resolver
-- Onaylı veri sınıflandırma sözlüğü
+- Kurumsal veri kataloğu/DLP sınıflandırma adaptörü ve son güvenilir önbellek
 - Sistem saati/zaman senkronizasyon kaynağı
 - Onaylı audit olay sözlüğü
 
@@ -30,8 +30,9 @@ flowchart LR
     DOM --> AUD[Central Audit Boundary]
     DOM --> DS[Read-only Data Source Adapters]
     DOM --> META[(Metadata and Result Store)]
-    DOM --> EXT[ServiceNow / SIEM Adapters]
-    CLASS[Classification Policy] --> DOM
+    DOM --> OUT[Durable Outbound Integration]
+    OUT --> EXT[ServiceNow / SIEM Adapters]
+    CLASS[Corporate Catalog / DLP Policy] --> DOM
     SECRET[Secret Manager Adapter] --> DS
 ```
 

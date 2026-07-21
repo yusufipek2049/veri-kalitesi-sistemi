@@ -3,7 +3,7 @@
 ## Hedef Model
 
 ```text
-AuthenticationAdapter -> IdentityAssertion -> ActorContext
+CorporateIdPAdapter (OIDC | SAML) -> IdentityAssertion + MFA Evidence -> ActorContext
 ActorContext + AuthorizationPolicy -> AuthorizationDecision
 AuthorizationDecision -> Domain command/query
 ```
@@ -32,8 +32,15 @@ Context değişmez olmalıdır. Domain katmanı actor_id'yi ayrı serbest parame
 2. Dashboard dikey dilimini yeni context'e taşı.
 3. Eski `DashboardAccessScope` kurucusunu internal/deprecated yap.
 4. Diğer servisleri iterasyonlarla yeni context'e geçir.
-5. LDAP adaptörünü en son değil, context sözleşmesi sabitlendikten sonra bağla.
+5. LDAP destekli kurumsal IdP adaptörünü context sözleşmesi sabitlendikten sonra bağla; uygulamayı LDAP şemasına bağımlı kılma.
+
+## Kurumsal Kimlik Politikası
+
+- İlk fazdan itibaren tüm insan kullanıcılar için SSO ve MFA zorunludur; MFA uygulama içinde yeniden geliştirilmez.
+- Birden fazla IdP/dizin grubu desteklenir. Grup-rol çatışması sürümlü politikadaki deterministik öncelikle çözülür veya varsayılan reddedilir.
+- IdP erişilemezse güvenliksiz yerel girişe otomatik geçiş yapılmaz ve yeni oturum açılmaz.
+- Gerekli ise yalnız kontrollü, süreli ve audit edilen `BREAK_GLASS` kimliği ayrı politika ve yetkiyle kullanılabilir.
 
 ## Fail-Closed
 
-Kimlik doğrulama sonucu var ancak rol/scope eşlemesi yoksa erişim reddedilir. LDAP erişilemezse mevcut session politikası banka kararıyla uygulanır; yeni oturum açılmaz.
+Kimlik doğrulama sonucu var ancak MFA kanıtı veya rol/scope eşlemesi yoksa erişim reddedilir. Kurumsal IdP erişilemezse yeni oturum açılmaz.

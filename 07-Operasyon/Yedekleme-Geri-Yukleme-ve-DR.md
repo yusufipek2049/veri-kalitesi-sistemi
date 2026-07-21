@@ -1,9 +1,23 @@
 # Yedekleme, Geri Yükleme ve DR
 
-## TBD kararlar
+## Bileşen bazlı hedef matrisi
 
-- RPO
-- RTO
+| Bileşen | RPO | RTO |
+| --- | --- | --- |
+| Sistem yapılandırmaları | TBD | TBD |
+| Kural tanımları ve sürümleri | TBD | TBD |
+| Eşik ve ağırlık politikaları | TBD | TBD |
+| Kullanıcı ve rol eşlemeleri | TBD | TBD |
+| Audit kayıtları | TBD | TBD |
+| Onay kayıtları | TBD | TBD |
+| Çalıştırma metadata kayıtları | TBD | TBD |
+| Skor sonuçları | TBD | TBD |
+| Rapor dosyaları | TBD | TBD |
+| Bildirim ve entegrasyon kuyrukları | TBD | TBD |
+
+Kesin değerler iş etki analizi yapılmadan atanmaz. Yeniden üretilemeyen veya hukuki/denetim değeri yüksek veri daha sıkı hedeflerle değerlendirilir.
+
+## Diğer TBD kararlar
 - Yedek sıklığı
 - Şifreleme ve anahtar yönetimi
 - Coğrafi/tesis ayrılığı
