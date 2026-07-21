@@ -47,6 +47,12 @@ class LegalHoldEventType(str, Enum):
     RELEASED = "RELEASED"
 
 
+class DisposalJobStatus(str, Enum):
+    PREPARED = "PREPARED"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED_TECHNICAL = "FAILED_TECHNICAL"
+
+
 @dataclass(frozen=True)
 class CalendarDuration:
     years: int = 0
@@ -100,6 +106,22 @@ class LegalHoldAccessPolicy:
 
 
 @dataclass(frozen=True)
+class DisposalJobAccessPolicy:
+    version: str
+    actor_policy_version: str
+    preparation_roles: frozenset[str]
+    result_roles: frozenset[str]
+    preparation_reason_codes: frozenset[str]
+    technical_error_codes: frozenset[str]
+    allowed_preparer_types: frozenset[ActorType] = field(
+        default_factory=lambda: frozenset({ActorType.USER})
+    )
+    allowed_result_actor_types: frozenset[ActorType] = field(
+        default_factory=lambda: frozenset({ActorType.SERVICE})
+    )
+
+
+@dataclass(frozen=True)
 class LegalHold:
     hold_reference_id: str
     record_reference_id: str
@@ -140,3 +162,44 @@ class RetentionEvaluation:
     retention_until: datetime
     disposition: RetentionDisposition
     legal_hold_count: int = 0
+
+
+@dataclass(frozen=True)
+class DisposalJobResult:
+    result_id: str
+    job_id: str
+    status: DisposalJobStatus
+    affected_record_count: int
+    failed_record_count: int
+    evidence_reference: str
+    technical_error_code: str | None
+    result_digest: str
+    recorded_by_actor_id: str
+    recorded_by_role: str
+    recorded_at: datetime
+
+
+@dataclass(frozen=True)
+class DisposalJob:
+    job_id: str
+    idempotency_key_digest: str
+    payload_digest: str
+    record_reference_digest: str
+    record_class: RetentionRecordClass
+    policy_code: str
+    policy_version: str
+    disposal_method: DisposalMethod
+    scope_type: RetentionScopeType
+    scope_digest: str | None
+    approval_reference: str
+    reason_code: str
+    prepared_by_actor_id: str
+    prepared_by_role: str
+    prepared_at: datetime
+    result: DisposalJobResult | None = None
+
+    @property
+    def status(self) -> DisposalJobStatus:
+        if self.result is None:
+            return DisposalJobStatus.PREPARED
+        return self.result.status

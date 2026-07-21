@@ -8,8 +8,14 @@ from veri_kalitesi.retention.errors import (
     RetentionTechnicalError,
     RetentionValidationError,
 )
+from veri_kalitesi.retention.disposal_repository import SQLiteDisposalJobRepository
+from veri_kalitesi.retention.disposal_service import DisposalJobService
 from veri_kalitesi.retention.models import (
     CalendarDuration,
+    DisposalJob,
+    DisposalJobAccessPolicy,
+    DisposalJobResult,
+    DisposalJobStatus,
     DisposalMethod,
     LegalHold,
     LegalHoldAccessPolicy,
@@ -36,6 +42,11 @@ from veri_kalitesi.retention.service import (
 
 __all__ = [
     "CalendarDuration",
+    "DisposalJob",
+    "DisposalJobAccessPolicy",
+    "DisposalJobResult",
+    "DisposalJobService",
+    "DisposalJobStatus",
     "DisposalMethod",
     "LegalHold",
     "LegalHoldAccessPolicy",
@@ -60,6 +71,7 @@ __all__ = [
     "RetentionTechnicalError",
     "RetentionValidationError",
     "SQLiteLegalHoldRepository",
+    "SQLiteDisposalJobRepository",
     "add_calendar_duration",
     "provisional_retention_catalog",
 ]

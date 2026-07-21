@@ -25,3 +25,19 @@
 - Domain olayı ve veri-minimum audit outbox atomiktir; merkezi yayın kesintisinde
   audit olayı kalıcı `PENDING` durumda tutulur.
 - Banka rol/reason code eşlemesi, fiziksel imha ve arşiv geri çağırma açık kalır.
+
+## İterasyon 25C Teknik Sınırı
+
+- İmha işi yalnız opak onay referanslı `ApprovedByBank` politika, süresi dolmuş
+  kayıt ve aktif legal hold bulunmaması halinde hazırlanabilir.
+- Aynı idempotency anahtarı ve payload tek değişmez iş üretir; anahtarın farklı
+  payload ile kullanımı fail-closed reddedilir.
+- Hazırlayan güvenilir normal kullanıcı ile sonuç kanıtını yazan güvenilir servis
+  aktörü farklı olmalı ve ikisi de sürümlü rol ile veri kapsamına uymalıdır.
+- Sonuç yalnız `SUCCEEDED` veya `FAILED_TECHNICAL`, yöntem, sayaçlar ve opak kanıt
+  referansı taşır. Ham silinen değer, kayıt/kapsam kimliği ve serbest hata metni
+  audit özetine yazılmaz.
+- İş ve sonuç geçmişi append-only; her yazım redakte audit outbox ile atomiktir.
+- Bu dilim fiziksel silme, anonimleştirme veya arşivleme adaptörü çağırmaz.
+  Üretim adaptörü, gerçek onay resolver'ı, yedek re-delete ve arşiv geri çağırma
+  banka kararlarını bekler.

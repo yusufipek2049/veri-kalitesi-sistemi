@@ -63,6 +63,10 @@
         {
           "relative_path": "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-25B-Kalici-Legal-Hold-Yasam-Dongusu-Kaniti.md",
           "sha256": "247cd060d750db6f6055d469b07beb31139783027484636d08da2ca38a972c9f"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-25C-Idempotent-Imha-Isi-Kanit-Zarfi.md",
+          "sha256": "0caddc545fb373cd2b37e94b86853ef62e361c2a89f7ca3248db5abbea243fb6"
         }
       ],
       "review_status": "ComplianceReviewRequired",
@@ -241,6 +245,10 @@
         {
           "relative_path": "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-25B-Kalici-Legal-Hold-Yasam-Dongusu-Kaniti.md",
           "sha256": "247cd060d750db6f6055d469b07beb31139783027484636d08da2ca38a972c9f"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-25C-Idempotent-Imha-Isi-Kanit-Zarfi.md",
+          "sha256": "0caddc545fb373cd2b37e94b86853ef62e361c2a89f7ca3248db5abbea243fb6"
         }
       ],
       "review_status": "ComplianceReviewRequired",
@@ -283,6 +291,10 @@
         {
           "relative_path": "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-25B-Kalici-Legal-Hold-Yasam-Dongusu-Kaniti.md",
           "sha256": "247cd060d750db6f6055d469b07beb31139783027484636d08da2ca38a972c9f"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-25C-Idempotent-Imha-Isi-Kanit-Zarfi.md",
+          "sha256": "0caddc545fb373cd2b37e94b86853ef62e361c2a89f7ca3248db5abbea243fb6"
         }
       ],
       "review_status": "ComplianceReviewRequired",
@@ -395,7 +407,7 @@
       "technical_status": "Missing"
     }
   ],
-  "controls_digest": "e1e2402fc501d22727948e11268e9b570dfed2565e862d5eada4256ea8ee9a88",
+  "controls_digest": "98754ebf18730843076f4c7a089bcd9e588ff646b5869b4a49a4c450856d31e0",
   "missing_control_ids": [
     "CTRL-BDDK-BCP-001",
     "CTRL-KVKK-XFER-001"
@@ -414,5 +426,5 @@
     "Partial": 13,
     "TechnicallyVerified": 0
   },
-  "unique_evidence_artifact_count": 33
+  "unique_evidence_artifact_count": 34
 }
