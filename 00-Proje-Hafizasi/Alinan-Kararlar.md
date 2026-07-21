@@ -257,6 +257,14 @@ tags:
 | 2026-07-21 | İş hazırlama normal kullanıcı, sonuç kanıtı yazma servis aktörü rolüne ayrılacak; iki adım aynı aktör kimliğiyle tamamlanamayacak ve gerçek destructive adaptör bu iterasyona eklenmeyecektir. | Kritik imha niyeti ile teknik sonuç kaydının güven sınırları ayrılmalı; banka adaptörü ve maker-checker kararı tahmin edilmemelidir. | Kullanıcının doğrudan başarı sonucu yazması veya servis içinde fiziksel silmeyi etkinleştirmek. | Yanlış aktör türü/rol/kapsam reddedilir; 25C yalnız kanıt sözleşmesidir, fiziksel imha iddiası üretmez. |
 | 2026-07-21 | `SUCCEEDED` ve `FAILED_TECHNICAL` ayrı terminal sonuçlar olacak; iş/sonuç ile redakte audit outbox aynı transaction'da yazılacaktır. | Adaptör erişim arızası veri kalitesi sonucu veya başarılı imha gibi gösterilmemeli, kritik kanıt audit olmadan commit edilmemelidir. | Serbest hata metni saklamak, teknik hatayı kalite başarısızlığına çevirmek veya best-effort audit kullanmak. | Audit yalnız durum, yöntem, politika, kapsam türü, sayaç ve izinli teknik hata kodunu taşır; ham kayıt ve serbest metin dışarıda kalır. |
 
+## 2026-07-21 İterasyon 25D Kararları
+
+| Tarih | Karar | Gerekçe | Alternatif | Sonuç |
+| --- | --- | --- | --- | --- |
+| 2026-07-21 | Arşiv geri çağırma audit ve kalite skoru kayıt türleriyle, opak arşiv referansı ve allowlist amaç koduna bağlı idempotent talep olarak modellenecektir. | `BFR-LCM-004` yetkili süreci gerektirirken gerçek arşiv ürünü ve erişim politikası henüz seçilmemiştir; talep sözleşmesi içerik erişiminden ayrılmalıdır. | Arşiv URI'sini saklamak, doğrudan getirme çağrısı yapmak veya serbest amaç metni kabul etmek. | Ham arşiv/kapsam kimliği yalnız özetlenir; bu iterasyon hiçbir arşiv içeriğini okumaz veya taşımaz. |
+| 2026-07-21 | Talebi açan aktör aynı talebi onaylayamayacak; karar ayrı sürümlü rol, aynı veri kapsamı ve allowlist gerekçe gerektirecektir. | Arşivlenmiş audit/skor erişimi hassas ve denetlenebilir bir işlem olduğundan tek aktörün talep ile yetkilendirmeyi birleştirmesi görevler ayrılığını zayıflatır. | Requester'ın kendi talebini aktive etmesi, servis/break-glass hesabına örtük karar yetkisi vermek veya yalnız genel ayrıcalığı kabul etmek. | Yanlış rol/kapsam, servis hesabı, break-glass ve aynı aktör kararı fail-closed reddedilir; banka rol eşlemesi açık kalır. |
+| 2026-07-21 | Talep ve tek terminal onay/ret kararı append-only saklanacak; her olay redakte audit outbox ile aynı transaction'da yazılacaktır. | Karar geçmişi yerinde değişmemeli ve audit izi olmadan erişim yetkilendirmesi oluşmamalıdır. | Talep satırının durumunu güncellemek, ikinci karar eklemek veya best-effort audit kullanmak. | `UPDATE/DELETE`, farklı ikinci karar ve audit-stage arızası reddedilir; audit özeti yalnız durum, kayıt türü ve kapsam türünü taşır. |
+
 ## İlişkili Notlar
 
 - [Sistem Açıklaması](../01-SRS/02-Sistem-Aciklamasi.md)

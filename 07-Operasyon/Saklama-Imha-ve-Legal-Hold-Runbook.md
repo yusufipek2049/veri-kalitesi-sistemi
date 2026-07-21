@@ -41,3 +41,19 @@
 - Bu dilim fiziksel silme, anonimleştirme veya arşivleme adaptörü çağırmaz.
   Üretim adaptörü, gerçek onay resolver'ı, yedek re-delete ve arşiv geri çağırma
   banka kararlarını bekler.
+
+## İterasyon 25D Teknik Sınırı
+
+- Yalnız audit ve kalite skoru arşivleri için opak referanslı geri çağırma talebi
+  oluşturulur; arşiv içeriği okunmaz, kopyalanmaz veya taşınmaz.
+- Talep güvenilir normal kullanıcı, sürümlü requester rolü, veri kapsamı ve izinli
+  amaç kodu gerektirir. Ham arşiv/kapsam kimliği yerine SHA-256 özeti saklanır.
+- Onay veya ret yalnız farklı güvenilir normal kullanıcı, karar rolü, aynı veri
+  kapsamı ve izinli karar gerekçesiyle verilebilir.
+- Talep ve karar append-only saklanır; aynı idempotency anahtarı/payload tek talep,
+  aynı karar tek terminal olay üretir.
+- Talep/karar ile redakte audit outbox aynı transaction'dadır. Audit özeti arşiv
+  referansı, kapsam kimliği, idempotency anahtarı veya serbest metin taşımaz.
+- Gerçek arşiv deposu, veri getirme/taşıma adaptörü, erişim süresi, indirme/DLP,
+  üretim maker-checker rol eşlemesi ve geri çağrılan kopyanın yeniden imhası banka
+  kararlarını bekler.

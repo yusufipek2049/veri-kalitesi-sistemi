@@ -6,9 +6,9 @@
 | 22 | Sistem içi bildirim (`22A`), temel issue (`22B`), yeniden atama (`22C`) ve çözüm kaydı (`22D`) tamamlandı; doğrulama dilimi sırada | 17, 18 |
 | 23 | ServiceNow allowlist/idempotency adaptörü | 22 |
 | 24 | Kontrollü rapor/audit dışa aktarma | 18, 20 |
-| 25 | Saklama dry-run (`25A`), kalıcı legal hold (`25B`) ve idempotent imha işi/kanıt zarfı (`25C`) tamamlandı; fiziksel adaptör ve arşiv geri çağırma açık | Hukuk/uyum kararı |
+| 25 | Saklama dry-run (`25A`), legal hold (`25B`), imha kanıtı (`25C`) ve arşiv geri çağırma talep/kararı (`25D`) tamamlandı; gerçek adaptörler açık | Hukuk/uyum kararı |
 | 26 | Güvenlik olayı ve KVKK ihlal kanıt akışı (`26A–26B` tamamlandı); gerçek SIEM/SOC engelli | 17, `OPEN-BNK-010` |
-| 27 | Ortam ayrılığı, backup/restore ve DR tatbikatı | Altyapı kararı |
+| 27 | Ortam ayrılığı, backup/restore ve DR tatbikatı; 27A fail-closed ortam kimliği sıradaki teknik aday | Altyapı kararı |
 | 28 | Güvenli SDLC, SBOM, taramalar ve pentest hazırlığı (`28A`–`28E` yerel teknik sözleşmeleri tamamlandı) | CI/CD ve banka pentest kararı |
 | 29 | Teknik kontrol ve banka kabul kanıt paketi (`29A` deterministik manifest ve eksik kontrol raporu tamamlandı) | Tümü |
 | 30 | Frontend tasarım sistemi ve kurumsal dashboard (`30A` dokümantasyon tabanı tamamlandı) | Geçiş kapısı, 21B güvenli API ve frontend toolchain kararı |

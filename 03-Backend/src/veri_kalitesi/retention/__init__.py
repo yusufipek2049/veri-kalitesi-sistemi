@@ -1,5 +1,9 @@
 """Retention lifecycle public API."""
 
+from veri_kalitesi.retention.archive_recall_repository import SQLiteArchiveRecallRepository
+from veri_kalitesi.retention.archive_recall_service import ArchiveRecallService
+from veri_kalitesi.retention.disposal_repository import SQLiteDisposalJobRepository
+from veri_kalitesi.retention.disposal_service import DisposalJobService
 from veri_kalitesi.retention.errors import (
     RetentionAuthorizationError,
     RetentionConflictError,
@@ -8,9 +12,13 @@ from veri_kalitesi.retention.errors import (
     RetentionTechnicalError,
     RetentionValidationError,
 )
-from veri_kalitesi.retention.disposal_repository import SQLiteDisposalJobRepository
-from veri_kalitesi.retention.disposal_service import DisposalJobService
 from veri_kalitesi.retention.models import (
+    ArchiveRecallAccessPolicy,
+    ArchiveRecallDecision,
+    ArchiveRecallDecisionType,
+    ArchiveRecallRequest,
+    ArchiveRecallStatus,
+    ArchiveRecordType,
     CalendarDuration,
     DisposalJob,
     DisposalJobAccessPolicy,
@@ -41,6 +49,13 @@ from veri_kalitesi.retention.service import (
 )
 
 __all__ = [
+    "ArchiveRecallAccessPolicy",
+    "ArchiveRecallDecision",
+    "ArchiveRecallDecisionType",
+    "ArchiveRecallRequest",
+    "ArchiveRecallService",
+    "ArchiveRecallStatus",
+    "ArchiveRecordType",
     "CalendarDuration",
     "DisposalJob",
     "DisposalJobAccessPolicy",
@@ -71,6 +86,7 @@ __all__ = [
     "RetentionTechnicalError",
     "RetentionValidationError",
     "SQLiteLegalHoldRepository",
+    "SQLiteArchiveRecallRepository",
     "SQLiteDisposalJobRepository",
     "add_calendar_duration",
     "provisional_retention_catalog",
