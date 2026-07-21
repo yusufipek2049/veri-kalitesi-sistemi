@@ -17,14 +17,21 @@ tags:
 | ADR-003 | Yerel prototip için konteyner tabanlı modüler monolit | Önerilen başlangıç |
 | ADR-004 | Uzun işler için kuyruk ve worker modeli | Önerilen başlangıç |
 | ADR-005 | İlişkisel metadata ve sonuç deposu | Önerilen başlangıç |
-| ADR-006 | Secret değerleri yerine secret manager referansı | Kabul edildi; ürün TBD |
-| ADR-007 | LDAP adaptörü ve RBAC | Kabul edildi; eşleme ayrıntıları TBD |
-| ADR-008 | ServiceNow adaptörünün çekirdek issue yönetiminden ayrılması | Önerilen |
+| ADR-006 | Servis/workload identity ile kurumsal secret manager; depoda yalnız referans | Kabul edildi; ürün TBD |
+| ADR-007 | LDAP destekli kurumsal IdP/SSO, OIDC veya SAML, zorunlu MFA ve RBAC | Kabul edildi; ürün/eşleme ayrıntıları TBD |
+| ADR-008 | ServiceNow'un ara entegrasyon tablosu veya entegrasyon servisiyle çekirdek issue yönetiminden ayrılması | Kabul edildi |
 | ADR-009 | Merkezi audit için hash zinciri, transactional outbox ve salt okunur/idempotent legacy aktarım | Teknik olarak doğrulandı; üretim ürünü ve operasyon onayı TBD |
 | ADR-010 | Kişisel veri işleme envanterinin DataField'e bağlı değişmez sürümler ve redakte transactional audit ile tutulması | Teknik olarak doğrulandı; banka referans sözlükleri TBD |
 | ADR-011 | Kritik kural aktivasyonunun sürümlü politika, güvenilir ActorContext ve RuleVersion'a bağlı atomik maker-checker kararıyla yapılması | 19A teknik olarak doğrulandı; scoring ve banka rol eşlemesi TBD |
 | ADR-012 | Token tabanlı kurumsal görsel dil; marka rengi ile semantik durum renklerinin ayrılması | Tasarım baseline'ı kabul edildi; frontend uygulaması bekliyor |
 | ADR-013 | Storybook component doğrulaması ve Playwright görsel regression süreci | Önerilen; toolchain/dependency onayı ve frontend uygulaması bekliyor |
+| ADR-014 | OPEN-001–OPEN-018 karar paketinin kapasite, politika, güvenlik, yaşam döngüsü ve hibrit dağıtım sınırı | Kabul edildi; sayısal ve ürün bazlı TBD değerler korunuyor |
+
+## ADR-014 — Bağlayıcı Karar Paketi
+
+Bu karar; düşük/beklenen/yüksek kapasite senaryolarını, kaynak bazlı kullanım politikasını, kayıt sınıfı bazlı saklama ile bileşen bazlı RPO/RTO'yu, kurumsal katalog/DLP sınıflandırmasını, katmanlı rapor saklamayı, risk bazlı maker-checker'ı, anonimleştirilmiş performans verisini, WCAG 2.2 AA hedefini, hibrit üretim dağıtımını, olay sınıfı bazlı audit davranışını ve dataset politikası kontrollü kısmi resmî skoru bağlayıcı kabul eder.
+
+Belirli ürünler; kapasite, kota, timeout, saklama, dosya boyutu ve RPO/RTO değerleri ilgili kurumsal analiz veya onaya kadar TBD kalır. Teknik uygulama banka onayı anlamına gelmez.
 
 ## ADR-012 — Token Tabanlı Kurumsal Görsel Dil
 

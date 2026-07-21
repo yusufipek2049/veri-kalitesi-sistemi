@@ -16,8 +16,10 @@ tags:
 | --- | --- |
 | Kullanıcı arayüzü | Dashboard, veri kaynağı, kural, çalıştırma, skor, sorun, rapor ve yönetim ekranlarını sağlar. |
 | API katmanı | Web arayüzü ve entegrasyonlar için versiyonlu REST API sunar. |
-| Kimlik doğrulama ve yetkilendirme | LDAP doğrulaması, oturum yönetimi ve RBAC kararlarını uygular. |
-| Veri kaynağı bağlantı katmanı | PostgreSQL, SQL Server, Oracle, MySQL, CSV, Excel ve REST API bağlayıcılarını ortak sözleşmeyle sunar. |
+| Kimlik doğrulama ve yetkilendirme | Kurumsal IdP/SSO beyanı, MFA kanıtı, oturum ve RBAC kararlarını uygular. |
+| Veri kaynağı bağlantı katmanı | İlişkisel veritabanı, dosya/CSV ve API bağlayıcılarını ürün bağımsız ortak sözleşmeyle sunar. |
+| Politika katmanı | Kaynak kullanımı, kısmi skor, saklama, sınıflandırma ve kurtarma hedeflerini sürümlü olarak uygular. |
+| Entegrasyon katmanı | ServiceNow outbound kayıtlarını idempotent retry/dead-letter akışıyla yönetir. |
 | Veri profilleme motoru | İstatistik, null, benzersizlik, desen, dağılım ve aykırı değer metriklerini hesaplar. |
 | Kural çalıştırma motoru | Kural planlarını oluşturur, sorguları çalıştırır, hata türlerini sınıflandırır ve sonuçları üretir. |
 | Skorlama motoru | Kural, boyut, veri kümesi, veri kaynağı ve kurum skorlarını ağırlıklı olarak hesaplar. |
@@ -34,7 +36,7 @@ tags:
 flowchart TB
     UI[Web Kullanıcı Arayüzü]
     API[REST API Katmanı]
-    AUTH[LDAP / RBAC]
+    AUTH[Kurumsal IdP / SSO / MFA / RBAC]
     ORCH[İş Orkestrasyonu ve Zamanlama]
     PROF[Profilleme Motoru]
     RULE[Kural Çalıştırma Motoru]
@@ -72,4 +74,4 @@ flowchart TB
 ### Önerilen Çözüm Seçenekleri
 
 
-Teknoloji seçimi bu SRS'nin zorunlu iş gereksinimi değildir. Yerel prototip için konteyner tabanlı modüler monolit, arka planda iş kuyruğu ve ilişkisel metadata deposu önerilir. Kurum içi üretim ortamında bileşenlerin bağımsız ölçeklenebildiği servis tabanlı mimari değerlendirilebilir. Bağlantı sırları için kurumsal secret manager, gözlemlenebilirlik için merkezi log/metric altyapısı ve dağıtım için kurum standardı CI/CD kullanılmalıdır.
+Teknoloji seçimi bu SRS'nin zorunlu iş gereksinimi değildir. Üretimde stateless API ve worker bileşenleri kurumsal konteyner platformunda, veri tabanı ayrı yüksek erişilebilirlik kümesinde çalışır. API ve worker bağımsız ölçeklenir; kalıcı dosya/rapor depolaması konteyner yerel diskine bağlı olmaz; iş kuyruğu ve entegrasyon bileşenleri tek hata noktası oluşturmaz. Dağıtım, geri alma, sağlık kontrolü ve kontrollü kapatma dokümante edilir. Secret erişimi servis/workload identity ile kurumsal secret manager üzerinden yürür.

@@ -12,25 +12,25 @@ tags:
 
 # Açık Konular ve Varsayımlar
 
-Bu bölüm, kesinleştirilmemiş kararları uydurmadan görünür kılar. Hedef tarihler proje planı olmadığı için çoğunlukla TBD bırakılmıştır.
+Bu bölüm, karar kayıtlarının durumunu uydurmadan görünür kılar. Hedef tarihler proje planı olmadığı için TBD bırakılmıştır. Aşağıdaki maddelerin karar yönü kesinleşmiştir; ürün adı, sayısal politika değeri veya banka onayı gerektiren alt değerler ilgili gereksinimlerde ayrıca TBD kalır.
 
 | Konu ID | Açıklama | Kategori | Karar sahibi | Hedef karar tarihi | Etkilenen gereksinimler |
 | --- | --- | --- | --- | --- | --- |
-| OPEN-001 | Üretim ortamındaki kesin kaynak, veri kümesi, alan ve aktif kural sayısı | Varsayım | Proje Sponsoru / Veri Yönetişimi | TBD | NFR-SCL-003, NFR-PERF |
-| OPEN-002 | Üretim worker sayısı ve kaynak bazlı eş zamanlı sorgu kotası | Teknik karar gerekli | Yazılım Mimari / DBA | TBD | FR-039, RULE-012, NFR-PERF-006 |
-| OPEN-003 | Kaynak sistemlerde izin verilen CPU/IO ve çalışma penceresi | İş birimi kararı gerekli | DBA / Uygulama Sahibi | TBD | FR-031, FR-039, NFR-PERF-008 |
-| OPEN-004 | Kurumsal secret manager ürünü ve erişim modeli | Güvenlik onayı gerekli | Bilgi Güvenliği | TBD | FR-009, NFR-SEC-005 |
-| OPEN-005 | LDAP şema, grup-rol eşleme ve yüksek erişilebilirlik ayrıntıları | Teknik karar gerekli | Kimlik Yönetimi Ekibi | TBD | FR-001, FR-003, NFR-AVL |
-| OPEN-006 | MFA/SSO'nun ilk fazda zorunlu olup olmayacağı | Güvenlik onayı gerekli | Bilgi Güvenliği | TBD | NFR-SEC-002 |
-| OPEN-007 | Beş yıllık saklama süresinin tüm kayıt türleri için hukuki ve kurumsal onayı | Güvenlik onayı gerekli | Hukuk / Bilgi Güvenliği / İç Denetim | TBD | RULE-014, Bölüm 7.3 |
-| OPEN-008 | RPO/RTO nihai değerleri | İş birimi kararı gerekli | İş Sürekliliği / Proje Sponsoru | TBD | NFR-DR-002, NFR-DR-003 |
-| OPEN-009 | ServiceNow tablo, alan, durum eşleme ve servis hesabı | Teknik karar gerekli | ServiceNow Yöneticisi | TBD | FR-071, FR-087 |
-| OPEN-010 | Hassas veri sınıflandırma sözlüğü ve maskeleme algoritmaları | Güvenlik onayı gerekli | KVKK / Bilgi Güvenliği / Veri Yönetişimi | TBD | RULE-010, NFR-PRV |
-| OPEN-011 | Rapor dosyalarının çevrimiçi saklama süresi ve maksimum boyutu | İş birimi kararı gerekli | İç Denetim / Sistem Yöneticisi | TBD | FR-075, FR-076, Bölüm 7.3 |
-| OPEN-012 | Kural ve eşik onay akışında dört göz ilkesinin zorunluluğu | İş birimi kararı gerekli | Veri Yönetişimi Kurulu | TBD | FR-035, RULE-005 |
-| OPEN-013 | Yerel prototipte ilk uygulanacak bağlayıcıların sırası | Teknik karar gerekli | Yusuf İpek | TBD | MVP; FR-007–FR-011 |
-| OPEN-014 | 20 milyon satırlık referans performans testinde kullanılacak anonim/sentetik veri seti | Teknik karar gerekli | Yusuf İpek / DBA | TBD | AC-008, NFR-PERF-005 |
-| OPEN-015 | WCAG hedefinin kurumsal zorunluluk seviyesi | İş birimi kararı gerekli | Kurumsal UX / Bilgi Teknolojileri | TBD | NFR-USA-006 |
-| OPEN-016 | Üretim dağıtım platformu, konteyner orkestrasyonu ve veri tabanı ürünü | Teknik karar gerekli | BT Mimari Kurulu | TBD | Bölüm 2.2, NFR-SCL, NFR-AVL |
-| OPEN-017 | Audit fail-closed veya dayanıklı kuyruk davranışı | Güvenlik onayı gerekli | Bilgi Güvenliği / Mimari Kurul | TBD | FR-077, NFR-SEC-011 |
-| OPEN-018 | Kısmi çalıştırmaların hangi durumlarda resmi skora katılabileceği | İş birimi kararı gerekli | Veri Yönetişimi Kurulu | TBD | FR-048, RULE-004 |
+| OPEN-001 | Düşük, beklenen ve yüksek kapasite senaryoları; gerçek üretim envanteri geçiş kriteridir | Karara bağlandı | Proje Sponsoru / Veri Yönetişimi | TBD | NFR-SCL-003, NFR-PERF |
+| OPEN-002 | Worker ve eş zamanlı sorgu sınırlarının kaynak bazlı, sürümlü politika tablosunda yönetilmesi | Karara bağlandı | Yazılım Mimari / DBA | TBD | FR-039, RULE-012, NFR-PERF-006 |
+| OPEN-003 | Çalışma penceresi, CPU/IO, süre, kota ve yoğun saat davranışının aynı kaynak kullanım politikasında yönetilmesi | Karara bağlandı | DBA / Uygulama Sahibi | TBD | FR-031, FR-039, NFR-PERF-008 |
+| OPEN-004 | Ürün bağımsız kurumsal secret manager ve servis/workload identity kullanılması | Karara bağlandı | Bilgi Güvenliği | TBD | FR-009, NFR-SEC-005 |
+| OPEN-005 | LDAP destekli kurumsal IdP/SSO üzerinden OIDC veya SAML; yönetilebilir grup-rol eşleme | Karara bağlandı | Kimlik Yönetimi Ekibi | TBD | FR-001, FR-003, NFR-AVL |
+| OPEN-006 | İlk fazdan itibaren tüm kullanıcılar için kurumsal IdP üzerinden SSO ve MFA zorunluluğu | Karara bağlandı | Bilgi Güvenliği | TBD | NFR-SEC-002 |
+| OPEN-007 | Kayıt sınıfı bazlı saklama ve imha matrisi; kesin süreler onaylanana kadar TBD | Karara bağlandı | Hukuk / Bilgi Güvenliği / İç Denetim | TBD | RULE-014, Bölüm 7.3 |
+| OPEN-008 | Bileşen bazlı RPO/RTO matrisi; kesin hedefler iş etki analizine kadar TBD | Karara bağlandı | İş Sürekliliği / Proje Sponsoru | TBD | NFR-DR-002, NFR-DR-003 |
+| OPEN-009 | ServiceNow entegrasyonunun ara tablo veya entegrasyon servisi üzerinden dayanıklı ve idempotent yürütülmesi | Karara bağlandı | ServiceNow Yöneticisi | TBD | FR-071, FR-087 |
+| OPEN-010 | Sınıflandırmanın kurumsal veri kataloğu veya DLP sisteminden alınması ve kesintide güvenli varsayılan uygulanması | Karara bağlandı | KVKK / Bilgi Güvenliği / Veri Yönetişimi | TBD | RULE-010, NFR-PRV, FR-086 |
+| OPEN-011 | Rapor dosyası, metadata, arşiv ve imha kaydının ayrı katmanlarda politika ile yönetilmesi | Karara bağlandı | İç Denetim / Sistem Yöneticisi | TBD | FR-075, FR-076, Bölüm 7.3 |
+| OPEN-012 | Dört göz ilkesinin yalnız tanımlı yüksek riskli değişikliklerde zorunlu olması | Karara bağlandı | Veri Yönetişimi Kurulu | TBD | FR-035, RULE-005 |
+| OPEN-013 | Bağlayıcı sırası: yaygın ilişkisel veritabanı, dosya/CSV, ikinci ilişkisel ürün, API | Karara bağlandı | Yusuf İpek | TBD | MVP; FR-007–FR-011 |
+| OPEN-014 | 20 milyon satırlık testin onaylı ve anonimleştirilmiş üretim örneğiyle yapılması | Karara bağlandı | Yusuf İpek / DBA | TBD | AC-008, NFR-PERF-005 |
+| OPEN-015 | WCAG 2.2 AA hedefi ve otomatik teste ek manuel klavye/ekran okuyucu doğrulaması | Karara bağlandı | Kurumsal UX / Bilgi Teknolojileri | TBD | NFR-USA-006 |
+| OPEN-016 | Stateless API ve worker'ların kurumsal konteyner platformunda, veritabanının ayrı yüksek erişilebilirlik kümesinde çalıştığı hibrit mimari | Karara bağlandı | BT Mimari Kurulu | TBD | Bölüm 2.2, NFR-SCL, NFR-AVL |
+| OPEN-017 | Kritik işlem sınıflarında fail-closed; rutin olaylarda dayanıklı kuyruk/transactional outbox | Karara bağlandı | Bilgi Güvenliği / Mimari Kurul | TBD | FR-077, NFR-SEC-011 |
+| OPEN-018 | Dataset bazlı sürümlü politika sağlanırsa kısmi sonucun resmî skora alınması; aksi halde provizyonel davranış | Karara bağlandı | Veri Yönetişimi Kurulu | TBD | FR-048, RULE-004 |

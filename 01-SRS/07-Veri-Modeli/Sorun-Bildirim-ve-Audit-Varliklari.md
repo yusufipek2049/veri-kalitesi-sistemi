@@ -40,6 +40,24 @@ tags:
 | corrective_action | TEXT | TBD | Çözümde evet | Hayır | NULL | Düzeltici faaliyet | Hassas olabilir | HTML temizlenir |
 | servicenow_ticket_no | VARCHAR | 100 | Hayır | Hayır | NULL | Harici ticket numarası | Hassas olabilir | Issue başına tek aktif |
 
+## OutboundIntegrationRecord
+
+| Alan adı | Veri tipi | Uzunluk | Zorunluluk | Benzersizlik | Varsayılan değer | Açıklama | Hassas veri durumu | Doğrulama kuralı |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| outbound_record_id | UUID | 36 | Evet | Evet | Otomatik | Entegrasyon kaydı | Hayır | UUID |
+| issue_id | UUID | 36 | Evet | Hayır | Yok | Yerel issue referansı | Hayır | Geçerli Issue |
+| idempotency_key | VARCHAR | 200 | Evet | Evet | Yok | Mükerrer ticket önleme | Hassas olabilir | Payload özetiyle eşleşir |
+| remote_record_id | VARCHAR | 200 | Hayır | Hayır | NULL | ServiceNow kayıt kimliği | Hassas olabilir | Dönüş allowlist'i |
+| local_status | ENUM | 30 | Evet | Hayır | PENDING | Yerel entegrasyon durumu | Hayır | İzinli geçiş |
+| remote_status | VARCHAR | 100 | Hayır | Hayır | NULL | Uzak sistem durumu | Hassas olabilir | Onaylı eşleme |
+| retry_count | INTEGER | TBD | Evet | Hayır | 0 | Deneme sayısı | Hayır | Negatif olamaz |
+| next_retry_at | TIMESTAMP | TBD | Hayır | Hayır | NULL | Artan bekleme sonrası zaman | Hayır | UTC |
+| intervention_status | ENUM | 30 | Evet | Hayır | NONE | NONE/DEAD_LETTER/MANUAL | Hayır | İzinli enum |
+| last_synced_at | TIMESTAMP | TBD | Hayır | Hayır | NULL | Son senkronizasyon | Hayır | UTC |
+| error_code | VARCHAR | 100 | Hayır | Hayır | NULL | Güvenli hata kodu | Hayır | Onaylı sözlük |
+| safe_error_summary | VARCHAR | 500 | Hayır | Hayır | NULL | Redakte hata özeti | Hassas olabilir | Ham kayıt/secret içermez |
+| audit_reference | VARCHAR | 500 | Evet | Hayır | Yok | Audit izi | Hassas olabilir | Geçerli audit kaydı |
+
 ## IssueComment
 
 | Alan adı | Veri tipi | Uzunluk | Zorunluluk | Benzersizlik | Varsayılan değer | Açıklama | Hassas veri durumu | Doğrulama kuralı |
@@ -77,5 +95,25 @@ tags:
 | parameters | JSON | TBD | Evet | Hayır | {} | Filtre ve kapsam | Hassas olabilir | Yetki doğrulaması |
 | format | ENUM | 10 | Evet | Hayır | PDF | PDF/XLSX/CSV | Hayır | İzinli enum |
 | status | ENUM | 20 | Evet | Hayır | QUEUED | QUEUED/RUNNING/READY/FAILED/EXPIRED | Hayır | İzinli geçiş |
-| file_reference | VARCHAR | 500 | Hayır | Hayır | NULL | Güvenli çıktı referansı | Hassas | Süreli erişim |
-| expires_at | TIMESTAMP | TBD | Hayır | Hayır | NULL | İndirme son zamanı | Hayır | Oluşturma sonrası |
+| sensitivity_level | VARCHAR | 100 | Evet | Hayır | Yok | Harici sınıflandırmadan türetilen hassasiyet | Hassas | Güncel sınıflandırma |
+| retention_policy_id | UUID | 36 | Evet | Hayır | Yok | Saklama politikası referansı | Hayır | Geçerli politika |
+| online_file_reference | VARCHAR | 500 | Hayır | Hayır | NULL | Çevrimiçi rapor dosyası | Hassas | Süreli ve yetkili erişim |
+| archived_file_reference | VARCHAR | 500 | Hayır | Hayır | NULL | Arşivlenmiş rapor dosyası | Hassas | Arşiv erişim politikası |
+| destruction_record_reference | VARCHAR | 500 | Hayır | Hayır | NULL | İmha edilmiş rapor kaydı | Hassas olabilir | İmha kanıtı |
+| file_size | BIGINT | 19 | Hayır | Hayır | NULL | Dosya boyutu | Hayır | Politika sınırını aşamaz |
+| expires_at | TIMESTAMP | TBD | Hayır | Hayır | NULL | Çevrimiçi erişim son zamanı | Hayır | Politika tablosundan hesaplanır |
+
+## ReportStoragePolicy
+
+| Alan adı | Veri tipi | Uzunluk | Zorunluluk | Benzersizlik | Varsayılan değer | Açıklama | Hassas veri durumu | Doğrulama kuralı |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| report_storage_policy_id | UUID | 36 | Evet | Evet | Otomatik | Politika anahtarı | Hayır | UUID |
+| sensitivity_level | VARCHAR | 100 | Evet | Hayır | Yok | Rapor hassasiyet kapsamı | Hassas | Harici sınıflandırmayla uyumlu |
+| online_duration | VARCHAR | 50 | Evet | Hayır | TBD | Çevrimiçi saklama süresi | Hayır | Onaylı süre veya TBD |
+| archive_duration | VARCHAR | 50 | Evet | Hayır | TBD | Arşiv süresi | Hayır | Onaylı süre veya TBD |
+| maximum_file_size | BIGINT | 19 | Evet | Hayır | TBD | Azami dosya boyutu | Hayır | Onaylı değer veya TBD |
+| access_policy_reference | VARCHAR | 500 | Evet | Hayır | Yok | Erişim politikası | Hassas olabilir | Hassas raporda daha sıkı olabilir |
+| destruction_method | VARCHAR | 100 | Evet | Hayır | Yok | İmha yöntemi | Hayır | Onaylı yöntem |
+| policy_version | VARCHAR | 80 | Evet | Koşullu benzersiz | Yok | Politika sürümü | Hayır | Değişmez |
+| approval_status | ENUM | 30 | Evet | Hayır | DRAFT | Onay durumu | Hayır | İzinli geçiş |
+| audit_reference | VARCHAR | 500 | Evet | Hayır | Yok | Audit referansı | Hassas olabilir | Geçerli audit kaydı |

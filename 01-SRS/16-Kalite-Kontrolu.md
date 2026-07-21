@@ -38,7 +38,7 @@ Bu bölüm, SRS tamamlandıktan sonra yapılan yapısal ve içerik tutarlılığ
 | --- | --- | --- |
 | Kritik yapısal eksik tespit edilmedi. | Tüm doküman | Gereksinimler proje yönetim aracına aktarılırken FR, UC, AC ve TS bağlantıları tekil kayıtlar halinde kurulmalıdır. |
 | Üretim kapasitesi ve kaynak sorgu bütçesi kesinleşmemiştir. | 2.4, 9.1, 9.2, 15 | Pilot kaynaklarda benchmark yapılarak p95 süreler, worker sayısı, eş zamanlı sorgu ve DBA limitleri onaylanmalıdır. |
-| Beş yıllık saklama hedefi kullanıcı tercihidir ancak hukuki/kurumsal onay beklemektedir. | 7.3, RULE-014, 15 | Hukuk, bilgi güvenliği ve iç denetim kayıt türü bazında saklama/anonimleştirme kararını onaylamalıdır. |
+| Tek saklama süresi kaldırılmış; kayıt sınıfı bazlı matrisin kesin süreleri onay beklemektedir. | 7.3, RULE-014, 15 | Hukuk, KVKK, bilgi güvenliği ve iç denetim süre, gerekçe, çevrimiçi/arşiv ayrımı ve imha yöntemini onaylamalıdır. |
 | MFA, audit fail-closed davranışı ve acil durum hesabı kesinleşmemiştir. | 9.5, 15 | Bilgi güvenliği tehdit modeli ve işletim senaryosu üzerinden karar vermelidir. |
 | Yerel prototip üretim performansını tek başına kanıtlayamaz. | 2.4, 9.1, 12, 13 | Yerel testlere ek olarak kuruma benzer ağ/DB ortamında performans ve kaynak etki testi yapılmalıdır. |
 

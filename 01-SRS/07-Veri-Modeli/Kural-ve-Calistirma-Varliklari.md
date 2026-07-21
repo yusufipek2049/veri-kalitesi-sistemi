@@ -87,6 +87,27 @@ tags:
 | weight | DECIMAL | 10,4 | Evet | Hayır | 1.0 | Boyut ağırlığı | Hayır | >0 |
 | is_active | BOOLEAN | 1 | Evet | Hayır | TRUE | Boyut etkinliği | Hayır | Boolean |
 
+## DatasetPartialScorePolicy
+
+| Alan adı | Veri tipi | Uzunluk | Zorunluluk | Benzersizlik | Varsayılan değer | Açıklama | Hassas veri durumu | Doğrulama kuralı |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| partial_score_policy_id | UUID | 36 | Evet | Evet | Otomatik | Politika anahtarı | Hayır | UUID |
+| dataset_id | UUID | 36 | Evet | Hayır | Yok | Dataset kapsamı | Hayır | Geçerli Dataset |
+| allow_official_partial_score | BOOLEAN | 1 | Evet | Hayır | FALSE | Kısmi resmî skor izni | Hayır | Boolean |
+| minimum_coverage_ratio | DECIMAL | 5,4 | Evet | Hayır | Yok | Minimum kapsama oranı | Hayır | 0–1 |
+| required_critical_rules | JSON | TBD | Evet | Hayır | Yok | Zorunlu kritik kural listesi/sınıfı | Hayır | Geçerli kural referansları |
+| required_partitions | JSON | TBD | Evet | Hayır | Yok | Eksik olmasına izin verilmeyen bölümler | Hassas olabilir | Dataset kapsamı |
+| maximum_missing_record_ratio | DECIMAL | 5,4 | Evet | Hayır | Yok | Azami eksik kayıt oranı | Hayır | 0–1 |
+| maximum_technical_error_ratio | DECIMAL | 5,4 | Evet | Hayır | Yok | Azami teknik hata oranı | Hayır | 0–1 |
+| minimum_successful_rule_ratio | DECIMAL | 5,4 | Evet | Hayır | Yok | Asgari başarılı kural oranı | Hayır | 0–1 |
+| policy_version | VARCHAR | 80 | Evet | Koşullu benzersiz | Yok | Politika sürümü | Hayır | Dataset içinde değişmez |
+| effective_from | TIMESTAMP | TBD | Evet | Hayır | Yok | Geçerlilik başlangıcı | Hayır | UTC |
+| approval_status | ENUM | 30 | Evet | Hayır | DRAFT | DRAFT/PENDING/APPROVED/REJECTED/WITHDRAWN/EXPIRED | Hayır | İzinli geçiş |
+| approved_by | UUID | 36 | Onayda evet | Hayır | NULL | Onaylayan kullanıcı | Kişisel | Talep edenden farklı |
+| audit_reference | VARCHAR | 500 | Evet | Hayır | Yok | Audit olayı referansı | Hassas olabilir | Geçerli audit kaydı |
+
+Politika yoksa veya koşullardan biri sağlanmazsa `QualityScore` provizyonel olur. `calculation_details`; kapsama oranı, çalışan/çalışmayan kural sayıları, eksik bölümler, politika sürümü, kabul/red nedeni ve resmî agregasyon uygunluğunu taşır.
+
 ## Schedule
 
 | Alan adı | Veri tipi | Uzunluk | Zorunluluk | Benzersizlik | Varsayılan değer | Açıklama | Hassas veri durumu | Doğrulama kuralı |

@@ -37,7 +37,7 @@ tags:
 
 **Alternatif Akışlar**
 
-1. Beş yıllık geniş sorgu asenkron rapor olarak hazırlanır.
+1. Çevrimiçi saklama aralığını aşan geniş sorgu, kayıt politikaya göre mevcutsa asenkron arşiv raporu olarak hazırlanır.
 2. Hassas alanların değerleri maskeli gösterilir.
 
 **İstisna Akışları**

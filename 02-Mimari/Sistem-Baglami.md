@@ -13,22 +13,23 @@ tags:
 # Sistem Bağlamı
 
 
-Sistem, operasyonel veritabanları, veri ambarı, veri gölü, dosya depoları ve REST servislerinden metadata ve kalite ölçüm sonuçları toplar. Kaynak sistemlerde veri değiştirmez; salt okunur erişimle sorgu ve örneklem gerçekleştirir. Sistem, LDAP üzerinden kullanıcı doğrular, sonuçları dashboard ve raporlarla sunar, kritik bulgular için sistem içi bildirim oluşturur ve gerektiğinde ServiceNow üzerinde ticket açar.
+Sistem, operasyonel veritabanları, veri ambarı, veri gölü, dosya depoları ve REST servislerinden metadata ve kalite ölçüm sonuçları toplar. Kaynak sistemlerde veri değiştirmez; salt okunur erişimle sorgu ve örneklem gerçekleştirir. Kullanıcılar LDAP destekli kurumsal IdP/SSO üzerinden OIDC veya SAML ve zorunlu MFA ile doğrulanır. Sistem sonuçları dashboard ve raporlarla sunar, kritik bulgular için sistem içi bildirim oluşturur ve ara entegrasyon katmanı üzerinden ServiceNow ticket akışını yürütür.
 
-Metinsel bağlamda kullanıcılar web arayüzü veya API aracılığıyla sisteme erişir. Kural motoru veri kaynağı bağlayıcıları üzerinden kontrolleri çalıştırır. Skorlama motoru sonuçları birleştirir. Bildirim servisi kullanıcıları bilgilendirir. Audit altyapısı tüm kritik işlemleri kaydeder. Metadata kataloğu ve raporlama araçlarıyla entegrasyon ikinci fazda genişletilir.
+Metinsel bağlamda kullanıcılar web arayüzü veya API aracılığıyla sisteme erişir. Kural motoru bağlayıcı ve kaynak kullanım politikaları üzerinden kontrolleri çalıştırır. Skorlama motoru resmî ve provizyonel sonuçları ayırır. Audit altyapısı kritik işlemlerde fail-closed, rutin olaylarda dayanıklı outbox uygular. Kurumsal veri kataloğu veya DLP sistemi sınıflandırma ve kullanım kısıtlarının kaynağıdır.
 
 ### Sistem Bağlam Diyagramı
 
 ```mermaid
 flowchart LR
     U[Kurumsal Kullanıcılar] -->|HTTPS| DQ[Veri Kalitesi İzleme ve Skorlama Sistemi]
-    LDAP[LDAP Kimlik Servisi] -->|Kimlik doğrulama ve grup bilgisi| DQ
+    IDP[LDAP Destekli Kurumsal IdP / SSO] -->|OIDC veya SAML, MFA ve grup bilgisi| DQ
     DB[(Operasyonel Veritabanları)] -->|Salt okunur sorgu| DQ
     DW[(Veri Ambarı / Veri Gölü)] -->|Salt okunur sorgu| DQ
     FILE[CSV / Excel Dosyaları] -->|Güvenli dosya erişimi| DQ
     API[REST API Kaynakları] -->|HTTPS| DQ
     DQ -->|Sistem içi bildirim| U
-    DQ -->|Ticket oluşturma / güncelleme| SN[ServiceNow]
+    DQ -->|Dayanıklı outbound kayıt| INT[Ara Entegrasyon Katmanı]
+    INT -->|Ticket oluşturma / güncelleme| SN[ServiceNow]
     DQ -->|Rapor / skor API'si| BI[Raporlama Araçları]
-    CAT[Metadata Kataloğu] <-->|Metadata senkronizasyonu| DQ
+    CAT[Kurumsal Veri Kataloğu / DLP] -->|Sınıflandırma ve kısıtlar| DQ
 ```

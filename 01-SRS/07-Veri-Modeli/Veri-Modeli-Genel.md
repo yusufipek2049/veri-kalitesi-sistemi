@@ -18,7 +18,7 @@ Bu bölüm, sistemin temel veri varlıklarını, veri sözlüğünü, saklama po
 
 | Varlık | Açıklama |
 | --- | --- |
-| User | LDAP kimliğinin yerel rol, kapsam ve durum bilgisi. |
+| User | Kurumsal IdP kimliğinin yerel rol, kapsam ve durum bilgisi. |
 | Role | İşlev ve veri erişimi için yetki grubu. |
 | Permission | Bir işlem veya nesne sınıfına ilişkin izin. |
 | DataSource | Veritabanı, dosya veya REST API bağlantı tanımı. |
@@ -37,6 +37,11 @@ Bu bölüm, sistemin temel veri varlıklarını, veri sözlüğünü, saklama po
 | IssueComment | Sorun yorumu ve ek bağlantısı. |
 | AuditLog | Kritik kullanıcı/sistem işlem kaydı. |
 | Report | Rapor şablonu, üretim işi ve çıktı metadatası. |
+| SourceUsagePolicy | Kaynak bazlı worker, sorgu kotası, çalışma penceresi ve kaynak koruma politikası. |
+| DatasetPartialScorePolicy | Kısmi çalıştırmanın resmî skora katılma koşulları. |
+| RetentionPolicy | Kayıt sınıfı bazlı çevrimiçi/arşiv saklama ve imha politikası. |
+| RecoveryObjectivePolicy | Bileşen bazlı RPO/RTO hedefi. |
+| OutboundIntegrationRecord | ServiceNow için dayanıklı ve idempotent outbound kayıt. |
 
 
 ## Veri Sözlüğü Grupları
@@ -50,14 +55,51 @@ Bu bölüm, sistemin temel veri varlıklarını, veri sözlüğünü, saklama po
 
 | Kayıt türü | Önerilen süre | Durum | Politika |
 | --- | --- | --- | --- |
-| Kural çalıştırma sonuçları | 5 yıl | Varsayım | İlk 12 ay çevrimiçi; sonraki dönem düşük maliyetli arşiv değerlendirilebilir. RuleVersion bağı korunur. |
-| Kalite skorları | 5 yıl | Varsayım | Trend sorguları için aylık/yıllık özetler daha uzun saklanabilir; kesin politika TBD. |
-| Audit logları | En az 5 yıl | Varsayım/Güvenlik onayı gerekli | Append-only veya WORM özellikli ortam; erişim yalnız denetçi/yönetici. |
-| Bildirim kayıtları | 5 yıl | Varsayım | İçerik minimizasyonu; eski bildirim gövdesi anonimleştirilebilir. |
-| Sorun kayıtları | 5 yıl veya kapanıştan sonra 5 yıl | İş birimi kararı gerekli | Kök neden, faaliyet ve ServiceNow referansı korunur. |
-| Rapor çıktıları | 90 gün çevrimiçi; rapor metadatası 5 yıl | Önerilen başlangıç hedefi | Rapor yeniden üretilebilir; dosya süresi kurum politikasıyla doğrulanır. |
-| Kullanıcı oturum kayıtları | 1 yıl; güvenlik olayları 5 yıl | Güvenlik onayı gerekli | Gerekenden fazla cihaz/IP verisi tutulmaz. |
-| Metadata ve kural sürümleri | İlişkili sonuçların saklama süresi boyunca en az 5 yıl | Varsayım | Tarihsel açıklanabilirlik için fiziksel silme yapılmaz. |
+| Audit kayıtları | TBD | Hukuk/KVKK/Bilgi Güvenliği/İç Denetim onayı gerekli | Süre, çevrimiçi/arşiv ayrımı, imha ve sorumlu birim politika kaydındadır. |
+| Kimlik doğrulama ve yetkilendirme kayıtları | TBD | Onay gerekli | Veri minimizasyonu ve güvenlik olayı ayrımı uygulanır. |
+| Kural değişiklikleri | TBD | Onay gerekli | Tarihsel açıklanabilirlik korunur. |
+| Onay kayıtları | TBD | Onay gerekli | Maker-checker kanıtı korunur. |
+| Çalıştırma kayıtları | TBD | Onay gerekli | RuleVersion bağı korunur. |
+| Skor sonuçları | TBD | Onay gerekli | Resmî ve provizyonel sonuç ayrımı korunur. |
+| Kısmi ve geçici sonuçlar | TBD | Onay gerekli | Resmî sonuçlardan ayrı politika uygulanır. |
+| Bildirim kayıtları | TBD | Onay gerekli | İçerik minimizasyonu uygulanır. |
+| ServiceNow entegrasyon kayıtları | TBD | Onay gerekli | İdempotency ve audit bağı korunur. |
+| Rapor dosyaları | TBD | Onay gerekli | Çevrimiçi dosya ve arşiv ayrı tutulur; hassas rapor daha kısa çevrimiçi politikayı destekler. |
+| Rapor metadata kayıtları | TBD | Onay gerekli | Dosyadan bağımsız saklanır. |
+| Teknik loglar | TBD | Onay gerekli | Secret ve ham hassas veri içermez. |
+| Geçici işleme verileri | TBD | Onay gerekli | Amaç bitiminde güvenli imha uygulanır. |
+| Hata ve yeniden deneme kayıtları | TBD | Onay gerekli | Güvenli hata özeti ve operasyon gereksinimiyle sınırlıdır. |
+
+Her `RetentionPolicy` kaydı en az kayıt sınıfı, saklama süresi, hukuki dayanak veya kurumsal gerekçe, çevrimiçi saklama süresi, arşiv süresi, imha yöntemi ve sorumlu birim alanlarını taşır. Kesin süreler onaylanmadan değer atanmaz.
+
+### RetentionPolicy
+
+| Alan | Açıklama |
+| --- | --- |
+| record_class | Kayıt sınıfı |
+| retention_duration | Toplam saklama süresi; onaya kadar TBD |
+| legal_or_corporate_basis | Hukuki dayanak veya kurumsal gerekçe |
+| online_duration | Çevrimiçi saklama süresi; onaya kadar TBD |
+| archive_duration | Arşiv süresi; onaya kadar TBD |
+| destruction_method | Onaylı imha yöntemi |
+| responsible_unit | Sorumlu birim |
+| policy_version | Değişmez politika sürümü |
+| approval_status | Onay durumu |
+| audit_reference | Politika değişikliği audit referansı |
+
+## 7.3.1 Bileşen Bazlı Kurtarma Hedefleri
+
+`RecoveryObjectivePolicy`; sistem yapılandırması, kural/sürüm, eşik/ağırlık, kullanıcı/rol eşlemesi, audit, onay, çalıştırma metadatası, skor, rapor dosyası ve bildirim/entegrasyon kuyruğu için ayrı kayıt taşır.
+
+| Alan | Açıklama |
+| --- | --- |
+| component_class | Kurtarma hedefi uygulanan bileşen |
+| rpo_value | Bileşen RPO değeri; iş etki analizine kadar TBD |
+| rto_value | Bileşen RTO değeri; iş etki analizine kadar TBD |
+| business_impact_reference | İş etki analizi referansı |
+| policy_version | Değişmez politika sürümü |
+| approval_status | Onay durumu |
+| audit_reference | Politika değişikliği audit referansı |
 
 ## 7.4 Veri Modeli
 

@@ -1,7 +1,7 @@
 ---
 type: decision-log
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-last_updated: 2026-07-20
+last_updated: 2026-07-21
 tags:
   - proje
   - karar
@@ -14,13 +14,13 @@ tags:
 | --- | --- | --- |
 | Kurum adı dokümanda “Kurum” olarak anonim tutulacak. | Kesin | Kurumsal gizlilik. |
 | Üretim sistemi kurum içi veri merkezinde çalışacak. | Kesin | Veri merkezi dışına veri çıkarılmaması. |
-| Kullanıcı doğrulaması LDAP üzerinden yapılacak. | Kesin | Kurumsal kimlik altyapısı. |
+| Kullanıcı doğrulaması LDAP destekli kurumsal IdP/SSO üzerinden OIDC veya SAML ve zorunlu MFA ile yapılacak. | Kesin | Uygulama LDAP şemasına doğrudan bağımlı olmayacak. |
 | Zorunlu bildirim kanalı yalnız sistem içi bildirim olacak. | Kesin | E-posta, SMS ve üçüncü taraf mesajlaşma ilk faz dışında. |
-| Kurumsal ticket entegrasyonu için ServiceNow tercih edilecek. | Kesin tercih | API ve alan eşlemesi açık karar olarak duruyor. |
-| Kritik kayıtlar için beş yıllık saklama hedeflenecek. | Onay bekliyor | Hukuk, bilgi güvenliği ve iç denetim doğrulaması gerekli. |
+| Kurumsal ticket entegrasyonu için ServiceNow, ara entegrasyon tablosu veya entegrasyon servisi üzerinden kullanılacak. | Kesin tercih | Ürün alan/durum eşlemesi ve erişim ayrıntıları açık. |
+| Saklama ve imha kayıt sınıfı bazlı politika matrisiyle yönetilecek. | Kesin yön; süreler TBD | Kesin süreler hukuk, KVKK, bilgi güvenliği ve iç denetim onayı olmadan atanmayacak. |
 | Kaynak sistem erişimleri salt okunur olacak. | Kesin | Kaynak verisinde otomatik düzeltme veya silme yapılmayacak. |
 | Yerel prototip i7-13620H, 16 GB RAM ve RTX 4050 sınıfı bilgisayarda çalışacak. | Kesin ortam | Üretim kapasitesini tek başına temsil etmiyor. |
-| 20 milyon satırlık tablolarda örnekleme, bölümleme veya kaynakta toplulaştırma kullanılabilecek. | Teknik yaklaşım | Yerel bellek ve kaynak sistem yükünü sınırlamak için. |
+| 20 milyon satırlık referans testinde onaylı anonimleştirilmiş üretim örneğiyle örnekleme, bölümleme veya kaynakta toplulaştırma kullanılacak. | Kesin teknik yaklaşım | Yerel bellek ve kaynak sistem yükünü sınırlarken test verisi gizliliğini korumak için. |
 | Yerel prototipte modüler monolit, iş kuyruğu ve ilişkisel metadata deposu önerilecek. | Öneri | Teknoloji seçimi SRS tarafından zorunlu kılınmıyor. |
 
 ## 2026-07-16 Kararları
@@ -367,7 +367,9 @@ CREATE TABLE dataset_criticality_weight_policy (
 2. Aktif `*` + kritiklik seviyesi temel kaydı.
 3. Eşleşme yoksa fail-closed konfigürasyon hatası.
 
-## KVKK ve Bankacılık Saklama–İmha Politikası
+## KVKK ve Bankacılık Saklama–İmha Politikası — Önceki Teknik Taslak
+
+Bu bölümdeki sayısal süre taslağı OPEN-007 kararıyla yürürlükten kaldırılmıştır. Kayıt sınıfı bazlı model korunur; tüm kesin süreler ilgili kurumsal onaylara kadar TBD'dir.
 
 ### Hesaplama kuralı
 
@@ -420,10 +422,10 @@ Bu sınıflandırma şu kuralları birlikte uygular:
 | OPEN-BNK-005 | Kritik işlemde fail-closed, düşük riskli işlemde durable-buffer politikası | Bilgi Güvenliği / Mimari / Operasyon | `ProvisionalDecision` |
 | OPEN-BNK-006 | Kurumsal WORM/imza/hash doğrulamalı audit deposu ürünü | Bilgi Güvenliği / İç Denetim | `ProvisionalDecision` |
 | OPEN-BNK-007 | Eşlenmeyen sınıflandırmada fail-closed seçildi; banka sözlüğü ve müşteri/banka sırrı kod eşlemesi bekleniyor | Veri Yönetişimi / Hukuk / Bilgi Güvenliği | `ProvisionalDecision` |
-| OPEN-BNK-008 | Kayıt türü bazlı `P10Y/P5Y/P3Y/P1Y/P90D/P30D` politika taslağı, `P180D` imha aralığı ve legal hold modeli | Hukuk / KVKK Komitesi / İç Denetim | `ProvisionalDecision` |
+| OPEN-BNK-008 | Kayıt türü bazlı saklama/imha matrisi seçildi; tüm süreler, gerekçeler ve imha periyotları hukuk/KVKK/bilgi güvenliği/iç denetim onayına kadar TBD | Hukuk / KVKK Komitesi / İç Denetim | `ComplianceReviewRequired` |
 | OPEN-BNK-009 | Asenkron ServiceNow modeli seçildi; kurulum yeri, veri işleyen/alt işleyen ve yurt dışı aktarım etkisi | Hukuk / Tedarik / Bilgi Güvenliği | `Açık` |
 | OPEN-BNK-010 | SIEM entegrasyonu ve 72 saat akışı seçildi; ürün, olay sözlüğü, alarm seviyesi ve SOC eskalasyon eşlemesi | SOC / Bilgi Güvenliği | `ProvisionalDecision` |
-| OPEN-BNK-011 | Normal kapsam için 4 saat/15 dakika, kritik düzenleyici kapsam için 1 saat/5 dakika RTO/RPO | İş Sürekliliği / Operasyon | `ProvisionalDecision` |
+| OPEN-BNK-011 | Bileşen bazlı RTO/RPO matrisi seçildi; kesin hedefler iş etki analizi ve banka onayına kadar TBD | İş Sürekliliği / Operasyon | `ComplianceReviewRequired` |
 | OPEN-BNK-012 | Pilot VM, üretim konteyner platformu, yönetilen PostgreSQL, kurumsal broker ve secret manager yönü seçildi; ürün adları bekleniyor | Mimari Kurul / Operasyon | `ProvisionalDecision` |
 | OPEN-BNK-013 | Sistem risk verisi veya düzenleyici raporlama üretim zincirine girecek mi; BCBS 239 kapsamı | Risk Yönetimi / Veri Yönetişimi | `Açık` |
 | OPEN-BNK-014 | Asenkron dışa aktarma, gerekçe, maker-checker, DLP, watermark ve süreli indirme modeli | Bilgi Güvenliği / Veri Sahibi | `ProvisionalDecision` |
@@ -433,4 +435,27 @@ Bu sınıflandırma şu kuralları birlikte uygular:
 | OPEN-BNK-018 | Gerçek LDAP endpoint/topolojisi, TLS sertifika güveni, timeout ve teknik hata sahipliği | IAM / Altyapı / Bilgi Güvenliği | `Açık` |
 | OPEN-BNK-019 | Kullanıcı kilitleme IdP/LDAP’ta; uygulama istemci/endpoint rate limit uygular. Nihai eşik/pencere ve paylaşımlı depo bekleniyor | IAM / Bilgi Güvenliği / Mimari / Altyapı / İç Kontrol | `ComplianceReviewRequired` |
 | OPEN-BNK-020 | Opak server-side session; 1 saat inactivity, 10 saat absolute, tek aktif oturum, cookie/CSRF ve bir yıllık geçmiş | IAM / Bilgi Güvenliği / Mimari / Hukuk / İç Kontrol | `ProvisionalDecision` |
-| OPEN-BNK-021 | Kısmi çalıştırmalar resmî skora girmez; yalnız `PROVISIONAL` skor ve kapsama oranı gösterilir | Veri Yönetişimi / İş Birimi | `KararAlındı` |
+| OPEN-BNK-021 | Kısmi çalışma yalnız onaylı dataset politikasındaki tüm koşulları sağlarsa resmî skora girebilir; aksi halde `PROVISIONAL` olur ve resmî skor/SLA/trend/raporlamadan dışlanır | Veri Yönetişimi / İş Birimi | `KararAlındı` |
+
+## OPEN-001–OPEN-018 Kesinleşmiş Kararları
+
+| ID | Kesinleşen karar |
+| --- | --- |
+| OPEN-001 | Düşük, beklenen ve yüksek kapasite senaryoları kullanılacak; gerçek üretim envanteri üretime geçiş kriteridir. |
+| OPEN-002 | Worker ve eş zamanlı sorgu sınırları kaynak bazlı sürümlü politika tablosunda yönetilecek; kaynak değeri global güvenli varsayılanı geçersiz kılabilir. |
+| OPEN-003 | Çalışma penceresi, CPU/IO, süre, kota, yoğun saat ve iptal davranışı OPEN-002 ile aynı kaynak kullanım politikasında tutulacak; politikasız kontrolsüz sorgu çalışmayacak. |
+| OPEN-004 | Ürün bağımsız kurumsal secret manager servis/workload identity ile kullanılacak; açık metin secret ve yerelde üretim secret'ı yasaktır. |
+| OPEN-005 | Kimlik doğrulama LDAP destekli kurumsal IdP/SSO üzerinden OIDC veya SAML ile yapılacak; uygulama LDAP şemasına bağımlı olmayacak. |
+| OPEN-006 | İlk fazdan itibaren tüm insan kullanıcılar için kurumsal IdP SSO ve MFA zorunludur. |
+| OPEN-007 | Tek süre yerine kayıt sınıfı bazlı saklama/imha matrisi kullanılacak; kesin süreler onaya kadar TBD'dir. |
+| OPEN-008 | RPO/RTO bileşen bazında yönetilecek; kesin hedefler iş etki analizine kadar TBD'dir. |
+| OPEN-009 | ServiceNow ara entegrasyon tablosu veya entegrasyon servisi üzerinden dayanıklı ve idempotent yürütülecek. |
+| OPEN-010 | Sınıflandırma kurumsal veri kataloğu veya DLP sisteminden alınacak; kesintide bilinen hassas sınıf düşürülmeyecek. |
+| OPEN-011 | Rapor dosyası, metadata, arşiv ve imha kaydı ayrı katmanlarda politika ile yönetilecek; süre ve boyut TBD'dir. |
+| OPEN-012 | Maker-checker yalnız tanımlı yüksek riskli değişikliklerde zorunludur; talep eden onaylayamaz. |
+| OPEN-013 | Bağlayıcı sırası yaygın ilişkisel veritabanı, dosya/CSV, ikinci ilişkisel ürün ve API'dir; ürün adı kurum kararı olmadan sabitlenmez. |
+| OPEN-014 | 20 milyon satırlık test yalnız onaylı, anonimleştirilmiş ve yeniden kimliklendirme riski değerlendirilmiş üretim örneğiyle yapılacak. |
+| OPEN-015 | Uygulama WCAG 2.2 AA'yı hedefleyecek; otomatik teste ek manuel klavye ve ekran okuyucu testi yapılacak. |
+| OPEN-016 | API ve worker kurumsal konteyner platformunda, veri tabanı ayrı yüksek erişilebilirlik kümesinde çalışacak; kalıcı dosya yerel diske bağlı olmayacak. |
+| OPEN-017 | Kritik işlem audit/outbox hatasında fail-closed; rutin olaylarda kayıpsız dayanıklı kuyruk veya transactional outbox uygulanacak. |
+| OPEN-018 | Kısmi sonuç yalnız dataset politikasındaki tüm koşulları sağlarsa resmîdir; aksi halde provizyonel olup resmî skor, SLA, trend ve raporlamadan dışlanır. |

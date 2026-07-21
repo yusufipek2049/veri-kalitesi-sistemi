@@ -21,7 +21,9 @@ tags:
 - Tarihsel sonuçlar kural sürümüne bağlı kalmalı.
 - Kaynak bağlantı sırları veritabanında açık metin tutulmamalı.
 - Audit kayıtları değişmezlik / bütünlük mekanizmasıyla korunmalı.
-- Beş yıllık geçmiş için bölümleme, arşiv katmanı ve özet tablolar değerlendirilmeli.
+- Kayıt sınıfı bazlı `RetentionPolicy`, çevrimiçi/arşiv ayrımı ve imha kanıtı uygulanmalı; süreler onaysız uydurulmamalı.
+- `SourceUsagePolicy`, `DatasetPartialScorePolicy` ve `RecoveryObjectivePolicy` sürümlü ve audit bağlantılı tutulmalı.
+- Rapor dosyası, rapor metadatası, arşivlenmiş dosya ve imha kaydı ayrı yaşam döngülerinde saklanmalı.
 - Ham kişisel veri kalıcı depoya gereksiz yere kopyalanmamalı.
 
 ## İterasyon 19E Şema Artımı

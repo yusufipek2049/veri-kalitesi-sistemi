@@ -9,6 +9,17 @@
 | Test/UAT | Maskeli ve onaylı | UAT IAM | UAT store | UAT |
 | Production | Banka onaylı gerçek veri | Üretim IAM/PAM | Üretim secret manager | Üretim |
 
+## Üretim Yerleşimi
+
+- Stateless API ve worker bileşenleri kurumsal konteyner platformunda bağımsız ölçeklenir.
+- Veri tabanı ayrı bir yüksek erişilebilirlik kümesinde çalışır.
+- Kalıcı dosya ve rapor depolaması konteyner yerel diskine bağlı değildir.
+- İş kuyruğu ve entegrasyon bileşenleri tek hata noktası oluşturmaz.
+- Dağıtım, geri alma, sağlık kontrolü ve kontrollü kapatma davranışları işletim prosedüründe bulunur.
+- Uygulama kurumsal secret manager'a servis veya workload identity ile erişir; yerel geliştirmede üretim secret'ı kullanılmaz.
+
+Belirli platform, veritabanı, broker ve secret manager ürünü TBD'dir.
+
 ## Fail-Closed Ortam Başlangıç Kapısı
 
 `27A-v1` ortam kapısı ortam adını çağıranın serbest metninden veya sıradan uygulama

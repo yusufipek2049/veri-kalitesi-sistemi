@@ -45,7 +45,7 @@ tags:
 
 1. Aynı anahtarla tekrar isteği yeni iş oluşturmaz.
 2. Kalıcı bağlantı/SQL hatası TECHNICAL_ERROR olur.
-3. Timeoutta iş sonlandırılır; kısmi sonuç resmi skora katılmaz.
+3. Timeoutta iş sonlandırılır; kısmi sonuç dataset politikasındaki tüm koşulları sağlıyorsa resmî skora katılabilir, aksi halde provizyonel olarak işaretlenir ve resmî skor/SLA/trend/raporlamadan dışlanır.
 
 | Alan | Tanım |
 | --- | --- |

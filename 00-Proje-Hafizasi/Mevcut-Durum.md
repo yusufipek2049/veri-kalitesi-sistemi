@@ -970,6 +970,13 @@ tags:
 
 ## İlgili Notlar
 
+### OPEN-001–OPEN-018 Dokümantasyon Uyumlaştırması
+
+- Kapasite, kaynak kullanım politikası, kurumsal secret manager, IdP/SSO/MFA, kayıt sınıfı bazlı saklama, bileşen bazlı RPO/RTO, ServiceNow ara entegrasyonu, katalog/DLP sınıflandırması, katmanlı rapor saklama, risk bazlı maker-checker, bağlayıcı sırası, anonimleştirilmiş performans verisi, WCAG 2.2 AA, hibrit dağıtım, hibrit audit ve dataset kontrollü kısmi skor kararları SRS, veri modeli, mimari, operasyon ve test belgelerine işlendi.
+- `OPEN-001`–`OPEN-018` karar yönleri `Karara bağlandı` durumuna alındı. Ürün adları ile kapasite, kota, timeout, saklama, dosya boyutu ve RPO/RTO değerleri uydurulmadan TBD bırakıldı.
+- 57 değişen Markdown dosyasında yerel bağlantı ve tablo yapısı kontrolü; 855 test, 127 dosyalık tam mypy, Ruff ve derleme kontrolleri geçti.
+- Bu çalışma dokümantasyon sözleşmesini günceller; yeni runtime davranışının uygulanmış veya banka tarafından onaylanmış olduğu anlamına gelmez.
+
 - [Alınan Kararlar](Alinan-Kararlar.md)
 - [Açık Konular](Acik-Konular.md)
 - [Sonraki Adımlar](Sonraki-Adimlar.md)

@@ -44,7 +44,7 @@ Doküman; proje yöneticileri, iş analistleri, yazılım geliştiriciler, veri 
 - Dashboard, rapor, sistem içi bildirim ve ServiceNow entegrasyonu.
 - Veri kalitesi sorunu yaşam döngüsü yönetimi.
 - LDAP tabanlı kimlik doğrulama ve rol bazlı yetkilendirme.
-- Audit log, sonuç geçmişi, raporlama ve beş yıllık saklama hedefi.
+- Audit log, sonuç geçmişi ve raporlama için kayıt sınıfı bazlı saklama ve imha politikaları.
 - Kurum içi veri merkezi dağıtımı ve yerel geliştirme/prototip ortamı.
 
 ### Kapsam Dışında

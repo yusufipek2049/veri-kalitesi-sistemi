@@ -247,6 +247,9 @@ mobil kapsamını kendiliğinden genişletmez.
 - Grafiklerin tablo/metinsel karşılığı, keyboard erişimi ve ekran okuyucu özeti vardır.
 - Tooltip'e yalnız hover ile değil focus ile de erişilir.
 - Yoğun tablolar anlamlı header ilişkileri, caption ve güncel sıralama durumunu taşır.
+- Form alanları kalıcı etiket ve ilişkili hata mesajı taşır; dinamik değişiklikler uygun live region ile duyurulur.
+- Oturum zaman aşımı önceden erişilebilir uyarıyla bildirilir ve kullanıcının güvenli biçimde süre uzatmasına veya çıkmasına imkân verir.
+- Otomatik erişilebilirlik sonucu tek başına kabul değildir; manuel klavye ve ekran okuyucu testi zorunludur.
 
 ## Uygulama Öncesi Kontrol
 

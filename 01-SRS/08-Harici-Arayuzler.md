@@ -18,7 +18,7 @@ Bu bölüm, kullanıcı ekranlarını, harici yazılım entegrasyonlarını ve i
 
 | Ekran | Amaç | Kullanıcı rolleri | Görüntülenecek bilgiler | Yapılabilecek işlemler | Filtreler | Validasyonlar | Hata mesajları |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Giriş ekranı | LDAP ile güvenli giriş | Tüm kullanıcılar | Kullanıcı adı, parola, kurum bilgisi, hata/correlation ID | Giriş, parola göster/gizle, yardım | TBD | Boş alan; maksimum uzunluk; otomatik tamamlama güvenliği | Kimlik bilgileri hatalı; LDAP ulaşılamıyor; geçici engelleme |
+| Giriş ekranı | Kurumsal SSO ve MFA ile güvenli giriş | Tüm kullanıcılar | SSO yönlendirmesi, oturum ve hata/correlation ID | SSO ile giriş, yardım | TBD | IdP beyanı, MFA kanıtı ve oturum bütünlüğü | Kimlik doğrulama başarısız; MFA eksik; IdP ulaşılamıyor; geçici engelleme |
 | Ana dashboard | Genel kalite ve operasyon durumunu sunmak | Tüm yetkili kullanıcılar | Genel/kaynak/dataset/boyut skorları, trend, kritik sorun, son işler | Filtre, sıralama, drill-down, görünüm değiştirme | Tarih, kaynak, birim, sahip, boyut, seviye | Tarih aralığı ve kapsam yetkisi | Veri yok; sorgu zaman aşımı; yetkisiz kapsam |
 | Veri kaynakları ekranı | Kaynakları yönetmek | Sistem Yöneticisi, Veri Mühendisi | Ad, tür, durum, sahip, son test, dataset sayısı | Ekle, test et, güncelle, aktif/pasif, arşivle | Tür, durum, sahip, test sonucu | Benzersiz ad; zorunlu alan; secret açık gösterilmez | Bağlantı, TLS, kimlik, yetki, sürücü hataları |
 | Veri kümeleri ekranı | Keşfedilen veri kümelerini ve sahipliği göstermek | Veri Kalitesi Uzmanı, Data Steward | Kaynak, namespace, ad, kayıt tahmini, kritiklik, sahip, kural sayısı | Profil başlat, sahip/kritiklik düzenle, detay aç | Kaynak, şema, kritiklik, sahip | Geçerli sahip; yetkili kapsam | Metadata eski; nesne kaldırılmış; yetkisiz |
@@ -26,13 +26,13 @@ Bu bölüm, kullanıcı ekranlarını, harici yazılım entegrasyonlarını ve i
 | Kural yönetim ekranı | Kuralları listelemek ve yaşam döngüsünü yönetmek | Veri Kalitesi Uzmanı, Data Owner | Kod, ad, boyut, kapsam, sürüm, durum, eşik, ağırlık, sahip | Oluştur, kopyala, test, aktifleştir/pasifleştir, arşivle | Durum, boyut, sahip, kaynak, kritiklik | Yetki; geçerli sürüm; aktif kural sahipliği | Onay eksik; şema uyumsuz; geçersiz geçiş |
 | Kural oluşturma ekranı | Şablon/SQL ile test edilebilir kural tanımlamak | Veri Kalitesi Uzmanı, Veri Mühendisi | Şablon, alanlar, parametreler, boyut, eşik, ağırlık, SQL önizleme | Taslak kaydet, test, onaya gönder | Kaynak/dataset/alan seçimi | Eşik 0–100; ağırlık >0; regex/SQL güvenliği | DML/DDL; tip uyumsuzluğu; maliyet yüksek |
 | Çalıştırma geçmişi ekranı | İşleri ve teknik durumları izlemek | Veri Kalitesi Uzmanı, Sistem Yöneticisi, Denetçi | Execution ID, kaynak, kural sürümü, başlangıç/bitiş, süre, durum, hata | Detay, iptal, tekrar çalıştır, log bağlantısı | Tarih, durum, kaynak, kural, tetikleyici | İptal yetkisi; tekrar için idempotency | Worker kaybı; timeout; teknik hata |
-| Skor detay ekranı | Skorun formül ve alt bileşenlerini açıklamak | Data Owner, Data Steward, Denetçi | Skor, seviye, ağırlıklar, dahil/dışlanan kurallar, trend | Dönem karşılaştır, kural/issue detayına git | Tarih, boyut, seviye | Hesaplanmamış skor 0 gösterilemez | NO_DATA; teknik hata; config hatası |
+| Skor detay ekranı | Skorun formül ve alt bileşenlerini açıklamak | Data Owner, Data Steward, Denetçi | Skor, resmî/provizyonel durum, kapsama, politika sürümü, dahil/dışlanan kurallar ve trend | Dönem karşılaştır, kural/issue detayına git | Tarih, boyut, seviye | Provizyonel skor resmî trend/SLA'ya katılamaz; hesaplanmamış skor 0 gösterilemez | NO_DATA; teknik hata; config/politika hatası |
 | Sorun yönetim ekranı | Issue yaşam döngüsünü yürütmek | Data Steward, Data Owner, Veri Mühendisi | Issue no, kaynak, kural, öncelik, durum, sahip, son tarih, kök neden, faaliyet, ServiceNow | Ata, durum değiştir, yorum/kanıt ekle, doğrula, kapat, yeniden aç | Durum, öncelik, sahip, SLA, tarih | Durum geçişi; zorunlu çözüm alanları; dosya taraması | Geçersiz geçiş; pasif sahip; ServiceNow hatası |
 | Bildirim yönetim ekranı | Sistem içi bildirim ve politikaları yönetmek | Tüm kullanıcılar; yönetim için yetkili roller | Okunmamış bildirim, olay, kaynak, tarih; şablon ve susturma politikası | Oku, filtrele, ilgili nesneye git; politika düzenle | Okunma, olay türü, kritiklik, tarih | Alıcı yetkisi; şablon değişkeni | Alıcı yok; duplicate; şablon hatası |
 | Raporlama ekranı | Rapor üretmek, dışa aktarmak ve zamanlamak | Data Owner, Data Steward, Denetçi | Rapor türü, filtreler, önizleme, format, durum | Oluştur, PDF/XLSX/CSV indir, zamanla | Tarih, birim, sahip, kaynak, boyut | Dışa aktarma yetkisi; satır limiti; maskeleme | Rapor timeout; fazla satır; süresi geçmiş bağlantı |
-| Kullanıcı ve rol yönetimi ekranı | LDAP kullanıcılarını rol ve kapsama eşlemek | Sistem Yöneticisi | Kullanıcı, LDAP grup, roller, kapsam, durum, son giriş | Rol/kapsam ata, pasifleştir, matrisi görüntüle | Kullanıcı, rol, izin, kapsam | Kendi kritik yetkisini tek başına yükseltmeme TBD | Çakışan rol; LDAP kullanıcı yok; yetki dışı işlem |
+| Kullanıcı ve rol yönetimi ekranı | IdP gruplarını rol ve kapsama eşlemek | Sistem Yöneticisi | Kullanıcı, harici grup referansı, roller, kapsam, durum, son giriş | Grup-rol/kapsam eşle, pasifleştir, matrisi görüntüle | Kullanıcı, rol, izin, kapsam | Çoklu grup ve deterministik çatışma/ret politikası | Çakışan rol; IdP kullanıcısı yok; yetki dışı işlem |
 | Audit log ekranı | Denetim kayıtlarını incelemek | Denetçi, Sistem Yöneticisi | Zaman, aktör, işlem, nesne, sonuç, eski/yeni değer, correlation ID, bütünlük | Filtrele, detay, dışa aktar, bütünlük doğrula | Tarih, kullanıcı, işlem, nesne, sonuç | Hassas değer maskesi; yalnız append-only okuma | Yetkisiz; bütünlük hatası; geniş sorgu |
-| Sistem ayarları ekranı | Eşik, kota, timeout, saklama ve entegrasyon ayarlarını yönetmek | Sistem Yöneticisi; ilgili onay rolleri | Konfigürasyon sürümü, değer, onay durumu | Taslak, doğrula, onaya gönder, etkinleştir | Kategori, durum | Aralık, bağımlılık ve dört göz ilkesi TBD | Çakışan eşik; geçersiz timeout; onay eksik |
+| Sistem ayarları ekranı | Eşik, kaynak kullanım, kısmi skor, saklama ve entegrasyon politikalarını yönetmek | Sistem Yöneticisi; ilgili onay rolleri | Konfigürasyon sürümü, değer, risk sınıfı, onay durumu | Taslak, doğrula, onaya gönder, etkinleştir | Kategori, durum | Aralık, bağımlılık ve risk bazlı dört göz ilkesi | Çakışan eşik; geçersiz timeout; onay eksik |
 
 ### Genel UI Kuralları
 
@@ -49,13 +49,12 @@ Bu bölüm, kullanıcı ekranlarını, harici yazılım entegrasyonlarını ve i
 | Arayüz | Gereksinim |
 | --- | --- |
 | REST API | JSON tabanlı, versiyonlu API; OpenAPI dokümantasyonu; 401/403/404/409/422/429/5xx hata sınıfları. |
-| LDAP | LDAPS tercih edilmelidir; kullanıcı doğrulama ve grup üyeliği okunur; bağlantı timeout/retry uygulanır. |
-| SSO/OAuth/OIDC | MVP'de zorunlu değildir; gelecekte LDAP önünde SSO seçeneği olarak değerlendirilebilir. |
+| Kurumsal IdP/SSO | LDAP destekli IdP üzerinden OIDC veya SAML; tüm kullanıcılar için MFA; çoklu grup üyeliği ve yönetilebilir rol eşleme. Uygulama LDAP şemasına doğrudan bağımlı olmaz. |
 | Sistem içi bildirim servisi | Uygulama içi olay kuyruğu ve Notification deposu; dış e-posta/SMS yoktur. |
-| ServiceNow | REST API ile ticket oluşturma, durum eşleme ve idempotent senkronizasyon. |
-| Veritabanı sürücüleri | PostgreSQL, SQL Server, Oracle ve MySQL için kurumca onaylı JDBC/ODBC veya doğal sürücüler. |
+| ServiceNow | Ara entegrasyon tablosu veya entegrasyon servisi üzerinden dayanıklı, idempotent ticket ve durum senkronizasyonu. |
+| Veri kaynağı bağlayıcıları | Ürün bağımsız arayüz; kimlik, bağlantı testi, metadata keşfi, sorgu, timeout, iptal, hata sınıflandırması ve gözlemlenebilirlik sözleşmesi. |
 | Dosya depolama servisi | CSV/Excel girdi ve rapor/kanıt dosyaları için kurum içi güvenli depolama. |
-| Metadata kataloğu | İkinci faz; sahiplik, sınıflandırma, kritiklik ve teknik metadata API entegrasyonu. |
+| Kurumsal veri kataloğu/DLP | Hassas sınıflandırma, maskeleme, görüntüleme, raporlama ve loglama kısıtlarının kaynak sistemi. |
 
 ## 8.3 İletişim Arayüzleri
 
@@ -63,7 +62,7 @@ Bu bölüm, kullanıcı ekranlarını, harici yazılım entegrasyonlarını ve i
 | --- | --- |
 | HTTPS | Tüm kullanıcı ve API trafiği HTTPS üzerinden olmalıdır. |
 | TLS | TLS 1.2 veya üzeri; kurum politikası izin veriyorsa TLS 1.3 tercih edilmelidir. |
-| LDAPS | LDAP kimlik trafiği şifreli kanal üzerinden yürütülmelidir. |
+| IdP protokolü | OIDC veya SAML trafiği şifreli kanal üzerinden yürütülmeli; issuer, audience, süre ve MFA kanıtı doğrulanmalıdır. |
 | JDBC/ODBC | Veritabanı bağlantıları şifreli ve salt okunur oturumla kurulmalıdır. |
 | REST kaynakları | HTTPS, sertifika doğrulama, token/kimlik referansı, sayfalama ve rate limit uygulanmalıdır. |
 | Ağ zaman aşımı | Bağlantı, okuma ve toplam iş timeoutları ayrı yapılandırılmalıdır. |
