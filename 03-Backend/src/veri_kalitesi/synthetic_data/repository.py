@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 from datetime import datetime
 from decimal import Decimal
+import json
 from threading import RLock
 
 from veri_kalitesi.audit import PreparedAuditEvent, SQLiteTransactionalAudit
@@ -16,10 +17,13 @@ from veri_kalitesi.synthetic_data.errors import (
 from veri_kalitesi.synthetic_data.models import (
     SyntheticDatasetPolicy,
     SyntheticGenerationRun,
+    SyntheticGroundTruth,
     SyntheticPolicyStatus,
     SyntheticProfile,
     SyntheticRunStatus,
     SyntheticScenario,
+    SyntheticValidationResult,
+    SyntheticValidationStatus,
 )
 
 
@@ -97,6 +101,56 @@ class SQLiteSyntheticDataRepository:
                     created_at TEXT NOT NULL
                 );
 
+                CREATE TABLE IF NOT EXISTS synthetic_ground_truth (
+                    synthetic_record_id TEXT PRIMARY KEY,
+                    generation_run_id TEXT NOT NULL,
+                    dataset_id TEXT NOT NULL,
+                    scenario_id TEXT NOT NULL,
+                    scenario_version TEXT NOT NULL,
+                    generator_version TEXT NOT NULL,
+                    random_seed TEXT NOT NULL,
+                    source_system TEXT NOT NULL,
+                    expected_subject_count INTEGER NOT NULL,
+                    expected_observation_count INTEGER NOT NULL,
+                    expected_primary_keys_unique INTEGER NOT NULL,
+                    expected_foreign_keys_valid INTEGER NOT NULL,
+                    expected_status_transitions_valid INTEGER NOT NULL,
+                    expected_reference_codes_valid INTEGER NOT NULL,
+                    expected_temporal_order_valid INTEGER NOT NULL,
+                    expected_rule_result TEXT NOT NULL,
+                    expected_severity TEXT NOT NULL,
+                    expected_dataset_score TEXT,
+                    expected_notification INTEGER NOT NULL,
+                    expected_escalation INTEGER NOT NULL,
+                    ground_truth_version TEXT NOT NULL,
+                    audit_reference TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    UNIQUE (generation_run_id, ground_truth_version)
+                );
+
+                CREATE TABLE IF NOT EXISTS synthetic_validation_results (
+                    validation_result_id TEXT PRIMARY KEY,
+                    generation_run_id TEXT NOT NULL,
+                    synthetic_record_id TEXT NOT NULL,
+                    ground_truth_version TEXT NOT NULL,
+                    validation_class TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    reason_codes TEXT NOT NULL,
+                    actual_subject_count INTEGER NOT NULL,
+                    actual_observation_count INTEGER NOT NULL,
+                    actual_primary_keys_unique INTEGER NOT NULL,
+                    actual_foreign_keys_valid INTEGER NOT NULL,
+                    actual_status_transitions_valid INTEGER NOT NULL,
+                    actual_reference_codes_valid INTEGER NOT NULL,
+                    actual_temporal_order_valid INTEGER NOT NULL,
+                    actual_output_reference TEXT NOT NULL,
+                    audit_reference TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    UNIQUE (generation_run_id, ground_truth_version),
+                    FOREIGN KEY (synthetic_record_id)
+                        REFERENCES synthetic_ground_truth(synthetic_record_id)
+                );
+
                 CREATE INDEX IF NOT EXISTS idx_synthetic_policy_effective
                 ON synthetic_dataset_policies(
                     dataset_id, approval_status, effective_from, effective_to
@@ -139,6 +193,30 @@ class SQLiteSyntheticDataRepository:
                 BEFORE DELETE ON synthetic_generation_runs
                 BEGIN
                     SELECT RAISE(ABORT, 'synthetic run history is append-only');
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS synthetic_ground_truth_no_update
+                BEFORE UPDATE ON synthetic_ground_truth
+                BEGIN
+                    SELECT RAISE(ABORT, 'synthetic ground truth is append-only');
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS synthetic_ground_truth_no_delete
+                BEFORE DELETE ON synthetic_ground_truth
+                BEGIN
+                    SELECT RAISE(ABORT, 'synthetic ground truth is append-only');
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS synthetic_validation_results_no_update
+                BEFORE UPDATE ON synthetic_validation_results
+                BEGIN
+                    SELECT RAISE(ABORT, 'synthetic validation result is append-only');
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS synthetic_validation_results_no_delete
+                BEFORE DELETE ON synthetic_validation_results
+                BEGIN
+                    SELECT RAISE(ABORT, 'synthetic validation result is append-only');
                 END;
                 """
             )
@@ -323,6 +401,120 @@ class SQLiteSyntheticDataRepository:
             ) from exc
         return [_row_to_run(row) for row in rows]
 
+    def add_ground_truth_and_validation_with_audit(
+        self,
+        ground_truth: SyntheticGroundTruth,
+        validation: SyntheticValidationResult,
+        *,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: SQLiteTransactionalAudit,
+    ) -> tuple[SyntheticGroundTruth, SyntheticValidationResult]:
+        if audit_outbox.connection is not self.connection:
+            raise SyntheticDataValidationError(
+                "Audit outbox must share the synthetic validation transaction."
+            )
+        _validate_ground_truth(ground_truth)
+        _validate_validation_result(validation, ground_truth)
+        try:
+            with self._lock, self.connection:
+                self.connection.execute(
+                    """
+                    INSERT INTO synthetic_ground_truth (
+                        synthetic_record_id, generation_run_id, dataset_id,
+                        scenario_id, scenario_version, generator_version,
+                        random_seed, source_system, expected_subject_count,
+                        expected_observation_count, expected_primary_keys_unique,
+                        expected_foreign_keys_valid, expected_status_transitions_valid,
+                        expected_reference_codes_valid, expected_temporal_order_valid,
+                        expected_rule_result, expected_severity, expected_dataset_score,
+                        expected_notification, expected_escalation, ground_truth_version,
+                        audit_reference, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    _ground_truth_values(ground_truth),
+                )
+                self.connection.execute(
+                    """
+                    INSERT INTO synthetic_validation_results (
+                        validation_result_id, generation_run_id, synthetic_record_id,
+                        ground_truth_version, validation_class, status, reason_codes,
+                        actual_subject_count, actual_observation_count,
+                        actual_primary_keys_unique, actual_foreign_keys_valid,
+                        actual_status_transitions_valid, actual_reference_codes_valid,
+                        actual_temporal_order_valid, actual_output_reference,
+                        audit_reference, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    _validation_result_values(validation),
+                )
+                audit_outbox.stage(audit_event)
+        except sqlite3.IntegrityError as exc:
+            raise SyntheticDataConflictError(
+                "Synthetic ground truth or validation result conflicts."
+            ) from exc
+        except sqlite3.DatabaseError as exc:
+            raise SyntheticDataTechnicalError(
+                "Synthetic ground truth, validation result and audit could not be persisted."
+            ) from exc
+        return (
+            self.get_ground_truth(
+                ground_truth.generation_run_id,
+                ground_truth.ground_truth_version,
+            ),
+            self.get_validation_result(
+                validation.generation_run_id,
+                validation.ground_truth_version,
+            ),
+        )
+
+    def get_ground_truth(
+        self,
+        generation_run_id: str,
+        ground_truth_version: str,
+    ) -> SyntheticGroundTruth:
+        _validate_ids(
+            (generation_run_id, ground_truth_version),
+            "Synthetic ground truth identity fields",
+        )
+        try:
+            row = self.connection.execute(
+                """
+                SELECT * FROM synthetic_ground_truth
+                WHERE generation_run_id = ? AND ground_truth_version = ?
+                """,
+                (generation_run_id, ground_truth_version),
+            ).fetchone()
+        except sqlite3.DatabaseError as exc:
+            raise SyntheticDataTechnicalError("Synthetic ground truth could not be read.") from exc
+        if row is None:
+            raise SyntheticDataValidationError("Synthetic ground truth was not found.")
+        return _row_to_ground_truth(row)
+
+    def get_validation_result(
+        self,
+        generation_run_id: str,
+        ground_truth_version: str,
+    ) -> SyntheticValidationResult:
+        _validate_ids(
+            (generation_run_id, ground_truth_version),
+            "Synthetic validation identity fields",
+        )
+        try:
+            row = self.connection.execute(
+                """
+                SELECT * FROM synthetic_validation_results
+                WHERE generation_run_id = ? AND ground_truth_version = ?
+                """,
+                (generation_run_id, ground_truth_version),
+            ).fetchone()
+        except sqlite3.DatabaseError as exc:
+            raise SyntheticDataTechnicalError(
+                "Synthetic validation result could not be read."
+            ) from exc
+        if row is None:
+            raise SyntheticDataValidationError("Synthetic validation result was not found.")
+        return _row_to_validation_result(row)
+
 
 def _validate_policy(policy: SyntheticDatasetPolicy) -> None:
     _validate_ids(
@@ -430,6 +622,75 @@ def _validate_run(run: SyntheticGenerationRun) -> None:
     _validate_aware_time(run.created_at, "Run creation time")
 
 
+def _validate_ground_truth(ground_truth: SyntheticGroundTruth) -> None:
+    _validate_ids(
+        (
+            ground_truth.synthetic_record_id,
+            ground_truth.generation_run_id,
+            ground_truth.dataset_id,
+            ground_truth.scenario_id,
+            ground_truth.scenario_version,
+            ground_truth.generator_version,
+            ground_truth.source_system,
+            ground_truth.expected_rule_result,
+            ground_truth.expected_severity,
+            ground_truth.ground_truth_version,
+            ground_truth.audit_reference,
+        ),
+        "Synthetic ground truth fields",
+    )
+    if isinstance(ground_truth.random_seed, bool) or not isinstance(ground_truth.random_seed, int):
+        raise SyntheticDataValidationError("Ground truth random seed must be an integer.")
+    if ground_truth.expected_subject_count <= 0 or ground_truth.expected_observation_count <= 0:
+        raise SyntheticDataValidationError("Ground truth record counts must be positive.")
+    if ground_truth.expected_dataset_score is not None:
+        raise SyntheticDataValidationError(
+            "Golden structural ground truth cannot define a dataset score."
+        )
+    if ground_truth.expected_notification or ground_truth.expected_escalation:
+        raise SyntheticDataValidationError(
+            "Golden structural ground truth cannot expect operational events."
+        )
+    _validate_aware_time(ground_truth.created_at, "Ground truth creation time")
+
+
+def _validate_validation_result(
+    validation: SyntheticValidationResult,
+    ground_truth: SyntheticGroundTruth,
+) -> None:
+    _validate_ids(
+        (
+            validation.validation_result_id,
+            validation.generation_run_id,
+            validation.synthetic_record_id,
+            validation.ground_truth_version,
+            validation.validation_class,
+            validation.actual_output_reference,
+            validation.audit_reference,
+        ),
+        "Synthetic validation result fields",
+    )
+    if (
+        validation.generation_run_id != ground_truth.generation_run_id
+        or validation.synthetic_record_id != ground_truth.synthetic_record_id
+        or validation.ground_truth_version != ground_truth.ground_truth_version
+    ):
+        raise SyntheticDataValidationError(
+            "Synthetic validation result does not match ground truth lineage."
+        )
+    if not isinstance(validation.status, SyntheticValidationStatus):
+        raise SyntheticDataValidationError("Synthetic validation status is invalid.")
+    if any(not code.strip() for code in validation.reason_codes):
+        raise SyntheticDataValidationError("Synthetic validation reason codes are invalid.")
+    if validation.status is SyntheticValidationStatus.PASS and validation.reason_codes:
+        raise SyntheticDataValidationError("Passing validation cannot contain reason codes.")
+    if validation.status is not SyntheticValidationStatus.PASS and not validation.reason_codes:
+        raise SyntheticDataValidationError("Non-passing validation requires reason codes.")
+    if validation.actual_subject_count < 0 or validation.actual_observation_count < 0:
+        raise SyntheticDataValidationError("Actual record counts cannot be negative.")
+    _validate_aware_time(validation.created_at, "Validation result creation time")
+
+
 def _validate_ids(values: tuple[str, ...], name: str) -> None:
     if any(not isinstance(value, str) or not value.strip() for value in values):
         raise SyntheticDataValidationError(f"{name} are required.")
@@ -509,6 +770,56 @@ def _run_values(run: SyntheticGenerationRun) -> tuple[object, ...]:
     )
 
 
+def _ground_truth_values(ground_truth: SyntheticGroundTruth) -> tuple[object, ...]:
+    return (
+        ground_truth.synthetic_record_id,
+        ground_truth.generation_run_id,
+        ground_truth.dataset_id,
+        ground_truth.scenario_id,
+        ground_truth.scenario_version,
+        ground_truth.generator_version,
+        str(ground_truth.random_seed),
+        ground_truth.source_system,
+        ground_truth.expected_subject_count,
+        ground_truth.expected_observation_count,
+        int(ground_truth.expected_primary_keys_unique),
+        int(ground_truth.expected_foreign_keys_valid),
+        int(ground_truth.expected_status_transitions_valid),
+        int(ground_truth.expected_reference_codes_valid),
+        int(ground_truth.expected_temporal_order_valid),
+        ground_truth.expected_rule_result,
+        ground_truth.expected_severity,
+        None,
+        int(ground_truth.expected_notification),
+        int(ground_truth.expected_escalation),
+        ground_truth.ground_truth_version,
+        ground_truth.audit_reference,
+        ground_truth.created_at.isoformat(),
+    )
+
+
+def _validation_result_values(validation: SyntheticValidationResult) -> tuple[object, ...]:
+    return (
+        validation.validation_result_id,
+        validation.generation_run_id,
+        validation.synthetic_record_id,
+        validation.ground_truth_version,
+        validation.validation_class,
+        validation.status.value,
+        json.dumps(validation.reason_codes, separators=(",", ":")),
+        validation.actual_subject_count,
+        validation.actual_observation_count,
+        int(validation.actual_primary_keys_unique),
+        int(validation.actual_foreign_keys_valid),
+        int(validation.actual_status_transitions_valid),
+        int(validation.actual_reference_codes_valid),
+        int(validation.actual_temporal_order_valid),
+        validation.actual_output_reference,
+        validation.audit_reference,
+        validation.created_at.isoformat(),
+    )
+
+
 def _row_to_policy(row: sqlite3.Row) -> SyntheticDatasetPolicy:
     return SyntheticDatasetPolicy(
         policy_id=row["policy_id"],
@@ -578,5 +889,59 @@ def _row_to_run(row: sqlite3.Row) -> SyntheticGenerationRun:
         status=SyntheticRunStatus(row["status"]),
         output_reference=row["output_reference"],
         validation_reference=row["validation_reference"],
+        created_at=datetime.fromisoformat(row["created_at"]),
+    )
+
+
+def _row_to_ground_truth(row: sqlite3.Row) -> SyntheticGroundTruth:
+    return SyntheticGroundTruth(
+        synthetic_record_id=row["synthetic_record_id"],
+        generation_run_id=row["generation_run_id"],
+        dataset_id=row["dataset_id"],
+        scenario_id=row["scenario_id"],
+        scenario_version=row["scenario_version"],
+        generator_version=row["generator_version"],
+        random_seed=int(row["random_seed"]),
+        source_system=row["source_system"],
+        expected_subject_count=row["expected_subject_count"],
+        expected_observation_count=row["expected_observation_count"],
+        expected_primary_keys_unique=bool(row["expected_primary_keys_unique"]),
+        expected_foreign_keys_valid=bool(row["expected_foreign_keys_valid"]),
+        expected_status_transitions_valid=bool(row["expected_status_transitions_valid"]),
+        expected_reference_codes_valid=bool(row["expected_reference_codes_valid"]),
+        expected_temporal_order_valid=bool(row["expected_temporal_order_valid"]),
+        expected_rule_result=row["expected_rule_result"],
+        expected_severity=row["expected_severity"],
+        expected_dataset_score=(
+            Decimal(row["expected_dataset_score"])
+            if row["expected_dataset_score"] is not None
+            else None
+        ),
+        expected_notification=bool(row["expected_notification"]),
+        expected_escalation=bool(row["expected_escalation"]),
+        ground_truth_version=row["ground_truth_version"],
+        audit_reference=row["audit_reference"],
+        created_at=datetime.fromisoformat(row["created_at"]),
+    )
+
+
+def _row_to_validation_result(row: sqlite3.Row) -> SyntheticValidationResult:
+    return SyntheticValidationResult(
+        validation_result_id=row["validation_result_id"],
+        generation_run_id=row["generation_run_id"],
+        synthetic_record_id=row["synthetic_record_id"],
+        ground_truth_version=row["ground_truth_version"],
+        validation_class=row["validation_class"],
+        status=SyntheticValidationStatus(row["status"]),
+        reason_codes=tuple(json.loads(row["reason_codes"])),
+        actual_subject_count=row["actual_subject_count"],
+        actual_observation_count=row["actual_observation_count"],
+        actual_primary_keys_unique=bool(row["actual_primary_keys_unique"]),
+        actual_foreign_keys_valid=bool(row["actual_foreign_keys_valid"]),
+        actual_status_transitions_valid=bool(row["actual_status_transitions_valid"]),
+        actual_reference_codes_valid=bool(row["actual_reference_codes_valid"]),
+        actual_temporal_order_valid=bool(row["actual_temporal_order_valid"]),
+        actual_output_reference=row["actual_output_reference"],
+        audit_reference=row["audit_reference"],
         created_at=datetime.fromisoformat(row["created_at"]),
     )

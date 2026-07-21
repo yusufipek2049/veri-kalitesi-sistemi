@@ -1211,6 +1211,23 @@ tags:
   geçti. Tam depo format kontrolünde değişiklik dışındaki bir tarihsel dosyanın
   biçim farkı sürer; `28A-v1` taraması 391 dosyada secret bulgusu üretmedi.
 
+### 2026-07-21 — İterasyon 34C: Değişmez Golden ground truth ve yapısal bağımsız karşılaştırıcı
+
+- `FR-092`, `UC-017`, `RULE-016` ve `AC/TS-050–052`nin sıfır kusurlu Golden
+  yapısal alt kapsamı için `GOLDEN_STRUCTURAL_ORACLE_V1` eklendi.
+- Ground truth yalnız kayıtlı run ve senaryo sözleşmesinden kurulur; üreticinin
+  `GoldenStructuralValidation` sonucu ve runtime kural/skor motoru kullanılmaz.
+- Beklenen sayımlar, anahtar, ilişki, durum, referans ve zaman bütünlüğü ile
+  gerçekleşen sonuç ayrı append-only kayıtlarda saklanır. Yapısal veya lineage
+  sapması `BLOCKED`, repository/audit arızası teknik hata olarak ayrılır.
+- Ground truth ve doğrulama sonucu merkezi audit outbox ile tek transaction'da
+  yazılır. Güvenilir rol ve hem sunulan çıktı hem kayıtlı run dataset kapsamı
+  doğrulanır; audit ham kayıt, seed, session veya skor toleransı taşımaz.
+- 10 yeni test vakasıyla toplam test sayısı 958 oldu. Tam mypy 141 dosyada, Ruff
+  lint, `compileall`, değişen kapsam formatı ve yerel secret taraması hatasız
+  geçti. Tam depo format kontrolünde değişiklik dışındaki bir tarihsel dosyanın
+  biçim farkı sürer; `28A-v1` taraması 393 dosyada secret bulgusu üretmedi.
+
 ## İlgili Notlar
 
 ### OPEN-001–OPEN-018 Dokümantasyon Uyumlaştırması
@@ -1226,9 +1243,9 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A ve İterasyon 34A–34B çıktıları korunacaktır.
-- `pytest` ile 948 testin geçtiği doğrulanmıştır.
-- Tam mypy kontrolü 139 kaynak dosyada sıfır hata vermektedir.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A ve İterasyon 34A–34C çıktıları korunacaktır.
+- `pytest` ile 958 testin geçtiği doğrulanmıştır.
+- Tam mypy kontrolü 141 kaynak dosyada sıfır hata vermektedir.
 - Kısmi politika maker-checker onay/ret, geri çekme ve atomik audit akışı 32D ile tamamlandı. Süre aşımı açık kalır; güvenilir `PartialExecutionFacts` üretimi kapsama ve eksik kayıt oranı formüllerini beklemektedir. 31D hız sınırı sayaç/pencere semantiğini; CPU/IO sınırları güvenilir kaynak ölçüm adaptörünü beklemektedir. 27B restore tatbikat kanıtı `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını bekler; gerçek arşiv/fiziksel imha adaptörü, 29D, 21B/frontend, hassas dışa aktarma ve gerçek SIEM de banka/altyapı kararlarına bağlıdır.
 - Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

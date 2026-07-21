@@ -21,11 +21,19 @@ from veri_kalitesi.synthetic_data.models import (
     GoldenSubjectRecord,
     SyntheticDatasetPolicy,
     SyntheticGenerationRun,
+    SyntheticGroundTruth,
     SyntheticPolicyStatus,
     SyntheticProfile,
     SyntheticRunAccessPolicy,
     SyntheticRunStatus,
     SyntheticScenario,
+    SyntheticValidationResult,
+    SyntheticValidationStatus,
+)
+from veri_kalitesi.synthetic_data.oracle import (
+    GOLDEN_GROUND_TRUTH_VERSION,
+    GOLDEN_VALIDATION_CLASS,
+    GoldenStructuralOracle,
 )
 from veri_kalitesi.synthetic_data.repository import SQLiteSyntheticDataRepository
 from veri_kalitesi.synthetic_data.service import SyntheticGenerationRegistryService
@@ -34,11 +42,14 @@ __all__ = [
     "FULLY_ARTIFICIAL_PRIVACY_PROFILE",
     "GOLDEN_CONFIGURATION_VERSION",
     "GOLDEN_GENERATOR_VERSION",
+    "GOLDEN_GROUND_TRUTH_VERSION",
     "GOLDEN_SCHEMA_VERSION",
+    "GOLDEN_VALIDATION_CLASS",
     "GoldenObservationRecord",
     "GoldenRelationalDataset",
     "GoldenRelationalGenerator",
     "GoldenStructuralValidation",
+    "GoldenStructuralOracle",
     "GoldenSubjectRecord",
     "SQLiteSyntheticDataRepository",
     "SyntheticDataAuthorizationError",
@@ -49,9 +60,12 @@ __all__ = [
     "SyntheticDatasetPolicy",
     "SyntheticGenerationRegistryService",
     "SyntheticGenerationRun",
+    "SyntheticGroundTruth",
     "SyntheticPolicyStatus",
     "SyntheticProfile",
     "SyntheticRunAccessPolicy",
     "SyntheticRunStatus",
     "SyntheticScenario",
+    "SyntheticValidationResult",
+    "SyntheticValidationStatus",
 ]

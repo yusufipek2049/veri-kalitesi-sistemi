@@ -393,5 +393,22 @@ def build_default_redaction_policy() -> AuditRedactionPolicy:
                     "access_policy_version",
                 }
             ),
+            "SYNTHETIC_GOLDEN_VALIDATION_RECORDED": frozenset(
+                {
+                    "dataset_id",
+                    "generation_run_id",
+                    "ground_truth_version",
+                    "validation_class",
+                    "validation_status",
+                    "reason_codes",
+                    "expected_subject_count",
+                    "expected_observation_count",
+                    "actual_subject_count",
+                    "actual_observation_count",
+                    "score_tolerance_applied",
+                    "synthetic_origin",
+                    "access_policy_version",
+                }
+            ),
         },
     )
