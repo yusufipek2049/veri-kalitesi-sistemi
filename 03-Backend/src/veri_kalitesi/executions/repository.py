@@ -586,6 +586,8 @@ def _fits_policy(
     source_counts: dict[str, int],
     heavy_source_counts: dict[str, int],
 ) -> bool:
+    if heavy_count + light_count >= policy.max_total:
+        return False
     if execution.workload_class is WorkloadClass.HEAVY and heavy_count >= policy.max_heavy:
         return False
     if execution.workload_class is WorkloadClass.LIGHT and light_count >= policy.max_light:

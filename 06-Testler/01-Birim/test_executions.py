@@ -35,6 +35,8 @@ from veri_kalitesi.executions import (
     RuleResultComputation,
     SQLiteExecutionRepository,
     SQLiteScheduleRepository,
+    SQLiteSourceUsagePolicyRepository,
+    SourceUsagePolicyUnavailableError,
     WorkloadClass,
     preview_runs,
 )
@@ -991,6 +993,20 @@ def test_fr_039_rejects_invalid_concurrency_policy_before_queue_use() -> None:
         )
 
 
+def test_fr_039_open_003_policy_resolver_blocks_claim_when_global_policy_is_missing() -> None:
+    resolver = SQLiteSourceUsagePolicyRepository()
+    service, repository, version = _service(
+        FakeExecutionExecutor([(_computation(1, 1, 0),)]),
+        source_usage_policy_resolver=resolver,
+    )
+    execution = _start(service, version)
+
+    with pytest.raises(SourceUsagePolicyUnavailableError):
+        service.run_next()
+
+    assert repository.get(execution.execution_id).status is ExecutionStatus.QUEUED
+
+
 def test_fr_039_repository_migrates_existing_execution_queue_columns(tmp_path: Any) -> None:
     database = tmp_path / "old-executions.sqlite"
     connection = sqlite3.connect(database)
@@ -1063,6 +1079,7 @@ def _service(
     timeouts: ExecutionTimeouts | None = None,
     source_catalog: FakeSourceCatalog | None = None,
     concurrency_policy: ConcurrencyPolicy | None = None,
+    source_usage_policy_resolver: Any = None,
     workload_classifier: Any = None,
     cancellation_sink: Any = None,
     clock: Any = None,
@@ -1099,6 +1116,7 @@ def _service(
         timeouts=timeouts,
         retry_policy=RetryPolicy(max_attempts=3, base_delay_seconds=1),
         concurrency_policy=concurrency_policy,
+        source_usage_policy_resolver=source_usage_policy_resolver,
         workload_classifier=workload_classifier,
         technical_event_sink=technical_event_sink,
         cancellation_sink=cancellation_sink,
