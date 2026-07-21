@@ -13,5 +13,9 @@ class ScoringAuthorizationError(ScoringError):
     """Skorlama yonetimi yetkilendirme karari islemi reddetti."""
 
 
+class ScoringTechnicalError(ScoringError):
+    """Skorlama altyapısı teknik nedenle işlemi tamamlayamadı."""
+
+
 class ScoreNotFoundError(ScoringError):
     """İstenen skor kaydı bulunamadı."""

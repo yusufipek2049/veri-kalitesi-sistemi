@@ -17,8 +17,8 @@ tags:
 
 Yüklenen mevcut vault ve kod üzerinden doğrulanan durum:
 
-- İterasyon 1–16, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C ve Iterasyon 31A–31C teknik dikeyleri tamamlanmış ve proje hafızasına kaydedilmiştir.
-- `pytest` sonucu: **874 test geçti**; tam mypy kontrolü 129 kaynak dosyada
+- İterasyon 1–16, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Iterasyon 31A–31C ve Iterasyon 32A teknik dikeyleri tamamlanmış ve proje hafızasına kaydedilmiştir.
+- `pytest` sonucu: **888 test geçti**; tam mypy kontrolü 131 kaynak dosyada
   sıfır hata vermektedir.
 - Mevcut çalışan domain paketleri:
   - `data_sources`
@@ -46,6 +46,7 @@ Yüklenen mevcut vault ve kod üzerinden doğrulanan durum:
 - Yerel güvenli SDLC paketi secret taraması, doğrudan bağımlılık SBOM'u, veri-minimum SAST/bağımlılık zafiyet kapıları, sızma testi bulgu takibi, deterministik teknik kanıt manifesti, drift kapısı ve bunları birleştiren yerel preflight komutunu içerir. Gerçek scanner/pentest, transitive lock, CI/CD zorlaması, imzalı kurumsal kanıt deposu, banka eşik/istisna ve release onayı uygulanmamıştır.
 - Sürümlü saklama politikası kataloğu, append-only legal hold, idempotent imha kanıtı ve audit/kalite skoru arşivleri için farklı aktör kararlı geri çağırma talep sözleşmesi uygulanmıştır. Tüm retention yazımları veri-minimum ve atomik auditlidir; fiziksel imha/anonimleştirme/arşivleme ile gerçek arşiv getirme adaptörleri uygulanmamıştır.
 - Sürümlü ortam başlangıç kapısı güvenilir sağlayıcı sözleşmesini, ortam-secret kapsam eşleşmesini ve üretim dışı gerçek banka verisi/üretim secret engelini fail-closed uygular. Gerçek deployment/attestation sağlayıcısı, secret manager ve veri kökeni kanıtı henüz bağlı değildir.
+- Sürümlü ve onaylı dataset kısmi skor politikası, ölçülmüş çalışma olgularını tüm eşiklerle fail-closed değerlendirerek `OFFICIAL` veya `PROVISIONAL` kararı üretir. Kararın `QualityScore`, resmî agregasyon, trend ve raporlama zincirine entegrasyonu henüz uygulanmamıştır.
 - Yerel metadata ve execution deposu SQLite'tır; bu, üretim mimarisi kararı değildir.
 
 ## Korunacak Kazanımlar
@@ -59,7 +60,7 @@ Aşağıdaki davranışlar geriye dönük bozulmamalıdır:
 5. RuleVersion ve scoring configuration geçmişinin değişmez kalması.
 6. İdempotent execution ve scheduler tetikleme.
 7. Yetkisiz SOURCE drill-down'ın repository çağrısından önce reddedilmesi.
-8. 874 mevcut birim testinin ve sıfır hatalı tam mypy baseline'ının geriye dönük korunması.
+8. 888 mevcut birim testinin ve sıfır hatalı tam mypy baseline'ının geriye dönük korunması.
 9. Sınıflandırılmamış veya hassas alanların ham profil değerlerinin kalıcılaştırılmaması.
 
 ## En Kritik Kontrol Boşlukları
@@ -93,7 +94,7 @@ Aşağıdaki maddeler tamamlanmadan yeni HTTP yüzeyi, hassas dışa aktarma vey
 
 ## Kontrol Durumu
 
-- Teknik geçiş: **Devam ediyor; İterasyon 17A–17E, 18A–18C, 19A–19H, 20A–20C, 21A, 22A–22I, 23A–23D, 24A–24B, 25A–25D, 26A–26B, 27A, 28A–28E, 29A–29C ve 31A–31C TechnicallyVerified**
+- Teknik geçiş: **Devam ediyor; İterasyon 17A–17E, 18A–18C, 19A–19H, 20A–20C, 21A, 22A–22I, 23A–23D, 24A–24B, 25A–25D, 26A–26B, 27A, 28A–28E, 29A–29C, 31A–31C ve 32A TechnicallyVerified**
 - BDDK/KVKK teknik kontrol eşlemesi: **Proposed**
 - Banka bilgi güvenliği onayı: **ComplianceReviewRequired**
 - Banka hukuk/uyum onayı: **ComplianceReviewRequired**

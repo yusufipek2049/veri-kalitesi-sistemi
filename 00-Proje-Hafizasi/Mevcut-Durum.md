@@ -1018,6 +1018,26 @@ tags:
 - 3 yeni testle toplam test sayısı 874 oldu. Tam mypy 129 dosyada, Ruff,
   değişen dosya formatı ve `compileall` kontrolleri hatasız geçti.
 
+### 2026-07-21 — İterasyon 32A: Dataset kısmi skor politika kararı
+
+- `FR-048`, `UC-009`, `OPEN-012` ve `OPEN-018` için sürümlü
+  `DatasetPartialScorePolicy` modeli, SQLite deposu ve fail-closed değerlendirme
+  servisi eklendi.
+- Politika; dataset, resmî kısmi skor izni, kapsama, zorunlu kritik kurallar ve
+  partitionlar, eksik kayıt/teknik hata üst sınırları, başarılı kural alt sınırı,
+  sürüm, geçerlilik, onay ve audit referansını taşır.
+- Yalnız geçerlilik anına ulaşmış `APPROVED` politika değerlendirmeye alınır.
+  Politika yokluğu veya tek bir koşul ihlali `PROVISIONAL`; tüm koşulların
+  sağlanması `OFFICIAL` kararı üretir.
+- Politika hazırlayan ile onaylayan aynı olamaz. Değerlendirme teknik hata
+  kural oranını kalite başarısızlığından ayrı tutar; karar yalnız oranlar ve opak
+  kural/partition kimlikleri taşır.
+- Execution kaydından güvenilir biçimde çıkarılamayan kapsama ve eksik kayıt
+  oranları tahmin edilmedi; `PartialExecutionFacts` sözleşmesiyle dışarıdan
+  ölçülmüş olgu olarak alınır. `QualityScore` entegrasyonu sonraki dilimdedir.
+- 14 yeni testle toplam test sayısı 888 oldu. Tam mypy 131 dosyada, Ruff,
+  değişen dosya formatı ve `compileall` kontrolleri hatasız geçti.
+
 ## İlgili Notlar
 
 ### OPEN-001–OPEN-018 Dokümantasyon Uyumlaştırması
@@ -1033,9 +1053,9 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1 ve İterasyon 31A–31C çıktıları korunacaktır.
-- `pytest` ile 874 testin geçtiği doğrulanmıştır.
-- Tam mypy kontrolü 129 kaynak dosyada sıfır hata vermektedir.
-- Sıradaki değerlendirilecek dilim 31D kaynak hız sınırı politikasının worker admission sınırına bağlanmasıdır. CPU/IO sınırları güvenilir kaynak ölçüm adaptörünü; 27B restore tatbikat kanıtı `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını beklemektedir. Gerçek arşiv/fiziksel imha adaptörü, 29D, 21B/frontend, hassas dışa aktarma ve gerçek SIEM de banka/altyapı kararlarına bağlıdır.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1, İterasyon 31A–31C ve İterasyon 32A çıktıları korunacaktır.
+- `pytest` ile 888 testin geçtiği doğrulanmıştır.
+- Tam mypy kontrolü 131 kaynak dosyada sıfır hata vermektedir.
+- Sıradaki hazır dilim 32B kısmi politika kararının `QualityScore` üretimine ve resmî agregasyon dışlama bilgisine bağlanmasıdır. 31D hız sınırı sayaç/pencere semantiğini; CPU/IO sınırları güvenilir kaynak ölçüm adaptörünü beklemektedir. 27B restore tatbikat kanıtı `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını bekler; gerçek arşiv/fiziksel imha adaptörü, 29D, 21B/frontend, hassas dışa aktarma ve gerçek SIEM de banka/altyapı kararlarına bağlıdır.
 - Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.
