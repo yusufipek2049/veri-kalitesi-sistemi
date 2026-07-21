@@ -26,7 +26,6 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
 9. Audit olay sınıfı davranışı kesinleşti; üretim outbox/kuyruk, alarm ve kapasite değerleri TBD'dir.
 10. Kısmi resmî skor dataset politika koşullarına bağlandı; kurumsal eşik değerleri ve onaylı politika kayıtları TBD'dir.
 11. Dashboard güvenilir `ActorContext` ve `AuthorizationService` sınırına taşındı; diğer servislerdeki serbest `actor_id` kullanımı ile context issuer'ın gerçek LDAP/session adaptörüne bağlanması İterasyon 20 ve sonraki modül geçişlerini gerektirir.
-12. Proje dizininde `.git` bulunmuyor; küçük ve anlamlı commit şartının uygulanması için Git deposu başlatma veya mevcut remote ile ilişkilendirme kararı gerekir.
 13. PostgreSQL için üretim sürücüsü, bağlantı havuzu yaklaşımı ve canlı entegrasyon test veritabanı henüz seçilmedi.
 14. Şema değişikliğinde aktif kuralları “inceleme gerekli” durumuna alma davranışı, kural yönetimi modülü uygulanınca metadata değişim bayrağına bağlanmalıdır.
 15. `AC-008` için veri sahibi onaylı, anonimleştirilmiş üretim örneği, yeniden kimliklendirme risk değerlendirmesi ve donanım gözlemli performans testi henüz hazırlanmadı; birim testleri yalnız SAMPLE sözleşmesini doğruluyor.
@@ -131,12 +130,16 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
 60. `31D` hız sınırı artımı için sayaç birimi, pencere türü, tüketim anı ve
     kalıcı/dağıtık sayaç davranışı SRS'de tanımlı değildir. Bu semantik ve kabul
     kriterleri kesinleşmeden çalışma zamanı hız sınırı uygulanmayacaktır.
-61. `32A`–`32B` sürümlü/onaylı dataset kısmi skor politikasını, fail-closed
+61. `32A`–`32C` sürümlü/onaylı dataset kısmi skor politikasını, fail-closed
     karar servisini ve kararın `QualityScore`, resmî agregasyon, trend ile rapor
-    önizlemesine uygulanmasını teknik olarak doğruladı.
+    önizlemesine uygulanmasını; güvenilir actor, maker-checker onay/ret ve atomik
+    audit outbox akışını teknik olarak doğruladı.
     `PartialExecutionFacts` olgularının execution/worker tarafından güvenilir
-    üretilmesi, SLA ve resmî denetim çıktısı adaptörleri, politika yaşam
-    döngüsünün merkezi audit outbox'ı ve banka rol eşlemesi açık kalır.
+    üretilmesi, politika talebi geri çekme/süre aşımı, SLA ve resmî denetim
+    çıktısı adaptörleri ile banka rol eşlemesi açık kalır.
+62. Kapsama oranı ile eksik kayıt oranının beklenen/gerçek sayaçlardan nasıl
+    hesaplanacağı SRS'de tanımlı değildir. Bu formüller, veri kökeni ve worker
+    kanıt sözleşmesi kesinleşmeden `PartialExecutionFacts` otomatik üretilmez.
 
 ## Bankacılık Geçiş Açık Konuları
 

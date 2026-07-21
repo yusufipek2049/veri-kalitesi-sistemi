@@ -3,15 +3,27 @@ from __future__ import annotations
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+import sqlite3
 
 import pytest
 
+from veri_kalitesi.audit import (
+    AuditRedactor,
+    PreparedAuditEvent,
+    SQLiteAuditRepository,
+    SQLiteTransactionalAudit,
+    build_default_redaction_policy,
+)
+from veri_kalitesi.identity import ActorContext, ActorContextIssuer, ActorType
 from veri_kalitesi.scoring import (
     DatasetPartialScorePolicy,
+    DatasetPartialScorePolicyLifecycleService,
     DatasetPartialScorePolicyService,
     PartialExecutionFacts,
     PartialScoreEligibility,
+    PartialScorePolicyAccessPolicy,
     PartialScorePolicyStatus,
+    ScoringAuthorizationError,
     ScoringTechnicalError,
     ScoringValidationError,
     SQLiteDatasetPartialScorePolicyRepository,
@@ -19,6 +31,7 @@ from veri_kalitesi.scoring import (
 
 
 AT = datetime(2026, 7, 21, 10, 0, tzinfo=timezone.utc)
+ACTOR_POLICY_VERSION = "BANK_ACTOR_V1"
 
 
 def _policy(
@@ -212,3 +225,208 @@ def test_fr_048_partial_policy_repository_failure_is_technical_error() -> None:
 
     with pytest.raises(ScoringTechnicalError):
         repository.resolve_effective("dataset-main", at=AT)
+
+
+def test_fr_048_rule_005_fr_077_partial_policy_requires_different_checker_and_audit() -> None:
+    lifecycle, repository, audit_repository = _lifecycle()
+
+    pending = _submit(lifecycle, _context("maker-1", {"PARTIAL_POLICY_MAKER"}))
+    before_approval = DatasetPartialScorePolicyService(repository).evaluate(_facts(), at=AT)
+    approved = lifecycle.decide(
+        actor_context=_context("checker-1", {"PARTIAL_POLICY_CHECKER"}),
+        policy_id=pending.policy_id,
+        decision="APPROVE",
+        reason_code="PARTIAL_POLICY.REVIEWED",
+    )
+    after_approval = DatasetPartialScorePolicyService(repository).evaluate(_facts(), at=AT)
+
+    assert pending.approval_status is PartialScorePolicyStatus.PENDING
+    assert before_approval.eligibility is PartialScoreEligibility.PROVISIONAL
+    assert approved.approval_status is PartialScorePolicyStatus.APPROVED
+    assert approved.approved_by == "checker-1"
+    assert approved.audit_reference is not None
+    assert after_approval.eligibility is PartialScoreEligibility.OFFICIAL
+    events = audit_repository.list_events()
+    assert [event.action for event in events] == [
+        "PARTIAL_SCORE_POLICY_APPROVAL_REQUESTED",
+        "PARTIAL_SCORE_POLICY_APPROVAL_DECIDED",
+    ]
+    assert events[-1].new_value_summary["status"] == "APPROVED"
+    assert events[-1].new_value_summary["required_critical_rule_count"] == 1
+    assert events[-1].new_value_summary["required_partition_count"] == 1
+    assert "rule-critical" not in repr(events)
+    assert "partition-required" not in repr(events)
+
+
+def test_rule_005_policy_maker_cannot_decide_same_change() -> None:
+    lifecycle, repository, audit_repository = _lifecycle()
+    maker = _context(
+        "maker-1",
+        {"PARTIAL_POLICY_MAKER", "PARTIAL_POLICY_CHECKER"},
+    )
+    pending = _submit(lifecycle, maker)
+
+    with pytest.raises(ScoringAuthorizationError, match="maker cannot decide"):
+        lifecycle.decide(
+            actor_context=maker,
+            policy_id=pending.policy_id,
+            decision="APPROVE",
+            reason_code="PARTIAL_POLICY.REVIEWED",
+        )
+
+    assert repository.get(pending.policy_id).approval_status is PartialScorePolicyStatus.PENDING
+    assert len(audit_repository.list_events()) == 1
+
+
+def test_rule_005_rejected_partial_policy_never_becomes_effective() -> None:
+    lifecycle, repository, audit_repository = _lifecycle()
+    pending = _submit(lifecycle, _context("maker-1", {"PARTIAL_POLICY_MAKER"}))
+
+    rejected = lifecycle.decide(
+        actor_context=_context("checker-1", {"PARTIAL_POLICY_CHECKER"}),
+        policy_id=pending.policy_id,
+        decision="REJECT",
+        reason_code="PARTIAL_POLICY.REJECTED",
+    )
+    decision = DatasetPartialScorePolicyService(repository).evaluate(_facts(), at=AT)
+
+    assert rejected.approval_status is PartialScorePolicyStatus.REJECTED
+    assert rejected.approved_by is None
+    assert decision.eligibility is PartialScoreEligibility.PROVISIONAL
+    assert decision.reason_codes == ("POLICY_NOT_FOUND",)
+    assert audit_repository.list_events()[-1].new_value_summary["status"] == "REJECTED"
+
+
+@pytest.mark.parametrize(
+    "context_kind",
+    ["missing", "missing-role", "missing-scope", "privileged", "service"],
+)
+def test_rule_005_untrusted_partial_policy_submission_is_rejected_before_write(
+    context_kind: str,
+) -> None:
+    lifecycle, repository, audit_repository = _lifecycle()
+    contexts = {
+        "missing": None,
+        "missing-role": _context("actor-1", set()),
+        "missing-scope": _context(
+            "actor-1",
+            {"PARTIAL_POLICY_MAKER"},
+            dataset_ids=set(),
+        ),
+        "privileged": _context(
+            "actor-1",
+            {"PARTIAL_POLICY_MAKER"},
+            privileged=True,
+        ),
+        "service": _context(
+            "service-1",
+            {"PARTIAL_POLICY_MAKER"},
+            actor_type=ActorType.SERVICE,
+        ),
+    }
+
+    with pytest.raises(ScoringAuthorizationError):
+        _submit(lifecycle, contexts[context_kind])
+
+    assert repository.list_policies("dataset-main") == []
+    assert audit_repository.list_events() == []
+
+
+def test_fr_077_audit_stage_failure_rolls_back_partial_policy_submission() -> None:
+    repository = SQLiteDatasetPartialScorePolicyRepository()
+    audit_repository = SQLiteAuditRepository()
+    audit = FailingPartialPolicyAudit(
+        repository.connection,
+        AuditRedactor(build_default_redaction_policy()),
+        audit_repository,
+        policy_version="PARTIAL_POLICY_AUDIT_V1",
+    )
+    lifecycle = _lifecycle_service(repository, audit)
+
+    with pytest.raises(ScoringTechnicalError):
+        _submit(lifecycle, _context("maker-1", {"PARTIAL_POLICY_MAKER"}))
+
+    assert repository.list_policies("dataset-main") == []
+    assert audit_repository.list_events() == []
+
+
+class FailingPartialPolicyAudit(SQLiteTransactionalAudit):
+    def stage(self, prepared: PreparedAuditEvent) -> None:
+        raise sqlite3.OperationalError("synthetic audit outbox failure")
+
+
+def _lifecycle() -> tuple[
+    DatasetPartialScorePolicyLifecycleService,
+    SQLiteDatasetPartialScorePolicyRepository,
+    SQLiteAuditRepository,
+]:
+    repository = SQLiteDatasetPartialScorePolicyRepository()
+    audit_repository = SQLiteAuditRepository()
+    audit = SQLiteTransactionalAudit(
+        repository.connection,
+        AuditRedactor(build_default_redaction_policy()),
+        audit_repository,
+        policy_version="PARTIAL_POLICY_AUDIT_V1",
+    )
+    return _lifecycle_service(repository, audit), repository, audit_repository
+
+
+def _lifecycle_service(
+    repository: SQLiteDatasetPartialScorePolicyRepository,
+    audit: SQLiteTransactionalAudit,
+) -> DatasetPartialScorePolicyLifecycleService:
+    return DatasetPartialScorePolicyLifecycleService(
+        repository,
+        transactional_audit=audit,
+        access_policy=PartialScorePolicyAccessPolicy(
+            version="PARTIAL_POLICY_ACCESS_V1",
+            actor_policy_version=ACTOR_POLICY_VERSION,
+            maker_roles=frozenset({"PARTIAL_POLICY_MAKER"}),
+            checker_roles=frozenset({"PARTIAL_POLICY_CHECKER"}),
+        ),
+        clock=lambda: AT,
+    )
+
+
+def _submit(
+    lifecycle: DatasetPartialScorePolicyLifecycleService,
+    context: ActorContext | None,
+) -> DatasetPartialScorePolicy:
+    return lifecycle.create_and_submit(
+        actor_context=context,
+        dataset_id="dataset-main",
+        policy_version="DATASET_PARTIAL_LIFECYCLE_V1",
+        allow_official_partial_score=True,
+        minimum_coverage_ratio=Decimal("0.90"),
+        required_critical_rule_ids=("rule-critical",),
+        required_partitions=("partition-required",),
+        maximum_missing_record_ratio=Decimal("0.05"),
+        maximum_technical_error_ratio=Decimal("0.10"),
+        minimum_successful_rule_ratio=Decimal("0.75"),
+        effective_from=AT,
+    )
+
+
+def _context(
+    actor_id: str,
+    roles: set[str],
+    *,
+    dataset_ids: set[str] | None = None,
+    actor_type: ActorType = ActorType.USER,
+    privileged: bool = False,
+) -> ActorContext:
+    return ActorContextIssuer().issue(
+        actor_id=actor_id,
+        actor_type=actor_type,
+        authentication_source="synthetic-identity-adapter",
+        session_id=f"session-{actor_id}",
+        roles=frozenset(roles),
+        permitted_source_ids=frozenset(),
+        permitted_dataset_ids=frozenset({"dataset-main"} if dataset_ids is None else dataset_ids),
+        can_view_enterprise=False,
+        privileged=privileged,
+        issued_at=AT - timedelta(minutes=5),
+        expires_at=AT + timedelta(hours=1),
+        policy_version=ACTOR_POLICY_VERSION,
+        correlation_id=f"correlation-{actor_id}",
+    )

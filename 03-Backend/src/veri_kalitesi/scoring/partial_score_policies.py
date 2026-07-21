@@ -5,14 +5,26 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from decimal import Decimal
 from enum import Enum
 from threading import RLock
+from typing import Callable
 from uuid import uuid4
 
-from veri_kalitesi.scoring.errors import ScoringTechnicalError, ScoringValidationError
+from veri_kalitesi.audit import (
+    AuditEventInput,
+    AuditResult,
+    PreparedAuditEvent,
+    SQLiteTransactionalAudit,
+)
+from veri_kalitesi.identity import ActorContext, ActorType, is_trusted_actor_context
+from veri_kalitesi.scoring.errors import (
+    ScoringAuthorizationError,
+    ScoringTechnicalError,
+    ScoringValidationError,
+)
 from veri_kalitesi.scoring.models import utc_now
 
 
@@ -28,6 +40,17 @@ class PartialScorePolicyStatus(str, Enum):
 class PartialScoreEligibility(str, Enum):
     OFFICIAL = "OFFICIAL"
     PROVISIONAL = "PROVISIONAL"
+
+
+@dataclass(frozen=True)
+class PartialScorePolicyAccessPolicy:
+    version: str
+    actor_policy_version: str
+    maker_roles: frozenset[str]
+    checker_roles: frozenset[str]
+    allowed_actor_types: frozenset[ActorType] = field(
+        default_factory=lambda: frozenset({ActorType.USER})
+    )
 
 
 @dataclass(frozen=True)
@@ -90,8 +113,13 @@ class PartialScoreDecision:
 
 
 class SQLiteDatasetPartialScorePolicyRepository:
-    def __init__(self, database: str = ":memory:") -> None:
-        self.connection = sqlite3.connect(database, check_same_thread=False)
+    def __init__(
+        self,
+        database: str = ":memory:",
+        *,
+        connection: sqlite3.Connection | None = None,
+    ) -> None:
+        self.connection = connection or sqlite3.connect(database, check_same_thread=False)
         self.connection.row_factory = sqlite3.Row
         self._lock = RLock()
         self._create_schema()
@@ -153,6 +181,91 @@ class SQLiteDatasetPartialScorePolicyRepository:
                 "Dataset partial score policy could not be persisted."
             ) from exc
         return policy
+
+    def save_with_audit(
+        self,
+        policy: DatasetPartialScorePolicy,
+        *,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: SQLiteTransactionalAudit,
+    ) -> DatasetPartialScorePolicy:
+        if audit_outbox.connection is not self.connection:
+            raise ScoringValidationError("Audit outbox must share the policy transaction.")
+        _validate_policy(policy)
+        try:
+            with self._lock, self.connection:
+                self.connection.execute(
+                    """
+                    INSERT INTO dataset_partial_score_policies (
+                        policy_id, dataset_id, policy_version,
+                        allow_official_partial_score, minimum_coverage_ratio,
+                        required_critical_rule_ids, required_partitions,
+                        maximum_missing_record_ratio, maximum_technical_error_ratio,
+                        minimum_successful_rule_ratio, effective_from, approval_status,
+                        created_by, approved_by, audit_reference, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    _policy_values(policy),
+                )
+                audit_outbox.stage(audit_event)
+        except sqlite3.IntegrityError as exc:
+            raise ScoringValidationError(
+                "Dataset partial score policy identity or version conflicts."
+            ) from exc
+        except sqlite3.DatabaseError as exc:
+            raise ScoringTechnicalError(
+                "Dataset partial score policy and audit could not be persisted."
+            ) from exc
+        return self.get(policy.policy_id)
+
+    def get(self, policy_id: str) -> DatasetPartialScorePolicy:
+        if not policy_id.strip():
+            raise ScoringValidationError("policy_id is required.")
+        try:
+            row = self.connection.execute(
+                "SELECT * FROM dataset_partial_score_policies WHERE policy_id = ?",
+                (policy_id,),
+            ).fetchone()
+        except sqlite3.DatabaseError as exc:
+            raise ScoringTechnicalError("Dataset partial score policy could not be read.") from exc
+        if row is None:
+            raise ScoringValidationError("Dataset partial score policy was not found.")
+        return _row_to_policy(row)
+
+    def decide_with_audit(
+        self,
+        policy: DatasetPartialScorePolicy,
+        *,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: SQLiteTransactionalAudit,
+    ) -> DatasetPartialScorePolicy:
+        if audit_outbox.connection is not self.connection:
+            raise ScoringValidationError("Audit outbox must share the policy transaction.")
+        _validate_policy(policy)
+        try:
+            with self._lock, self.connection:
+                cursor = self.connection.execute(
+                    """
+                    UPDATE dataset_partial_score_policies
+                    SET approval_status = ?, approved_by = ?, audit_reference = ?
+                    WHERE policy_id = ? AND approval_status = ?
+                    """,
+                    (
+                        policy.approval_status.value,
+                        policy.approved_by,
+                        policy.audit_reference,
+                        policy.policy_id,
+                        PartialScorePolicyStatus.PENDING.value,
+                    ),
+                )
+                if cursor.rowcount != 1:
+                    raise ScoringValidationError("Dataset partial score policy is not pending.")
+                audit_outbox.stage(audit_event)
+        except sqlite3.DatabaseError as exc:
+            raise ScoringTechnicalError(
+                "Dataset partial score policy decision and audit could not be persisted."
+            ) from exc
+        return self.get(policy.policy_id)
 
     def list_policies(self, dataset_id: str) -> list[DatasetPartialScorePolicy]:
         if not dataset_id.strip():
@@ -258,6 +371,166 @@ class DatasetPartialScorePolicyService:
         )
 
 
+class DatasetPartialScorePolicyLifecycleService:
+    def __init__(
+        self,
+        repository: SQLiteDatasetPartialScorePolicyRepository,
+        *,
+        transactional_audit: SQLiteTransactionalAudit,
+        access_policy: PartialScorePolicyAccessPolicy,
+        clock: Callable[[], datetime] = utc_now,
+    ) -> None:
+        self.repository = repository
+        self.transactional_audit = transactional_audit
+        self.access_policy = access_policy
+        self.clock = clock
+        _validate_access_policy(access_policy)
+
+    def create_and_submit(
+        self,
+        *,
+        actor_context: ActorContext | None,
+        dataset_id: str,
+        policy_version: str,
+        allow_official_partial_score: bool,
+        minimum_coverage_ratio: Decimal,
+        required_critical_rule_ids: tuple[str, ...],
+        required_partitions: tuple[str, ...],
+        maximum_missing_record_ratio: Decimal,
+        maximum_technical_error_ratio: Decimal,
+        minimum_successful_rule_ratio: Decimal,
+        effective_from: datetime,
+    ) -> DatasetPartialScorePolicy:
+        now = _clock_value(self.clock)
+        context = self._authorize(
+            actor_context,
+            required_roles=self.access_policy.maker_roles,
+            dataset_id=dataset_id,
+            now=now,
+        )
+        policy = DatasetPartialScorePolicy(
+            dataset_id=dataset_id,
+            policy_version=policy_version,
+            allow_official_partial_score=allow_official_partial_score,
+            minimum_coverage_ratio=minimum_coverage_ratio,
+            required_critical_rule_ids=required_critical_rule_ids,
+            required_partitions=required_partitions,
+            maximum_missing_record_ratio=maximum_missing_record_ratio,
+            maximum_technical_error_ratio=maximum_technical_error_ratio,
+            minimum_successful_rule_ratio=minimum_successful_rule_ratio,
+            effective_from=effective_from,
+            approval_status=PartialScorePolicyStatus.PENDING,
+            created_by=context.actor_id,
+            created_at=now,
+        )
+        _validate_policy(policy)
+        event = AuditEventInput(
+            actor_id=context.actor_id,
+            actor_type=context.actor_type.value,
+            correlation_id=context.correlation_id,
+            action="PARTIAL_SCORE_POLICY_APPROVAL_REQUESTED",
+            object_type="DatasetPartialScorePolicy",
+            object_id=policy.policy_id,
+            result=AuditResult.SUCCESS,
+            reason_code="PARTIAL_SCORE_POLICY_APPROVAL_REQUESTED",
+            old_values={},
+            new_values=_policy_audit_values(policy, self.access_policy.version),
+            occurred_at=now,
+            session_id=context.session_id,
+        )
+        prepared = self.transactional_audit.prepare(event)
+        stored = self.repository.save_with_audit(
+            replace(policy, audit_reference=prepared.event_id),
+            audit_event=prepared,
+            audit_outbox=self.transactional_audit,
+        )
+        self.transactional_audit.publish_pending()
+        return stored
+
+    def decide(
+        self,
+        *,
+        actor_context: ActorContext | None,
+        policy_id: str,
+        decision: str,
+        reason_code: str,
+    ) -> DatasetPartialScorePolicy:
+        now = _clock_value(self.clock)
+        current = self.repository.get(policy_id)
+        context = self._authorize(
+            actor_context,
+            required_roles=self.access_policy.checker_roles,
+            dataset_id=current.dataset_id,
+            now=now,
+        )
+        if current.approval_status is not PartialScorePolicyStatus.PENDING:
+            raise ScoringValidationError("Dataset partial score policy is not pending.")
+        if current.created_by == context.actor_id:
+            raise ScoringAuthorizationError(
+                "Policy maker cannot decide the same partial score policy."
+            )
+        status = _parse_decision(decision)
+        normalized_reason = _validate_reason_code(reason_code)
+        event = AuditEventInput(
+            actor_id=context.actor_id,
+            actor_type=context.actor_type.value,
+            correlation_id=context.correlation_id,
+            action="PARTIAL_SCORE_POLICY_APPROVAL_DECIDED",
+            object_type="DatasetPartialScorePolicy",
+            object_id=current.policy_id,
+            result=AuditResult.SUCCESS,
+            reason_code=normalized_reason,
+            old_values=_policy_audit_values(current, self.access_policy.version),
+            new_values={
+                **_policy_audit_values(current, self.access_policy.version),
+                "status": status.value,
+            },
+            occurred_at=now,
+            session_id=context.session_id,
+        )
+        prepared = self.transactional_audit.prepare(event)
+        decided = replace(
+            current,
+            approval_status=status,
+            approved_by=(context.actor_id if status is PartialScorePolicyStatus.APPROVED else None),
+            audit_reference=prepared.event_id,
+        )
+        stored = self.repository.decide_with_audit(
+            decided,
+            audit_event=prepared,
+            audit_outbox=self.transactional_audit,
+        )
+        self.transactional_audit.publish_pending()
+        return stored
+
+    def _authorize(
+        self,
+        context: ActorContext | None,
+        *,
+        required_roles: frozenset[str],
+        dataset_id: str,
+        now: datetime,
+    ) -> ActorContext:
+        if not is_trusted_actor_context(context):
+            raise ScoringAuthorizationError("Trusted actor context is required.")
+        assert context is not None
+        if context.issued_at > now or context.expires_at <= now:
+            raise ScoringAuthorizationError("Actor context is not currently valid.")
+        if context.policy_version != self.access_policy.actor_policy_version:
+            raise ScoringAuthorizationError("Actor context policy version is not accepted.")
+        if context.actor_type not in self.access_policy.allowed_actor_types:
+            raise ScoringAuthorizationError("Actor type is not allowed for policy approval.")
+        if context.privileged:
+            raise ScoringAuthorizationError(
+                "Privileged context is not allowed for policy approval."
+            )
+        if context.roles.isdisjoint(required_roles):
+            raise ScoringAuthorizationError("Actor does not have the required policy role.")
+        if not context.can_view_enterprise and dataset_id not in context.permitted_dataset_ids:
+            raise ScoringAuthorizationError("Actor does not have the required dataset scope.")
+        return context
+
+
 def _decision(
     facts: PartialExecutionFacts,
     *,
@@ -349,6 +622,61 @@ def _validate_identifiers(values: tuple[str, ...], name: str) -> None:
         not isinstance(value, str) or not value.strip() for value in values
     ):
         raise ScoringValidationError(f"{name.capitalize()} identifiers must be unique and valid.")
+
+
+def _validate_access_policy(policy: PartialScorePolicyAccessPolicy) -> None:
+    if not policy.version.strip() or not policy.actor_policy_version.strip():
+        raise ScoringValidationError("Partial score access policy versions are required.")
+    if not policy.maker_roles or not policy.checker_roles:
+        raise ScoringValidationError("Partial score maker and checker roles are required.")
+    if any(not role.strip() for role in (*policy.maker_roles, *policy.checker_roles)):
+        raise ScoringValidationError("Partial score policy roles must not be blank.")
+    if not policy.allowed_actor_types:
+        raise ScoringValidationError("At least one policy actor type is required.")
+
+
+def _parse_decision(value: str) -> PartialScorePolicyStatus:
+    normalized = value.strip().upper()
+    decisions = {
+        "APPROVE": PartialScorePolicyStatus.APPROVED,
+        "REJECT": PartialScorePolicyStatus.REJECTED,
+    }
+    if normalized not in decisions:
+        raise ScoringValidationError("Partial score policy decision is invalid.")
+    return decisions[normalized]
+
+
+def _validate_reason_code(value: str) -> str:
+    normalized = value.strip().upper()
+    if not re.fullmatch(r"[A-Z0-9_.-]{1,120}", normalized):
+        raise ScoringValidationError("Partial score policy reason code is invalid.")
+    return normalized
+
+
+def _clock_value(clock: Callable[[], datetime]) -> datetime:
+    value = clock()
+    _validate_utc_time(value, "Policy lifecycle time")
+    return value
+
+
+def _policy_audit_values(
+    policy: DatasetPartialScorePolicy,
+    approval_policy_version: str,
+) -> dict[str, str | int | bool]:
+    return {
+        "dataset_id": policy.dataset_id,
+        "policy_version": policy.policy_version,
+        "approval_policy_version": approval_policy_version,
+        "status": policy.approval_status.value,
+        "allow_official_partial_score": policy.allow_official_partial_score,
+        "minimum_coverage_ratio": str(policy.minimum_coverage_ratio),
+        "required_critical_rule_count": len(policy.required_critical_rule_ids),
+        "required_partition_count": len(policy.required_partitions),
+        "maximum_missing_record_ratio": str(policy.maximum_missing_record_ratio),
+        "maximum_technical_error_ratio": str(policy.maximum_technical_error_ratio),
+        "minimum_successful_rule_ratio": str(policy.minimum_successful_rule_ratio),
+        "effective_from": policy.effective_from.isoformat(),
+    }
 
 
 def _validate_utc_time(value: datetime, name: str) -> None:

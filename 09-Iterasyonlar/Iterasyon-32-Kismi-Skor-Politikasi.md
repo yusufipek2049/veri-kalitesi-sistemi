@@ -82,3 +82,40 @@ completed_at: 2026-07-21
   mevcut skor kayıtları silinmez.
 - **Sonraki iterasyon:** 32C, güvenilir kısmi çalışma olgusu üretimi ve politika
   karar auditi.
+
+## 32C — Kısmi skor politikası onay/ret ve atomik audit
+
+- **İterasyon adı:** Kısmi skor politikası onay/ret ve atomik audit
+- **Kullanıcı/sistem değeri:** Resmî skoru etkileyen dataset politikası yalnız
+  güvenilir, kapsamlı ve birbirinden farklı maker/checker aktörleriyle etkili
+  olur; audit kaydı olmadan kritik değişiklik tamamlanmaz.
+- **Mevcut FR/UC/RULE:** `FR-048`, `FR-077`, `UC-009`, `RULE-005`, `OPEN-012`,
+  `OPEN-017`
+- **BFR/CTRL:** Yeni eşleme yoktur.
+- **Değiştirilen dosyalar:** Kısmi skor politika modeli/deposu/yaşam döngüsü,
+  merkezi audit allowlist'i, paket dışa aktarımı, birim testleri ve proje hafızası.
+- **Migration/config:** Mevcut SQLite politika tablosu kullanıldı; üretim rolü,
+  ürün veya eşik değeri eklenmedi.
+- **Eklenen testler:** Talep-onay akışı, onaysız politikanın etkisizliği,
+  maker-checker ayrımı, eksik rol/kapsam/bağlam ile servis ve ayrıcalıklı aktör
+  reddi, veri-minimum audit ve audit staging hatasında atomik rollback.
+- **Çalıştırılan komutlar:** `pytest -q`, tam `mypy`, tam `ruff check`, değişen
+  kapsam için `ruff format --check` ve `git diff --check`.
+- **Mevcut regresyon sonucu:** 904 test geçti; mypy 131 dosyada, Ruff ve değişen
+  kapsam format/derleme kontrolü hatasız tamamlandı. Tam depo format kontrolü
+  değişmeyen üç tarihsel dosyada biçim farkı bildirdi.
+- **Yetkisiz/negatif test sonucu:** Maker kendi politikasını karara bağlayamadı;
+  eksik/güvenilmez, yanlış rol veya kapsamlı, servis ve ayrıcalıklı bağlamlar
+  repository yazımından önce reddedildi.
+- **Audit/redaksiyon sonucu:** Talep ve karar politika kaydıyla aynı transaction'da
+  outbox'a yazıldı. Audit oran, adet, durum ve sürüm taşır; kural/partition
+  kimliklerini, ham kayıt veya secret'ı taşımaz.
+- **Kanıt yolları:** `06-Testler/01-Birim/test_partial_score_policies.py`.
+- **Teknik durum:** `TechnicallyVerified`
+- **Banka onayı:** `ComplianceReviewRequired`
+- **Kalan risk:** Geri çekme ve süre aşımı, banka rol eşlemesi,
+  PostgreSQL/çoklu instance eşzamanlılığı ve güvenilir `PartialExecutionFacts`
+  üretim formülleri.
+- **Geri alma yaklaşımı:** Yaşam döngüsü servisi composition'dan çıkarılırsa yeni
+  politika talebi alınmaz; mevcut onaylı politikalar ve skor geçmişi silinmez.
+- **Sonraki iterasyon:** 32D, kısmi skor politika talebini auditli geri çekme.

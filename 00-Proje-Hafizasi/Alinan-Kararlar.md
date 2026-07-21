@@ -489,3 +489,9 @@ Bu sınıflandırma şu kuralları birlikte uygular:
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
 | --- | --- | --- | --- |
 | Resmî kabul edilen kısmi skor `PARTIAL` statüsünü koruyarak sayısal değer taşır ve resmî agregasyona katılır; provizyonel kısmi skor sayısal değer üretmez. Üst agregasyon, içerdiği resmî kısmi bileşeni `PARTIAL` statüsüyle görünür kılar. | `FR-048`, kısmi niteliğin açıkça gösterilmesini ve yalnız tüm politika koşulları sağlandığında resmî skora katılımı birlikte gerektirir. | Resmî kısmi sonucu `CALCULATED` olarak yeniden sınıflandırmak veya tüm `PARTIAL` sonuçları agregasyondan çıkarmak. | Resmîlik `included_in_official_aggregation` ile açıkça taşınır. Provizyonel sonuç resmî trend ve rapor önizlemesinden çıkarılır; `NO_DATA` ve teknik hata gözlemleri sıfıra çevrilmeden görünür kalır. |
+
+## 2026-07-21 — İterasyon 32C Teknik Kararı
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| Resmî skoru etkileyen dataset kısmi skor politikası yalnız güvenilir normal kullanıcı bağlamıyla talep edilir ve farklı yetkili checker tarafından karara bağlanır. Talep/karar ile merkezi audit outbox kaydı aynı transaction'da kalıcılaşır. | `RULE-005` resmî skoru etkileyen politika değişikliğinde maker-checker; `FR-077` kritik onay işleminde audit veya kalıcı outbox yoksa fail-closed davranış gerektirir. | Doğrudan `APPROVED` politika eklemek, serbest aktör kimliği kullanmak veya audit kaydını işlemden sonra best-effort yazmak. | Yalnız `PENDING` talep yaşam döngüsü üzerinden onaylanır; maker kendi değişikliğini karara bağlayamaz. Audit staging hatası politika işlemini geri alır ve audit kural/partition değerleri yerine yalnız adet ve oran taşır. |
