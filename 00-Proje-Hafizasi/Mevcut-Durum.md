@@ -1002,6 +1002,22 @@ tags:
 - 8 yeni testle toplam test sayısı 871 oldu. Tam mypy 129 dosyada, Ruff,
   değişen dosya formatı ve derleme kontrolleri hatasız geçti.
 
+### 2026-07-21 — İterasyon 31C: Kaynak politikası timeout ve retry yürütmesi
+
+- `FR-039`, `FR-040`, `FR-041`, `UC-008`, `RULE-003`, `RULE-012`,
+  `NFR-REL-001` ve `NFR-REL-002` için kaynak politikasındaki sorgu timeoutu,
+  retry sayısı ve retry gecikmesi worker yürütmesine bağlandı.
+- Worker claim ve yürütme kararları tek politika snapshot'ından üretilir. Birden
+  fazla kaynaklı işte en düşük sorgu timeoutu ve retry sayısı ile en yüksek retry
+  gecikmesi uygulanır.
+- Yerel sorgu timeoutu ve maksimum deneme sayısı güvenli üst sınır, yerel retry
+  gecikmesi güvenli alt sınır olarak korunur. Bağlantı ve toplam timeout değerleri
+  bu dilimde değiştirilmedi.
+- `retry_count` yeniden deneme sayısıdır; sıfır değeri ilk teknik hatadan sonra
+  tekrar denemeyi engeller. Kalite başarısızlığı retry edilmez.
+- 3 yeni testle toplam test sayısı 874 oldu. Tam mypy 129 dosyada, Ruff,
+  değişen dosya formatı ve `compileall` kontrolleri hatasız geçti.
+
 ## İlgili Notlar
 
 ### OPEN-001–OPEN-018 Dokümantasyon Uyumlaştırması
@@ -1017,9 +1033,9 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1 ve İterasyon 31A–31B çıktıları korunacaktır.
-- `pytest` ile 871 testin geçtiği doğrulanmıştır.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1 ve İterasyon 31A–31C çıktıları korunacaktır.
+- `pytest` ile 874 testin geçtiği doğrulanmıştır.
 - Tam mypy kontrolü 129 kaynak dosyada sıfır hata vermektedir.
-- Sıradaki hazır dilim 31C kaynak politikasındaki timeout ve retry değerlerinin worker yürütmesine bağlanmasıdır. 27B restore tatbikat kanıtı `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını beklemektedir; gerçek arşiv/fiziksel imha adaptörü, 29D, 21B/frontend, hassas dışa aktarma ve gerçek SIEM de banka/altyapı kararlarına bağlıdır.
+- Sıradaki değerlendirilecek dilim 31D kaynak hız sınırı politikasının worker admission sınırına bağlanmasıdır. CPU/IO sınırları güvenilir kaynak ölçüm adaptörünü; 27B restore tatbikat kanıtı `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını beklemektedir. Gerçek arşiv/fiziksel imha adaptörü, 29D, 21B/frontend, hassas dışa aktarma ve gerçek SIEM de banka/altyapı kararlarına bağlıdır.
 - Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

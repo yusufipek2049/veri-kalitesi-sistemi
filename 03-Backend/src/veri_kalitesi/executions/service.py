@@ -230,22 +230,52 @@ class ExecutionService:
     def run_next(self) -> RuleExecution | None:
         self.close_expired_cancellations()
         started_at = self.clock()
-        concurrency_policy = (
-            self.source_usage_policy_resolver.resolve_concurrency_policy(at=started_at)
+        resolved_policy = (
+            self.source_usage_policy_resolver.resolve_policy(at=started_at)
             if self.source_usage_policy_resolver is not None
+            else None
+        )
+        concurrency_policy = (
+            resolved_policy.concurrency_policy
+            if resolved_policy is not None
             else self.concurrency_policy
         )
         execution = self.repository.claim_next(started_at, concurrency_policy)
         if execution is None:
             return None
+        runtime_policy = (
+            resolved_policy.runtime_policy_for(execution.source_ids)
+            if resolved_policy is not None
+            else None
+        )
+        effective_timeouts = self.timeouts
+        effective_max_attempts = self.retry_policy.max_attempts
+        effective_retry_delay = self.retry_policy.base_delay_seconds
+        if runtime_policy is not None:
+            effective_timeouts = ExecutionTimeouts(
+                connection_seconds=self.timeouts.connection_seconds,
+                query_seconds=min(
+                    self.timeouts.query_seconds,
+                    runtime_policy.query_timeout_seconds,
+                ),
+                total_seconds=self.timeouts.total_seconds,
+            )
+            effective_max_attempts = min(
+                self.retry_policy.max_attempts,
+                runtime_policy.retry_count + 1,
+            )
+            effective_retry_delay = max(
+                self.retry_policy.base_delay_seconds,
+                runtime_policy.retry_delay_seconds,
+            )
         versions = tuple(self.rule_catalog.get_version(item) for item in execution.rule_version_ids)
         last_error: ExecutionTechnicalError | None = None
-        for attempt_no in range(1, self.retry_policy.max_attempts + 1):
+        for attempt_no in range(1, effective_max_attempts + 1):
             try:
                 computations = self.executor.execute(
                     execution=execution,
                     versions=versions,
-                    timeouts=self.timeouts,
+                    timeouts=effective_timeouts,
                 )
                 _validate_computations(execution, computations)
                 self.repository.add_attempt(
@@ -326,9 +356,9 @@ class ExecutionService:
                         created_at=self.clock(),
                     )
                 )
-                if not exc.retryable or attempt_no == self.retry_policy.max_attempts:
+                if not exc.retryable or attempt_no == effective_max_attempts:
                     break
-                self.sleeper(self.retry_policy.base_delay_seconds * (2 ** (attempt_no - 1)))
+                self.sleeper(effective_retry_delay * (2 ** (attempt_no - 1)))
             except Exception:
                 last_error = ExecutionTechnicalError("UNEXPECTED", retryable=False)
                 self.repository.add_attempt(
