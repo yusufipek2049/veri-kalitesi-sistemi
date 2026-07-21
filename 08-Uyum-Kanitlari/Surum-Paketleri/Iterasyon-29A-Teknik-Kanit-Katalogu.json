@@ -152,16 +152,19 @@
       "review_status": "ComplianceReviewRequired",
       "evidence_paths": [
         "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18B-Isleme-Envanteri-Kaniti.md",
-        "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18C-Envanter-Tamlik-Kaniti.md"
+        "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18C-Envanter-Tamlik-Kaniti.md",
+        "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-25A-Saklama-Politikasi-Uygunluk-Kaniti.md"
       ],
       "blocker_ids": ["OPEN-BNK-007", "OPEN-BNK-008"],
       "decision_reference": null
     },
     {
       "control_id": "CTRL-KVKK-DEL-001",
-      "technical_status": "Missing",
+      "technical_status": "Partial",
       "review_status": "ComplianceReviewRequired",
-      "evidence_paths": [],
+      "evidence_paths": [
+        "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-25A-Saklama-Politikasi-Uygunluk-Kaniti.md"
+      ],
       "blocker_ids": ["OPEN-BNK-008"],
       "decision_reference": null
     },

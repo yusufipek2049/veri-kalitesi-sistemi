@@ -267,9 +267,14 @@
       ],
       "control_id": "CTRL-KVKK-DEL-001",
       "decision_reference": null,
-      "evidence_artifacts": [],
+      "evidence_artifacts": [
+        {
+          "relative_path": "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-25A-Saklama-Politikasi-Uygunluk-Kaniti.md",
+          "sha256": "c02c81f4fc34defebf923643124ad073ef444a89bad468ca84ecd5bc8535eb50"
+        }
+      ],
       "review_status": "ComplianceReviewRequired",
-      "technical_status": "Missing"
+      "technical_status": "Partial"
     },
     {
       "blocker_ids": [
@@ -286,6 +291,10 @@
         {
           "relative_path": "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18C-Envanter-Tamlik-Kaniti.md",
           "sha256": "f5a241f9881f7f4d7e2458b1bfcb60aa0961c9ebb50b7a31982b544fda1aeac3"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-25A-Saklama-Politikasi-Uygunluk-Kaniti.md",
+          "sha256": "c02c81f4fc34defebf923643124ad073ef444a89bad468ca84ecd5bc8535eb50"
         }
       ],
       "review_status": "ComplianceReviewRequired",
@@ -374,10 +383,9 @@
       "technical_status": "Missing"
     }
   ],
-  "controls_digest": "46f1b90f7da775db2c11ef6072c369228cb93aee1e15cb81541a14b95305f007",
+  "controls_digest": "10bda3b1509e333dbff49aa1e8ef9cf33d2ba3905cadddac953b38c68f69f462",
   "missing_control_ids": [
     "CTRL-BDDK-BCP-001",
-    "CTRL-KVKK-DEL-001",
     "CTRL-KVKK-XFER-001"
   ],
   "policy_version": "29A-v1",
@@ -390,9 +398,9 @@
   "schema_version": 1,
   "scope": "banking-control-technical-evidence",
   "technical_status_counts": {
-    "Missing": 3,
-    "Partial": 12,
+    "Missing": 2,
+    "Partial": 13,
     "TechnicallyVerified": 0
   },
-  "unique_evidence_artifact_count": 31
+  "unique_evidence_artifact_count": 32
 }

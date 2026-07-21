@@ -74,9 +74,9 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
     bağımsızlık şartı, kimlik ve kanıt resolver'ları, kalıcı depo, CI/CD, release
     maker-checker ve banka onayı açık kalır.
 49. `29A-v1` teknik kanıt kataloğu/manifesti 15 kontrolü deterministik olarak
-    raporladı: 12 `Partial`, 3 `Missing`, 14 açık engelli ve 15
-    `ComplianceReviewRequired`. `CTRL-BDDK-BCP-001`, `CTRL-KVKK-DEL-001` ve
-    `CTRL-KVKK-XFER-001` için teknik kanıt yoktur. İmzalama/WORM, kurumsal kanıt
+    raporladı: 13 `Partial`, 2 `Missing`, 14 açık engelli ve 15
+    `ComplianceReviewRequired`. `CTRL-BDDK-BCP-001` ve `CTRL-KVKK-XFER-001`
+    için teknik kanıt yoktur. İmzalama/WORM, kurumsal kanıt
     deposu, CI/CD zorlaması, banka karar referansı doğrulaması ve eksik
     kontrollerin uygulanması açık kalır.
 50. `29B-v1` saklanan manifest drift kapısı byte düzeyinde `MATCH/DRIFT` ve ayrı
@@ -88,6 +88,12 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
     kurumsal CI/CD ürünü/zorlaması, artifact imzası/değişmez depo, banka eşikleri,
     istisna/risk kabulü ve release maker-checker açık kalır; 29D `OPEN-BNK-012`
     ve bilgi güvenliği/iç kontrol kararlarını bekler.
+52. `25A-v1` altı zaman bazlı saklama sınıfını takvimsel, sürümlü ve
+    `ComplianceReviewRequired` katalogla salt okunur değerlendirir; aktif legal
+    hold ve resolver arızası imha uygunluğunu fail-closed engeller. Hukuk/KVKK
+    komitesi/iç denetim onayı, gerçek kayıt türü eşlemesi, kalıcı hold yaşam
+    döngüsü, maker-checker, idempotent imha/audit, arşiv geri çağırma ve yedek
+    re-delete açık kalır.
 
 ## Bankacılık Geçiş Açık Konuları
 
@@ -100,7 +106,7 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
 | OPEN-BNK-005 | Audit yazılamadığında işlem bazlı fail-closed / durable-buffer politikası | Bilgi Güvenliği / Mimari / Operasyon | Açık |
 | OPEN-BNK-006 | Audit bütünlüğü için WORM, hash-chain, imza veya kurumsal log platformu kararı | Bilgi Güvenliği / İç Denetim | Açık |
 | OPEN-BNK-007 | Kurumsal veri sınıflandırma sözlüğü; müşteri sırrı ve banka sırrı etiketlerinin eşlemesi | Veri Yönetişimi / Hukuk / Bilgi Güvenliği | Açık |
-| OPEN-BNK-008 | Kayıt türü bazlı azami saklama, imha periyodu ve legal hold politikası | Hukuk / KVKK Komitesi / İç Denetim | Açık |
+| OPEN-BNK-008 | Kayıt türü bazlı `P10Y/P5Y/P3Y/P1Y/P90D/P30D` politika taslağı, `P180D` imha aralığı ve legal hold modeli; banka onayı ve operasyonlaştırma bekleniyor | Hukuk / KVKK Komitesi / İç Denetim | ProvisionalDecision |
 | OPEN-BNK-009 | ServiceNow kurulum yeri, veri işleyen/alt işleyen durumu ve yurt dışı aktarım etkisi | Hukuk / Tedarik / Bilgi Güvenliği | Açık |
 | OPEN-BNK-010 | SIEM ürün, olay sözlüğü, alarm seviyesi ve SOC eskalasyon akışı | SOC / Bilgi Güvenliği | Açık |
 | OPEN-BNK-011 | Banka onaylı RTO, RPO, yedek şifreleme ve geri yükleme test sıklığı | İş Sürekliliği / Operasyon | Açık |

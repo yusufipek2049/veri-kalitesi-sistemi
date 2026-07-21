@@ -232,6 +232,14 @@ tags:
 | 2026-07-21 | Manual ve scheduled execution yalnız `ACTIVE` veri kaynağı kabul edecektir; `TEST_SUCCEEDED` durumu çalıştırma yetkisi vermeyecektir. | Bağlantı testinin başarılı olması idari aktivasyon veya yeniden aktivasyon onayı değildir; aksi davranış pasifleştirme kapısını dolanabilir. | `TEST_SUCCEEDED` ve `ACTIVE` durumlarını birlikte kabul etmek. | Pasif veya yalnız test edilmiş kaynak yeni execution oluşturamaz; zamanı gelen geçersiz plan mevcut teknik olay akışıyla pasifleştirilir. |
 | 2026-07-21 | Pasifleştirme mevcut çalışan işleri değiştirmeyecek; yeniden aktivasyon mevcut maker-checker akışından geçecek ve durum geçişi audit outbox ile atomik olacaktır. | Çalışan işi tamamlama/iptal etme politikası banka kararı gerektirir; fiziksel silme ve örtük yeniden aktivasyon tarihsel izlenebilirliği bozar. | Pasifleştirmede tüm işleri otomatik iptal etmek, kaynağı arşivlemek veya bağlantı testiyle doğrudan aktif yapmak. | Mevcut işler korunur; ret `INACTIVE` durumunu korur, farklı checker onayı yeniden `ACTIVE` yapar; audit-stage arızasında pasifleştirme geri alınır. |
 
+## 2026-07-21 İterasyon 25A Kararları
+
+| Tarih | Karar | Gerekçe | Alternatif | Sonuç |
+| --- | --- | --- | --- | --- |
+| 2026-07-21 | Kullanıcı karar paketindeki zaman bazlı saklama sınıfları sürümlü ve varsayılan olarak `ComplianceReviewRequired` teknik katalogda temsil edilecektir. | Kayıt türlerine tek beş yıllık süre uygulamak karar paketi ve yaşam döngüsü kontrolüyle çelişir; provisional süreler banka onayı gibi kullanılamaz. | Tüm kayıtları beş yıl saklamak veya süreleri kod içine onaysız kesin değer olarak gömmek. | Altı sınıf takvimsel süreyle değerlendirilir; varsayılan katalog süresi dolan kayda otomatik imha yetkisi vermez. |
+| 2026-07-21 | Retention uygunluğu yalnız salt okunur dry-run olarak hesaplanacak; aktif legal hold her koşulda engelleyici olacak ve resolver arızası teknik hata sayılacaktır. | Gerçek imha için yetki, maker-checker, audit, idempotency, yedek ve hukuk onayı henüz tamamlanmamıştır. | Bu dilimde fiziksel silme/anonimleştirme yapmak veya hold durumu okunamazsa kaydı uygun saymak. | Fiziksel veri değişmez; hold veya teknik belirsizlik fail-closed kapanır, yalnız opak yaşam döngüsü metadata'sı işlenir. |
+| 2026-07-21 | `ApprovedByBank` retention politikası opak onay referansı olmadan kabul edilmeyecektir. | Teknik bir enum değerinin tek başına banka onayı kanıtı sayılması kontrol durum sözlüğünü aşar. | Onay referansı olmadan `ApprovedByBank` durumuna izin vermek. | Varsayılan katalog provisional kalır; sentetik test dışında onaylı uygunluk üretmek için dış güvenilir katalog ve kanıt referansı gerekir. |
+
 ## İlişkili Notlar
 
 - [Sistem Açıklaması](../01-SRS/02-Sistem-Aciklamasi.md)
