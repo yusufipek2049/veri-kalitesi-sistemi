@@ -22,6 +22,7 @@ from veri_kalitesi.executions.models import (
     ExecutionStatus,
     ExecutionTimeouts,
     ExecutionType,
+    MeasurementStatus,
     RetryPolicy,
     RuleExecution,
     RuleExecutionResult,
@@ -290,10 +291,15 @@ class ExecutionService:
                     RuleExecutionResult(
                         execution_id=execution.execution_id,
                         rule_version_id=item.rule_version_id,
-                        checked_count=item.checked_count,
+                        population_count=item.population_count,
+                        eligible_count=item.eligible_count,
+                        evaluated_count=item.evaluated_count,
                         passed_count=item.passed_count,
                         failed_count=item.failed_count,
-                        not_evaluated_count=item.not_evaluated_count,
+                        excluded_count=item.excluded_count,
+                        technical_error_count=item.technical_error_count,
+                        unknown_count=item.unknown_count,
+                        measurement_status=item.measurement_status,
                         completed_partitions=item.completed_partitions,
                     )
                     for item in computations
@@ -321,10 +327,15 @@ class ExecutionService:
                     RuleExecutionResult(
                         execution_id=execution.execution_id,
                         rule_version_id=item.rule_version_id,
-                        checked_count=item.checked_count,
+                        population_count=item.population_count,
+                        eligible_count=item.eligible_count,
+                        evaluated_count=item.evaluated_count,
                         passed_count=item.passed_count,
                         failed_count=item.failed_count,
-                        not_evaluated_count=item.not_evaluated_count,
+                        excluded_count=item.excluded_count,
+                        technical_error_count=item.technical_error_count,
+                        unknown_count=item.unknown_count,
+                        measurement_status=item.measurement_status,
                         completed_partitions=(
                             item.completed_partitions or exc.completed_partitions
                         ),
@@ -466,17 +477,23 @@ def _validate_computations(
         raise ExecutionValidationError("Executor results do not match requested rule versions.")
     for item in computations:
         counts = (
-            item.checked_count,
+            item.population_count,
+            item.eligible_count,
+            item.evaluated_count,
             item.passed_count,
             item.failed_count,
-            item.not_evaluated_count,
+            item.excluded_count,
+            item.technical_error_count,
+            item.unknown_count,
         )
         if any(
-            isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in counts
+            value is None or isinstance(value, bool) or not isinstance(value, int) or value < 0
+            for value in counts
         ):
             raise ExecutionValidationError("Execution counts must be non-negative integers.")
-        if item.checked_count != sum(counts[1:]):
+        if not _canonical_count_invariants_hold(item):
             raise ExecutionValidationError("Execution counts are inconsistent.")
+        _validate_measurement_status(item)
 
 
 def _validate_partial_computations(
@@ -492,18 +509,55 @@ def _validate_partial_computations(
         )
     for item in computations:
         counts = (
-            item.checked_count,
+            item.population_count,
+            item.eligible_count,
+            item.evaluated_count,
             item.passed_count,
             item.failed_count,
-            item.not_evaluated_count,
+            item.excluded_count,
+            item.technical_error_count,
+            item.unknown_count,
         )
         if any(
-            isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in counts
+            value is None or isinstance(value, bool) or not isinstance(value, int) or value < 0
+            for value in counts
         ):
             raise ExecutionValidationError("Execution counts must be non-negative integers.")
-        if item.checked_count != sum(counts[1:]):
+        if not _canonical_count_invariants_hold(item):
             raise ExecutionValidationError("Execution counts are inconsistent.")
+        _validate_measurement_status(item)
         _validate_partitions(item.completed_partitions)
+
+
+def _canonical_count_invariants_hold(item: RuleResultComputation) -> bool:
+    assert item.population_count is not None
+    assert item.eligible_count is not None
+    assert item.evaluated_count is not None
+    assert item.passed_count is not None
+    assert item.failed_count is not None
+    assert item.excluded_count is not None
+    assert item.technical_error_count is not None
+    assert item.unknown_count is not None
+    return (
+        item.population_count == item.eligible_count + item.excluded_count + item.unknown_count
+        and item.eligible_count == item.evaluated_count + item.technical_error_count
+        and item.evaluated_count == item.passed_count + item.failed_count
+    )
+
+
+def _validate_measurement_status(item: RuleResultComputation) -> None:
+    if item.measurement_status is None:
+        raise ExecutionValidationError("Execution measurement status is required.")
+    assert item.evaluated_count is not None
+    scoreable = {
+        MeasurementStatus.PASSED,
+        MeasurementStatus.WARNING,
+        MeasurementStatus.FAILED,
+    }
+    if (item.evaluated_count > 0) != (item.measurement_status in scoreable):
+        raise ExecutionValidationError(
+            "Execution measurement status is inconsistent with evaluated_count."
+        )
 
 
 def _validate_partitions(partitions: tuple[str, ...]) -> None:

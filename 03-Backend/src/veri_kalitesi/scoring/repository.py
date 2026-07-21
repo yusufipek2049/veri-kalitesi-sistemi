@@ -11,6 +11,7 @@ from typing import Mapping
 
 from veri_kalitesi.audit import PreparedAuditEvent, SQLiteTransactionalAudit
 from veri_kalitesi.data_sources.models import Criticality
+from veri_kalitesi.executions.models import MeasurementStatus
 from veri_kalitesi.rules.models import QualityDimension
 from veri_kalitesi.scoring.errors import (
     ScoreNotFoundError,
@@ -53,6 +54,7 @@ class SQLiteScoreRepository:
                 scope_id TEXT,
                 score_value TEXT,
                 score_status TEXT NOT NULL,
+                measurement_status TEXT,
                 level TEXT,
                 calculation_details TEXT NOT NULL,
                 calculated_at TEXT NOT NULL,
@@ -180,6 +182,7 @@ class SQLiteScoreRepository:
                     scope_id TEXT,
                     score_value TEXT,
                     score_status TEXT NOT NULL,
+                    measurement_status TEXT,
                     level TEXT,
                     calculation_details TEXT NOT NULL,
                     calculated_at TEXT NOT NULL,
@@ -192,17 +195,23 @@ class SQLiteScoreRepository:
                 INSERT INTO quality_scores (
                     quality_score_id, execution_id, rule_result_id, rule_version_id,
                     scope_type, scope_id, score_value, score_status, level,
-                    calculation_details, calculated_at
+                    measurement_status, calculation_details, calculated_at
                 )
                 SELECT quality_score_id, execution_id, rule_result_id, rule_version_id,
                     scope_type, scope_id, score_value, score_status, NULL,
-                    calculation_details, calculated_at
+                    NULL, calculation_details, calculated_at
                 FROM quality_scores_old
                 """
             )
             self.connection.execute("DROP TABLE quality_scores_old")
         elif "level" not in columns:
             self.connection.execute("ALTER TABLE quality_scores ADD COLUMN level TEXT")
+        columns = {
+            row["name"]: row
+            for row in self.connection.execute("PRAGMA table_info(quality_scores)").fetchall()
+        }
+        if "measurement_status" not in columns:
+            self.connection.execute("ALTER TABLE quality_scores ADD COLUMN measurement_status TEXT")
 
     def add_or_get(self, score: QualityScore) -> tuple[QualityScore, bool]:
         with self._lock, self.connection:
@@ -220,8 +229,8 @@ class SQLiteScoreRepository:
                 INSERT INTO quality_scores (
                     quality_score_id, execution_id, rule_result_id, rule_version_id,
                     scope_type, scope_id, score_value, score_status,
-                    level, calculation_details, calculated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    measurement_status, level, calculation_details, calculated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     score.quality_score_id,
@@ -232,6 +241,11 @@ class SQLiteScoreRepository:
                     score.scope_id,
                     str(score.score_value) if score.score_value is not None else None,
                     score.score_status.value,
+                    (
+                        score.measurement_status.value
+                        if score.measurement_status is not None
+                        else None
+                    ),
                     score.level.value if score.level else None,
                     json.dumps(thaw(score.calculation_details), sort_keys=True),
                     score.calculated_at.isoformat(),
@@ -491,6 +505,11 @@ def _row_to_score(row: sqlite3.Row) -> QualityScore:
         scope_id=row["scope_id"],
         score_value=Decimal(row["score_value"]) if row["score_value"] else None,
         score_status=ScoreStatus(row["score_status"]),
+        measurement_status=(
+            MeasurementStatus(row["measurement_status"])
+            if row["measurement_status"] is not None
+            else None
+        ),
         level=ScoreLevel(row["level"]) if row["level"] else None,
         calculation_details=json.loads(row["calculation_details"]),
         calculated_at=datetime.fromisoformat(row["calculated_at"]),

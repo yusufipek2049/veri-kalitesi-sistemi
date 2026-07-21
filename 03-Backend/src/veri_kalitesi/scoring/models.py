@@ -11,6 +11,7 @@ from typing import Any, Mapping
 from uuid import uuid4
 
 from veri_kalitesi.data_sources.models import Criticality
+from veri_kalitesi.executions.models import MeasurementStatus
 from veri_kalitesi.identity import ActorType
 from veri_kalitesi.rules.models import QualityDimension
 
@@ -29,6 +30,7 @@ class ScoreScopeType(str, Enum):
 
 class ScoreStatus(str, Enum):
     CALCULATED = "CALCULATED"
+    NOT_CALCULATED = "NOT_CALCULATED"
     NO_DATA = "NO_DATA"
     PARTIAL = "PARTIAL"
     NOT_CALCULATED_TECHNICAL_ERROR = "NOT_CALCULATED_TECHNICAL_ERROR"
@@ -124,6 +126,7 @@ class QualityScore:
     scope_id: str | None
     score_status: ScoreStatus
     calculation_details: Mapping[str, Any]
+    measurement_status: MeasurementStatus | None = None
     rule_result_id: str | None = None
     score_value: Decimal | None = None
     level: ScoreLevel | None = None

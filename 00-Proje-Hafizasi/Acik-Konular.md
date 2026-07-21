@@ -140,10 +140,11 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
 62. Kapsama oranı ile eksik kayıt oranının beklenen/gerçek sayaçlardan nasıl
     hesaplanacağı SRS'de tanımlı değildir. Bu formüller, veri kökeni ve worker
     kanıt sözleşmesi kesinleşmeden `PartialExecutionFacts` otomatik üretilmez.
-63. `DQ-SCR-001`–`DQ-SCR-033` dokümantasyon sözleşmesi kesinleşti. Mevcut
-    runtime; standart sekiz ölçüm durumu, istisna sayaçları, veri öğesi seviyesi,
+63. `DQ-SCR-001`–`DQ-SCR-033` dokümantasyon sözleşmesi kesinleşti. İterasyon 33A
+    standart sekiz ölçüm durumu, sekiz kanonik sayaç ve değerlendirilen kayıt
+    paydasını uyguladı. Runtime; dışlama alt kırılımları, veri öğesi seviyesi,
     ayrı kapsam/güven/risk/kritiklik/teknik sağlık varlıkları, kritik veto/tavan,
-    sürümlü normalizasyon, istisna/override ve replay sözleşmesinin tamamını henüz
+    sürümlü normalizasyon, istisna/override ve replay sözleşmesinin kalanını henüz
     uygulamamaktadır.
 64. Üretim normalizasyon formülleri, eşik/ağırlık değerleri, kritik kural
     veto/tavan/blokaj davranışları, kapsam/güven ve veri risk katsayıları `TBD`'dir.
@@ -156,11 +157,11 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
 66. İstisna ve ham skordan ayrı değerlendirme/override için banka rol matrisi,
     izinli türler, azami süre, risk kabul ve raporlama politikası açık kalır;
     `OPEN-BNK-004`, `OPEN-BNK-005`, `OPEN-BNK-006` ve `OPEN-BNK-008` geçerlidir.
-67. Kanonik skorlama ve ölçüm yeterliliği hedef tasarımı dokümante edildi; mevcut
-    runtime population/eligible/evaluated sayaçlarını, ham/nihai skor ayrımını,
-    sekiz yeterlilik durumunu, geçerlilik kapısını ve ayrı kullanım kararını henüz
-    uygulamamaktadır. Geçiş `OPEN-022` ve İterasyon 33A sonrası küçük dilimlerle
-    yürütülmelidir.
+67. Kanonik skorlama ve ölçüm yeterliliği hedef tasarımı dokümante edildi;
+    population/eligible/evaluated dahil sekiz sayaç ve sekiz ölçüm durumu 33A ile
+    runtime'a taşındı. Eski kanoniksiz sonuçların backfill/sürüm geçişi, ham/nihai
+    skor ayrımı, yeterlilik durumları, geçerlilik kapısı ve ayrı kullanım kararı
+    henüz uygulanmadı; geçiş `OPEN-022` sonrası küçük dilimlerle yürütülmelidir.
 68. Ölçüm yöntemine göre kapsam pay/payda sözleşmesi, üretim minimum kapsamı ve
     örneklem güveni, yeterlilik kanıt/onay matrisi, geçerlilik süreleri,
     kullanım/blokaj yetkileri ile remediation/eskalasyon

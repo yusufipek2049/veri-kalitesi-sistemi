@@ -17,6 +17,7 @@ from veri_kalitesi.executions.models import (
     ExecutionAttempt,
     ExecutionStatus,
     ExecutionType,
+    MeasurementStatus,
     RuleExecution,
     RuleExecutionResult,
     WorkloadClass,
@@ -72,10 +73,15 @@ class SQLiteExecutionRepository:
                 rule_result_id TEXT PRIMARY KEY,
                 execution_id TEXT NOT NULL,
                 rule_version_id TEXT NOT NULL,
-                checked_count INTEGER NOT NULL,
-                passed_count INTEGER NOT NULL,
-                failed_count INTEGER NOT NULL,
-                not_evaluated_count INTEGER NOT NULL,
+                population_count INTEGER,
+                eligible_count INTEGER,
+                evaluated_count INTEGER,
+                passed_count INTEGER,
+                failed_count INTEGER,
+                excluded_count INTEGER,
+                technical_error_count INTEGER,
+                unknown_count INTEGER,
+                measurement_status TEXT,
                 completed_partitions TEXT NOT NULL,
                 eligible_for_official_scoring INTEGER NOT NULL,
                 UNIQUE (execution_id, rule_version_id),
@@ -122,20 +128,80 @@ class SQLiteExecutionRepository:
                 "PRAGMA table_info(rule_execution_results)"
             ).fetchall()
         }
-        if "completed_partitions" not in columns:
+        if "checked_count" in columns or "not_evaluated_count" in columns:
+            completed_partitions = (
+                "completed_partitions" if "completed_partitions" in columns else "'[]'"
+            )
+            eligible_for_official_scoring = (
+                "eligible_for_official_scoring"
+                if "eligible_for_official_scoring" in columns
+                else "1"
+            )
+            self.connection.execute(
+                "ALTER TABLE rule_execution_results RENAME TO rule_execution_results_legacy"
+            )
             self.connection.execute(
                 """
-                ALTER TABLE rule_execution_results
-                ADD COLUMN completed_partitions TEXT NOT NULL DEFAULT '[]'
+                CREATE TABLE rule_execution_results (
+                    rule_result_id TEXT PRIMARY KEY,
+                    execution_id TEXT NOT NULL,
+                    rule_version_id TEXT NOT NULL,
+                    population_count INTEGER,
+                    eligible_count INTEGER,
+                    evaluated_count INTEGER,
+                    passed_count INTEGER,
+                    failed_count INTEGER,
+                    excluded_count INTEGER,
+                    technical_error_count INTEGER,
+                    unknown_count INTEGER,
+                    measurement_status TEXT,
+                    completed_partitions TEXT NOT NULL,
+                    eligible_for_official_scoring INTEGER NOT NULL,
+                    UNIQUE (execution_id, rule_version_id),
+                    FOREIGN KEY (execution_id) REFERENCES rule_executions(execution_id)
+                )
                 """
             )
-        if "eligible_for_official_scoring" not in columns:
             self.connection.execute(
-                """
-                ALTER TABLE rule_execution_results
-                ADD COLUMN eligible_for_official_scoring INTEGER NOT NULL DEFAULT 1
+                f"""
+                INSERT INTO rule_execution_results (
+                    rule_result_id, execution_id, rule_version_id,
+                    population_count, eligible_count, evaluated_count,
+                    passed_count, failed_count, excluded_count,
+                    technical_error_count, unknown_count, measurement_status,
+                    completed_partitions, eligible_for_official_scoring
+                )
+                SELECT rule_result_id, execution_id, rule_version_id,
+                    NULL, NULL, NULL, passed_count, failed_count, NULL, NULL, NULL, NULL,
+                    {completed_partitions}, {eligible_for_official_scoring}
+                FROM rule_execution_results_legacy
                 """
             )
+            self.connection.execute("DROP TABLE rule_execution_results_legacy")
+            columns = {
+                row["name"]
+                for row in self.connection.execute(
+                    "PRAGMA table_info(rule_execution_results)"
+                ).fetchall()
+            }
+        canonical_columns = {
+            "population_count": "INTEGER",
+            "eligible_count": "INTEGER",
+            "evaluated_count": "INTEGER",
+            "passed_count": "INTEGER",
+            "failed_count": "INTEGER",
+            "excluded_count": "INTEGER",
+            "technical_error_count": "INTEGER",
+            "unknown_count": "INTEGER",
+            "measurement_status": "TEXT",
+            "completed_partitions": "TEXT NOT NULL DEFAULT '[]'",
+            "eligible_for_official_scoring": "INTEGER NOT NULL DEFAULT 1",
+        }
+        for name, definition in canonical_columns.items():
+            if name not in columns:
+                self.connection.execute(
+                    f"ALTER TABLE rule_execution_results ADD COLUMN {name} {definition}"
+                )
         self.connection.commit()
 
     def create_or_get(self, execution: RuleExecution) -> tuple[RuleExecution, bool]:
@@ -186,21 +252,15 @@ class SQLiteExecutionRepository:
                     (ExecutionStatus.RUNNING.value,),
                 ).fetchall()
             ]
-            heavy_count = sum(
-                item.workload_class is WorkloadClass.HEAVY for item in running
-            )
-            light_count = sum(
-                item.workload_class is WorkloadClass.LIGHT for item in running
-            )
+            heavy_count = sum(item.workload_class is WorkloadClass.HEAVY for item in running)
+            light_count = sum(item.workload_class is WorkloadClass.LIGHT for item in running)
             source_counts: dict[str, int] = {}
             heavy_source_counts: dict[str, int] = {}
             for item in running:
                 for source_id in item.source_ids:
                     source_counts[source_id] = source_counts.get(source_id, 0) + 1
                     if item.workload_class is WorkloadClass.HEAVY:
-                        heavy_source_counts[source_id] = (
-                            heavy_source_counts.get(source_id, 0) + 1
-                        )
+                        heavy_source_counts[source_id] = heavy_source_counts.get(source_id, 0) + 1
             row = next(
                 (
                     item
@@ -271,19 +331,31 @@ class SQLiteExecutionRepository:
                 self.connection.execute(
                     """
                     INSERT INTO rule_execution_results (
-                        rule_result_id, execution_id, rule_version_id, checked_count,
-                        passed_count, failed_count, not_evaluated_count
-                        , completed_partitions, eligible_for_official_scoring
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        rule_result_id, execution_id, rule_version_id,
+                        population_count, eligible_count, evaluated_count,
+                        passed_count, failed_count,
+                        excluded_count, technical_error_count, unknown_count,
+                        measurement_status, completed_partitions,
+                        eligible_for_official_scoring
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         result.rule_result_id,
                         result.execution_id,
                         result.rule_version_id,
-                        result.checked_count,
+                        result.population_count,
+                        result.eligible_count,
+                        result.evaluated_count,
                         result.passed_count,
                         result.failed_count,
-                        result.not_evaluated_count,
+                        result.excluded_count,
+                        result.technical_error_count,
+                        result.unknown_count,
+                        (
+                            result.measurement_status.value
+                            if result.measurement_status is not None
+                            else None
+                        ),
                         json.dumps(result.completed_partitions),
                         1 if result.eligible_for_official_scoring else 0,
                     ),
@@ -314,19 +386,31 @@ class SQLiteExecutionRepository:
                 self.connection.execute(
                     """
                     INSERT INTO rule_execution_results (
-                        rule_result_id, execution_id, rule_version_id, checked_count,
-                        passed_count, failed_count, not_evaluated_count,
-                        completed_partitions, eligible_for_official_scoring
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        rule_result_id, execution_id, rule_version_id,
+                        population_count, eligible_count, evaluated_count,
+                        passed_count, failed_count,
+                        excluded_count, technical_error_count, unknown_count,
+                        measurement_status, completed_partitions,
+                        eligible_for_official_scoring
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         result.rule_result_id,
                         result.execution_id,
                         result.rule_version_id,
-                        result.checked_count,
+                        result.population_count,
+                        result.eligible_count,
+                        result.evaluated_count,
                         result.passed_count,
                         result.failed_count,
-                        result.not_evaluated_count,
+                        result.excluded_count,
+                        result.technical_error_count,
+                        result.unknown_count,
+                        (
+                            result.measurement_status.value
+                            if result.measurement_status is not None
+                            else None
+                        ),
                         json.dumps(result.completed_partitions),
                         0,
                     ),
@@ -389,9 +473,7 @@ class SQLiteExecutionRepository:
             )
         return self.get(execution_id)
 
-    def complete_cancelled(
-        self, execution_id: str, cancelled_at: datetime
-    ) -> RuleExecution:
+    def complete_cancelled(self, execution_id: str, cancelled_at: datetime) -> RuleExecution:
         with self._lock, self.connection:
             execution = self.get(execution_id)
             if execution.status is not ExecutionStatus.CANCEL_REQUESTED:
@@ -400,9 +482,7 @@ class SQLiteExecutionRepository:
                 )
             return self._write_cancelled(execution_id, cancelled_at)
 
-    def _write_cancelled(
-        self, execution_id: str, cancelled_at: datetime
-    ) -> RuleExecution:
+    def _write_cancelled(self, execution_id: str, cancelled_at: datetime) -> RuleExecution:
         self.connection.execute(
             """
             UPDATE rule_executions
@@ -514,9 +594,7 @@ def _execution_values(execution: RuleExecution) -> tuple[object, ...]:
         execution.created_at.isoformat(),
         execution.started_at.isoformat() if execution.started_at else None,
         execution.finished_at.isoformat() if execution.finished_at else None,
-        execution.cancel_requested_at.isoformat()
-        if execution.cancel_requested_at
-        else None,
+        execution.cancel_requested_at.isoformat() if execution.cancel_requested_at else None,
         execution.cancel_requested_by,
         execution.cancel_reason,
         execution.cancelled_at.isoformat() if execution.cancelled_at else None,
@@ -546,9 +624,7 @@ def _row_to_execution(row: sqlite3.Row) -> RuleExecution:
         else None,
         cancel_requested_by=row["cancel_requested_by"],
         cancel_reason=row["cancel_reason"],
-        cancelled_at=datetime.fromisoformat(row["cancelled_at"])
-        if row["cancelled_at"]
-        else None,
+        cancelled_at=datetime.fromisoformat(row["cancelled_at"]) if row["cancelled_at"] else None,
     )
 
 
@@ -569,10 +645,19 @@ def _row_to_result(row: sqlite3.Row) -> RuleExecutionResult:
         rule_result_id=row["rule_result_id"],
         execution_id=row["execution_id"],
         rule_version_id=row["rule_version_id"],
-        checked_count=row["checked_count"],
+        population_count=row["population_count"],
+        eligible_count=row["eligible_count"],
+        evaluated_count=row["evaluated_count"],
         passed_count=row["passed_count"],
         failed_count=row["failed_count"],
-        not_evaluated_count=row["not_evaluated_count"],
+        excluded_count=row["excluded_count"],
+        technical_error_count=row["technical_error_count"],
+        unknown_count=row["unknown_count"],
+        measurement_status=(
+            MeasurementStatus(row["measurement_status"])
+            if row["measurement_status"] is not None
+            else None
+        ),
         completed_partitions=tuple(json.loads(row["completed_partitions"])),
         eligible_for_official_scoring=bool(row["eligible_for_official_scoring"]),
     )
