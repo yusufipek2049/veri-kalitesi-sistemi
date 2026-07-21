@@ -33,6 +33,8 @@ değildir.
 | Kabul edilen skorlama/ölçüm yeterliliği modeliyle runtime'ın ayrışması | Yüksek | Yüksek | P1 | Kanonik sayaçlar, ham/nihai skor, yeterlilik/geçerlilik kapısı, kullanım kararı, kapsam/güven ve override kodda yok | İterasyon 33A'dan başlayan küçük, geriye uyumlu skorlama dilimleri |
 | Dataset kritikliğinin kalite skoruna karışması | Yüksek | Orta-Yüksek | P1 | Mevcut `SOURCE` formülü; `ADR-015` hedefinde `Superseded` | Kritiklik/risk göstergelerini kalite agregasyonundan ayır |
 | Yüksek fakat yetersiz/eski ölçümün operasyonel kararda kullanılması | Orta-Yüksek | Yüksek | P1 | Runtime'da ayrı yeterlilik ve `ValidUntil` kapısı yok; `OPEN-023` değerleri açık | Yeterlilik kapısını ve fail-closed kullanım kararını API/UI öncesi uygula |
+| Sentetik çıktının anonim kabul edilmesi veya üretim kaydını ezberlemesi | Orta | Yüksek | P1 | `ADR-016` hedef tasarım; gizlilik değerlendiricisi runtime'da yok | `OPEN-024/025` kararı, ayrılmış üretim erişimi ve fail-closed gizlilik kapısı |
+| Skor motorunun kendi çıktısıyla sentetik ground truth üretmesi | Orta | Yüksek | P1 | Bağımsız comparator/oracle runtime'da yok | Bağımsız ground truth, sürümlü seed/senaryo ve false-positive/negative kabul testleri |
 
 ## P0 - Üretime Çıkışı Engelleyen İşler
 
@@ -139,6 +141,7 @@ kabulü dış kararlara bağlıdır; hazır ve engellenmemiş yeni geçiş artı
 | Scoring batch katalog erişimi | N+1 kaldırılır; formül sonucu değişmez |
 | Dimension/enterprise ağırlık politikası | Banka onaylı sürümlü formül ve geriye dönük açıklanabilirlik |
 | Full mypy ve coverage CI kapısı | Yerel 0 type error korunur; onaylı branch threshold uygulanır |
+| Sentetik veri çekirdeği | SYN-001–SYN-005 ile politika/run, Golden üretici, kusur/ground truth, zaman/hacim ve gizlilik/olay izolasyonu küçük dikeylere bölünür |
 | Büyük servislerin ayrıştırılması | Davranış değiştirmeyen karakterizasyon testleriyle küçük use-case sınıfları |
 | Legacy kaldırma | `_legacy` ve `audit_records` geçiş/rollback kanıtı sonrası silinir |
 

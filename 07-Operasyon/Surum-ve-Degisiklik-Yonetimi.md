@@ -59,6 +59,25 @@ Veri Yönetişimi onayı olmadan belirlenmez; eksik değerler `TBD` kalır.
 - Skor, politika, istisna, override ve replay kayıtlarının RPO/RTO ile saklama
   hedefleri bileşen/kayıt sınıfı politikasından gelir; kesin değerler `TBD`'dir.
 
+## Sentetik Veri Değişiklik Kapısı
+
+`FR-088–FR-096`, `ADR-016` ve `RULE-016/017` kapsamındaki üretici, senaryo,
+şema, dağılım, eksiklik, kusur, ground truth, gizlilik veya karşılaştırma
+değişikliğinde üretim öncesi şu kanıtlar aranır:
+
+- değişmez üretici/konfigürasyon/şema/politika/ground truth sürümleri ve random seed,
+- Golden yapısal bütünlük ve aynı seed ile kanonik replay sonucu,
+- geçerli uç/kusur ayrımı, bağımsız expected-versus-actual karşılaştırma ve
+  teknik hata negatifleri,
+- gizlilik kapısı, sınıflandırma, erişim, dışa aktarım ve saklama sonucu,
+- bildirim, ServiceNow ve SIEM için yalnız fake/sandbox hedef kanıtı,
+- risk bazlı maker-checker, veri-minimum audit ve güvenli pasifleştirme planı.
+
+Skor motorunun gerçekleşen sonucu ground truth olamaz. `OPEN-024/025`
+sonuçlanmadan nicel gizlilik/fayda/tolerans değeri veya üretim profili erişimi
+onaylanmış sayılmaz. Sentetik performans kanıtı `OPEN-014` nihai kabulinin yerine
+geçmez.
+
 ## Yerel Secret Kontrolü
 
 Üretim adayı hazırlanmadan önce yerel veri-minimum kontrol aşağıdaki komutla

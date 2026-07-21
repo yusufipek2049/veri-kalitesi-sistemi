@@ -166,6 +166,17 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
     kullanım/blokaj yetkileri ile remediation/eskalasyon
     hedefleri `TBD`'dir. Bu değerler `OPEN-023` ve `OPEN-BNK-004/008/010/013/017`
     kararı olmadan kodlanmamalıdır.
+69. Sentetik veri hedef tasarımı dokümante edildi; üretici, politika/run/ground
+    truth deposu, bağımsız karşılaştırıcı, gizlilik değerlendiricisi ve dataset
+    kataloğu runtime'da uygulanmadı. Dağılım/korelasyon/görev faydası/gizlilik
+    eşikleri, kusur yoğunluğu oranları, skor toleransı ve izinli üretim yöntemleri
+    `OPEN-024` kapsamında `DecisionRequired` durumundadır.
+70. Sentetik üretimde onaylı üretim profili veya örneği kullanılıp
+    kullanılmayacağı; kullanılırsa erişim/ortam ayrımı, minimizasyon, saklama,
+    yeniden tanımlama ve onay süreci `OPEN-025` kapsamında
+    `ComplianceReviewRequired / LegalReviewRequired / SecurityReviewRequired`
+    durumundadır. Sentetik üretim anonimlik kanıtı veya `OPEN-014` nihai kabulünün
+    yerine geçen kanıt sayılmayacaktır.
 
 ## Bankacılık Geçiş Açık Konuları
 

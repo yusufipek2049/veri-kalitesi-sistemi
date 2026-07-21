@@ -49,6 +49,11 @@ Bu bölüm, sistemin temel veri varlıklarını, veri sözlüğünü, saklama po
 | RetentionPolicy | Kayıt sınıfı bazlı çevrimiçi/arşiv saklama ve imha politikası. |
 | RecoveryObjectivePolicy | Bileşen bazlı RPO/RTO hedefi. |
 | OutboundIntegrationRecord | ServiceNow için dayanıklı ve idempotent outbound kayıt. |
+| SyntheticDatasetPolicy | Sentetik üretim izni, profil, seed, gizlilik, ground truth ve test bildirimi davranışını sürümleyen dataset politikası. |
+| SyntheticScenario | Şema, dağılım, ilişki, zaman, eksiklik, geçerli uç ve kusur enjeksiyonunun değişmez senaryo sürümü. |
+| SyntheticGenerationRun | Üretici/konfigürasyon/şema/politika sürümü, random seed, hacim ve çıktı kimliğiyle tek üretim çalışması. |
+| SyntheticGroundTruth | Sentetik kayıt/senaryo için runtime motorundan bağımsız beklenen kural, skor, önem ve olay sonucu. |
+| SyntheticValidationResult | Yapısal, istatistiksel, görev faydası, gizlilik ve teknik doğrulamanın değişmez sonucu. |
 
 
 ## Veri Sözlüğü Grupları
@@ -76,6 +81,8 @@ Bu bölüm, sistemin temel veri varlıklarını, veri sözlüğünü, saklama po
 | Teknik loglar | TBD | Onay gerekli | Secret ve ham hassas veri içermez. |
 | Geçici işleme verileri | TBD | Onay gerekli | Amaç bitiminde güvenli imha uygulanır. |
 | Hata ve yeniden deneme kayıtları | TBD | Onay gerekli | Güvenli hata özeti ve operasyon gereksinimiyle sınırlıdır. |
+| Sentetik datasetler | TBD | Gizlilik/güvenlik ve veri sahibi onayı gerekli | Sentetik köken etiketi korunur; anonimlik varsayılmaz ve sınırsız saklanmaz. |
+| Sentetik üretim, ground truth ve doğrulama kayıtları | TBD | Onay gerekli | Datasetten ayrı kayıt sınıflarıdır; lineage ve test açıklanabilirliği korunur. |
 
 Her `RetentionPolicy` kaydı en az kayıt sınıfı, saklama süresi, hukuki dayanak veya kurumsal gerekçe, çevrimiçi saklama süresi, arşiv süresi, imha yöntemi ve sorumlu birim alanlarını taşır. Kesin süreler onaylanmadan değer atanmaz.
 
@@ -94,6 +101,53 @@ Her `RetentionPolicy` kaydı en az kayıt sınıfı, saklama süresi, hukuki day
 | approval_status | Onay durumu |
 | audit_reference | Politika değişikliği audit referansı |
 
+### SyntheticDatasetPolicy
+
+Bu politika `RetentionPolicy`, `ScoringPolicy`, `DatasetCriticalityProfile` ve
+sınıflandırma kayıtlarına referans verir; aynı alanları kopyalamaz.
+
+| Alan | Açıklama |
+| --- | --- |
+| dataset_id | Hedef dataset |
+| synthetic_generation_allowed | Sentetik üretim izni; yok/false ise fail-closed |
+| synthetic_profile | Golden, Normal Operasyon, Bozulmuş, Stress, Drift, Şema Değişikliği, Nadir Olay, Gizlilik Test veya Olay Yönetimi profili |
+| volume_profile | Fonksiyonel, entegrasyon, performans ve diğer teknik hacim profili |
+| distribution_profile | Sürümlü dağılım/korelasyon/segment profili |
+| missingness_profile | Sürümlü eksiklik mekanizması profili |
+| defect_injection_profile | Kusur türü, kapsamı ve yoğunluk sınıfı |
+| privacy_profile | Uygulanacak gizlilik risk değerlendirme profili |
+| retention_policy_id | Ortak saklama ve imha politikası referansı |
+| ground_truth_enabled | Bağımsız ground truth zorunluluğu |
+| seed_strategy | Deterministik random seed üretim/sağlama yöntemi |
+| expected_score_tolerance | Beklenen/gerçekleşen skor toleransı; `OPEN-024` sonuçlanana kadar TBD |
+| criticality_profile_id | Ayrı dataset kritiklik profili referansı |
+| notification_test_enabled | Yalnız izole test hedefi kullanım izni |
+| schema_version | Sentetik şema sürümü |
+| policy_version | Değişmez politika sürümü |
+| effective_from, effective_to | Politika geçerlilik aralığı |
+| approved_by, approval_status | Risk bazlı onay ve görevler ayrılığı kanıtı |
+
+### Sentetik Üretim ve Ground Truth
+
+`SyntheticGenerationRun`; `scenario_id`, `generator_version`,
+`configuration_version`, `schema_version`, `policy_version`, `random_seed`,
+`created_at`, `record_count`, kusur enjeksiyon oranları, çıktı kimliği ve doğrulama
+referanslarını taşır. Aynı girdiyle replay yeni run kaydı oluşturur; önceki run
+değiştirilmez.
+
+`SyntheticGroundTruth`; `synthetic_record_id`, `scenario_id`,
+`generation_run_id`, `generator_version`, `random_seed`, `source_system`,
+`dataset_id`, `injected_defect`, `affected_dimension`, `affected_rule_id`,
+`expected_rule_result`, `expected_severity`, `expected_dataset_score`,
+`expected_notification`, `expected_escalation`, `injection_timestamp`,
+`is_valid_edge_case` ve `ground_truth_version` alanlarını taşır. Ground truth iş
+verisiyle karıştırılmaz ve runtime skor/kural motorunun çıktısından türetilmez.
+
+`SyntheticValidationResult`; doğrulama sınıfı, politika/tolerans sürümü,
+`PASS/BLOCKED/TECHNICAL_ERROR` durumu, veri-minimum neden kodları, beklenen ve
+gerçekleşen sonuç özetleri ile audit referansını taşır. Gizlilik ve görev faydası
+başarısızlığı teknik hatadan ayrı tutulur.
+
 ## 7.3.1 Bileşen Bazlı Kurtarma Hedefleri
 
 `RecoveryObjectivePolicy`; sistem yapılandırması, kural/sürüm, eşik/ağırlık, kullanıcı/rol eşlemesi, audit, onay, çalıştırma metadatası, skor, rapor dosyası ve bildirim/entegrasyon kuyruğu için ayrı kayıt taşır.
@@ -111,7 +165,7 @@ Her `RetentionPolicy` kaydı en az kayıt sınıfı, saklama süresi, hukuki day
 ## 7.4 Veri Modeli
 
 
-Temel ilişkiler şöyledir: Bir DataSource birden çok Dataset; bir Dataset birden çok DataField içerir. QualityRule mantıksal kimliği altında birden çok değişmez RuleVersion bulunur. RuleVersion bir veya daha çok Dataset/DataField ile ilişkilidir. Schedule bir kural veya kural grubunu tetikler ve RuleExecution oluşturur. RuleExecution, RuleResult üretir; RuleResult'tan değişmez ham ve kritik politika sonrası nihai QualityScore hesaplanır. ScoreMeasurementSummary kapsam/güveni, MeasurementQualificationResult ölçüm yeterliliğini, DatasetCriticalityProfile kritiklik profilini ve DataRiskScore ayrı risk sonucunu taşır. ScoringPolicy hesaplama ve yeterlilik davranışını sürümler; DataQualityException paydayı kontrollü etkileyebilir, ScoreAssessmentOverride ham/nihai skoru değiştirmez. Skor veya çalışma olayı Notification ve DataQualityIssue oluşturabilir. Issue birden çok IssueComment ve ServiceNow referansı taşıyabilir. User, Role ve Permission ilişkileri RBAC'ı kurar. Kritik değişiklikler AuditLog ile izlenir. (`DQ-SCR-002`, `DQ-SCR-018`–`DQ-SCR-025`, `DQ-SCR-032`)
+Temel ilişkiler şöyledir: Bir DataSource birden çok Dataset; bir Dataset birden çok DataField içerir. QualityRule mantıksal kimliği altında birden çok değişmez RuleVersion bulunur. RuleVersion bir veya daha çok Dataset/DataField ile ilişkilidir. Schedule bir kural veya kural grubunu tetikler ve RuleExecution oluşturur. RuleExecution, RuleResult üretir; RuleResult'tan değişmez ham ve kritik politika sonrası nihai QualityScore hesaplanır. ScoreMeasurementSummary kapsam/güveni, MeasurementQualificationResult ölçüm yeterliliğini, DatasetCriticalityProfile kritiklik profilini ve DataRiskScore ayrı risk sonucunu taşır. ScoringPolicy hesaplama ve yeterlilik davranışını sürümler; DataQualityException paydayı kontrollü etkileyebilir, ScoreAssessmentOverride ham/nihai skoru değiştirmez. SyntheticDatasetPolicy bir Datasetin sentetik üretim davranışını sürümler; SyntheticScenario birden çok SyntheticGenerationRun üretir; her run SyntheticGroundTruth ve SyntheticValidationResult ile ilişkilidir. Sentetik ground truth ile RuleResult/QualityScore yalnız karşılaştırma aşamasında eşlenir, birbirinin kaynağı değildir. Skor veya çalışma olayı Notification ve DataQualityIssue oluşturabilir. Issue birden çok IssueComment ve ServiceNow referansı taşıyabilir. User, Role ve Permission ilişkileri RBAC'ı kurar. Kritik değişiklikler AuditLog ile izlenir. (`DQ-SCR-002`, `DQ-SCR-018`–`DQ-SCR-025`, `DQ-SCR-032`, RULE-016, RULE-017)
 
 ```mermaid
 erDiagram
@@ -145,4 +199,9 @@ erDiagram
     DATAQUALITYISSUE ||--o{ NOTIFICATION : bildirir
     USER ||--o{ REPORT : talep_eder
     USER ||--o{ AUDITLOG : eylem_yapar
+    DATASET ||--o{ SYNTHETICDATASETPOLICY : yapilandirir
+    SYNTHETICDATASETPOLICY ||--o{ SYNTHETICSCENARIO : izin_verir
+    SYNTHETICSCENARIO ||--o{ SYNTHETICGENERATIONRUN : uretir
+    SYNTHETICGENERATIONRUN ||--o{ SYNTHETICGROUNDTRUTH : beklenen_sonuc
+    SYNTHETICGENERATIONRUN ||--o{ SYNTHETICVALIDATIONRESULT : dogrulanir
 ```

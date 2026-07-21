@@ -1,6 +1,6 @@
 # Saklama, İmha ve Legal Hold Runbook
 
-Saklama politikası audit, kimlik/yetki, kural değişikliği, onay, çalıştırma, skor, kısmi/geçici sonuç, bildirim, ServiceNow entegrasyonu, rapor dosyası, rapor metadatası, teknik log, geçici işleme ve hata/retry kayıtları için ayrı kayıtlardan oluşur. Her kayıt süre, gerekçe, çevrimiçi/arşiv ayrımı, imha yöntemi ve sorumlu birimi taşır; kesin süreler onaya kadar TBD'dir. Rapor dosyası, metadata, arşiv ve imha kaydı ayrı katmanlarda yönetilir.
+Saklama politikası audit, kimlik/yetki, kural değişikliği, onay, çalıştırma, skor, kısmi/geçici sonuç, bildirim, ServiceNow entegrasyonu, rapor dosyası, rapor metadatası, teknik log, geçici işleme, hata/retry, sentetik dataset, sentetik üretim çalışması, ground truth ve sentetik doğrulama kayıtları için ayrı kayıtlardan oluşur. Her kayıt süre, gerekçe, çevrimiçi/arşiv ayrımı, imha yöntemi ve sorumlu birimi taşır; kesin süreler onaya kadar TBD'dir. Rapor dosyası, metadata, arşiv ve imha kaydı ayrı katmanlarda yönetilir. Sentetik veri anonim veya sınırsız saklanabilir varsayılmaz; köken ve lineage metadata'sı yaşam döngüsü boyunca korunur.
 
 1. Politika sürümünü ve kayıt türünü doğrula.
 2. Legal hold kontrolü yap.

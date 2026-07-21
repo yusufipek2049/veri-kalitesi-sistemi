@@ -5,8 +5,8 @@
 | Ortam | Veri | Kimlik | Secret | Dış entegrasyon |
 | --- | --- | --- | --- | --- |
 | Local | Sentetik | Fake adapter | Sahte referans | Fake |
-| Development | Sentetik/anonim | Test IAM | Dev secret store | Sandbox |
-| Test/UAT | Maskeli ve onaylı | UAT IAM | UAT store | UAT |
+| Development | Gizlilik kapısından geçmiş sentetik; ayrı onay varsa anonimleştirilmiş | Test IAM | Dev secret store | Fake/Sandbox |
+| Test/UAT | Gizlilik kapısından geçmiş sentetik; ayrı onaylı maskeli veya anonimleştirilmiş | UAT IAM | UAT store | UAT/Fake |
 | Production | Banka onaylı gerçek veri | Üretim IAM/PAM | Üretim secret manager | Üretim |
 
 ## Üretim Yerleşimi
@@ -19,6 +19,31 @@
 - Uygulama kurumsal secret manager'a servis veya workload identity ile erişir; yerel geliştirmede üretim secret'ı kullanılmaz.
 
 Belirli platform, veritabanı, broker ve secret manager ürünü TBD'dir.
+
+## Sentetik Veri Ortam Kapısı
+
+- Sentetik veri otomatik olarak anonim sayılmaz. Sentetik, anonimleştirilmiş,
+  maskelenmiş ve takma adlandırılmış veri kökenleri ayrı etiketlenir.
+- Üretim verisi veya profili kullanılacaksa erişim üretici, geliştirici ve test
+  kullanıcısından ayrı ortam/ağ/IAM sınırında; salt okunur ve amaçla sınırlıdır.
+- Sentetik köken, `generation_run_id`, üretici/şema/politika sürümü ve random seed
+  metadata'sı kaldırılamaz. Ground truth iş verisiyle aynı tablo/çıktı olarak
+  dışa aktarılamaz.
+- Gizlilik kapısı `PASS` vermeyen veya eşiği henüz karara bağlanmamış üretim
+  verisi kökenli çıktı genel geliştirme/test kullanımına açılamaz. Teknik hata
+  temiz ya da anonim sonuç sayılmaz.
+- Sentetik olaylar yalnız doğrulanmış fake/sandbox bildirim, ServiceNow ve SIEM
+  adaptörlerine gider. Üretim hedefi fail-closed reddedilir.
+- Secret, gerçek kimlik, ham referans örnek, kaynak SQL veya hassas değer log,
+  audit ve doğrulama raporuna yazılmaz.
+- Dataset sınıflandırması, dışa aktarımı, saklama ve imhası sürümlü politikalara
+  tabidir; sentetik olduğu için sınırsız saklama yapılmaz.
+
+Ayrıntılı sözleşme
+[Sentetik Veri ve Gizlilik Stratejisi](../Sentetik-Veri-ve-Gizlilik-Stratejisi.md)
+belgesindedir. Nicel gizlilik eşikleri `OPEN-024`, gerçek üretim profili/örneği
+erişimi `OPEN-025` kapsamında `ComplianceReviewRequired`, `LegalReviewRequired`
+ve `SecurityReviewRequired` durumlarını korur.
 
 ## Fail-Closed Ortam Başlangıç Kapısı
 

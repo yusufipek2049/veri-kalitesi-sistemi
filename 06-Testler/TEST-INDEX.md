@@ -12,6 +12,7 @@ tags:
 
 ## Ana Kaynaklar
 
+- [Test Ajan Talimatları](AGENTS.md)
 - [Sistem Kabul Kriterleri](../01-SRS/10-Kabul-Kriterleri.md)
 - [Kullanım Senaryoları](../01-SRS/05-Kullanim-Senaryolari/INDEX.md)
 - [İzlenebilirlik Matrisi](../01-SRS/11-Izlenebilirlik-Matrisi.md)
@@ -19,12 +20,13 @@ tags:
 - [SRS Kalite Kontrolü](../01-SRS/16-Kalite-Kontrolu.md)
 - [Frontend Görsel Doğrulama Stratejisi](03-Uctan-Uca/Gorsel-Dogrulama-Stratejisi.md)
 - [Skorlama ve Ölçüm Yeterliliği Kanonik Tasarımı](../02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md)
+- [Sentetik Veri ve Gizlilik Stratejisi](../02-Mimari/Sentetik-Veri-ve-Gizlilik-Stratejisi.md)
 
 ## Önerilen Test Katmanları
 
 1. Skor formülleri, RBAC, durum geçişleri ve idempotency için birim testleri.
 2. Ürün bağımsız bağlayıcı, kurumsal IdP/SSO-MFA, secret manager, katalog/DLP, kuyruk ve depolama sözleşme/entegrasyon testleri.
-3. UC-001–UC-016 uçtan uca senaryoları.
+3. UC-001–UC-017 uçtan uca senaryoları.
 4. Veri sahibi onaylı, anonimleştirme ve yeniden kimliklendirme risk değerlendirmesi bulunan 20 milyon satırlık üretim örneğiyle tekrarlanabilir profil ve kural testleri.
 5. Salt okunurluk, SQL injection, XSS/CSRF, secret ve audit bütünlüğü güvenlik testleri.
 6. Yedek geri yükleme ve felaket kurtarma tatbikatı.
@@ -74,6 +76,25 @@ tags:
 | `AC/TS-045` | Teknik başarısızlık, önceki skor fallback'i ve resmî trend dışlama |
 | `AC/TS-046` | Replay, sürüm izlenebilirliği, RBAC/scope, maskeleme, veri-minimum audit ve hata |
 | `AC/TS-047` | Bildirim, idempotent remediation, yeniden ölçüm ve kanıtlı kapanış |
+
+## Sentetik Veri Kabul Matrisi
+
+| Kabul/Test | Zorunlu test kapsamı |
+| --- | --- |
+| `AC/TS-048` | Golden şema, tip, zorunlu alan, anahtar, referans ve durum geçişi bütünlüğü |
+| `AC/TS-049` | Aynı seed/sürümle kanonik eşdeğer çıktı; ayrı run ve eksiksiz lineage |
+| `AC/TS-050` | Boyut/kural bağlı kusur enjeksiyonu, yoğunluk sınıfları ve bağımsız ground truth |
+| `AC/TS-051` | Geçerli nadir/sınır değer false-positive negatifleri ve gerçek kusur yakalama |
+| `AC/TS-052` | Runtime'dan bağımsız skor oracle'ı; kural, önem, bildirim ve eskalasyon sapması |
+| `AC/TS-053` | Birebir/yakın eşleşme, nadir kombinasyon, çıkarım/bağlantı riski ve fail-closed ortam kapısı |
+| `AC/TS-054` | Zaman alanı anlamları, eksiklik mekanizmaları, trend, sezonsallık ve drift |
+| `AC/TS-055` | Fake/sandbox olay yaşam döngüsü ve üretim hedefi fail-closed negatifleri |
+| `AC/TS-056` | Hacim, timeout/kota teknik hata ayrımı, yaşam döngüsü, imha, replay ve `OPEN-014` kabul ayrımı |
+
+Nicel dağılım, korelasyon, görev faydası, gizlilik, kusur yoğunluğu ve skor
+toleransı eşikleri `OPEN-024` sonuçlanana kadar `TBD`'dir. Sentetik performans
+testi `AC/TS-008` kapsamındaki anonimleştirilmiş üretim örneği kabulinin yerine
+geçmez.
 
 ## Güncel Otomasyon Baseline'ı
 

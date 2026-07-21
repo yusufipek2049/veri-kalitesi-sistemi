@@ -32,3 +32,4 @@ tags:
 | UC-014 | Sorunun çözülmesi ve kapatılması | [Aç](UC-014-Sorunun-cozulmesi-ve-kapatilmasi.md) |
 | UC-015 | Veri kalitesi raporu oluşturulması | [Aç](UC-015-Veri-kalitesi-raporu-olusturulmasi.md) |
 | UC-016 | Audit kayıtlarının incelenmesi | [Aç](UC-016-Audit-kayitlarinin-incelenmesi.md) |
+| UC-017 | Sentetik veri üretimi ve doğrulaması | [Aç](UC-017-Sentetik-veri-uretimi-ve-dogrulamasi.md) |

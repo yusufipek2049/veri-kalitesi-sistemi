@@ -32,6 +32,8 @@ tags:
 | Sonuç ve geçmiş deposu | Profil, çalıştırma, skor, sorun ve rapor geçmişini saklar. |
 | Raporlama ve dashboard katmanı | Ham ve nihai kalite skoru, ölçüm yeterliliği, kullanım kararı, kapsam, güven, kritiklik/risk, teknik sağlık, istisna/override, sürüm sınırı ve açıklanabilir kırılımları filtrelenebilir tablo/grafikle sunar. |
 | Audit log altyapısı | Kritik kullanıcı ve sistem işlemlerini bütünlüğü korunmuş kayıtlarla izler. |
+| Sentetik veri orkestrasyonu | Sürümlü dataset politikasına göre şema/ilişki/dağılım/zaman temelini, kusur enjeksiyonunu, deterministik run kaydını ve yaşam döngüsünü koordine eder; üretim verisini kopyalamaz. |
+| Sentetik doğrulama ve gizlilik kapısı | Ground truth'u runtime kural/skor motorundan bağımsız tutar; yapı, istatistik, görev faydası, gizlilik ve teknik sonuçları değerlendirir; gerçek operasyon hedeflerini fail-closed engeller. |
 
 ### Mantıksal Mimari
 
@@ -55,6 +57,8 @@ flowchart TB
     HIST[(Sonuç ve Geçmiş Deposu)]
     AUDIT[(Audit Log)]
     OBS[Gözlemlenebilirlik]
+    SYN[Sentetik Veri Orkestrasyonu]
+    SYNVAL[Bağımsız Doğrulama ve Gizlilik Kapısı]
 
     UI --> API
     API --> AUTH
@@ -81,7 +85,22 @@ flowchart TB
     API --> AUDIT
     ORCH --> OBS
     RULE --> OBS
+    API --> SYN
+    SYN --> META
+    SYN --> HIST
+    SYN --> SYNVAL
+    SYNVAL -. bağımsız karşılaştırma .-> RULE
+    SYNVAL -. bağımsız karşılaştırma .-> SCORE
+    SYNVAL --> AUDIT
 ```
+
+Sentetik veri yetenekleri ayrı mikroservisler değildir. Orkestrasyon içinde şema
+ve kısıt yükleyici, dağılım/ilişki/zaman üreticileri, kusur enjeksiyon motoru,
+ground truth ve run kayıtları ile dataset kataloğu iç bileşenlerdir. Doğrulama
+sınırında gizlilik değerlendiricisi ve expected-versus-actual karşılaştırıcı
+bulunur. Ground truth üretimi kural veya skor motorunu çağırmaz. Ayrıntılı hedef
+sözleşme [Sentetik Veri ve Gizlilik Stratejisi](Sentetik-Veri-ve-Gizlilik-Stratejisi.md)
+belgesindedir.
 
 ### Önerilen Çözüm Seçenekleri
 

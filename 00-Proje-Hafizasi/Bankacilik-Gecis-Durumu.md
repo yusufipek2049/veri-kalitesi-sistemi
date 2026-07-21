@@ -48,6 +48,12 @@ Yüklenen mevcut vault ve kod üzerinden doğrulanan durum:
 - Sürümlü ortam başlangıç kapısı güvenilir sağlayıcı sözleşmesini, ortam-secret kapsam eşleşmesini ve üretim dışı gerçek banka verisi/üretim secret engelini fail-closed uygular. Gerçek deployment/attestation sağlayıcısı, secret manager ve veri kökeni kanıtı henüz bağlı değildir.
 - Sürümlü dataset kısmi skor politikası güvenilir maker-checker onay/ret, maker'a ait auditli geri çekme ve atomik audit outbox akışıyla yönetilir; ölçülmüş çalışma olgularını fail-closed değerlendirerek `OFFICIAL` veya `PROVISIONAL` kararı üretir. Resmî kısmi sonuç `PARTIAL` statüsüyle sayısal skor ve üst agregasyonlara taşınır; provizyonel sonuç resmî agregasyon, trend ve rapor önizlemesinden çıkarılır. Politika süre aşımı ve olguların worker/execution tarafından güvenilir üretimi açıktır.
 - `DQ-SCR-001`–`DQ-SCR-033` bağlayıcı skorlama kararları ve kanonik ölçüm yeterliliği hedef tasarımı gereksinim, mimari, veri modeli, API, arayüz ve test sözleşmelerine işlenmiştir. Bu çalışma hedef modeli tanımlar; kanonik sayaçlar, ham/nihai skor, sekiz yeterlilik durumu, kapsam/güven/güncellik kapıları, ayrı kullanım kararı, kritiklik/risk ve override yapıları henüz runtime'a taşınmamıştır. İlişkili `OPEN-023` ve `OPEN-BNK` kayıtları banka onayı olmadan kapatılmamıştır.
+- Sentetik veri ve gizlilik hedef tasarımı `ADR-016`, `FR-088–FR-096` ve
+  `AC/TS-048–056` ile belgelendi; runtime uygulanmadı. Sentetik çıktı anonimlik
+  veya banka onayı sayılmaz, gerçek operasyon hedeflerini tetikleyemez ve
+  `OPEN-014` kapsamındaki nihai anonimleştirilmiş üretim örneği kabulinin yerine
+  geçmez. Nicel eşikler ile üretim profili/örneği erişimi `OPEN-024/025`
+  kapsamında açık kalır.
 - Yerel metadata ve execution deposu SQLite'tır; bu, üretim mimarisi kararı değildir.
 
 ## Korunacak Kazanımlar

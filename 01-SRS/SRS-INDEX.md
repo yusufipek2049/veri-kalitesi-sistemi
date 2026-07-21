@@ -49,6 +49,7 @@ Bu dosya ajanın bütün SRS'yi okumadan doğru bağlamı seçmesi için hazırl
 | Raporlama | [04.10-Raporlama](04-Fonksiyonel-Gereksinimler/04.10-Raporlama.md), [08-Harici-Arayuzler](08-Harici-Arayuzler.md), UC-015 |
 | Audit | [04.11-Audit](04-Fonksiyonel-Gereksinimler/04.11-Audit.md), [09.05-Guvenlik](09-Fonksiyonel-Olmayan-Gereksinimler/09.05-Guvenlik.md), UC-016 |
 | API / ServiceNow | [04.12-API-ve-Entegrasyon](04-Fonksiyonel-Gereksinimler/04.12-API-ve-Entegrasyon.md), [08-Harici-Arayuzler](08-Harici-Arayuzler.md), [15-Acik-Konular](15-Acik-Konular.md), [17.07-Ucuncu-Taraf-ve-ServiceNow](17-Bankacilik-Uyum/17.07-Ucuncu-Taraf-ve-ServiceNow.md) |
+| Sentetik veri ve test verisi | [04.13-Sentetik-Veri](04-Fonksiyonel-Gereksinimler/04.13-Sentetik-Veri.md), [UC-017](05-Kullanim-Senaryolari/UC-017-Sentetik-veri-uretimi-ve-dogrulamasi.md), [Sentetik Veri ve Gizlilik Stratejisi](../02-Mimari/Sentetik-Veri-ve-Gizlilik-Stratejisi.md), [09.06-Gizlilik-ve-KVKK](09-Fonksiyonel-Olmayan-Gereksinimler/09.06-Gizlilik-ve-KVKK.md) |
 | Bankacılık güven sınırı / BDDK / KVKK | [INDEX](17-Bankacilik-Uyum/INDEX.md), [Bankacilik-Gecis-Durumu](../00-Proje-Hafizasi/Bankacilik-Gecis-Durumu.md), [INDEX](../02-Mimari/Guvenlik/INDEX.md) |
 
 ## Context Bütçesi
