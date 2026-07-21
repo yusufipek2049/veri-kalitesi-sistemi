@@ -19,7 +19,7 @@ tags:
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | notification_id | UUID | 36 | Evet | Evet | Otomatik | Bildirim anahtarı | Hayır | UUID |
 | recipient_user_id | UUID | 36 | Evet | Hayır | Yok | Alıcı | Kişisel | Aktif User veya fallback grup |
-| event_type | ENUM | 50 | Evet | Hayır | Yok | Kalite alarmı/teknik alarm/atama vb. | Hayır | Teknik ve kalite alarmı ayrı sözlük değeri |
+| event_type | ENUM | 50 | Evet | Hayır | Yok | Kalite/yeterlilik/teknik alarmı, atama veya eskalasyon | Hayır | Teknik, kalite ve ölçüm yeterliliği olayları ayrı sözlük değeri |
 | title | VARCHAR | 250 | Evet | Hayır | Yok | Bildirim başlığı | Hayır | Ham hassas veri içermez |
 | body | TEXT | TBD | Evet | Hayır | Yok | Maskeli bildirim içeriği | Hassas olabilir | Şablon ve maskeleme |
 | status | ENUM | 20 | Evet | Hayır | UNREAD | UNREAD/READ/SUPPRESSED/FAILED | Hayır | İzinli geçiş |
@@ -32,8 +32,9 @@ tags:
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | issue_id | UUID | 36 | Evet | Evet | Otomatik | Sorun anahtarı | Hayır | UUID |
 | issue_no | VARCHAR | 40 | Evet | Evet | Otomatik | Kullanıcı görünen numara | Hayır | Tanımlı biçim |
-| source_event_type | ENUM | 40 | Evet | Hayır | QUALITY | QUALITY/TECHNICAL/SCHEMA_CHANGE | Hayır | İzinli enum |
-| quality_score_id | UUID | 36 | Kalite olayında koşullu | Hayır | NULL | Değiştirilmeyen ham kalite skoru | Hayır | Geçerli QualityScore; teknik olayda zorunlu değil |
+| source_event_type | ENUM | 40 | Evet | Hayır | QUALITY | QUALITY/MEASUREMENT_QUALIFICATION/TECHNICAL/SCHEMA_CHANGE | Hayır | Teknik, kalite ve yeterlilik olayları ayrıdır |
+| quality_score_id | UUID | 36 | Kalite/yeterlilik olayında koşullu | Hayır | NULL | Değiştirilmeyen ham/nihai kalite sonucu | Hayır | Geçerli QualityScore; teknik olayda zorunlu değil |
+| qualification_result_id | UUID | 36 | Yeterlilik olayında koşullu | Hayır | NULL | Ölçüm yeterlilik sonucu | Hayır | Geçerli MeasurementQualificationResult |
 | data_risk_score_id | UUID | 36 | Hayır | Hayır | NULL | Önceliklendirmede kullanılan ayrı risk skoru | Hayır | Geçerli DataRiskScore |
 | remediation_policy_version | VARCHAR | 80 | Evet | Hayır | Yok | Kritiklik/öneme göre hedef ve kapanış politikası | Hayır | Geçerli sürüm |
 | status | ENUM | 30 | Evet | Hayır | NEW | Tanımlı issue durumları | Hayır | Geçiş matrisi |
@@ -46,10 +47,11 @@ tags:
 | persistence_check_reference | VARCHAR | 200 | Kapanışta koşullu | Hayır | NULL | Gerekli kalıcılık kontrolü kanıtı | Hassas olabilir | Güvenli opak referans |
 | servicenow_ticket_no | VARCHAR | 100 | Hayır | Hayır | NULL | Harici ticket numarası | Hassas olabilir | Issue başına tek aktif |
 
-Kalite alarmı, teknik alarm ve remediation yaşam döngüsü `DQ-SCR-028` ve
-`DQ-SCR-029` uyarınca ayrıdır. Geçici skor yükselişi tek başına issue kapatmaz;
-etkin politika kök neden, doğrulama çalışması ve kalıcılık kanıtından hangilerinin
-zorunlu olduğunu belirler. Kesin hedef süreler `TBD`'dir.
+Kalite alarmı, ölçüm yeterliliği alarmı, teknik alarm ve remediation yaşam döngüsü
+`DQ-SCR-028` ve `DQ-SCR-029` uyarınca ayrıdır. Geçici skor yükselişi tek başına
+issue kapatmaz; etkin politika kök neden, yeterli yeniden ölçüm, doğrulama çalışması
+ve kalıcılık kanıtından hangilerinin zorunlu olduğunu belirler. Kesin hedef süreler
+`TBD`'dir.
 
 ## OutboundIntegrationRecord
 

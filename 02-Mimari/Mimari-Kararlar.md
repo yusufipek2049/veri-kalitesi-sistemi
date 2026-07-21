@@ -43,24 +43,30 @@ katmaktadır. Bu davranış `DQ-SCR-018` ile çelişir. Mevcut durum kod tabanı
 gerçek bir uyarlama backlogudur; doküman güncellemesi uygulanmış runtime kanıtı
 değildir.
 
-**Karar:** `DQ-SCR-001`–`DQ-SCR-033` bağlayıcıdır. Ham kalite skoru kural → veri
-öğesi → boyut → dataset hiyerarşisinde hesaplanır. Kapsam, güven, dataset
-kritikliği, veri riski ve teknik sağlık ayrı çıktıdır. Kritik kural veto/tavanı
-ağırlıklı ortalamadan bağımsızdır. Normalizasyon, eşik, ağırlık, güven ve kritik
+**Karar:** `DQ-SCR-001`–`DQ-SCR-033` bağlayıcıdır. Ayrıntılı hedef sözleşme
+[Veri Kalitesi Skorlama ve Ölçüm Yeterliliği](Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md)
+belgesidir. Ham kalite skoru kural → veri öğesi → boyut → dataset hiyerarşisinde
+hesaplanır. Kritik kural politikası ham skordan ayrı nihai skor, kritik kural
+durumu ve kullanım kararı üretebilir. Ölçüm yeterliliği; kapsam, örneklem,
+güncellik, teknik başarı, sürüm, kritik kontrol ve kanıt kapılarını kalite
+skorundan bağımsız değerlendirir. Kapsam, güven, dataset kritikliği, veri riski ve
+teknik sağlık ayrı çıktıdır. Normalizasyon, eşik, ağırlık, yeterlilik ve kritik
 kural davranışları sürümlü politikalardır. İstisna ve override süreli,
-maker-checker kontrollü ve auditlidir; ham skoru değiştirmez. Skor ve replay
-sonucu tüm model/politika/uygulama sürümlerini korur.
+maker-checker kontrollü ve auditlidir; ham veya nihai skoru değiştirmez. Skor,
+yeterlilik ve replay sonucu tüm model/politika/uygulama sürümlerini korur.
 
 **Superseded karar:** Dataset kritikliğini `SOURCE` kalite skorunda ağırlık olarak
 kullanan tarihsel teknik yaklaşım, hedef mimaride `DQ-SCR-018` ile
 `Superseded` durumundadır. Geçmiş skorlar değiştirilmez; yeni modele geçiş
 sürüm sınırı ve ayrı yeniden hesaplama kaydıyla yapılır.
 
-**Sonuç:** Skorlama motoru, politika çözümleyici, risk/remediation ve teknik sağlık
-sınırları ayrılır. API/UI kalite, kapsam, güven, risk/kritiklik ve teknik durumu
-tek yüzdeye eritmez. Üretim eşikleri, ağırlıkları, veto/tavan davranışı, güven ve
-risk katsayıları, dataset türleri ve `OPEN-BNK-013` kapsamı `TBD` kalır. Karar
-banka uyum onayı anlamına gelmez.
+**Sonuç:** Skorlama motoru, ölçüm yeterliliği kapısı, politika çözümleyici,
+risk/remediation ve teknik sağlık sınırları ayrılır. API/UI ham/nihai kalite,
+yeterlilik, kullanım kararı, kapsam, güven, risk/kritiklik ve teknik durumu tek
+yüzdeye eritmez. Üretim eşikleri, ağırlıkları, veto/tavan davranışı, minimum
+kapsam ve örneklem güveni, geçerlilik süreleri, kullanım/blokaj yetkisi,
+remediation hedefleri, risk katsayıları, dataset türleri ve `OPEN-BNK-013` kapsamı
+`TBD` kalır. Karar banka uyum onayı anlamına gelmez.
 
 ## ADR-012 — Token Tabanlı Kurumsal Görsel Dil
 

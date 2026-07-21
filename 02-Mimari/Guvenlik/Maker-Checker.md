@@ -27,12 +27,14 @@ sürüm ve maker-checker kararı olmadan etkinleşmez:
 - üretim eşik veya ağırlık değişikliği,
 - kritikliği düşürme veya kritik kural davranışını gevşetme,
 - kuralı pasifleştirme ya da ölçüm kapsamını daraltma,
+- ölçüm yeterliliği, geçerlilik veya kullanım kararı politikasını gevşetme,
 - süreli istisna veya ham skordan ayrı değerlendirme/override oluşturma,
 - resmî trend, rapor veya remediation önceliğini etkileyen model/politika değişikliği.
 
 İstisna ve override süresiz olamaz; risk kabulü ve bitiş zamanı taşır. Ham skor
 değişmez. Audit/outbox kalıcılaştırılamazsa kritik işlem fail-closed tamamlanmaz.
-Banka rol kodları, politika kapsam matrisi ve acil durum prosedürü `OPEN-BNK-004`,
+Banka rol kodları, politika kapsam matrisi, yeterlilik/blokaj yetkileri ve acil
+durum prosedürü `OPEN-023`, `OPEN-BNK-004`,
 `OPEN-BNK-005` ve `OPEN-BNK-006` altında açık kalır.
 
 ## Açık Kapsam

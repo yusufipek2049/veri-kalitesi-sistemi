@@ -16,7 +16,9 @@ tags:
 
 Bu sözleşme `FR-046`–`FR-058`, `UC-009`, `UC-010`, `DQ-SCR-001`–`DQ-SCR-033`,
 `NFR-USA-001`–`NFR-USA-006`, `NFR-SEC-001`, `AC-010`, `AC-011` ve
-`AC-027`–`AC-038` ile birlikte uygulanır. Görsel dil için
+`AC-027`–`AC-047` ile birlikte uygulanır. Ölçüm ve durum sözlüğü için
+[Veri Kalitesi Skorlama ve Ölçüm Yeterliliği](../../02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md),
+görsel dil için
 [Görsel Tasarım Sistemi](../Gorsel-Tasarim-Sistemi.md) esas alınır.
 
 Referans: [Kurumsal dashboard referansı](../references/reference-dashboard.png)
@@ -37,8 +39,9 @@ kural, execution veya issue detayına güvenli drill-down yapabilmelidir.
 
 1. Uygulama kabuğu: koyu navigasyon, üst bar, kullanıcı/kapsam bilgisi.
 2. Sayfa başlığı: “Genel Bakış”, güncellik ve aktif filtre özeti.
-3. Birincil göstergeler: kalite skoru, kural/ölçüm kapsamı, skor güvenilirliği ve
-   veri riski/dataset kritikliği; teknik sağlık bunlardan ayrı durum özetidir.
+3. Birincil göstergeler: ham/nihai kalite skoru, ölçüm yeterliliği ve kullanım
+   kararı; kapsam/güven, kritik kural, veri riski/dataset kritikliği ve teknik
+   sağlık bunlardan ayrı durum özetleridir.
 4. Birincil analiz: kalite trendi ve kritik alarm akışı.
 5. Karşılaştırma: veri alanı skorları ve kalite boyutu matrisi.
 6. Operasyonel detay: son ihlaller tablosu ve güvenli drill-down.
@@ -51,9 +54,12 @@ yerleşimde kalır.
 
 | Bölüm | Görsel/component örüntüsü | Veri alanları | Etkileşim |
 | --- | --- | --- | --- |
-| Genel Kalite Skoru | KPI | `quality_score`, `quality_status`, `calculated_at`, `last_successful_calculation_at`, `score_model_version` | Skor ağacı/drill-down |
-| Kural/Ölçüm Kapsamı | KPI + açıklama | `coverage_ratio`, çalışan/toplam kural, değerlendirilen kayıt oranı | Kapsam kırılımı |
-| Skor Güvenilirliği | KPI + güven etiketi | `confidence_score`, örnekleme ve teknik hata özeti | Güven açıklaması |
+| Kalite Skoru | KPI | `raw_quality_score`, `final_quality_score`, `quality_status`, `calculated_at`, `last_successful_run_at`, `score_model_version` | Skor ağacı ve kritik tavan açıklaması |
+| Ölçüm Yeterliliği | KPI + yazılı durum | `measurement_qualification_status`, `failed_gates`, `valid_until`, `evidence_completeness` | Yeterlilik kanıtı ve eksik kapılar |
+| Kullanım Kararı | KPI + yazılı karar | `usage_decision`, `usage_context`, karar/politika sürümü | Koşul ve yetkili remediation detayı |
+| Kural/Ölçüm Kapsamı | KPI + açıklama | `coverage_rate`, `coverage_status`, çalışan/toplam kural, population/eligible/evaluated oranları | Kapsam kırılımı |
+| Ölçüm Güveni | KPI + güven etiketi | `confidence_level`, `sampling_method`, `sample_size`, `population_size` | Örneklem ve güven açıklaması |
+| Kritik Kontrol | Ayrı KPI | `critical_rule_status`, çalışan/başarısız/değerlendirilemeyen kritik kural sayısı | Kritik kural detayı |
 | Veri Riski/Kritiklik | Ayrı KPI | `risk_score`, `dataset_criticality`, risk modeli sürümü | Risk/remediation detayı |
 | Kritik İhlaller | KPI | Açık kritik issue sayısı, dönem farkı | Kritik filtreli tablo |
 | Aktif Kurallar | KPI | Aktif kural sayısı, güncellik | Kural listesi |
@@ -72,8 +78,9 @@ kullanılmaz.
 ## Ortak View-Model İlkesi
 
 - Grafik ve tablo aynı normalize edilmiş view-model'den beslenir.
-- Kalite, kapsam, güven, kritiklik/risk ve teknik sağlık ayrı formatter kullanır;
-  tek yüzdede birleştirilmez.
+- Ham/nihai kalite, ölçüm yeterliliği, kullanım kararı, kritik kural, kapsam,
+  güven, kritiklik/risk ve teknik sağlık ayrı formatter kullanır; tek yüzdede
+  birleştirilmez.
 - Ortak status mapper teknik hata, kalite ihlali, uyarı, başarı, bilgi ve veri yok
   anlamlarını ikon + etiket + token'a dönüştürür.
 - `NotApplicable`, `NotMeasured`, `NoData`, `TechnicalError` ve hesaplanmamış
@@ -82,6 +89,11 @@ kullanılmaz.
   skorun yanında ve onu değiştirmeden gösterilir.
 - Son başarılı skor fallback olarak gösterilirse ölçüm zamanı, eskilik ve mevcut
   teknik sağlık olayı görünür olur.
+- `Qualified`, `ProvisionallyQualified`, `LimitedCoverage`, `Stale`,
+  `ValidationRequired`, `TechnicalFailure`, `NotQualified` ve `NotApplicable`
+  ayrı yazılı durum ve ikon taşır. Yüksek sayısal skor yeterlilik uyarısını gizlemez.
+- `Blocked` veya `Undetermined` kullanım kararı nihai skorun rengiyle ima edilmez;
+  karar gerekçesi ve politika sürümü ayrı sunulur.
 - Grafik toplamı ile tablo toplamı aynı filtre ve snapshot altında eşit olmalıdır.
 - Eksik trend dönemi çizgiyi sıfıra indirmez; boşluk ve “Hesaplanmadı” durumuyla
   gösterilir.
@@ -95,7 +107,7 @@ kullanılmaz.
 | Veri alanı/birim | Yetkili scope içinde; alan sözleşmesi kesinleşince |
 | Sahip | Yetkili ve veri-minimum dizin sonucu |
 | Kalite boyutu | Dataset için uygulanabilir temel ve isteğe bağlı boyutlar; `NotApplicable` seçeneği ayrı |
-| Seviye/durum | Kalite seviyesi ve teknik durum ayrı gruplar |
+| Seviye/durum | Kalite, ölçüm yeterliliği, kritik kural, kullanım ve teknik durum ayrı gruplar |
 | Kural | Yetkili scope'a bağlı arama/seçim |
 
 Filtreler temizlenebilir, aktif filtre özeti görünür ve URL/oturum saklama davranışı
@@ -107,7 +119,8 @@ API tasarımında açıkça kararlaştırılmalıdır. Kullanıcı girdisi yetki
 
 - Line chart; günlük gözlemler ve belirgin veri noktaları.
 - Kritik eşik kesikli çizgi ve yazılı legend ile gösterilir.
-- Tooltip dönem, skor, seviye, durum, kapsam/güven ve model sürümü içerir.
+- Tooltip dönem, ham/nihai skor, kalite ve yeterlilik durumu, kullanım kararı,
+  kapsam/güven, geçerlilik sonu ve model/politika sürümünü içerir.
 - Kural, eşik veya skor modeli sürümü değişiminde çizgide sürüm sınırı ve
   karşılaştırılabilirlik uyarısı gösterilir.
 - Teknik hata ayrı mor marker, veri yok gri boşluk olarak görünür.
@@ -168,6 +181,8 @@ yerine geçmez.
 | Query timeout | Teknik hata, correlation ID ve tarih daraltma eylemi |
 | Yetkisiz | Veri varlığını ifşa etmeyen 403 yüzeyi |
 | Grafik render hatası | Aynı view-model'in erişilebilir tablo görünümünü koru |
+| Eski ölçüm | Sonucun `Stale` olduğu, ölçüm zamanı ve `valid_until` açıkça gösterilir; yeni ölçüm gibi sunulmaz |
+| Yetersiz ölçüm | Sayısal skor varsa korunur; `NotQualified`/`LimitedCoverage` gerekçesi ve başarısız kapılar ayrı gösterilir |
 
 ## Responsive Sözleşme
 

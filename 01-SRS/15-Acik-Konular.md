@@ -37,7 +37,8 @@ Bu bölüm, karar kayıtlarının durumunu uydurmadan görünür kılar. Hedef t
 | OPEN-019 | `DQ-SCR-013`–`DQ-SCR-021` için üretim normalizasyonları, eşik/ağırlık değerleri, kritik veto/tavan davranışları, kapsam/güven ve veri risk formülleri | Açık | Veri Yönetişimi / Risk Yönetimi / İç Kontrol | TBD | FR-047–FR-052, AC-030–AC-032; OPEN-BNK-004/013 |
 | OPEN-020 | Dataset türü ile isteğe bağlı veri ürünü/rapor/veri alanı hiyerarşisinin kurumsal sözlüğü ve `OPEN-BNK-013` düzenleyici kapsam kararı | Açık | Veri Yönetişimi / Risk Yönetimi | TBD | FR-050, DQ-SCR-002/003/018/019 |
 | OPEN-021 | İstisna ve ham skordan ayrı değerlendirme/override için banka rol matrisi, izinli türler, azami süre, risk kabulü ve raporlama politikası | Açık | Veri Yönetişimi / İç Kontrol / Bilgi Güvenliği | TBD | FR-035, FR-077, DQ-SCR-022/023/030; OPEN-BNK-004/005/006/008 |
-| OPEN-022 | Mevcut fiziksel skor durumlarının standart ölçüm durumlarına eşlenmesi ve dataset kritiklik ağırlıklı `SOURCE` skorundan ayrı kritiklik/risk modeline geçiş planı | Açık | Mimari / Veri Yönetişimi / Operasyon | TBD | FR-048–FR-052, ADR-015, DQ-SCR-005/006/018/025/032 |
+| OPEN-022 | Mevcut fiziksel skor durum/alanlarının kanonik execution, ölçüm, yeterlilik, ham/nihai kalite ve kullanım durumlarına eşlenmesi; dataset kritiklik ağırlıklı `SOURCE` skorundan ayrı kritiklik/risk modeline migration, backfill ve geri alma planı | Açık | Mimari / Veri Yönetişimi / Operasyon | TBD | FR-048–FR-052, ADR-015, DQ-SCR-005/006/018/025/032 |
+| OPEN-023 | Ölçüm yeterliliği için yöntem bazlı kapsam pay/payda sözleşmesi, üretim minimum kapsamı, örneklem güveni, zorunlu kanıt/onay matrisi, dataset/kullanım bazlı geçerlilik süreleri, kullanım/blokaj yetkileri ve remediation/eskalasyon hedefleri | Açık | Veri Yönetişimi / Risk Yönetimi / İç Kontrol / Operasyon / Bilgi Güvenliği | TBD | FR-048–FR-053, RULE-004–RULE-007, AC-039–AC-047; OPEN-BNK-004/008/010/013/017 |
 
 ## DQ-SCR Kararlarının Bankacılık Açık Konularıyla İlişkisi
 
@@ -57,3 +58,4 @@ bağımlılıkları gösterir.
 | DQ-SCR-012, DQ-SCR-028, DQ-SCR-029, DQ-SCR-031 | OPEN-BNK-017 | Zaman bağımlı politika/onay işlemlerinin süre aşımı ve politika sahipliği |
 | DQ-SCR-031 | OPEN-BNK-011, OPEN-BNK-012 | Yeniden üretilebilirlik için yedekleme hedefleri ve üretim platformu |
 | DQ-SCR-033 | OPEN-BNK-001, OPEN-BNK-004, OPEN-BNK-013 | Yönetişim modelinin uyum, iç kontrol ve risk kapsamı onayı |
+| Ölçüm yeterliliği ve kullanım kararı | OPEN-BNK-004, OPEN-BNK-008, OPEN-BNK-010, OPEN-BNK-013, OPEN-BNK-017 | Onay rolleri, saklama, olay sözlüğü, düzenleyici kullanım kapsamı ve süreli politika sahipliği (`OPEN-023`) |

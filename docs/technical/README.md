@@ -5,6 +5,10 @@ tarihindeki kod tabanını esas alan teknik incelemesidir. Gereksinim ve mimari
 belgeler hedef resmi açıklamak için kullanılmış; uygulanmışlık kararı kaynak kod,
 SQLite şemaları ve testlerle verilmiştir.
 
+Hedef skorlama ve ölçüm yeterliliği sözleşmesi için
+[kanonik mimari tasarım](../../02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md)
+esas alınır; bu teknik analiz mevcut runtime farklarını ayrıca belirtir.
+
 ## Okuma Sırası
 
 1. [Yönetici Özeti](00-Yonetici-Ozeti.md)
@@ -70,7 +74,7 @@ SQLite şemaları ve testlerle verilmiştir.
 | MSSQL, Oracle, MySQL, Excel, REST | Planlanmış ancak uygulanmamış | `SourceType` enum | Bağlayıcılar |
 | Kural şablonu/sürümü/onayı | Uygulanmış | `RuleService`, `rule_*` tabloları | Gerçek kural executor adaptörü |
 | Kuyruk ve zamanlama | Kısmen uygulanmış | `ExecutionService`, `SchedulingService` | Broker, worker process, cron ve dağıtık lock |
-| Skorlama ve trend | Uygulanmış | `ScoringService`, `DashboardQueryService` | Onaylı kurumsal ağırlıklar ve HTTP/UI |
+| Mevcut skorlama ve trend alt kümesi | Uygulanmış | `ScoringService`, `DashboardQueryService` | Kanonik sayaçlar, ham/nihai skor, ölçüm yeterliliği, kullanım kararı, onaylı kurumsal politikalar ve HTTP/UI |
 | LDAP/RBAC ve oturum | Kısmen uygulanmış | LDAP/session servisleri | LDAP client, HTTP taşıma, cookie/CSRF/MFA/PAM |
 | Bildirim ve issue yaşam döngüsü | Uygulanmış domain çekirdeği | notification/issue servisleri | UI/HTTP, gerçek resolver ve operasyon politikası |
 | ServiceNow | Kısmen uygulanmış | `ServiceNowAdapter` protokolü ve fake testler | Gerçek HTTP istemcisi, credential ve durum senkronu |

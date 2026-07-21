@@ -156,6 +156,16 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
 66. İstisna ve ham skordan ayrı değerlendirme/override için banka rol matrisi,
     izinli türler, azami süre, risk kabul ve raporlama politikası açık kalır;
     `OPEN-BNK-004`, `OPEN-BNK-005`, `OPEN-BNK-006` ve `OPEN-BNK-008` geçerlidir.
+67. Kanonik skorlama ve ölçüm yeterliliği hedef tasarımı dokümante edildi; mevcut
+    runtime population/eligible/evaluated sayaçlarını, ham/nihai skor ayrımını,
+    sekiz yeterlilik durumunu, geçerlilik kapısını ve ayrı kullanım kararını henüz
+    uygulamamaktadır. Geçiş `OPEN-022` ve İterasyon 33A sonrası küçük dilimlerle
+    yürütülmelidir.
+68. Ölçüm yöntemine göre kapsam pay/payda sözleşmesi, üretim minimum kapsamı ve
+    örneklem güveni, yeterlilik kanıt/onay matrisi, geçerlilik süreleri,
+    kullanım/blokaj yetkileri ile remediation/eskalasyon
+    hedefleri `TBD`'dir. Bu değerler `OPEN-023` ve `OPEN-BNK-004/008/010/013/017`
+    kararı olmadan kodlanmamalıdır.
 
 ## Bankacılık Geçiş Açık Konuları
 

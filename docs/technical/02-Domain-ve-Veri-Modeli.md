@@ -25,6 +25,8 @@
 | SLA | Ayrı model yok | Yok | Planlanmış ancak uygulanmamış |
 | İstisna/yanlış pozitif | Ayrı model yok | Yok | Planlanmış ancak uygulanmamış |
 | Kapsam/güven özeti | Ayrı model yok | Yalnız kısmi politika ayrıntıları | `DQ-SCR-020/021` hedefi uygulanmamış |
+| Ölçüm yeterlilik sonucu | Ayrı model yok | Yok | Sekiz durumlu `MeasurementQualificationResult` hedefi uygulanmamış |
+| Ham/nihai skor ve kullanım kararı | Mevcut `QualityScore` tek skor taşır | `quality_scores` | Kanonik ayrım uygulanmamış |
 | Dataset kritiklik profili | `Dataset.criticality` | Dataset metadata | Kalite agregasyonunda kullanılıyor; `DQ-SCR-018` hedefiyle uyumsuz |
 | Veri riski | Ayrı model yok | Yok | `DQ-SCR-019` hedefi uygulanmamış |
 | Skor değerlendirme/override | Ayrı model yok | Yok | `DQ-SCR-023` hedefi uygulanmamış |
@@ -50,7 +52,8 @@ katılmaz. Bu ayrım bilinçli ve kodla doğrulanmıştır.
 ## Mevcut Runtime Skorlama Modeli
 
 Bu bölüm kodun bugünkü davranışını tarif eder. Kabul edilen hedef sözleşme
-`DQ-SCR-001`–`DQ-SCR-033` ve [ADR-015](../../02-Mimari/Mimari-Kararlar.md)
+`DQ-SCR-001`–`DQ-SCR-033`, [ADR-015](../../02-Mimari/Mimari-Kararlar.md) ve
+[kanonik skorlama/ölçüm yeterliliği tasarımı](../../02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md)
 ile tanımlanmıştır; aşağıdaki mevcut davranışların tamamı hedef mimari değildir.
 
 ### Kural Skoru
@@ -127,6 +130,9 @@ ayrı temsil eder. Mevcut enumların bu sözlüğe migration eşlemesi uygulanma
   (`DQ-SCR-002`, `DQ-SCR-016`, `DQ-SCR-017`).
 - Kapsam, güven, kritiklik, risk ve teknik sağlık kalite skorundan ayrıdır
   (`DQ-SCR-005`, `DQ-SCR-018`–`DQ-SCR-021`).
+- Ham/nihai kalite skoru, kritik kural durumu, kullanım kararı, teknik çalışma
+  durumu ve ölçüm yeterliliği ayrı sonuçlardır. Yeterlilik kapsam, örneklem,
+  güncellik, teknik başarı, sürüm, kritik kontrol ve kanıt kapılarıyla değerlendirilir.
 - Normalizasyon, eşik, ağırlık, kritik kural ve güven politikaları sürümlü,
   gerekçeli ve risk bazlı onaylıdır (`DQ-SCR-013`–`DQ-SCR-017`).
 - İstisna ve override süreli/auditli ayrı varlıklardır; ham skor değişmez

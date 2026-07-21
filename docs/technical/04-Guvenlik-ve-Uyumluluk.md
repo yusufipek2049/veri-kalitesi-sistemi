@@ -18,6 +18,9 @@ iç kontrol, IAM ve mimari kararları açık kalır.
   `secret://` referansı kullanılır.
 - PostgreSQL için TLS doğrulama modu, timeout ve salt-okunur probe sözleşmesi vardır.
 - Kural ve skor konfigürasyonu için maker-checker vardır; maker checker olamaz.
+- Hedef modelde ölçüm yeterliliği, geçerlilik ve kullanım kararını gevşeten
+  politika değişiklikleri de maker-checker ve fail-closed audit kapsamındadır;
+  `OPEN-023` rol/değerleri ve runtime karşılığı henüz açıktır.
 - Veri sınıflandırması fail-closed `UNCLASSIFIED` davranır; profil çıktısı ham değer
   içermeyen allowlist agregatlara indirgenir.
 - Audit redactor, allowlist özet, değer digest'i, session digest'i, correlation ID ve

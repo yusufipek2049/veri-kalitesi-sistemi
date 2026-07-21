@@ -29,9 +29,10 @@ Bu bölüm, sistemin temel veri varlıklarını, veri sözlüğünü, saklama po
 | RuleVersion | Kuralın değişmez sürümü ve parametreleri. |
 | RuleExecution | Kural/profil çalıştırma işinin yaşam döngüsü. |
 | RuleResult | Bir kuralın sayaç ve hata özetleri. |
-| QualityScore | Kural, veri öğesi, boyut, veri kümesi veya portföy kapsamındaki değişmez ham kalite skoru. |
+| QualityScore | Kural, veri öğesi, boyut, veri kümesi veya portföy kapsamındaki değişmez ham ve kritik politika etkili nihai kalite sonucu. |
 | QualityDimension | Desteklenen veri kalitesi boyutu ve uygulanabilirlik durumu. |
 | ScoreMeasurementSummary | Kalite skorundan ayrı kapsam, güven, örnekleme ve teknik sağlık özeti. |
+| MeasurementQualificationResult | Ölçümün karar vermeye yeterli olup olmadığını kalite skorundan ayrı açıklayan sonuç. |
 | DatasetCriticalityProfile | Kalite skorundan ayrı dataset iş etkisi/kritiklik profili. |
 | DataRiskScore | Kalite problemi ile iş etkisi/kritikliği ayrı modelde birleştiren risk sonucu. |
 | ScoringPolicy | Normalizasyon, eşik, ağırlık, kritik kural ve güven davranışının sürümlü politikası. |
@@ -110,7 +111,7 @@ Her `RetentionPolicy` kaydı en az kayıt sınıfı, saklama süresi, hukuki day
 ## 7.4 Veri Modeli
 
 
-Temel ilişkiler şöyledir: Bir DataSource birden çok Dataset; bir Dataset birden çok DataField içerir. QualityRule mantıksal kimliği altında birden çok değişmez RuleVersion bulunur. RuleVersion bir veya daha çok Dataset/DataField ile ilişkilidir. Schedule bir kural veya kural grubunu tetikler ve RuleExecution oluşturur. RuleExecution, RuleResult üretir; RuleResult'tan değişmez ham QualityScore hesaplanır. ScoreMeasurementSummary kapsam/güveni, DatasetCriticalityProfile kritiklik profilini ve DataRiskScore ayrı risk sonucunu taşır. ScoringPolicy hesaplama davranışını sürümler; DataQualityException paydayı kontrollü etkileyebilir, ScoreAssessmentOverride ham skoru değiştirmez. Skor veya çalışma olayı Notification ve DataQualityIssue oluşturabilir. Issue birden çok IssueComment ve ServiceNow referansı taşıyabilir. User, Role ve Permission ilişkileri RBAC'ı kurar. Kritik değişiklikler AuditLog ile izlenir. (`DQ-SCR-002`, `DQ-SCR-018`–`DQ-SCR-025`, `DQ-SCR-032`)
+Temel ilişkiler şöyledir: Bir DataSource birden çok Dataset; bir Dataset birden çok DataField içerir. QualityRule mantıksal kimliği altında birden çok değişmez RuleVersion bulunur. RuleVersion bir veya daha çok Dataset/DataField ile ilişkilidir. Schedule bir kural veya kural grubunu tetikler ve RuleExecution oluşturur. RuleExecution, RuleResult üretir; RuleResult'tan değişmez ham ve kritik politika sonrası nihai QualityScore hesaplanır. ScoreMeasurementSummary kapsam/güveni, MeasurementQualificationResult ölçüm yeterliliğini, DatasetCriticalityProfile kritiklik profilini ve DataRiskScore ayrı risk sonucunu taşır. ScoringPolicy hesaplama ve yeterlilik davranışını sürümler; DataQualityException paydayı kontrollü etkileyebilir, ScoreAssessmentOverride ham/nihai skoru değiştirmez. Skor veya çalışma olayı Notification ve DataQualityIssue oluşturabilir. Issue birden çok IssueComment ve ServiceNow referansı taşıyabilir. User, Role ve Permission ilişkileri RBAC'ı kurar. Kritik değişiklikler AuditLog ile izlenir. (`DQ-SCR-002`, `DQ-SCR-018`–`DQ-SCR-025`, `DQ-SCR-032`)
 
 ```mermaid
 erDiagram
@@ -131,6 +132,7 @@ erDiagram
     DATASET ||--o{ QUALITYSCORE : skorlanir
     DATASOURCE ||--o{ QUALITYSCORE : skorlanir
     QUALITYSCORE ||--|| SCOREMEASUREMENTSUMMARY : kapsam_guven
+    QUALITYSCORE ||--o{ MEASUREMENTQUALIFICATIONRESULT : yeterlilik
     DATASET ||--o{ DATASETCRITICALITYPROFILE : kritiklik
     QUALITYSCORE ||--o| DATARISKSCORE : risk_baglantisi
     DATASETCRITICALITYPROFILE ||--o{ DATARISKSCORE : etkiler

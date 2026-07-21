@@ -19,13 +19,15 @@ Codex banka onaylarını varsayamaz.
 
 `DQ-SCR-014`–`DQ-SCR-017`, `DQ-SCR-022`–`DQ-SCR-025`, `DQ-SCR-030` ve
 `DQ-SCR-032` kapsamındaki normalizasyon, eşik, ağırlık, kritik kural,
-kapsam/güven, istisna ve override değişikliklerinde üretim öncesi aşağıdaki
+kapsam/güven, ölçüm yeterliliği, geçerlilik, kullanım kararı, istisna ve override değişikliklerinde üretim öncesi aşağıdaki
 kanıtlar aranır:
 
 - değişmez politika/model sürümü, kapsamı, gerekçesi ve geçerlilik başlangıcı,
 - risk sınıfına göre maker-checker ve görevler ayrılığı kararı,
-- payda, durum, agregasyon, kritik veto/tavan ve teknik hata regresyon testleri,
-- kalite/kapsam/güven/risk/teknik sağlık API ve UI sözleşme testleri,
+- sayaç değişmezleri, payda, durum, agregasyon, kritik veto/tavan, yeterlilik
+  önceliği ve teknik hata regresyon testleri,
+- ham/nihai kalite, yeterlilik, kullanım, kapsam/güven, risk ve teknik sağlık API
+  ile UI sözleşme testleri,
 - trend sürüm sınırı ve geçmiş skorların değişmediği doğrulaması,
 - replay planı; orijinal skoru koruyan ayrı yeniden hesaplama sonucu,
 - audit/outbox başarısızlığında fail-closed davranış ve geri alma planı.
@@ -41,8 +43,12 @@ Veri Yönetişimi onayı olmadan belirlenmez; eksik değerler `TBD` kalır.
   politikasından çözülür; kullanılan yöntem, dönem, hacim ve güven kaydedilir
   (`DQ-SCR-031`).
 - Timeout, bağlantı veya worker hatası kalite başarısızlığına çevrilmez. Teknik
-  olay ayrı alarm üretir; son başarılı skor gösterilirse ölçüm zamanı ve eskilik
-  görünür, kapsam/güven düşer (`DQ-SCR-005`, `DQ-SCR-028`).
+  olay ayrı alarm ve `TechnicalFailure` yeterlilik sonucu üretir; son başarılı
+  skor gösterilirse kendi ölçüm zamanı, geçerliliği ve yeterlilik durumu görünür,
+  güncel resmî sonuç gibi sunulmaz (`DQ-SCR-005`, `DQ-SCR-028`).
+- Yeterlilik değerlendirmesi kapsam, örneklem, güncellik, teknik başarı, sürüm,
+  kritik kontrol ve kanıt koşullarını ayrı kapılarda çalıştırır. Üretim eşikleri,
+  `ValidUntil` süreleri ve kullanım yetkileri `OPEN-023` kapanmadan uydurulmaz.
 - Kritik kural, hızlı kötüleşme, veri yokluğu, kapsam/güven düşüşü ve yüksek
   istisna oranı kalite alarm politikasında; retry/timeout/platform olayı teknik
   alarm politikasında değerlendirilir. Tekrarlar korelasyon anahtarıyla

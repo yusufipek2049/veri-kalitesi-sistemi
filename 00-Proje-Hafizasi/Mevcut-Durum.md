@@ -1109,6 +1109,28 @@ tags:
   sözleşmesini günceller; yeni runtime davranışının teknik olarak doğrulandığı veya
   banka tarafından onaylandığı anlamına gelmez.
 
+### 2026-07-21 — Skorlama ve ölçüm yeterliliği hedef tasarımı
+
+- `RuleResult` için population, eligible, evaluated, passed, failed, excluded,
+  technical-error ve unknown sayaçları ile üç değişmez eşitlik kanonikleştirildi.
+- Kural → boyut → ham dataset skoru, kritik kontrol tavanlı nihai skor,
+  `QualityStatus`, `CriticalRuleStatus`, `MeasurementQualificationStatus`,
+  `UsageDecision` ve `ExecutionStatus` birbirinden ayrıldı.
+- Ölçüm yeterliliği; kapsam, örneklem/güven, güncellik, teknik başarı, sürüm,
+  kritik kontrol ve kanıt koşullarını bağımsız değerlendirir. Yüksek sayısal skor
+  yetersiz veya eski ölçümü geçerli kılamaz.
+- Gereksinim, kullanım senaryosu, veri modeli, API, dashboard/rapor/bildirim/issue,
+  mimari, iş kuralları, operasyon, test ve izlenebilirlik belgeleri kanonik tasarıma
+  bağlandı. `AC/TS-039`–`047` hedef kabul senaryolarıdır.
+- Bu çalışma dokümantasyon ve hedef tasarım artımıdır. Mevcut runtime alanları ve
+  formülleri henüz taşınmamıştır; üretim değerleri ile yetki/onay matrisi
+  `OPEN-023` ve ilişkili `OPEN-BNK` kayıtlarında açıktır.
+- 39 değişen Markdown dosyasında yerel bağlantı, tablo sütunu ve whitespace
+  kontrolleri geçti. 913 test, 131 dosyalık tam mypy, Ruff lint ve `compileall`
+  geçti. `28A-v1` taraması 378 dosyada secret bulgusu üretmedi. Tam Ruff format
+  kontrolünde değişiklik dışındaki üç tarihsel Python dosyasının mevcut biçim
+  farkı sürmektedir.
+
 ## İlgili Notlar
 
 ### OPEN-001–OPEN-018 Dokümantasyon Uyumlaştırması

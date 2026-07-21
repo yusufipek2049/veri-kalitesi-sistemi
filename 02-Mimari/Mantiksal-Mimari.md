@@ -22,14 +22,15 @@ tags:
 | Entegrasyon katmanı | ServiceNow outbound kayıtlarını idempotent retry/dead-letter akışıyla yönetir. |
 | Veri profilleme motoru | İstatistik, null, benzersizlik, desen, dağılım ve aykırı değer metriklerini hesaplar. |
 | Kural çalıştırma motoru | Kural planlarını oluşturur, sorguları çalıştırır, hata türlerini sınıflandırır ve sonuçları üretir. |
-| Skorlama motoru | Kural → veri öğesi → boyut → dataset ham kalite skorunu, kapsamı ve güveni sürümlü politikalarla hesaplar; kaynak/kurum portföy özetlerinde alt kırılımları korur. Teknik sağlık, dataset kritikliği ve veri riskini ham kalite skoruna katmaz. (`DQ-SCR-002`, `DQ-SCR-016`, `DQ-SCR-018`–`DQ-SCR-021`) |
+| Skorlama motoru | Kural → veri öğesi → boyut → dataset ham kalite skorunu ve kritik kontrol tavanlı nihai skoru sürümlü politikalarla hesaplar; kaynak/kurum portföy özetlerinde alt kırılımları korur. Teknik sağlık, dataset kritikliği, veri riski ve ölçüm yeterliliğini ham kalite skoruna katmaz. (`DQ-SCR-002`, `DQ-SCR-016`, `DQ-SCR-018`–`DQ-SCR-021`) |
+| Ölçüm yeterliliği kapısı | Kapsam, örneklem, güncellik, teknik başarı, sürüm, kritik kontrol ve kanıt koşullarını değerlendirir; kalite skorundan ayrı yeterlilik durumu ile kullanım kararını üretir. |
 | Risk değerlendirme ve remediation | Ayrı dataset kritiklik profili ile kalite problemini iş etkisi/kullanımla birleştirir; risk önceliği ve remediation hedefini üretir. Kesin risk formülü `TBD`'dir. |
 | Teknik sağlık | Bağlantı, timeout, worker, sorgu ve platform olaylarını veri kalitesi alarmından ayrı yönetir; son başarılı skor fallback'inin eskiliğini sağlar. |
 | Zamanlama servisi | Tek seferlik, periyodik ve cron tabanlı işleri kuyruğa alır. |
 | Bildirim servisi | Sistem içi bildirimleri oluşturur, tekrar ve susturma kurallarını uygular. |
 | Metadata deposu | Kaynak, veri kümesi, alan, kural, sahiplik ve yapı bilgilerini saklar. |
 | Sonuç ve geçmiş deposu | Profil, çalıştırma, skor, sorun ve rapor geçmişini saklar. |
-| Raporlama ve dashboard katmanı | Ham kalite skoru, kapsam, güven, kritiklik/risk, teknik sağlık, istisna/override, sürüm sınırı ve açıklanabilir kırılımları filtrelenebilir tablo/grafikle sunar. |
+| Raporlama ve dashboard katmanı | Ham ve nihai kalite skoru, ölçüm yeterliliği, kullanım kararı, kapsam, güven, kritiklik/risk, teknik sağlık, istisna/override, sürüm sınırı ve açıklanabilir kırılımları filtrelenebilir tablo/grafikle sunar. |
 | Audit log altyapısı | Kritik kullanıcı ve sistem işlemlerini bütünlüğü korunmuş kayıtlarla izler. |
 
 ### Mantıksal Mimari
@@ -43,6 +44,7 @@ flowchart TB
     PROF[Profilleme Motoru]
     RULE[Kural Çalıştırma Motoru]
     SCORE[Skorlama Motoru]
+    QUAL[Ölçüm Yeterliliği Kapısı]
     RISK[Risk ve Remediation]
     HEALTH[Teknik Sağlık]
     NOTIF[Sistem İçi Bildirim]
@@ -60,18 +62,20 @@ flowchart TB
     ORCH --> PROF
     ORCH --> RULE
     RULE --> SCORE
+    SCORE --> QUAL
     PROF --> CONN
     RULE --> CONN
     CONN --> SRC
     PROF --> META
     RULE --> HIST
     SCORE --> HIST
-    SCORE --> RISK
+    QUAL --> HIST
+    QUAL --> RISK
     RULE --> HEALTH
     ORCH --> HEALTH
     RISK --> HIST
-    SCORE --> NOTIF
-    SCORE --> ISSUE
+    QUAL --> NOTIF
+    QUAL --> ISSUE
     API --> META
     API --> HIST
     API --> AUDIT

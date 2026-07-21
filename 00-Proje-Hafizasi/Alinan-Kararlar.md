@@ -22,6 +22,7 @@ tags:
 | Yerel prototip i7-13620H, 16 GB RAM ve RTX 4050 sınıfı bilgisayarda çalışacak. | Kesin ortam | Üretim kapasitesini tek başına temsil etmiyor. |
 | 20 milyon satırlık referans testinde onaylı anonimleştirilmiş üretim örneğiyle örnekleme, bölümleme veya kaynakta toplulaştırma kullanılacak. | Kesin teknik yaklaşım | Yerel bellek ve kaynak sistem yükünü sınırlarken test verisi gizliliğini korumak için. |
 | Yerel prototipte modüler monolit, iş kuyruğu ve ilişkisel metadata deposu önerilecek. | Öneri | Teknoloji seçimi SRS tarafından zorunlu kılınmıyor. |
+| Kalite skoru, ölçüm yeterliliği, teknik çalışma durumu ve kullanım kararı ayrı sonuçlar olacak. | Kesin hedef tasarım; üretim değerleri TBD | Yüksek skorun eksik, eski veya teknik olarak başarısız ölçümü gizlemesini engellemek için. Kanonik sözleşme `02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md` dosyasındadır. |
 
 ## 2026-07-16 Kararları
 
@@ -507,3 +508,9 @@ Bu sınıflandırma şu kuralları birlikte uygular:
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
 | --- | --- | --- | --- |
 | `DQ-SCR-001`–`DQ-SCR-033` bağlayıcı proje kararıdır. Ham veri kalitesi skoru; kapsam, güven, dataset kritikliği/veri riski ve teknik sağlıktan ayrı tutulur. Skor kural → veri öğesi → boyut → dataset hiyerarşisinde, sürümlü politika ve kritik kural kontrolüyle hesaplanır. | Tek yüzde; teknik hatayı kalite hatasına, düşük kapsamı güvenilir kaliteye veya kritikliği kalite ölçümüne dönüştürebilir. Açıklanabilirlik, anti-gaming ve tarihsel yeniden üretilebilirlik için model/politika sürümleri ile görevler ayrılığı gerekir. | Mevcut kural ağırlıklı ortalamayı tek başına korumak; dataset kritikliğini kaynak kalite skoruna ağırlık olarak katmak; kapsam/güven/risk/teknik durumu hesaplama detayında eritmek; ham skoru override ile değiştirmek. | `04.06-Skorlama.md` kanonik karar kaydıdır; `ADR-015` hedef mimariyi tanımlar. Dataset kritikliğini kalite skoruna katan tarihsel yaklaşım `Superseded` oldu, ancak geçmiş skorlar değişmez. Üretim eşik/ağırlık/veto/güven/risk değerleri, istisna/override rol matrisi ve `OPEN-BNK-013` kapsamı `TBD`/açık kalır. Bu dokümantasyon kararı runtime uygulama veya banka onayı değildir. |
+
+## 2026-07-21 — Ölçüm Yeterliliği Hedef Tasarımı
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| Kural sayaçları kanonik değişmezlerle tutulacak; ham ve nihai kalite skoru, kritik kural durumu, ölçüm yeterliliği, kullanım kararı ve teknik çalışma durumu ayrı üretilecektir. Yeterlilik kapsam, örneklem, güncellik, teknik başarı, sürüm, kritik kontrol ve kanıt kapılarıyla değerlendirilir. | Tek skor alanı; yüksek kaliteyi yetersiz ölçümle, teknik hatayı kalite düşüşüyle veya kritik kontrolü ağırlıklı ortalamayla karıştırabilir. | Yalnız mevcut skor statülerini genişletmek; teknik hatayı sıfır skor yapmak; yüksek skor varsa ölçümü otomatik yeterli saymak; kritik sonucu ham skora gömmek. | [Kanonik tasarım](../02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md), FR-046–FR-053 ve AC/TS-039–047 hedef sözleşmedir. Üretim eşikleri, minimum kapsam/güven, geçerlilik süreleri, kanıt/onay matrisi, kullanım/blokaj yetkileri ve remediation hedefleri `OPEN-023` altında `TBD` kalır. Bu karar runtime uygulaması veya banka onayı değildir. |

@@ -23,10 +23,12 @@ bütünlüğü de desteklenebilir. Uygulanmayan boyut `NotApplicable` olur.
 
 ## Skorlama İlkesi
 
-Ham veri kalitesi skoru; kural/ölçüm kapsamı, skor güvenilirliği, dataset
-kritikliği/veri riski ve teknik sağlık durumundan ayrı tutulur. Skor personel
-performans puanı değildir. Bağlayıcı kararlar:
-[DQ-SCR skorlama kararları](../01-SRS/04-Fonksiyonel-Gereksinimler/04.06-Skorlama.md).
+Ham ve kritik kontrol etkili nihai veri kalitesi skoru; ölçüm yeterliliği,
+kullanım kararı, kural/ölçüm kapsamı, güven, dataset kritikliği/veri riski ve
+teknik sağlık durumundan ayrı tutulur. Yüksek skor eksik, eski veya teknik olarak
+başarısız ölçümü geçerli kılamaz. Skor personel performans puanı değildir.
+Bağlayıcı kaynaklar: [DQ-SCR skorlama kararları](../01-SRS/04-Fonksiyonel-Gereksinimler/04.06-Skorlama.md)
+ve [kanonik skorlama ve ölçüm yeterliliği tasarımı](../02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md).
 
 ## Uçtan Uca Döngü
 

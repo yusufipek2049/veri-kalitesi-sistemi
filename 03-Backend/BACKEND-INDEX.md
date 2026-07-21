@@ -17,7 +17,7 @@ tags:
 | Profilleme motoru | [04.03-Metadata-ve-Profilleme](../01-SRS/04-Fonksiyonel-Gereksinimler/04.03-Metadata-ve-Profilleme.md) | DataProfile |
 | Kural yönetimi | [04.04-Kural-Yonetimi](../01-SRS/04-Fonksiyonel-Gereksinimler/04.04-Kural-Yonetimi.md) | QualityRule, RuleVersion |
 | Scheduler ve worker | [04.05-Calistirma-ve-Zamanlama](../01-SRS/04-Fonksiyonel-Gereksinimler/04.05-Calistirma-ve-Zamanlama.md) | Schedule, RuleExecution, RuleResult |
-| Skorlama motoru | [04.06-Skorlama](../01-SRS/04-Fonksiyonel-Gereksinimler/04.06-Skorlama.md) | QualityScore, QualityDimension |
+| Skorlama ve ölçüm yeterliliği | [04.06-Skorlama](../01-SRS/04-Fonksiyonel-Gereksinimler/04.06-Skorlama.md), [kanonik tasarım](../02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md) | QualityScore, QualityDimension, ScoreMeasurementSummary, MeasurementQualificationResult, ScoringPolicy |
 | Bildirim servisi | [04.08-Bildirim](../01-SRS/04-Fonksiyonel-Gereksinimler/04.08-Bildirim.md) | Notification |
 | Issue servisi | [04.09-Sorun-Yonetimi](../01-SRS/04-Fonksiyonel-Gereksinimler/04.09-Sorun-Yonetimi.md) | DataQualityIssue, IssueComment |
 | Raporlama | [04.10-Raporlama](../01-SRS/04-Fonksiyonel-Gereksinimler/04.10-Raporlama.md) | Report |

@@ -50,13 +50,17 @@ tags:
 | Alan adı | Veri tipi | Uzunluk | Zorunluluk | Benzersizlik | Varsayılan değer | Açıklama | Hassas veri durumu | Doğrulama kuralı |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | execution_id | UUID | 36 | Evet | Evet | Otomatik | Çalıştırma anahtarı | Hayır | UUID |
+| dataset_id | UUID | 36 | Evet | Hayır | Yok | Ölçülen dataset | Hayır | Geçerli Dataset |
+| snapshot_id | VARCHAR | 200 | Koşullu | Hayır | NULL | Snapshot/partition veya doğrulama hash'i | Hassas olabilir | Ham veri içermeyen opak referans |
+| business_date | DATE/TIMESTAMP | TBD | Evet | Hayır | Yok | Ölçümün iş tarihi/dönemi | Hayır | Politika saat dilimiyle uyumlu |
 | execution_type | ENUM | 30 | Evet | Hayır | MANUAL | MANUAL/SCHEDULED/TEST/PROFILE | Hayır | İzinli enum |
-| status | ENUM | 40 | Evet | Hayır | QUEUED | QUEUED/RUNNING/SUCCESS/PARTIAL/TECHNICAL_ERROR/TIMEOUT/CANCELLED | Hayır | İzinli geçiş |
+| status | ENUM | 40 | Evet | Hayır | QUEUED | QUEUED/RUNNING/COMPLETED/PARTIAL_SUCCESS/TECHNICAL_FAILURE/TIMED_OUT/ACCESS_DENIED/SOURCE_UNAVAILABLE/CANCELLED | Hayır | Kanonik geçiş; mevcut fiziksel enum migration ile eşlenir |
 | idempotency_key | VARCHAR | 200 | Evet | Koşullu benzersiz | Otomatik | Çift çalıştırma önleme anahtarı | Hassas olabilir | Payload hash ile eşleşir |
 | started_at | TIMESTAMP | TBD | Hayır | Hayır | NULL | Başlangıç UTC | Hayır | Bitişten önce |
-| finished_at | TIMESTAMP | TBD | Hayır | Hayır | NULL | Bitiş UTC | Hayır | Başlangıçtan sonra |
+| completed_at | TIMESTAMP | TBD | Hayır | Hayır | NULL | Bitiş UTC | Hayır | Başlangıçtan sonra |
 | triggered_by | UUID | 36 | Hayır | Hayır | NULL | Kullanıcı/servis hesabı | Kişisel | Geçerli User veya sistem |
 | error_class | VARCHAR | 100 | Hayır | Hayır | NULL | Teknik hata sınıfı | Hassas olabilir | Onaylı hata sözlüğü |
+| application_version | VARCHAR | 80 | Evet | Hayır | Yok | Çalıştırıcı uygulama sürümü | Hayır | Değişmez |
 
 ## RuleResult
 
@@ -65,19 +69,25 @@ tags:
 | rule_result_id | UUID | 36 | Evet | Evet | Otomatik | Sonuç anahtarı | Hayır | UUID |
 | execution_id | UUID | 36 | Evet | Hayır | Yok | Çalıştırma referansı | Hayır | Geçerli RuleExecution |
 | rule_version_id | UUID | 36 | Evet | Hayır | Yok | Çalışan kural sürümü | Hayır | Geçerli RuleVersion |
-| checked_count | BIGINT | 19 | Evet | Hayır | 0 | Kontrol edilen kayıt | Hayır | ≥0 |
+| population_count | BIGINT | 19 | Koşullu | Hayır | NULL | İş tarihi/snapshot toplam aday evreni | Hayır | ≥0 veya teknik olarak bilinmiyorsa NULL |
+| eligible_count | BIGINT | 19 | Koşullu | Hayır | NULL | Uygulanabilir kayıt | Hayır | ≥0 veya bilinmiyorsa NULL |
+| evaluated_count | BIGINT | 19 | Koşullu | Hayır | NULL | Başarı/başarısızlık üretilen kayıt | Hayır | ≥0 veya bilinmiyorsa NULL |
 | passed_count | BIGINT | 19 | Evet | Hayır | 0 | Başarılı kayıt | Hayır | ≥0 |
 | failed_count | BIGINT | 19 | Evet | Hayır | 0 | Hatalı kayıt | Hayır | ≥0 |
 | exception_count | BIGINT | 19 | Evet | Hayır | 0 | Geçerli istisna nedeniyle skor paydasından ayrılan kayıt | Hayır | ≥0 |
 | out_of_scope_count | BIGINT | 19 | Evet | Hayır | 0 | Kural kapsamı dışında kalan kayıt | Hayır | ≥0 |
-| not_evaluated_count | BIGINT | 19 | Evet | Hayır | 0 | Değerlendirilemeyen kayıt | Hayır | ≥0 |
+| excluded_count | BIGINT | 19 | Koşullu | Hayır | NULL | İstisna ve kapsam dışı kayıt toplamı | Hayır | exception + out_of_scope ile uyumlu |
+| technical_error_count | BIGINT | 19 | Koşullu | Hayır | NULL | Teknik nedenle değerlendirilemeyen uygulanabilir kayıt | Hayır | ≥0 veya teknik olarak bilinmiyorsa NULL |
+| unknown_count | BIGINT | 19 | Koşullu | Hayır | NULL | Uygulanabilirliği semantik nedenle bilinmeyen kayıt | Hayır | ≥0 veya bilinmiyorsa NULL |
 | measurement_status | ENUM | 40 | Evet | Hayır | NOT_MEASURED | PASSED/WARNING/FAILED/NOT_APPLICABLE/NOT_MEASURED/NO_DATA/TECHNICAL_ERROR/SUPPRESSED_BY_EXCEPTION | Hayır | İzinli durum |
 | normalization_policy_version | VARCHAR | 80 | Koşullu | Hayır | NULL | Kural skorunda kullanılan normalizasyon sürümü | Hayır | Sayısal skorda zorunlu |
 | sample_evidence | JSON | TBD | Hayır | Hayır | NULL | Maskeli örnek/kanıt | Hassas | Maskeleme zorunlu |
 
-Sayaçlar `DQ-SCR-004` ve `DQ-SCR-006` uyarınca iki ayrı eşitlikle doğrulanır:
-değerlendirilen kayıt sayısı başarılı + başarısız; kaynak kapsamı ise kapsam
-dışı + değerlendirilen + istisnalı + değerlendirilemeyen kayıttır.
+Sayaçlar `DQ-SCR-004` ve kanonik tasarım uyarınca
+`population = eligible + excluded + unknown`,
+`eligible = evaluated + technical_error` ve
+`evaluated = passed + failed` eşitlikleriyle doğrulanır. Sayaç teknik nedenle
+bilinmiyorsa tahmini sıfır kullanılmaz.
 
 ## QualityScore
 
@@ -86,21 +96,29 @@ dışı + değerlendirilen + istisnalı + değerlendirilemeyen kayıttır.
 | quality_score_id | UUID | 36 | Evet | Evet | Otomatik | Skor anahtarı | Hayır | UUID |
 | scope_type | ENUM | 30 | Evet | Hayır | RULE | RULE/DATA_ELEMENT/DIMENSION/DATASET/DATA_PRODUCT/REPORT/DATA_DOMAIN/SOURCE/ENTERPRISE | Hayır | İzinli enum |
 | scope_id | UUID | 36 | Hayır | Hayır | NULL | Kapsam nesnesi; kurum skorunda NULL | Hayır | Scope type ile uyumlu |
-| score_value | DECIMAL | 5,2 | Hayır | Hayır | NULL | 0–100 skor | Hayır | 0–100 veya NULL |
-| score_status | ENUM | 50 | Evet | Hayır | NOT_MEASURED | PASSED/WARNING/FAILED/NOT_APPLICABLE/NOT_MEASURED/NO_DATA/TECHNICAL_ERROR/SUPPRESSED_BY_EXCEPTION/PARTIAL/CONFIG_ERROR | Hayır | İzinli enum; fiziksel kod eşlemesi sürümlü |
-| level | ENUM | 30 | Hayır | Hayır | NULL | Sürümlü eşik politikasının kalite etiketi | Hayır | Eşik politika sürümüyle uyumlu |
+| raw_score_value | DECIMAL | 5,2 | Hayır | Hayır | NULL | Ağırlıklı ham 0–100 kalite skoru | Hayır | 0–100 veya NULL |
+| final_score_value | DECIMAL | 5,2 | Hayır | Hayır | NULL | Kritik skor tavanı sonrası sonuç | Hayır | 0–100, ham skordan büyük değil veya NULL |
+| measurement_status | ENUM | 50 | Evet | Hayır | NOT_MEASURED | PASSED/WARNING/FAILED/NOT_APPLICABLE/NOT_MEASURED/NO_DATA/TECHNICAL_ERROR/SUPPRESSED_BY_EXCEPTION/PARTIAL/CONFIG_ERROR | Hayır | İzinli enum; fiziksel kod eşlemesi sürümlü |
+| quality_status | ENUM | 30 | Hayır | Hayır | NULL | Sürümlü eşik/kritik politikasının kalite etiketi | Hayır | Eşik politika sürümüyle uyumlu |
+| critical_rule_status | ENUM | 30 | Evet | Hayır | NOT_EVALUATED | PASSED/FAILED/NOT_EVALUATED/NOT_APPLICABLE | Hayır | Kritik politika ile uyumlu |
+| usage_decision | ENUM | 30 | Evet | Hayır | UNDETERMINED | ALLOWED/CONDITIONALLY_ALLOWED/BLOCKED/UNDETERMINED | Hayır | Kullanım bağlamı politikasıyla uyumlu |
 | score_model_version | VARCHAR | 80 | Evet | Hayır | Yok | Skor modeli/formül sürümü | Hayır | Değişmez |
 | threshold_policy_version | VARCHAR | 80 | Koşullu | Hayır | NULL | Kullanılan eşik sürümü | Hayır | Sınıflandırılmış skorda zorunlu |
 | weight_policy_version | VARCHAR | 80 | Koşullu | Hayır | NULL | Kullanılan ağırlık sürümü | Hayır | Toplulaştırılmış skorda zorunlu |
 | normalization_policy_version | VARCHAR | 80 | Koşullu | Hayır | NULL | Kullanılan normalizasyon sürümü | Hayır | Normalleştirilmiş skorda zorunlu |
 | application_version | VARCHAR | 80 | Evet | Hayır | Yok | Hesaplamayı yapan uygulama sürümü | Hayır | Değişmez |
+| rule_set_version | VARCHAR | 80 | Evet | Hayır | Yok | Kullanılan kural seti sürümü | Hayır | Değişmez |
+| reference_data_version | VARCHAR | 80 | Koşullu | Hayır | NULL | Referans veri/kod listesi sürümü | Hassas olabilir | Ham referans değer içermez |
+| scoring_algorithm_version | VARCHAR | 80 | Evet | Hayır | Yok | Hesaplama algoritması sürümü | Hayır | Değişmez |
 | original_score_id | UUID | 36 | Hayır | Hayır | NULL | Yeniden hesaplanan sonuçta korunan orijinal skor | Hayır | Geçerli QualityScore |
 | calculation_details | JSON | TBD | Evet | Hayır | {} | Formül, dahil/dışlanan öğe, kritik kural kararı ve sürüm özeti | Hayır | Şema doğrulaması; ham/hassas kayıt yok |
 | calculated_at | TIMESTAMP | TBD | Evet | Hayır | Otomatik | Hesap zamanı UTC | Hayır | Geçerli zaman |
 
-`QualityScore` yalnız ham veri kalitesi ölçümünü taşır. Dataset kritiklik profili,
-ölçüm kapsamı/güveni, veri riski, teknik sağlık ve onaylı değerlendirme/override
-bu değerin içine eritilmez (`DQ-SCR-018`–`DQ-SCR-023`). `SOURCE` ve
+`raw_score_value` yalnız ağırlıklı kalite ölçümünü taşır. `final_score_value`
+yalnız sürümlü kritik skor tavanını uygular; manuel değerlendirme değildir.
+Dataset kritiklik profili, ölçüm yeterliliği/kapsamı/güveni, veri riski, teknik
+sağlık ve onaylı değerlendirme/override bu değerlere eritilmez
+(`DQ-SCR-018`–`DQ-SCR-023`). `SOURCE` ve
 `ENTERPRISE` kayıtları portföy görünümüdür; kural → veri öğesi → boyut → dataset
 kırılımlarının yerine geçmez.
 
@@ -124,20 +142,43 @@ ağırlığı yalnız tanımlı yeniden dağıtım politikasıyla ele alınır (
 | Alan adı | Veri tipi | Zorunluluk | Açıklama |
 | --- | --- | --- | --- |
 | measurement_summary_id | UUID | Evet | Ölçüm özeti anahtarı |
-| quality_score_id | UUID | Evet | Ham kalite skoru referansı |
-| coverage_ratio | DECIMAL | Evet | Sürümü belirtilen kapsam formülünün sonucu |
-| confidence_score | DECIMAL | Evet | Kalite skorundan ayrı ölçüm güveni |
+| quality_score_id | UUID | Evet | Ham/nihai kalite sonucu referansı |
+| coverage_rate | DECIMAL | Evet | Sürümü belirtilen kapsam formülünün sonucu |
+| coverage_status | ENUM | Evet | SUFFICIENT/LIMITED/UNKNOWN/NOT_APPLICABLE |
+| confidence_level | ENUM/DECIMAL | Evet | Kalite skorundan ayrı ölçüm güven seviyesi |
 | confidence_policy_version | VARCHAR | Evet | Kapsam/güven formülü ve ağırlık sürümü |
 | executed_rule_ratio | DECIMAL | Evet | Çalışan kural oranı |
 | technical_error_ratio | DECIMAL | Evet | Teknik hata oranı; kalite başarısızlığı değildir |
-| sampling_method | ENUM | Hayır | FULL/SAMPLE/INCREMENTAL/PARTITIONED |
+| sampling_method | ENUM | Hayır | FULL_SCAN/SAMPLE/INCREMENTAL/PARTITIONED/SOURCE_AGGREGATE |
 | sample_size | BIGINT | Hayır | Örneklem büyüklüğü |
-| confidence_level | DECIMAL | Hayır | Örneklem yönteminin istatistiksel güven düzeyi |
-| last_successful_calculation_at | TIMESTAMP | Hayır | Son başarılı ölçüm zamanı; eski skor gösteriminde zorunlu |
+| population_size | BIGINT | Hayır | Bilinen veya yöntemle tahmin edilen evren büyüklüğü |
+| sampling_confidence_level | DECIMAL | Hayır | Örneklem yönteminin doğrulanmış istatistiksel güven düzeyi |
+| evidence_completeness | ENUM/DECIMAL | Evet | Sayaç, sürüm, snapshot ve audit kanıtı tamamlığı |
+| last_successful_run_at | TIMESTAMP | Hayır | Son başarılı ölçüm zamanı; eski skor gösteriminde zorunlu |
+| valid_until | TIMESTAMP | Hayır | Dataset/kullanım politikasından gelen geçerlilik sonu |
 
 Kapsam ve güven formüllerinin kesin katsayıları `TBD`'dir. Yüksek kalite/düşük
 güven durumu korunur ve kullanıcıya ayrı gösterilir (`DQ-SCR-020`,
 `DQ-SCR-021`).
+
+## MeasurementQualificationResult
+
+| Alan adı | Veri tipi | Zorunluluk | Açıklama |
+| --- | --- | --- | --- |
+| qualification_result_id | UUID | Evet | Yeterlilik sonucu anahtarı |
+| quality_score_id | UUID | Evet | İlgili ham/nihai kalite sonucu |
+| measurement_summary_id | UUID | Evet | Kapsam, örneklem, güven ve geçerlilik özeti |
+| qualification_status | ENUM | Evet | QUALIFIED/PROVISIONALLY_QUALIFIED/LIMITED_COVERAGE/STALE/VALIDATION_REQUIRED/TECHNICAL_FAILURE/NOT_QUALIFIED/NOT_APPLICABLE |
+| failed_gates | JSON | Evet | Sağlanmayan anlam, kapsam, örneklem, teknik, güncellik, sürüm, kanıt, kritik kontrol, test/onay kapıları |
+| qualification_policy_version | VARCHAR | Evet | Değerlendirme sırası ve koşulların sürümü |
+| evaluated_at | TIMESTAMP | Evet | UTC yeterlilik değerlendirme zamanı |
+| valid_until | TIMESTAMP | Hayır | Sonucun geçerlilik sonu |
+| previous_qualification_result_id | UUID | Hayır | Yeniden ölçüm/yeniden değerlendirme zinciri |
+| audit_reference | VARCHAR | Evet | Veri-minimum audit/outbox referansı |
+
+Yüksek `raw_score_value` veya `final_score_value`, bu sonucu kendiliğinden
+`QUALIFIED` yapmaz. Yeterlilik kayıtları append-only tutulur; yeniden ölçüm önceki
+kaydı güncellemez.
 
 ## DatasetCriticalityProfile
 
@@ -196,14 +237,14 @@ kalır (`DQ-SCR-022`, `DQ-SCR-030`). Süre ve eşik değerleri `TBD`'dir.
 | Alan adı | Veri tipi | Zorunluluk | Açıklama |
 | --- | --- | --- | --- |
 | assessment_id | UUID | Evet | Değerlendirme anahtarı |
-| quality_score_id | UUID | Evet | Değiştirilmeyen ham skor referansı |
+| quality_score_id | UUID | Evet | Değiştirilmeyen ham/nihai kalite sonucu referansı |
 | assessment_status | ENUM | Evet | Onaylı değerlendirme/override durumu |
 | reason_code | VARCHAR | Evet | Gerekçe kodu |
 | requested_by / approved_by | UUID | Evet | Maker-checker aktörleri |
 | starts_at / expires_at | TIMESTAMP | Evet | Süreli geçerlilik |
 | audit_reference | VARCHAR | Evet | Merkezi audit/outbox referansı |
 
-Bu varlık `score_value` alanını güncellemez. Yönetim raporunda ham skor ve onaylı
+Bu varlık `raw_score_value` veya `final_score_value` alanını güncellemez. Yönetim raporunda ham/nihai skor ve onaylı
 değerlendirme ayrı gösterilir (`DQ-SCR-023`, `DQ-SCR-030`).
 
 ## ScoringPolicy
@@ -211,11 +252,17 @@ değerlendirme ayrı gösterilir (`DQ-SCR-023`, `DQ-SCR-030`).
 | Alan adı | Veri tipi | Zorunluluk | Açıklama |
 | --- | --- | --- | --- |
 | scoring_policy_id | UUID | Evet | Politika anahtarı |
-| policy_type | ENUM | Evet | NORMALIZATION/THRESHOLD/WEIGHT/CRITICAL_RULE/CONFIDENCE |
+| policy_type | ENUM | Evet | NORMALIZATION/THRESHOLD/WEIGHT/CRITICAL_RULE/CONFIDENCE/QUALIFICATION/FRESHNESS/USAGE_DECISION/NOTIFICATION/REMEDIATION |
 | dataset_type / dataset_id | UUID/VARCHAR | Koşullu | Politika kapsamı |
+| business_criticality / usage_context | ENUM/VARCHAR | Koşullu | Kritiklik profili ve kullanım bağlamı |
 | dimension_code | ENUM | Koşullu | Boyut kapsamı |
 | rule_id / rule_class | UUID/VARCHAR | Koşullu | Kural kapsamı |
 | definition | JSON | Evet | Formül, eşik, ağırlık, veto/tavan/blokaj tanımı |
+| applicability_condition | JSON | Koşullu | Koşullu kural/dataset uygulanabilirliği |
+| sampling_policy | JSON | Koşullu | Yöntem, minimum kapsam/örneklem ve güven koşulları |
+| result_validity_period / freshness_hard_limit | DURATION | Koşullu | Güncellik ve geçerlilik politikası; değerler TBD |
+| technical_failure_behavior | ENUM/JSON | Evet | Skor NULL, son başarılı gösterimi, retry/alarm davranışı |
+| notification_policy / remediation_sla | UUID/VARCHAR | Koşullu | Olay ve düzeltme politika referansı; değerler TBD |
 | policy_version | VARCHAR | Evet | Değişmez sürüm |
 | effective_from / effective_to | TIMESTAMP | Evet/Hayır | Geçerlilik aralığı |
 | reason_code / decision_owner | VARCHAR/UUID | Evet | Gerekçe ve karar sahibi |
@@ -246,6 +293,10 @@ olarak kalır; kaynak koduna gömülmez (`DQ-SCR-013`–`DQ-SCR-017`,
 | audit_reference | VARCHAR | 500 | Evet | Hayır | Yok | Audit olayı referansı | Hassas olabilir | Geçerli audit kaydı |
 
 Politika yoksa veya koşullardan biri sağlanmazsa `QualityScore` provizyonel olur. `calculation_details`; kapsama oranı, çalışan/çalışmayan kural sayıları, eksik bölümler, politika sürümü, kabul/red nedeni ve resmî agregasyon uygunluğunu taşır.
+
+Mevcut runtime alanı `minimum_coverage_ratio`, kanonik
+`minimum_coverage_rate` kavramının fiziksel karşılığıdır. Alan adı migration kararı
+`OPEN-022` kapsamında verilir; tarihsel kayıt sessizce yeniden adlandırılmaz.
 
 ## Schedule
 
