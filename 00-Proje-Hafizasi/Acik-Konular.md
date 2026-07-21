@@ -128,6 +128,14 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
     snapshot üzerinden worker yürütmesine bağladı. Gerçek bağlayıcılarda duvar
     saati timeout/iptal zorlaması, üretim sayısal değerleri, retry metriği/alarmı
     ve çoklu instance politika önbelleği açık kalır.
+60. `31D` hız sınırı artımı için sayaç birimi, pencere türü, tüketim anı ve
+    kalıcı/dağıtık sayaç davranışı SRS'de tanımlı değildir. Bu semantik ve kabul
+    kriterleri kesinleşmeden çalışma zamanı hız sınırı uygulanmayacaktır.
+61. `32A` sürümlü/onaylı dataset kısmi skor politikasını ve tüm koşulları
+    fail-closed değerlendiren karar servisini teknik olarak doğruladı.
+    `PartialExecutionFacts` olgularının execution/worker tarafından güvenilir
+    üretilmesi, kararın `QualityScore` ve resmî agregasyona bağlanması, politika
+    yaşam döngüsünün merkezi audit outbox'ı ve banka rol eşlemesi açık kalır.
 
 ## Bankacılık Geçiş Açık Konuları
 

@@ -315,7 +315,7 @@ tags:
 20. **QualityDimension kimliği:** Kalıcı UUID’ye sahip boyut tablosu oluşturulacak; `COMPLETENESS` gibi değişmez iş kodu ayrıca korunacaktır. `KararAlındı`
 21. **Dataset kritiklik ağırlığı:** Temel katsayılar `LOW=0.75`, `MEDIUM=1.00`, `HIGH=1.25`, `CRITICAL=1.50` olacaktır. Dataset türüne göre farklı katsayı tanımlanabilecek ve bu bilgi sürümlü politika tablosunda tutulacaktır. Aktif özel kayıt yoksa temel katsayıya dönülecektir. `KararAlındı`
 22. **Kurum skorunda kaynak ağırlığı:** Dataset kritiklik ve iş etkisine göre normalize edilmiş ağırlık kullanılacak; gerekçeli ve maker-checker onaylı kontrollü override desteklenecektir. `ProvisionalDecision`
-23. **Kısmi çalıştırma skoru:** Kısmi çalıştırmalar hiçbir durumda resmi skora katılmayacak; ayrı `PROVISIONAL` skor ve kapsama oranıyla gösterilecektir. `KararAlındı`
+23. **Kısmi çalıştırma skoru:** Kısmi çalışma yalnız onaylı dataset politikasındaki tüm koşulları sağlarsa resmî skora katılabilecek; aksi halde ayrı `PROVISIONAL` skor ve kapsama oranıyla gösterilecektir. `KararAlındı`
 24. **Maker-checker kapsamı:** Kritik kurallar, veri kaynağı aktivasyonu, skor konfigürasyonu, hassas dışa aktarma ve güvenlik istisnaları maker-checker kapsamındadır. Onay için hedef süre **3 iş günü**, otomatik sona erme süresi **10 iş günü** olacaktır. Süre istek oluşturulduğunda başlar; banka iş günü takvimi kullanılır; sona eren istek onaylanamaz ve yeniden oluşturulmalıdır. `ProvisionalDecision`
 25. **Veri sınıflandırma eşlemesi:** Banka sözlüğüne eşlenmeyen teknik sınıflandırma kodlarında fail-closed davranışı uygulanacaktır. `ProvisionalDecision`
 26. **Audit hata davranışı:** Kritik değişiklikler audit yazılamadığında fail-closed olacaktır. Salt okunur veya düşük riskli işlemler durable buffer’a alınabilir; buffer da kullanılamıyorsa işlem fail-closed olur. `ProvisionalDecision`
@@ -477,3 +477,9 @@ Bu sınıflandırma şu kuralları birlikte uygular:
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
 | --- | --- | --- | --- |
 | Worker claim ve yürütme ayarları tek kaynak politika snapshot'ından çözülür. Çok kaynaklı işte sorgu timeoutu ve retry sayısının en düşüğü, retry gecikmesinin en yükseği uygulanır; yerel worker ayarları daha gevşek politika değerlerine karşı güvenli sınır olarak korunur. | Claim sonrasında politikanın yeniden okunması aynı işte sürüm tutarsızlığı doğurabilir. Çok kaynaklı işin herhangi bir kaynak için onaylı sınırı aşmaması gerekir. | Claim ve yürütmede ayrı politika okuması yapmak, ilk kaynağın değerlerini kullanmak veya en geniş sınırları seçmek. | Kaynak politikası yalnız sorgu timeoutunu daraltır; bağlantı ve toplam timeout değişmez. `retry_count` yeniden deneme sayısıdır ve sıfır değeri ilk teknik hatadan sonra tekrar denemeyi engeller. Üretim sayısal değerleri TBD kalır. |
+
+## 2026-07-21 — İterasyon 32A Teknik Kararı
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| Kısmi skor uygunluğu yalnız geçerli, onaylı dataset politikası ve dışarıdan ölçülmüş çalışma olgularıyla değerlendirilecektir. Politika yokluğu veya herhangi bir koşul ihlali `PROVISIONAL` kararıdır. | `FR-048` tüm koşulların birlikte sağlanmasını ve politika yokluğunda güvenli varsayılanı gerektirir. Mevcut execution kaydı beklenen kayıt hacmi ve gerçek kapsama oranını güvenilir biçimde içermez. | Eksik oranları sonuç sayaçlarından tahmin etmek, onaysız politikayı kullanmak veya koşullardan bir kısmını yeterli saymak. | `PartialExecutionFacts` oranları ve opak kimlikleri açıkça taşır; karar neden kodu, politika sürümü, kapsama, çalışan/çalışmayan kural sayısı ve eksik partitionları açıklar. `QualityScore` entegrasyonu ayrı dilimde kalır. |
