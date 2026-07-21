@@ -32,6 +32,7 @@
 - [İterasyon 19C - Kural Onay Geri Çekme Kanıtı](Guvenlik-Testleri/Iterasyon-19C-Kural-Onay-Geri-Cekme-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 19D - Kural Onay Süre Aşımı Kanıtı](Guvenlik-Testleri/Iterasyon-19D-Kural-Onay-Sure-Asimi-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 19E - Veri Kaynağı Aktivasyon Maker-Checker Kanıtı](Guvenlik-Testleri/Iterasyon-19E-Veri-Kaynagi-Aktivasyon-Maker-Checker-Kaniti.md) - `TechnicallyVerified`
+- [İterasyon 19F - Veri Kaynağı Onay Geri Çekme ve Süre Aşımı Kanıtı](Guvenlik-Testleri/Iterasyon-19F-Veri-Kaynagi-Onay-Geri-Cekme-Sure-Asimi-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 20A - LDAP RBAC Sözleşme Kanıtı](Erisim/Iterasyon-20A-LDAP-RBAC-Sozlesme-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 20B - Başarısız Giriş Sınırlandırma Kanıtı](Erisim/Iterasyon-20B-Basarisiz-Giris-Sinirlandirma-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 20C - Güvenli Oturum Yaşam Döngüsü Kanıtı](Erisim/Iterasyon-20C-Guvenli-Oturum-Yasam-Dongusu-Kaniti.md) - `TechnicallyVerified`

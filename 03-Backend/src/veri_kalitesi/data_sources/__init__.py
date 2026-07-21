@@ -39,7 +39,7 @@ from veri_kalitesi.data_sources.postgresql import (
 )
 from veri_kalitesi.data_sources.repository import SQLiteDataSourceRepository
 from veri_kalitesi.data_sources.secrets import EmptySecretResolver, InMemorySecretResolver
-from veri_kalitesi.data_sources.service import DataSourceService
+from veri_kalitesi.data_sources.service import BusinessCalendar, DataSourceService
 from veri_kalitesi.data_protection import (
     ClassificationCode,
     DataProcessingInventory,
@@ -50,6 +50,7 @@ from veri_kalitesi.data_protection import (
 
 __all__ = [
     "AuthenticationConnectionError",
+    "BusinessCalendar",
     "CSVConnector",
     "ClassificationCode",
     "ConnectionTestResult",

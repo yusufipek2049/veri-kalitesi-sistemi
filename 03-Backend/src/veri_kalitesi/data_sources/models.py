@@ -40,6 +40,8 @@ class DataSourceActivationStatus(str, Enum):
     PENDING = "PENDING"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
+    WITHDRAWN = "WITHDRAWN"
+    EXPIRED = "EXPIRED"
 
 
 @dataclass(frozen=True)
@@ -49,6 +51,10 @@ class DataSourceActivationPolicy:
     maker_roles: frozenset[str]
     checker_roles: frozenset[str]
     allowed_actor_types: frozenset[str] = field(default_factory=lambda: frozenset({"USER"}))
+    target_business_days: int | None = None
+    expiration_business_days: int | None = None
+    business_calendar_version: str | None = None
+    expiry_service_roles: frozenset[str] = field(default_factory=frozenset)
 
 
 @dataclass(frozen=True)
@@ -62,6 +68,9 @@ class DataSourceActivationRequest:
     decision_reason_code: str | None = None
     activation_request_id: str = field(default_factory=lambda: str(uuid4()))
     requested_at: datetime = field(default_factory=utc_now)
+    target_at: datetime | None = None
+    expires_at: datetime | None = None
+    business_calendar_version: str | None = None
     decided_at: datetime | None = None
 
 
