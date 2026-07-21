@@ -16,6 +16,18 @@ class ExecutionValidationError(ExecutionError):
     """Çalıştırma isteği veya durum geçişi geçersiz."""
 
 
+class SourceUsagePolicyUnavailableError(ExecutionValidationError):
+    """Aktif global kaynak kullanım politikası bulunamadı."""
+
+
+class SourceUsagePolicyConflictError(ExecutionValidationError):
+    """Kaynak kullanım politikası kimliği veya sürümü çakışıyor."""
+
+
+class SourceUsagePolicyTechnicalError(ExecutionError):
+    """Kaynak kullanım politikası deposuna erişilemedi."""
+
+
 class ExecutionNotFoundError(ExecutionError):
     """İstenen çalıştırma bulunamadı."""
 

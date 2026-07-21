@@ -968,6 +968,24 @@ tags:
 - Gerçek deployment/attestation sağlayıcısı, secret manager ve veri hazırlama
   kanıtı `OPEN-BNK-012`; yedek/restore/RTO/RPO/DR `OPEN-BNK-011` ile açık kalır.
 
+### 2026-07-21 — İterasyon 31A: Sürümlü kaynak kullanım politikası ve güvenli kota çözümleme
+
+- `FR-039`, `UC-008`, `RULE-012`, `NFR-PERF-006` ve `NFR-PERF-008` için
+  sürümlü `SourceUsagePolicy` modeli ve SQLite politika deposu eklendi.
+- Global politika ile kaynak türü/kaynak kimliği override kayıtları aynı modelde
+  saklanır; çözümlemede kaynak kimliği kaynak türünden önce gelir.
+- Aktif politika; eş zamanlı sorgu, worker, sorgu timeoutu, retry, hız sınırı,
+  çalışma penceresi, CPU/IO, yoğun saat, iptal, onay ve audit referansı alanlarını
+  taşır. Yeni aktif sürüm aynı kapsamdaki önceki sürümü `RETIRED` durumuna alır.
+- Worker claim akışı çözümlenen toplam worker ve kaynak bazlı sorgu kotalarını
+  uygular. Kalıcı çözümleyici kullanıldığında aktif global politika yoksa iş
+  `QUEUED` durumunda kalır ve fail-closed doğrulama hatası üretilir.
+- Politika depo arızası teknik hata olarak ayrılır. Üretim kota değerleri
+  uydurulmadı; çalışma penceresi, CPU/IO, hız sınırı, timeout ve retry alanlarının
+  çalışma zamanı uygulaması sonraki dilimlere bırakıldı.
+- 8 yeni testle toplam test sayısı 863 oldu. Tam mypy 129 dosyada, Ruff,
+  değişen dosya formatı ve derleme kontrolleri hatasız geçti.
+
 ## İlgili Notlar
 
 ### OPEN-001–OPEN-018 Dokümantasyon Uyumlaştırması
@@ -983,9 +1001,9 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C ve Bakım İterasyonu 29C.1 çıktıları korunacaktır.
-- `pytest` ile 855 testin geçtiği doğrulanmıştır.
-- Tam mypy kontrolü 127 kaynak dosyada sıfır hata vermektedir.
-- Sıradaki 27B restore tatbikat kanıtı dilimi `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını beklemektedir. Gerçek arşiv/fiziksel imha adaptörü, 29D, 21B/frontend, hassas dışa aktarma ve gerçek SIEM de banka/altyapı kararlarına bağlıdır.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1 ve İterasyon 31A çıktıları korunacaktır.
+- `pytest` ile 863 testin geçtiği doğrulanmıştır.
+- Tam mypy kontrolü 129 kaynak dosyada sıfır hata vermektedir.
+- Sıradaki hazır dilim 31B kaynak çalışma penceresi ve yoğun saat kararının fail-closed uygulanmasıdır. 27B restore tatbikat kanıtı `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını beklemektedir; gerçek arşiv/fiziksel imha adaptörü, 29D, 21B/frontend, hassas dışa aktarma ve gerçek SIEM de banka/altyapı kararlarına bağlıdır.
 - Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

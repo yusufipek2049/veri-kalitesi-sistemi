@@ -50,6 +50,7 @@ class RetryPolicy:
 
 @dataclass(frozen=True)
 class ConcurrencyPolicy:
+    max_total: int = 6
     max_heavy: int = 2
     max_light: int = 4
     default_source_limit: int = 4

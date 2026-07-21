@@ -30,6 +30,7 @@ from veri_kalitesi.executions.models import (
     utc_now,
 )
 from veri_kalitesi.executions.repository import SQLiteExecutionRepository
+from veri_kalitesi.executions.source_usage_policies import SourceUsagePolicyResolver
 from veri_kalitesi.rules.models import RuleStatus, RuleVersion
 
 
@@ -104,6 +105,7 @@ class ExecutionService:
         timeouts: ExecutionTimeouts | None = None,
         retry_policy: RetryPolicy | None = None,
         concurrency_policy: ConcurrencyPolicy | None = None,
+        source_usage_policy_resolver: SourceUsagePolicyResolver | None = None,
         workload_classifier: WorkloadClassifier | None = None,
         technical_event_sink: TechnicalEventSink | None = None,
         cancellation_sink: ExecutionCancellationSink | None = None,
@@ -116,7 +118,12 @@ class ExecutionService:
         self.executor = executor
         self.timeouts = timeouts or ExecutionTimeouts()
         self.retry_policy = retry_policy or RetryPolicy()
+        if concurrency_policy is not None and source_usage_policy_resolver is not None:
+            raise ExecutionValidationError(
+                "Concurrency policy and source usage policy resolver cannot be combined."
+            )
         self.concurrency_policy = concurrency_policy or ConcurrencyPolicy()
+        self.source_usage_policy_resolver = source_usage_policy_resolver
         self.workload_classifier = workload_classifier or DefaultWorkloadClassifier()
         self.technical_event_sink = technical_event_sink
         self.cancellation_sink = cancellation_sink
@@ -222,7 +229,12 @@ class ExecutionService:
 
     def run_next(self) -> RuleExecution | None:
         self.close_expired_cancellations()
-        execution = self.repository.claim_next(self.clock(), self.concurrency_policy)
+        concurrency_policy = (
+            self.source_usage_policy_resolver.resolve_concurrency_policy()
+            if self.source_usage_policy_resolver is not None
+            else self.concurrency_policy
+        )
+        execution = self.repository.claim_next(self.clock(), concurrency_policy)
         if execution is None:
             return None
         versions = tuple(self.rule_catalog.get_version(item) for item in execution.rule_version_ids)
@@ -392,6 +404,7 @@ def _validate_policy(timeouts: ExecutionTimeouts, policy: RetryPolicy) -> None:
 
 def _validate_concurrency_policy(policy: ConcurrencyPolicy) -> None:
     limits = (
+        policy.max_total,
         policy.max_heavy,
         policy.max_light,
         policy.default_source_limit,
