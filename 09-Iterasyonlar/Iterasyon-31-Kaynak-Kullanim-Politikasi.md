@@ -1,5 +1,5 @@
 ---
-iteration: 31A
+iteration: 31
 status: TechnicallyVerified
 completed_at: 2026-07-21
 ---
@@ -42,3 +42,42 @@ completed_at: 2026-07-21
   mevcut güvenli yerel `ConcurrencyPolicy` yolu korunur. Şema silinmez.
 - **Sonraki iterasyon:** 31B, kaynak çalışma penceresi ve yoğun saat kararının
   fail-closed uygulanması.
+
+## 31B — Kaynak çalışma penceresi ve yoğun saat koruması
+
+- **İterasyon adı:** Kaynak çalışma penceresi ve yoğun saat koruması
+- **Kullanıcı/sistem değeri:** Worker yalnız kaynak politikasının açıkça izin
+  verdiği zamanda iş alır; yasaklı/yoğun saatlerde kaynak sorgusu başlatılmaz.
+- **Mevcut FR/UC/RULE:** `FR-039`, `UC-008`, `RULE-012`, `RULE-015`,
+  `NFR-PERF-008`
+- **BFR/CTRL:** Yeni eşleme yoktur.
+- **Değiştirilen dosyalar:** Kaynak kullanım politika modeli/çözümleyicisi,
+  concurrency policy, worker claim filtresi, execution servisi, testler ve proje
+  hafızası.
+- **Migration/config:** Mevcut JSON pencere alanları IANA saat dilimi, ISO hafta
+  günü ve yerel başlangıç/bitiş saatini taşıyan yapılandırılmış payload olarak
+  kullanıldı; yeni tablo veya üretim değeri eklenmedi.
+- **Eklenen testler:** Yasaklı pencere önceliği, pencere dışı ve boş pencere
+  fail-closed davranışı, dahil/hariç sınırlar, gece yarısını aşan pencere, kaynak
+  override ile kuyruk atlama, UTC zorunluluğu ve geçersiz IANA saat dilimi.
+- **Çalıştırılan komutlar:** `pytest -q`, `mypy 03-Backend/src
+  06-Testler/01-Birim`, `ruff check .`, değişen yeni dosyalarda `ruff format` ve
+  `compileall`.
+- **Mevcut regresyon sonucu:** 871 test geçti; mypy 129 dosyada, Ruff ve derleme
+  hatasız tamamlandı.
+- **Yetkisiz/negatif test sonucu:** İzin verilmeyen zaman, boş izin listesi,
+  yasaklı pencere, UTC olmayan saat ve geçersiz saat dilimi fail-closed reddedildi.
+- **Audit/redaksiyon sonucu:** Claim kararı yalnız politika penceresi ve kaynak
+  kimliğiyle verilir; secret, bağlantı bilgisi veya ham kaynak verisi eklenmedi.
+  Ayrı claim karar audit/metric olayı bu dilimde uygulanmadı.
+- **Kanıt yolları:** `06-Testler/01-Birim/test_source_usage_policies.py` ve
+  `06-Testler/01-Birim/test_executions.py`.
+- **Teknik durum:** `TechnicallyVerified`
+- **Banka onayı:** `ComplianceReviewRequired`
+- **Kalan risk:** Üretim pencere değerleri, tatil/istisna günleri, banka onaylı
+  yoğun saat davranış sözlüğü, terminal ret modeli, karar metriği/alarmı ve çoklu
+  instance politika önbelleği.
+- **Geri alma yaklaşımı:** Kalıcı politika çözümleyicisi worker yapılandırmasından
+  çıkarılır; mevcut güvenli yerel `ConcurrencyPolicy` yolu korunur. Şema silinmez.
+- **Sonraki iterasyon:** 31C, kaynak politikasındaki timeout ve retry değerlerinin
+  worker yürütmesine bağlanması.

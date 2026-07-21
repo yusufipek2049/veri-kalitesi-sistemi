@@ -43,6 +43,7 @@ from veri_kalitesi.executions.source_usage_policies import (
     SourceUsagePolicy,
     SourceUsagePolicyResolver,
     SourceUsagePolicyStatus,
+    SourceUsageWindow,
 )
 
 __all__ = [
@@ -77,6 +78,7 @@ __all__ = [
     "SourceUsagePolicyStatus",
     "SourceUsagePolicyTechnicalError",
     "SourceUsagePolicyUnavailableError",
+    "SourceUsageWindow",
     "WorkloadClass",
     "WorkloadClassifier",
     "preview_runs",

@@ -229,12 +229,13 @@ class ExecutionService:
 
     def run_next(self) -> RuleExecution | None:
         self.close_expired_cancellations()
+        started_at = self.clock()
         concurrency_policy = (
-            self.source_usage_policy_resolver.resolve_concurrency_policy()
+            self.source_usage_policy_resolver.resolve_concurrency_policy(at=started_at)
             if self.source_usage_policy_resolver is not None
             else self.concurrency_policy
         )
-        execution = self.repository.claim_next(self.clock(), concurrency_policy)
+        execution = self.repository.claim_next(started_at, concurrency_policy)
         if execution is None:
             return None
         versions = tuple(self.rule_catalog.get_version(item) for item in execution.rule_version_ids)
@@ -420,6 +421,11 @@ def _validate_concurrency_policy(policy: ConcurrencyPolicy) -> None:
         }.items()
     ):
         raise ExecutionValidationError("Per-source concurrency limits are invalid.")
+    if not isinstance(policy.default_source_allowed, bool) or any(
+        not source_id or not isinstance(value, bool)
+        for source_id, value in policy.per_source_allowed.items()
+    ):
+        raise ExecutionValidationError("Per-source availability decisions are invalid.")
 
 
 def _validate_computations(

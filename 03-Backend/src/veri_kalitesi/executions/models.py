@@ -55,8 +55,10 @@ class ConcurrencyPolicy:
     max_light: int = 4
     default_source_limit: int = 4
     default_heavy_source_limit: int = 1
+    default_source_allowed: bool = True
     per_source_limits: Mapping[str, int] = field(default_factory=dict)
     per_source_heavy_limits: Mapping[str, int] = field(default_factory=dict)
+    per_source_allowed: Mapping[str, bool] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "per_source_limits", MappingProxyType(dict(self.per_source_limits)))
@@ -64,6 +66,11 @@ class ConcurrencyPolicy:
             self,
             "per_source_heavy_limits",
             MappingProxyType(dict(self.per_source_heavy_limits)),
+        )
+        object.__setattr__(
+            self,
+            "per_source_allowed",
+            MappingProxyType(dict(self.per_source_allowed)),
         )
 
     def source_limit(self, source_id: str) -> int:
@@ -73,6 +80,9 @@ class ConcurrencyPolicy:
         return self.per_source_heavy_limits.get(
             source_id, self.default_heavy_source_limit
         )
+
+    def source_allowed(self, source_id: str) -> bool:
+        return self.per_source_allowed.get(source_id, self.default_source_allowed)
 
 
 @dataclass(frozen=True)

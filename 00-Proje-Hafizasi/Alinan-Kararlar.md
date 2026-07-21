@@ -465,3 +465,9 @@ Bu sınıflandırma şu kuralları birlikte uygular:
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
 | --- | --- | --- | --- |
 | Kalıcı kaynak kullanım politikası kullanılan worker akışında aktif global politika zorunludur; kaynak kimliği override kaydı kaynak türü kaydından önce uygulanır. Toplam worker ve kaynak sorgu sınırında daha düşük değer güvenli sınırdır. | `FR-039` politikasız kontrolsüz çalıştırmayı reddeder; aynı kaynağa ait iki kotadan geniş olanı seçmek onaylı sınırı aşabilir. | Örtük kod varsayılanıyla devam etmek, kaynak türüne öncelik vermek veya iki sınırdan yüksek olanı kullanmak. | Aktif global politika yoksa claim yapılmaz. Global, kaynak türü ve kaynak kimliği kayıtları sürümlü saklanır; üretim sayısal değerleri TBD kalır. |
+
+## 2026-07-21 — İterasyon 31B Teknik Kararı
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| Kaynak çalışma pencereleri IANA saat dilimi, ISO hafta günü ve yerel saat aralığıyla değerlendirilir; başlangıç dahil, bitiş hariçtir. Yasaklı pencere her zaman izinli pencereye üstündür ve izin penceresi yoksa claim yapılmaz. | `NFR-PERF-008` politikasız veya belirsiz zaman aralığında sorgu çalıştırılmamasını gerektirir; UTC saklama ile kaynak yerel çalışma saatinin ayrılması gerekir. | Sunucu yerel saatini kullanmak, boş pencereyi sınırsız izin saymak veya çakışmada izinli pencereye öncelik vermek. | Global ve kaynak override kararları aynı UTC anı için deterministik çözülür; uygun olmayan işler kuyrukta kalır. Üretim pencere değerleri TBD'dir. |
