@@ -79,3 +79,42 @@
   yeni üretim durdurulabilir; append-only run ve audit geçmişi değiştirilmez.
 - **Sonraki iterasyon:** `OPEN-024` nicel toleransını dışarıda bırakan değişmez
   Golden ground truth ve yapısal bağımsız karşılaştırıcı dilimi.
+
+## 34C — Değişmez Golden ground truth ve yapısal bağımsız karşılaştırıcı
+
+- **İterasyon adı:** Değişmez Golden ground truth ve yapısal bağımsız karşılaştırıcı
+- **Kullanıcı/sistem değeri:** Golden çıktının bilinen yapısal beklentisi,
+  üreticinin kendi doğrulama sonucu veya runtime skor motoru kullanılmadan
+  değişmez kanıtla karşılaştırılabilir.
+- **Mevcut FR/UC/RULE:** `FR-092`, `UC-017`, `RULE-016`, `AC/TS-050–052`
+  Golden sıfır kusur ve yapısal karşılaştırma alt kapsamı
+- **BFR/CTRL:** Yeni eşleme yoktur.
+- **Değiştirilen dosyalar:** `synthetic_data` model, repository, oracle ve paket
+  dışa aktarımları; merkezi audit allowlist'i, birim testleri ve proje hafızası.
+- **Migration/config:** SQLite prototipine append-only `synthetic_ground_truth` ve
+  `synthetic_validation_results` tabloları eklendi. Teknik oracle sürümü
+  `GOLDEN_STRUCTURAL_ORACLE_V1` olarak sabitlendi; üretim tolerans politikası değildir.
+- **Eklenen testler:** Üretici doğrulamasından bağımsız başarılı karşılaştırma,
+  yapısal ve lineage sapması, dataset scope manipülasyonu, eksik/yanlış rol ve
+  kapsam, değişmez kayıt, atomik audit rollback'i ve teknik depo hatası.
+- **Çalıştırılan komutlar:** Hedefli ve tam `pytest -q`, tam `mypy`, tam
+  `ruff check`, değişen kapsam ve tam depo format kontrolleri, `compileall`,
+  `git diff --check` ve yerel secret taraması.
+- **Mevcut regresyon sonucu:** 958 test geçti; mypy 141 dosyada ve Ruff lint
+  hatasız tamamlandı. Tam depo format kontrolü değişiklik dışındaki bir tarihsel
+  dosyada biçim farkı bildirdi. `28A-v1` taraması 393 dosyada secret bulgusu
+  üretmedi.
+- **Güvenlik/veri gizliliği sonucu:** Güvenilir kullanıcı bağlamı hem sunulan
+  çıktı hem kayıtlı run dataset kapsamı için doğrulanır. Ham kayıt ve seed audit
+  edilmez; yalnız lineage, sayımlar, sonuç ve güvenli neden kodları kalıcılaşır.
+- **Kanıt yolları:** `06-Testler/01-Birim/test_synthetic_oracle.py`.
+- **Teknik durum:** `TechnicallyVerified`
+- **Banka onayı:** `ComplianceReviewRequired`
+- **Kalan risk:** Bu dilim yalnız sıfır kusurlu Golden yapısal beklentiyi kapsar.
+  Kayıt düzeyi kusur ground truth'u, runtime kural/skor/önem/bildirim/eskalasyon
+  karşılaştırması ve sayısal tolerans `OPEN-024` nedeniyle açıktır.
+- **Geri alma yaklaşımı:** `GoldenStructuralOracle` composition'dan çıkarılarak
+  yeni doğrulama kaydı durdurulabilir; append-only ground truth, sonuç ve audit
+  geçmişi silinmez veya değiştirilmez.
+- **Sonraki iterasyon:** Sayısal kusur yoğunluğu veya skor toleransı uydurmadan
+  tamamlanabilecek kalıcı çıktı/run tamamlama diliminin hazır oluşunu değerlendir.

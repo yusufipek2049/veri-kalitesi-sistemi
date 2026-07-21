@@ -38,6 +38,12 @@ class SyntheticRunStatus(str, Enum):
     REQUESTED = "REQUESTED"
 
 
+class SyntheticValidationStatus(str, Enum):
+    PASS = "PASS"
+    BLOCKED = "BLOCKED"
+    TECHNICAL_ERROR = "TECHNICAL_ERROR"
+
+
 @dataclass(frozen=True)
 class SyntheticRunAccessPolicy:
     version: str
@@ -164,3 +170,51 @@ class GoldenRelationalDataset:
     canonical_payload: bytes
     canonical_sha256: str
     output_reference: str
+
+
+@dataclass(frozen=True)
+class SyntheticGroundTruth:
+    generation_run_id: str
+    dataset_id: str
+    scenario_id: str
+    scenario_version: str
+    generator_version: str
+    random_seed: int
+    source_system: str
+    expected_subject_count: int
+    expected_observation_count: int
+    expected_primary_keys_unique: bool
+    expected_foreign_keys_valid: bool
+    expected_status_transitions_valid: bool
+    expected_reference_codes_valid: bool
+    expected_temporal_order_valid: bool
+    expected_rule_result: str
+    expected_severity: str
+    expected_dataset_score: Decimal | None
+    expected_notification: bool
+    expected_escalation: bool
+    ground_truth_version: str
+    audit_reference: str
+    synthetic_record_id: str = field(default_factory=lambda: str(uuid4()))
+    created_at: datetime = field(default_factory=utc_now)
+
+
+@dataclass(frozen=True)
+class SyntheticValidationResult:
+    generation_run_id: str
+    synthetic_record_id: str
+    ground_truth_version: str
+    validation_class: str
+    status: SyntheticValidationStatus
+    reason_codes: tuple[str, ...]
+    actual_subject_count: int
+    actual_observation_count: int
+    actual_primary_keys_unique: bool
+    actual_foreign_keys_valid: bool
+    actual_status_transitions_valid: bool
+    actual_reference_codes_valid: bool
+    actual_temporal_order_valid: bool
+    actual_output_reference: str
+    audit_reference: str
+    validation_result_id: str = field(default_factory=lambda: str(uuid4()))
+    created_at: datetime = field(default_factory=utc_now)

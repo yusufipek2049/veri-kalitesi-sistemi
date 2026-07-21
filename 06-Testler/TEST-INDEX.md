@@ -94,9 +94,12 @@ tags:
 İterasyon 34A politika, ayrı run ve lineage kanıtı
 `06-Testler/01-Birim/test_synthetic_data.py`; İterasyon 34B Golden yapısal
 bütünlük ve kanonik replay kanıtı
-`06-Testler/01-Birim/test_synthetic_generator.py` içindedir. `AC/TS-048/049`
-tamamen yapay teknik V1 profil için doğrulanmıştır; üretim benzerliği veya
-anonimlik sonucu değildir.
+`06-Testler/01-Birim/test_synthetic_generator.py`; İterasyon 34C değişmez Golden
+ground truth, bağımsız yapısal karşılaştırma, yetki ve atomik audit kanıtı
+`06-Testler/01-Birim/test_synthetic_oracle.py` içindedir. `AC/TS-048/049` ve
+`AC/TS-050–052`nin sıfır kusurlu yapısal alt kapsamı tamamen yapay teknik V1
+profil için doğrulanmıştır; üretim benzerliği, skor toleransı veya anonimlik
+sonucu değildir.
 
 Nicel dağılım, korelasyon, görev faydası, gizlilik, kusur yoğunluğu ve skor
 toleransı eşikleri `OPEN-024` sonuçlanana kadar `TBD`'dir. Sentetik performans
@@ -105,9 +108,9 @@ geçmez.
 
 ## Güncel Otomasyon Baseline'ı
 
-- 948 test geçmektedir.
+- 958 test geçmektedir.
 - Tam statik tip kontrolü `python3 -m mypy 03-Backend/src 06-Testler` komutuyla
-  139 kaynak dosyada sıfır hata vermektedir.
+  141 kaynak dosyada sıfır hata vermektedir.
 - `incident_response` hedef grubu, güvenlik olayı/ihlal ayrımı, 72 saat hedefi, veri işleyen kanıtı, maker-checker kararı, yetki/scope redleri, veri-minimum timeline görünümü, audit minimizasyonu ve rollback için 39 sentetik vaka içerir.
 - `secure_sdlc` hedef grubu; gerçek pozitif/yanlış pozitif, binary/büyük/dışlanan
   dosya, sembolik bağlantı, salt okunurluk, deterministik sıra, teknik hata ve
