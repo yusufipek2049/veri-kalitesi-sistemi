@@ -362,5 +362,21 @@ def build_default_redaction_policy() -> AuditRedactionPolicy:
                     "effective_from",
                 }
             ),
+            "PARTIAL_SCORE_POLICY_APPROVAL_WITHDRAWN": frozenset(
+                {
+                    "dataset_id",
+                    "policy_version",
+                    "approval_policy_version",
+                    "status",
+                    "allow_official_partial_score",
+                    "minimum_coverage_ratio",
+                    "required_critical_rule_count",
+                    "required_partition_count",
+                    "maximum_missing_record_ratio",
+                    "maximum_technical_error_ratio",
+                    "minimum_successful_rule_ratio",
+                    "effective_from",
+                }
+            ),
         },
     )

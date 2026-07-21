@@ -119,3 +119,43 @@ completed_at: 2026-07-21
 - **Geri alma yaklaşımı:** Yaşam döngüsü servisi composition'dan çıkarılırsa yeni
   politika talebi alınmaz; mevcut onaylı politikalar ve skor geçmişi silinmez.
 - **Sonraki iterasyon:** 32D, kısmi skor politika talebini auditli geri çekme.
+
+## 32D — Kısmi skor politika talebini auditli geri çekme
+
+- **İterasyon adı:** Kısmi skor politika talebini auditli geri çekme
+- **Kullanıcı/sistem değeri:** Politika maker'ı henüz karara bağlanmamış kendi
+  talebini başka aktörün müdahalesine veya audit kaybına izin vermeden güvenli
+  biçimde kapatabilir.
+- **Mevcut FR/UC/RULE:** `FR-048`, `FR-077`, `UC-009`, `RULE-005`, `OPEN-012`,
+  `OPEN-017`
+- **BFR/CTRL:** Yeni eşleme yoktur.
+- **Değiştirilen dosyalar:** Kısmi skor politika deposu/yaşam döngüsü, merkezi
+  audit allowlist'i, birim testleri ve proje hafızası.
+- **Migration/config:** Mevcut SQLite politika tablosu kullanıldı; yeni üretim
+  rolü, ürün veya süre değeri eklenmedi.
+- **Eklenen testler:** Maker geri çekme ve etkisiz politika seçimi, başka maker
+  reddi, eksik/yanlış rol ve kapsam, servis ve ayrıcalıklı bağlam reddi,
+  sonuçlanmış talebi tekrar çekme reddi, veri-minimum audit ve audit staging
+  hatasında atomik rollback.
+- **Çalıştırılan komutlar:** Hedefli ve tam `pytest -q`, tam `mypy`, tam
+  `ruff check`, değişen kapsam için `ruff format --check`, `compileall` ve tam
+  depo format kontrolü.
+- **Mevcut regresyon sonucu:** 913 test geçti; mypy 131 dosyada, Ruff lint,
+  değişen kapsam formatı ve derleme kontrolleri hatasız tamamlandı. Tam depo
+  format kontrolü değişmeyen üç tarihsel dosyada biçim farkı bildirdi.
+- **Yetkisiz/negatif test sonucu:** Başka maker, eksik/güvenilmez, yanlış rol
+  veya kapsamlı, servis ve ayrıcalıklı bağlamlar yazımdan önce reddedildi;
+  terminal talep yeniden geri çekilemedi.
+- **Audit/redaksiyon sonucu:** `PENDING -> WITHDRAWN` geçişi ile outbox aynı
+  transaction'da yazıldı. Audit oran, adet, durum ve sürüm taşır;
+  kural/partition kimliği, ham kayıt veya secret taşımaz.
+- **Kanıt yolları:** `06-Testler/01-Birim/test_partial_score_policies.py`.
+- **Teknik durum:** `TechnicallyVerified`
+- **Banka onayı:** `ComplianceReviewRequired`
+- **Kalan risk:** Süre aşımı semantiği, banka rol eşlemesi, PostgreSQL/çoklu
+  instance eşzamanlılığı ve güvenilir `PartialExecutionFacts` üretim formülleri.
+- **Geri alma yaklaşımı:** Geri çekme komutu composition'dan çıkarılırsa yeni
+  geri çekme alınmaz; mevcut politika ve audit geçmişi silinmez, onaysız
+  politikalar etkili seçim dışında kalır.
+- **Sonraki iterasyon:** 32E süre aşımı, zaman kaynağı ve değerlendirme semantiği
+  kesinleşene kadar engellidir.

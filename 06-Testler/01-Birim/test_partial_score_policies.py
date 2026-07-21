@@ -297,6 +297,143 @@ def test_rule_005_rejected_partial_policy_never_becomes_effective() -> None:
     assert audit_repository.list_events()[-1].new_value_summary["status"] == "REJECTED"
 
 
+def test_rule_005_policy_maker_withdraws_pending_request_with_audit() -> None:
+    lifecycle, repository, audit_repository = _lifecycle()
+    maker = _context("maker-1", {"PARTIAL_POLICY_MAKER"})
+    pending = _submit(lifecycle, maker)
+
+    withdrawn = lifecycle.withdraw(
+        actor_context=maker,
+        policy_id=pending.policy_id,
+        reason_code="PARTIAL_POLICY.CHANGE_REQUIRED",
+    )
+    decision = DatasetPartialScorePolicyService(repository).evaluate(_facts(), at=AT)
+
+    assert withdrawn.approval_status is PartialScorePolicyStatus.WITHDRAWN
+    assert withdrawn.approved_by is None
+    assert withdrawn.audit_reference != pending.audit_reference
+    assert decision.eligibility is PartialScoreEligibility.PROVISIONAL
+    assert decision.reason_codes == ("POLICY_NOT_FOUND",)
+    events = audit_repository.list_events()
+    assert [event.action for event in events] == [
+        "PARTIAL_SCORE_POLICY_APPROVAL_REQUESTED",
+        "PARTIAL_SCORE_POLICY_APPROVAL_WITHDRAWN",
+    ]
+    assert events[-1].reason_code == "PARTIAL_POLICY.CHANGE_REQUIRED"
+    assert events[-1].old_value_summary["status"] == "PENDING"
+    assert events[-1].new_value_summary["status"] == "WITHDRAWN"
+    assert "rule-critical" not in repr(events)
+    assert "partition-required" not in repr(events)
+
+
+def test_rule_005_different_maker_cannot_withdraw_partial_policy() -> None:
+    lifecycle, repository, audit_repository = _lifecycle()
+    pending = _submit(lifecycle, _context("maker-1", {"PARTIAL_POLICY_MAKER"}))
+
+    with pytest.raises(ScoringAuthorizationError, match="policy maker"):
+        lifecycle.withdraw(
+            actor_context=_context("maker-2", {"PARTIAL_POLICY_MAKER"}),
+            policy_id=pending.policy_id,
+            reason_code="PARTIAL_POLICY.NOT_MINE",
+        )
+
+    assert repository.get(pending.policy_id).approval_status is PartialScorePolicyStatus.PENDING
+    assert len(audit_repository.list_events()) == 1
+
+
+@pytest.mark.parametrize(
+    "context_kind",
+    [
+        "missing",
+        "missing-role",
+        "missing-scope",
+        "privileged",
+        "service",
+    ],
+)
+def test_rule_005_partial_policy_withdrawal_rejects_unauthorized_actor(
+    context_kind: str,
+) -> None:
+    lifecycle, repository, audit_repository = _lifecycle()
+    pending = _submit(lifecycle, _context("maker-1", {"PARTIAL_POLICY_MAKER"}))
+    contexts = {
+        "missing": None,
+        "missing-role": _context("maker-1", set()),
+        "missing-scope": _context(
+            "maker-1",
+            {"PARTIAL_POLICY_MAKER"},
+            dataset_ids=set(),
+        ),
+        "privileged": _context(
+            "maker-1",
+            {"PARTIAL_POLICY_MAKER"},
+            privileged=True,
+        ),
+        "service": _context(
+            "maker-1",
+            {"PARTIAL_POLICY_MAKER"},
+            actor_type=ActorType.SERVICE,
+        ),
+    }
+
+    with pytest.raises(ScoringAuthorizationError):
+        lifecycle.withdraw(
+            actor_context=contexts[context_kind],
+            policy_id=pending.policy_id,
+            reason_code="PARTIAL_POLICY.WITHDRAWAL_DENIED",
+        )
+
+    assert repository.get(pending.policy_id).approval_status is PartialScorePolicyStatus.PENDING
+    assert len(audit_repository.list_events()) == 1
+
+
+def test_rule_005_decided_partial_policy_cannot_be_withdrawn() -> None:
+    lifecycle, repository, audit_repository = _lifecycle()
+    maker = _context("maker-1", {"PARTIAL_POLICY_MAKER"})
+    pending = _submit(lifecycle, maker)
+    lifecycle.decide(
+        actor_context=_context("checker-1", {"PARTIAL_POLICY_CHECKER"}),
+        policy_id=pending.policy_id,
+        decision="REJECT",
+        reason_code="PARTIAL_POLICY.REJECTED",
+    )
+
+    with pytest.raises(ScoringValidationError, match="not pending"):
+        lifecycle.withdraw(
+            actor_context=maker,
+            policy_id=pending.policy_id,
+            reason_code="PARTIAL_POLICY.TOO_LATE",
+        )
+
+    assert repository.get(pending.policy_id).approval_status is PartialScorePolicyStatus.REJECTED
+    assert len(audit_repository.list_events()) == 2
+
+
+def test_fr_077_audit_stage_failure_rolls_back_partial_policy_withdrawal() -> None:
+    lifecycle, repository, audit_repository = _lifecycle()
+    maker = _context("maker-1", {"PARTIAL_POLICY_MAKER"})
+    pending = _submit(lifecycle, maker)
+    failing_audit = FailingPartialPolicyAudit(
+        repository.connection,
+        AuditRedactor(build_default_redaction_policy()),
+        audit_repository,
+        policy_version="PARTIAL_POLICY_AUDIT_V1",
+    )
+    failing_lifecycle = _lifecycle_service(repository, failing_audit)
+
+    with pytest.raises(ScoringTechnicalError):
+        failing_lifecycle.withdraw(
+            actor_context=maker,
+            policy_id=pending.policy_id,
+            reason_code="PARTIAL_POLICY.CHANGE_REQUIRED",
+        )
+
+    stored = repository.get(pending.policy_id)
+    assert stored.approval_status is PartialScorePolicyStatus.PENDING
+    assert stored.audit_reference == pending.audit_reference
+    assert len(audit_repository.list_events()) == 1
+
+
 @pytest.mark.parametrize(
     "context_kind",
     ["missing", "missing-role", "missing-scope", "privileged", "service"],

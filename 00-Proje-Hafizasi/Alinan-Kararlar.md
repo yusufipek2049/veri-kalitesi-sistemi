@@ -495,3 +495,9 @@ Bu sınıflandırma şu kuralları birlikte uygular:
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
 | --- | --- | --- | --- |
 | Resmî skoru etkileyen dataset kısmi skor politikası yalnız güvenilir normal kullanıcı bağlamıyla talep edilir ve farklı yetkili checker tarafından karara bağlanır. Talep/karar ile merkezi audit outbox kaydı aynı transaction'da kalıcılaşır. | `RULE-005` resmî skoru etkileyen politika değişikliğinde maker-checker; `FR-077` kritik onay işleminde audit veya kalıcı outbox yoksa fail-closed davranış gerektirir. | Doğrudan `APPROVED` politika eklemek, serbest aktör kimliği kullanmak veya audit kaydını işlemden sonra best-effort yazmak. | Yalnız `PENDING` talep yaşam döngüsü üzerinden onaylanır; maker kendi değişikliğini karara bağlayamaz. Audit staging hatası politika işlemini geri alır ve audit kural/partition değerleri yerine yalnız adet ve oran taşır. |
+
+## 2026-07-21 — İterasyon 32D Teknik Kararı
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| Bekleyen dataset kısmi skor politika talebini yalnız talebi oluşturan, güncel rol ve dataset kapsamı doğrulanan maker geri çekebilir; durum geçişi ile merkezi audit outbox aynı transaction'da yazılır. | Geri çekme bir checker kararı değildir; başka aktörün kritik politika talebini kapatması veya audit izi olmadan terminal duruma geçiş görevler ayrılığı ve `FR-077` fail-closed sınırını bozar. | Her maker'ın ya da checker'ın geri çekebilmesi, isteği silmek veya audit kaydını işlemden sonra best-effort yazmak. | Yalnız `PENDING` talep `WITHDRAWN` olur ve etkili politika seçimine katılmaz. Yetkisiz bağlam yazımdan önce reddedilir; audit staging hatasında durum ve önceki audit referansı geri alınır. |
