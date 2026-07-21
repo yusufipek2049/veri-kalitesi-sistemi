@@ -526,3 +526,9 @@ Bu sınıflandırma şu kuralları birlikte uygular:
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
 | --- | --- | --- | --- |
 | Kural sonucu sekiz nullable kanonik sayaç ve ayrı `MeasurementStatus` taşır; sayısal oran yalnız `EvaluatedCount > 0` iken `PassedCount / EvaluatedCount` ile hesaplanır. Eski kanoniksiz kayıtlar tahminî değerlerle tamamlanmaz. | Kapsam dışı, teknik hatalı veya uygulanabilirliği bilinmeyen kayıtların eski `checked_count` paydasında kalite başarısızlığı gibi davranması yanlış skor üretir. Bilinmeyen teknik sayacı sıfır varsaymak ölçüm güvenilirliğini olduğundan yüksek gösterir. | Eski `checked_count` formülünü korumak; `not_evaluated_count` değerini tek bir kanonik sınıfa taşımak; sıfır paydalı durumları 0 puan yapmak. | `RULE_SCORE_V2_EVALUATED_DENOMINATOR` yeni kural skoru formül sürümüdür. Kanonik sayaç bulunmayan tarihsel satırlar fail-closed yeniden skorlama reddi alır; migration/backfill ve geçmiş sürüm sınırı `OPEN-022` altında açık kalır. |
+
+## 2026-07-21 — İterasyon 34A Teknik Kararı
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| Sentetik üretim işi yalnız güvenilir kullanıcı bağlamı, dataset kapsamı ve tek etkili onaylı politika ile kaydedilir; politika, senaryo ve run sürümleri append-only tutulur. Aynı lineage girdisinin tekrar talebi yeni run kimliği oluşturur. | Politika belirsizliğinin sessizce çözülmesi, geçmiş lineage'ın değiştirilmesi veya audit olmadan run kabulü yeniden üretilebilirlik ve fail-closed güven sınırını bozar. | En son eklenen politikayı örtük seçmek; aynı seed için mevcut run'ı döndürmek; audit'i işlem sonrasında best-effort yazmak. | Run ve merkezi audit outbox aynı transaction'da yazılır. Seed lineage kaydında korunur, audit özetinde yalnız `seed_present` bulunur. Politika/senaryo yönetim yaşam döngüsü, üretici, ground truth ve gizlilik kapısı sonraki ayrı artımlardır. |
