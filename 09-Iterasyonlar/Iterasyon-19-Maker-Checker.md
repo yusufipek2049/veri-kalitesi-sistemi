@@ -103,3 +103,18 @@ Gerçek banka maker/checker rol kodları ve LDAP eşlemesi, kaynak kritiklik sö
 - 11 yeni testle toplam 731 test geçti; veri kaynağı hedef grubu 58 testle geçti.
 
 Gerçek banka iş günü/tatil kaynağı, banka onaylı maker/checker/worker rol kodları, LDAP eşlemesi ve üretim worker işletimi `ComplianceReviewRequired` durumundadır. Bağlantı güncellemesinde revizyon artırma/onay geçersizleştirme ve pasife alma ayrı ürün artımlarıdır.
+
+## Dilim 19G Kapanışı
+
+`TechnicallyVerified` kapsam:
+
+- Yetkili maker, kaynak kapsamı ve sürümlü politikayla bağlantı yapılandırmasını değişmez aday revizyon olarak oluşturur; ham secret yerine yalnız `secret://` referansı saklanır.
+- Aday yapılandırma mevcut çalışan sürüm değiştirilmeden salt okunur bağlayıcıyla test edilir.
+- Başarısız sınıflandırılmış test mevcut yapılandırma, secret referansı, revizyon, kaynak durumu, son başarılı test ve eski bekleyen onayı korur.
+- Beklenmeyen bağlayıcı arızası ayrı `TechnicalError` yolunda kalır; aday veya çalışan sürüm değiştirilmez.
+- Başarılı aday atomik terfiyle güncel revizyon olur, kaynak yeniden aktivasyon için `TEST_SUCCEEDED` durumuna alınır ve eski revizyona bağlı bekleyen onay `INVALIDATED` olur.
+- Aday oluşturma ve terfi/onay invalidasyonu veri-minimum audit outbox ile atomiktir; stage arızasında domain ve test kayıtları geri alınır.
+- Legacy bağlantı testleri revizyon `1` ile, mevcut kaynak yapılandırmaları ilk `PROMOTED` revizyon olarak veri kaybetmeden taşınır.
+- 13 yeni testle toplam 744 test geçti; veri kaynağı hedef grubu 71 testle geçti.
+
+Banka onaylı bağlantı güncelleme rolü, gerçek LDAP eşlemesi, üretim migration/çoklu instance eşzamanlılık yaklaşımı ve kontrollü pasife alma `ComplianceReviewRequired` veya açık durumdadır.

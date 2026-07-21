@@ -18,11 +18,13 @@ from veri_kalitesi.data_protection import (
 )
 from veri_kalitesi.data_sources.errors import NotFoundError, ValidationError
 from veri_kalitesi.data_sources.models import (
+    ConnectionRevisionStatus,
     ConnectionTestResult,
     Criticality,
     DataSource,
     DataSourceActivationRequest,
     DataSourceActivationStatus,
+    DataSourceConnectionRevision,
     DataSourceStatus,
     DataField,
     Dataset,
@@ -69,6 +71,7 @@ class SQLiteDataSourceRepository:
                 error_class TEXT,
                 message TEXT NOT NULL,
                 source_info TEXT NOT NULL,
+                data_source_revision INTEGER NOT NULL DEFAULT 1,
                 tested_at TEXT NOT NULL,
                 FOREIGN KEY (data_source_id) REFERENCES data_sources(data_source_id)
             );
@@ -161,6 +164,23 @@ class SQLiteDataSourceRepository:
             CREATE INDEX IF NOT EXISTS idx_processing_inventory_field_version
             ON data_processing_inventory_versions(data_field_id, version_number DESC);
 
+            CREATE TABLE IF NOT EXISTS data_source_connection_revisions (
+                connection_revision_id TEXT PRIMARY KEY,
+                data_source_id TEXT NOT NULL,
+                revision INTEGER NOT NULL CHECK (revision > 0),
+                base_revision INTEGER NOT NULL CHECK (base_revision > 0),
+                connection_config TEXT NOT NULL,
+                secret_reference TEXT NOT NULL,
+                prepared_by_actor_id TEXT NOT NULL,
+                policy_version TEXT NOT NULL,
+                reason_code TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                tested_at TEXT,
+                UNIQUE (data_source_id, revision),
+                FOREIGN KEY (data_source_id) REFERENCES data_sources(data_source_id)
+            );
+
             CREATE TABLE IF NOT EXISTS data_source_activation_requests (
                 activation_request_id TEXT PRIMARY KEY,
                 data_source_id TEXT NOT NULL,
@@ -184,6 +204,8 @@ class SQLiteDataSourceRepository:
             """
         )
         self._migrate_data_source_revision()
+        self._migrate_connection_test_revision()
+        self._migrate_connection_revision_history()
         self._migrate_activation_timing()
         self._migrate_data_field_classification()
         self._create_data_field_classification_guards()
@@ -212,6 +234,45 @@ class SQLiteDataSourceRepository:
                     self.connection.execute(
                         f"ALTER TABLE data_source_activation_requests ADD COLUMN {name} TEXT"
                     )
+
+    def _migrate_connection_test_revision(self) -> None:
+        columns = {
+            row["name"]
+            for row in self.connection.execute(
+                "PRAGMA table_info(connection_test_results)"
+            ).fetchall()
+        }
+        if "data_source_revision" not in columns:
+            with self.connection:
+                self.connection.execute(
+                    """
+                    ALTER TABLE connection_test_results
+                    ADD COLUMN data_source_revision INTEGER NOT NULL DEFAULT 1
+                    """
+                )
+
+    def _migrate_connection_revision_history(self) -> None:
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO data_source_connection_revisions (
+                    connection_revision_id, data_source_id, revision, base_revision,
+                    connection_config, secret_reference, prepared_by_actor_id,
+                    policy_version, reason_code, status, created_at, tested_at
+                )
+                SELECT
+                    'legacy-' || data_source_id || '-' || revision,
+                    data_source_id, revision, revision, connection_config,
+                    secret_reference, 'SYSTEM_MIGRATION', 'LEGACY_V1',
+                    'DATA_SOURCE.LEGACY_MIGRATION', 'PROMOTED', created_at, last_test_at
+                FROM data_sources
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM data_source_connection_revisions revisions
+                    WHERE revisions.data_source_id = data_sources.data_source_id
+                      AND revisions.revision = data_sources.revision
+                )
+                """
+            )
 
     def _migrate_data_field_classification(self) -> None:
         columns = {
@@ -304,6 +365,29 @@ class SQLiteDataSourceRepository:
                         _to_text(data_source.created_at),
                     ),
                 )
+                self.connection.execute(
+                    """
+                    INSERT INTO data_source_connection_revisions (
+                        connection_revision_id, data_source_id, revision, base_revision,
+                        connection_config, secret_reference, prepared_by_actor_id,
+                        policy_version, reason_code, status, created_at, tested_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        f"initial-{data_source.data_source_id}-{data_source.revision}",
+                        data_source.data_source_id,
+                        data_source.revision,
+                        data_source.revision,
+                        json.dumps(data_source.connection_config, sort_keys=True),
+                        data_source.secret_reference,
+                        "SYSTEM_CREATE",
+                        "INITIAL_V1",
+                        "DATA_SOURCE.CREATED",
+                        ConnectionRevisionStatus.PROMOTED.value,
+                        _to_text(data_source.created_at),
+                        _to_text(data_source.last_test_at),
+                    ),
+                )
                 audit_outbox.stage(audit_event)
         except sqlite3.IntegrityError as exc:
             raise ValidationError("DataSource name must be unique.") from exc
@@ -339,9 +423,9 @@ class SQLiteDataSourceRepository:
                 """
                 INSERT INTO connection_test_results (
                     data_source_id, succeeded, duration_ms, error_class, message, source_info,
-                    tested_at
+                    data_source_revision, tested_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     result.data_source_id,
@@ -350,6 +434,7 @@ class SQLiteDataSourceRepository:
                     result.error_class.value if result.error_class else None,
                     result.message,
                     json.dumps(result.source_info, sort_keys=True),
+                    result.data_source_revision,
                     _to_text(result.tested_at),
                 ),
             )
@@ -363,16 +448,29 @@ class SQLiteDataSourceRepository:
             )
             audit_outbox.stage(audit_event)
 
-    def latest_connection_test(self, data_source_id: str) -> ConnectionTestResult | None:
-        row = self.connection.execute(
-            """
-            SELECT * FROM connection_test_results
-            WHERE data_source_id = ?
-            ORDER BY test_result_id DESC
-            LIMIT 1
-            """,
-            (data_source_id,),
-        ).fetchone()
+    def latest_connection_test(
+        self, data_source_id: str, *, data_source_revision: int | None = None
+    ) -> ConnectionTestResult | None:
+        if data_source_revision is None:
+            row = self.connection.execute(
+                """
+                SELECT * FROM connection_test_results
+                WHERE data_source_id = ?
+                ORDER BY test_result_id DESC
+                LIMIT 1
+                """,
+                (data_source_id,),
+            ).fetchone()
+        else:
+            row = self.connection.execute(
+                """
+                SELECT * FROM connection_test_results
+                WHERE data_source_id = ? AND data_source_revision = ?
+                ORDER BY test_result_id DESC
+                LIMIT 1
+                """,
+                (data_source_id, data_source_revision),
+            ).fetchone()
         if row is None:
             return None
         return ConnectionTestResult(
@@ -382,8 +480,183 @@ class SQLiteDataSourceRepository:
             error_class=ErrorClass(row["error_class"]) if row["error_class"] else None,
             message=row["message"],
             source_info=json.loads(row["source_info"]),
+            data_source_revision=row["data_source_revision"],
             tested_at=_from_text(row["tested_at"]),
         )
+
+    def next_connection_revision(self, data_source_id: str) -> int:
+        row = self.connection.execute(
+            """
+            SELECT COALESCE(MAX(revision), 0) + 1 AS next_revision
+            FROM data_source_connection_revisions
+            WHERE data_source_id = ?
+            """,
+            (data_source_id,),
+        ).fetchone()
+        return int(row["next_revision"])
+
+    def latest_pending_connection_revision(
+        self, data_source_id: str
+    ) -> DataSourceConnectionRevision | None:
+        row = self.connection.execute(
+            """
+            SELECT * FROM data_source_connection_revisions
+            WHERE data_source_id = ? AND status = ?
+            ORDER BY revision DESC
+            LIMIT 1
+            """,
+            (data_source_id, ConnectionRevisionStatus.PENDING_TEST.value),
+        ).fetchone()
+        return _row_to_connection_revision(row) if row is not None else None
+
+    def add_connection_revision(
+        self,
+        revision: DataSourceConnectionRevision,
+        *,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: SQLiteTransactionalAudit,
+    ) -> DataSourceConnectionRevision:
+        self._require_shared_audit_transaction(audit_outbox)
+        try:
+            with self.connection:
+                self.connection.execute(
+                    """
+                    INSERT INTO data_source_connection_revisions (
+                        connection_revision_id, data_source_id, revision, base_revision,
+                        connection_config, secret_reference, prepared_by_actor_id,
+                        policy_version, reason_code, status, created_at, tested_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        revision.connection_revision_id,
+                        revision.data_source_id,
+                        revision.revision,
+                        revision.base_revision,
+                        json.dumps(revision.connection_config, sort_keys=True),
+                        revision.secret_reference,
+                        revision.prepared_by_actor_id,
+                        revision.policy_version,
+                        revision.reason_code,
+                        revision.status.value,
+                        _to_text(revision.created_at),
+                        _to_text(revision.tested_at),
+                    ),
+                )
+                audit_outbox.stage(audit_event)
+        except sqlite3.IntegrityError as exc:
+            raise ValidationError("Data source connection revision already exists.") from exc
+        return self.get_connection_revision(revision.connection_revision_id)
+
+    def get_connection_revision(self, connection_revision_id: str) -> DataSourceConnectionRevision:
+        row = self.connection.execute(
+            """
+            SELECT * FROM data_source_connection_revisions
+            WHERE connection_revision_id = ?
+            """,
+            (connection_revision_id,),
+        ).fetchone()
+        if row is None:
+            raise NotFoundError("DataSourceConnectionRevision not found.")
+        return _row_to_connection_revision(row)
+
+    def count_pending_activation_requests_except(self, data_source_id: str, revision: int) -> int:
+        row = self.connection.execute(
+            """
+            SELECT COUNT(*) AS request_count
+            FROM data_source_activation_requests
+            WHERE data_source_id = ? AND data_source_revision != ? AND status = ?
+            """,
+            (data_source_id, revision, DataSourceActivationStatus.PENDING.value),
+        ).fetchone()
+        return int(row["request_count"])
+
+    def record_connection_revision_test(
+        self,
+        revision: DataSourceConnectionRevision,
+        result: ConnectionTestResult,
+        *,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: SQLiteTransactionalAudit,
+    ) -> DataSourceConnectionRevision:
+        self._require_shared_audit_transaction(audit_outbox)
+        if revision.status not in {
+            ConnectionRevisionStatus.PROMOTED,
+            ConnectionRevisionStatus.TEST_FAILED,
+        }:
+            raise ValidationError("Connection revision test status is invalid.")
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO connection_test_results (
+                    data_source_id, succeeded, duration_ms, error_class, message,
+                    source_info, data_source_revision, tested_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    result.data_source_id,
+                    1 if result.succeeded else 0,
+                    result.duration_ms,
+                    result.error_class.value if result.error_class else None,
+                    result.message,
+                    json.dumps(result.source_info, sort_keys=True),
+                    result.data_source_revision,
+                    _to_text(result.tested_at),
+                ),
+            )
+            cursor = self.connection.execute(
+                """
+                UPDATE data_source_connection_revisions
+                SET status = ?, tested_at = ?
+                WHERE connection_revision_id = ? AND status IN (?, ?)
+                """,
+                (
+                    revision.status.value,
+                    _to_text(revision.tested_at),
+                    revision.connection_revision_id,
+                    ConnectionRevisionStatus.PENDING_TEST.value,
+                    ConnectionRevisionStatus.TEST_FAILED.value,
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise ValidationError("Connection revision is not testable.")
+            if revision.status is ConnectionRevisionStatus.PROMOTED:
+                source_cursor = self.connection.execute(
+                    """
+                    UPDATE data_sources
+                    SET connection_config = ?, secret_reference = ?, revision = ?,
+                        status = ?, last_test_at = ?
+                    WHERE data_source_id = ? AND revision = ? AND status != ?
+                    """,
+                    (
+                        json.dumps(revision.connection_config, sort_keys=True),
+                        revision.secret_reference,
+                        revision.revision,
+                        DataSourceStatus.TEST_SUCCEEDED.value,
+                        _to_text(result.tested_at),
+                        revision.data_source_id,
+                        revision.base_revision,
+                        DataSourceStatus.ARCHIVED.value,
+                    ),
+                )
+                if source_cursor.rowcount != 1:
+                    raise ValidationError("Connection revision base is stale.")
+                self.connection.execute(
+                    """
+                    UPDATE data_source_activation_requests
+                    SET status = ?, decision_reason_code = ?, decided_at = ?
+                    WHERE data_source_id = ? AND data_source_revision != ? AND status = ?
+                    """,
+                    (
+                        DataSourceActivationStatus.INVALIDATED.value,
+                        "DATA_SOURCE.REVISION_CHANGED",
+                        _to_text(result.tested_at),
+                        revision.data_source_id,
+                        revision.revision,
+                        DataSourceActivationStatus.PENDING.value,
+                    ),
+                )
+            audit_outbox.stage(audit_event)
+        return self.get_connection_revision(revision.connection_revision_id)
 
     def add_activation_request(
         self,
@@ -909,6 +1182,23 @@ def _row_to_data_source(row: sqlite3.Row) -> DataSource:
         revision=row["revision"],
         last_test_at=_from_text(row["last_test_at"]) if row["last_test_at"] else None,
         created_at=_from_text(row["created_at"]),
+    )
+
+
+def _row_to_connection_revision(row: sqlite3.Row) -> DataSourceConnectionRevision:
+    return DataSourceConnectionRevision(
+        connection_revision_id=row["connection_revision_id"],
+        data_source_id=row["data_source_id"],
+        revision=row["revision"],
+        base_revision=row["base_revision"],
+        connection_config=json.loads(row["connection_config"]),
+        secret_reference=row["secret_reference"],
+        prepared_by_actor_id=row["prepared_by_actor_id"],
+        policy_version=row["policy_version"],
+        reason_code=row["reason_code"],
+        status=ConnectionRevisionStatus(row["status"]),
+        created_at=_from_text(row["created_at"]),
+        tested_at=_from_text(row["tested_at"]) if row["tested_at"] else None,
     )
 
 

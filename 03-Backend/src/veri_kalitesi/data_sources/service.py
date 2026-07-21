@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from datetime import datetime, timezone
 from typing import Any, Callable, Protocol
 from uuid import uuid4
@@ -35,12 +36,14 @@ from veri_kalitesi.data_sources.errors import (
 )
 from veri_kalitesi.data_sources.models import (
     ConnectionTestResult,
+    ConnectionRevisionStatus,
     DataField,
     DataProfile,
     DataSource,
     DataSourceActivationPolicy,
     DataSourceActivationRequest,
     DataSourceActivationStatus,
+    DataSourceConnectionRevision,
     DataSourceStatus,
     Dataset,
     ErrorClass,
@@ -163,31 +166,10 @@ class DataSourceService:
     ) -> ConnectionTestResult:
         correlation_id = _resolve_correlation_id(correlation_id)
         data_source = self.repository.get_data_source(data_source_id)
-        connector = self.registry.get(data_source.source_type)
-        if connector is None:
-            result = ConnectionTestResult(
-                data_source_id=data_source.data_source_id,
-                succeeded=False,
-                duration_ms=0,
-                error_class=ErrorClass.UNSUPPORTED_SOURCE,
-                message="No connector is registered for this source type.",
-                source_info={"source_type": data_source.source_type.value},
-            )
-        else:
-            try:
-                secret = self.secret_resolver.resolve(data_source.secret_reference)
-                result = connector.test_connection(data_source, secret)
-            except SecretResolutionError:
-                result = ConnectionTestResult(
-                    data_source_id=data_source.data_source_id,
-                    succeeded=False,
-                    duration_ms=0,
-                    error_class=ErrorClass.AUTHENTICATION,
-                    message="Secret reference could not be resolved.",
-                    source_info={"source_type": data_source.source_type.value},
-                )
-            except Exception as exc:
-                raise TechnicalError("Unexpected connector failure.") from exc
+        result = replace(
+            self._execute_connection_test(data_source),
+            data_source_revision=data_source.revision,
+        )
 
         audit_event = self._build_audit_event(
             actor_id=actor_id,
@@ -215,6 +197,184 @@ class DataSourceService:
         self.transactional_audit.publish_pending()
         return result
 
+    def create_connection_revision(
+        self,
+        *,
+        actor_context: ActorContext | None,
+        data_source_id: str,
+        connection_config: dict[str, Any],
+        secret_reference: str,
+        reason_code: str,
+    ) -> DataSourceConnectionRevision:
+        policy = self._require_activation_policy()
+        context = self._authorize_activation_actor(
+            actor_context,
+            required_roles=policy.maker_roles,
+            data_source_id=data_source_id,
+        )
+        source = self.repository.get_data_source(data_source_id)
+        if source.status is DataSourceStatus.ARCHIVED:
+            raise ValidationError("Archived data source connection cannot be updated.")
+        if self.repository.latest_pending_connection_revision(data_source_id) is not None:
+            raise ValidationError("A connection revision is already pending test.")
+        _validate_connection_config(source.source_type, connection_config)
+        _validate_secret_reference(secret_reference)
+        normalized_reason = reason_code.strip()
+        if not normalized_reason:
+            raise ValidationError("Connection revision reason code is required.")
+        created_at = self.clock()
+        _require_aware_time(created_at, "Data source connection revision clock")
+        revision = DataSourceConnectionRevision(
+            data_source_id=data_source_id,
+            revision=self.repository.next_connection_revision(data_source_id),
+            base_revision=source.revision,
+            connection_config=dict(connection_config),
+            secret_reference=secret_reference,
+            prepared_by_actor_id=context.actor_id,
+            policy_version=policy.version,
+            reason_code=normalized_reason,
+            created_at=created_at,
+        )
+        event = self._build_audit_event(
+            actor_id=context.actor_id,
+            actor_type=context.actor_type.value,
+            session_id=context.session_id,
+            correlation_id=context.correlation_id,
+            action="DATA_SOURCE_CONNECTION_REVISION_CREATED",
+            object_type="DataSource",
+            object_id=data_source_id,
+            result=AuditResult.SUCCESS,
+            reason_code="DATA_SOURCE_CONNECTION_REVISION_CREATED",
+            old_values={"data_source_revision": source.revision},
+            new_values={
+                "base_revision": revision.base_revision,
+                "candidate_revision": revision.revision,
+                "policy_version": revision.policy_version,
+                "status": revision.status.value,
+            },
+        )
+        stored = self.repository.add_connection_revision(
+            revision,
+            audit_event=self.transactional_audit.prepare(event),
+            audit_outbox=self.transactional_audit,
+        )
+        self.transactional_audit.publish_pending()
+        return stored
+
+    def test_connection_revision(
+        self,
+        *,
+        actor_context: ActorContext | None,
+        connection_revision_id: str,
+    ) -> ConnectionTestResult:
+        policy = self._require_activation_policy()
+        candidate = self.repository.get_connection_revision(connection_revision_id)
+        context = self._authorize_activation_actor(
+            actor_context,
+            required_roles=policy.maker_roles,
+            data_source_id=candidate.data_source_id,
+        )
+        if candidate.status not in {
+            ConnectionRevisionStatus.PENDING_TEST,
+            ConnectionRevisionStatus.TEST_FAILED,
+        }:
+            raise ValidationError("Connection revision is not testable.")
+        source = self.repository.get_data_source(candidate.data_source_id)
+        if source.revision != candidate.base_revision:
+            raise ValidationError("Connection revision base is stale.")
+        candidate_source = DataSource(
+            data_source_id=source.data_source_id,
+            name=source.name,
+            source_type=source.source_type,
+            connection_config=candidate.connection_config,
+            secret_reference=candidate.secret_reference,
+            owner_user_id=source.owner_user_id,
+            status=source.status,
+            revision=candidate.revision,
+            last_test_at=None,
+            created_at=source.created_at,
+        )
+        result = replace(
+            self._execute_connection_test(candidate_source),
+            data_source_revision=candidate.revision,
+        )
+        next_status = (
+            ConnectionRevisionStatus.PROMOTED
+            if result.succeeded
+            else ConnectionRevisionStatus.TEST_FAILED
+        )
+        tested = replace(candidate, status=next_status, tested_at=result.tested_at)
+        invalidated_count = (
+            self.repository.count_pending_activation_requests_except(
+                source.data_source_id, candidate.revision
+            )
+            if result.succeeded
+            else 0
+        )
+        source_status = DataSourceStatus.TEST_SUCCEEDED if result.succeeded else source.status
+        event = self._build_audit_event(
+            actor_id=context.actor_id,
+            actor_type=context.actor_type.value,
+            session_id=context.session_id,
+            correlation_id=context.correlation_id,
+            action="DATA_SOURCE_CONNECTION_REVISION_TESTED",
+            object_type="DataSource",
+            object_id=source.data_source_id,
+            result=AuditResult.SUCCESS if result.succeeded else AuditResult.FAILURE,
+            reason_code=(
+                "DATA_SOURCE_CONNECTION_REVISION_PROMOTED"
+                if result.succeeded
+                else _error_reason(result.error_class)
+            ),
+            old_values={
+                "data_source_revision": source.revision,
+                "source_status": source.status.value,
+            },
+            new_values={
+                "candidate_revision": candidate.revision,
+                "revision_status": next_status.value,
+                "source_status": source_status.value,
+                "succeeded": result.succeeded,
+                "duration_ms": result.duration_ms,
+                "error_class": result.error_class.value if result.error_class else None,
+                "invalidated_activation_count": invalidated_count,
+            },
+        )
+        self.repository.record_connection_revision_test(
+            tested,
+            result,
+            audit_event=self.transactional_audit.prepare(event),
+            audit_outbox=self.transactional_audit,
+        )
+        self.transactional_audit.publish_pending()
+        return result
+
+    def _execute_connection_test(self, data_source: DataSource) -> ConnectionTestResult:
+        connector = self.registry.get(data_source.source_type)
+        if connector is None:
+            return ConnectionTestResult(
+                data_source_id=data_source.data_source_id,
+                succeeded=False,
+                duration_ms=0,
+                error_class=ErrorClass.UNSUPPORTED_SOURCE,
+                message="No connector is registered for this source type.",
+                source_info={"source_type": data_source.source_type.value},
+            )
+        try:
+            secret = self.secret_resolver.resolve(data_source.secret_reference)
+            return connector.test_connection(data_source, secret)
+        except SecretResolutionError:
+            return ConnectionTestResult(
+                data_source_id=data_source.data_source_id,
+                succeeded=False,
+                duration_ms=0,
+                error_class=ErrorClass.AUTHENTICATION,
+                message="Secret reference could not be resolved.",
+                source_info={"source_type": data_source.source_type.value},
+            )
+        except Exception as exc:
+            raise TechnicalError("Unexpected connector failure.") from exc
+
     def request_activation(
         self,
         *,
@@ -232,7 +392,9 @@ class DataSourceService:
             raise ValidationError("Activation requires a successfully tested data source.")
         if not source.owner_user_id or not source.owner_user_id.strip():
             raise ValidationError("Activation requires a data owner.")
-        latest_test = self.repository.latest_connection_test(data_source_id)
+        latest_test = self.repository.latest_connection_test(
+            data_source_id, data_source_revision=source.revision
+        )
         if (
             latest_test is None
             or not latest_test.succeeded
