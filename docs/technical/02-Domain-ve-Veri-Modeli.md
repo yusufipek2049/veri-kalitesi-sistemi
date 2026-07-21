@@ -24,6 +24,10 @@
 | Onay | Rule/scoring approval modelleri | approval tabloları | Maker-checker uygulanmış |
 | SLA | Ayrı model yok | Yok | Planlanmış ancak uygulanmamış |
 | İstisna/yanlış pozitif | Ayrı model yok | Yok | Planlanmış ancak uygulanmamış |
+| Kapsam/güven özeti | Ayrı model yok | Yalnız kısmi politika ayrıntıları | `DQ-SCR-020/021` hedefi uygulanmamış |
+| Dataset kritiklik profili | `Dataset.criticality` | Dataset metadata | Kalite agregasyonunda kullanılıyor; `DQ-SCR-018` hedefiyle uyumsuz |
+| Veri riski | Ayrı model yok | Yok | `DQ-SCR-019` hedefi uygulanmamış |
+| Skor değerlendirme/override | Ayrı model yok | Yok | `DQ-SCR-023` hedefi uygulanmamış |
 | Trend | `DashboardScoreTrend` | `quality_scores` okuması | Sabit 30 UTC gün |
 | Kullanılabilirlik boyutu | `QualityDimension` içinde yok | Yok | Planlanmış/Doğrulanamadı |
 
@@ -43,7 +47,11 @@ Kullanılabilirlik ayrı bir kalite boyutu değildir. Kaynağın erişilebilir o
 `TECHNICAL_ERROR` gibi teknik durumlarla temsil edilir ve kalite skoruna sıfır olarak
 katılmaz. Bu ayrım bilinçli ve kodla doğrulanmıştır.
 
-## Skorlama Modeli
+## Mevcut Runtime Skorlama Modeli
+
+Bu bölüm kodun bugünkü davranışını tarif eder. Kabul edilen hedef sözleşme
+`DQ-SCR-001`–`DQ-SCR-033` ve [ADR-015](../../02-Mimari/Mimari-Kararlar.md)
+ile tanımlanmıştır; aşağıdaki mevcut davranışların tamamı hedef mimari değildir.
 
 ### Kural Skoru
 
@@ -74,6 +82,11 @@ Varsayılan tüm boyut ve kritiklik ağırlıkları `1.0`'dır. Kurum skoru
 `EQUAL_SOURCE_WEIGHT` politikasını kullanır; banka tarafından onaylanmış katsayı
 değildir.
 
+Dataset kritikliğini `SOURCE` kalite skoruna ağırlık olarak katan bu davranış
+`DQ-SCR-018` ve `ADR-015` ile hedef mimaride `Superseded` durumundadır. Geçmiş
+skorlar değiştirilmeyecektir. Yeni sürümde kritiklik ayrı profil, veri riski ayrı
+sonuç olacak; migration/backfill/replay ve trend sürüm sınırı uygulanacaktır.
+
 ### Eşikler
 
 | Seviye | Aralık |
@@ -86,6 +99,10 @@ değildir.
 Eşikler `ThresholdSet` içinde sürümlenir. Skor konfigürasyonu maker-checker onayıyla
 aktive edilebilir; hazırlayan aynı değişikliği onaylayamaz.
 
+Bu aralıklar mevcut prototipin teknik varsayılanlarıdır; üretim eşiği değildir.
+`DQ-SCR-014` uyarınca hedef model dataset/kullanım bağlamlı sürümlü politika
+kullanır ve üretim değerleri `TBD`'dir.
+
 ### Hesaplanamayan Durumlar
 
 - `NO_DATA`: Kontrol kapsamı boş; sayısal skor yok.
@@ -95,6 +112,29 @@ aktive edilebilir; hazırlayan aynı değişikliği onaylayamaz.
 - Agregasyonda yalnız `CALCULATED` alt skorlar paydaya katılır.
 - Tüm bileşenler hesaplanamıyorsa baskın boş durum `_aggregate_empty_status()` ile
   üst seviyeye taşınır.
+
+Hedef model ayrıca `Passed`, `Warning`, `Failed`, `NotApplicable`,
+`NotMeasured`, `NoData`, `TechnicalError` ve `SuppressedByException` durumlarını
+ayrı temsil eder. Mevcut enumların bu sözlüğe migration eşlemesi uygulanmamıştır.
+
+## Kabul Edilen Hedef Skorlama Modeli
+
+- Oran paydası yalnız gerçekten değerlendirilen kayıtlardır; kapsam dışı,
+  istisnalı, teknik değerlendirilemeyen ve `NotApplicable` kayıtlar başarısız
+  sayılmaz (`DQ-SCR-004`).
+- Ham kalite skoru kural → veri öğesi → boyut → dataset hiyerarşisinde iki
+  aşamalı ağırlıklandırılır; kritik kural davranışı ortalamadan bağımsızdır
+  (`DQ-SCR-002`, `DQ-SCR-016`, `DQ-SCR-017`).
+- Kapsam, güven, kritiklik, risk ve teknik sağlık kalite skorundan ayrıdır
+  (`DQ-SCR-005`, `DQ-SCR-018`–`DQ-SCR-021`).
+- Normalizasyon, eşik, ağırlık, kritik kural ve güven politikaları sürümlü,
+  gerekçeli ve risk bazlı onaylıdır (`DQ-SCR-013`–`DQ-SCR-017`).
+- İstisna ve override süreli/auditli ayrı varlıklardır; ham skor değişmez
+  (`DQ-SCR-022`, `DQ-SCR-023`).
+- Her skor model, kural, eşik, ağırlık, normalizasyon ve uygulama sürümünü taşır;
+  replay orijinali koruyan ayrı sonuçtur (`DQ-SCR-025`, `DQ-SCR-032`).
+
+Üretim formülleri/katsayıları, rol matrisi ve `OPEN-BNK-013` kapsamı `TBD`'dir.
 
 ## Kural Yönetimi
 

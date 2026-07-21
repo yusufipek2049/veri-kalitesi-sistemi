@@ -91,7 +91,7 @@ SQLite şemaları ve testlerle verilmiştir.
 | Operasyon ve DR kanıtı yok | Kritik | Docker, CI/CD, health check, backup/restore yok | Dağıtım standardı, RTO/RPO ve restore tatbikatı |
 | Hassas dosya erişim sınırı eksik | Yüksek | `CSVConnector` doğrudan yapılandırılan yolu açıyor | Allowlist kök, canonical path kontrolü ve servis hesabı izni |
 | Audit yalnız uygulama içi hash-chain | Yüksek | `SQLiteAuditRepository` | WORM/imza veya kurumsal merkezi log platformu |
-| Type-check aracının CI kapısı olmaması | Orta | Yerel baseline 109 dosyada sıfır hata; CI zorlaması yok | Sıfır baseline'ı CI kapısına al |
+| Type-check aracının CI kapısı olmaması | Orta | Yerel baseline 131 dosyada sıfır hata; CI zorlaması yok | Sıfır baseline'ı CI kapısına al |
 
 ### Teknoloji Envanteri
 

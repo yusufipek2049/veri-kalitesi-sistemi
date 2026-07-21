@@ -34,8 +34,8 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
 18. Bağlantı, sorgu ve toplam timeout değerleri worker yürütücü sözleşmesinde ayrı taşınıyor ve iptal adaptörü tanımlandı; gerçek PostgreSQL/CSV adaptörlerinde sorgu iptali ile duvar saati zorlaması henüz uygulanmadı.
 19. Genel cron ifadesi desteği için kullanılacak doğrulanmış parser/kütüphane ve kabul edilen cron grameri henüz seçilmedi; mevcut zamanlama yalnız ONCE/DAILY/WEEKLY/MONTHLY türlerini destekliyor.
 20. QualityDimension için ayrı kalıcı UUID varlığı henüz uygulanmadı; boyut skoru kapsam kimliği geçici olarak değişmez enum kodunu (`COMPLETENESS` vb.) kullanıyor.
-21. Dataset kritiklik ağırlıklarının kurumsal katsayıları onaylanmadı; mevcut sürüm tüm seviyeler için nötr `1.0` kullanıyor ve yeni politika ayrı konfigürasyon sürümü gerektiriyor.
-22. Kurum skorunda kaynaklar arası ağırlık politikası onaylanmadı; mevcut ENTERPRISE formülü kaynakları eşit ağırlıklandırıyor ve farklı politika yeni formül/konfigürasyon sürümü gerektiriyor.
+21. Mevcut runtime dataset kritikliğini `SOURCE` kalite agregasyonuna katıyor; `DQ-SCR-018` ve `ADR-015` bu yaklaşımı hedef modelde `Superseded` yapmıştır. Kritiklik profilinin ayrı taşınacağı migration, replay ve trend sürüm sınırı uygulanmalıdır.
+22. Kurum skorunda kaynaklar arası ham kalite agregasyon politikası onaylanmadı; mevcut `ENTERPRISE` formülü kaynakları eşit ağırlıklandırıyor. Yeni politika kritiklik ve veri riskini kalite skoruna karıştırmamalı, ayrı sürümlenmelidir.
 23. Eski SQLite `audit_records` için salt okunur envanter ve idempotent merkezi aktarım sözleşmesi sentetik verilerle teknik olarak doğrulandı. Gerçek ortam envanteri/koşusu, yedek ve geri dönüş planı, değişiklik penceresi ve operasyon onayı henüz tamamlanmadı.
 24. `DURABLE_BUFFER` sözleşmesi ve hata yolu test edildi; üretim kalıcı tampon teknolojisi, sahipliği, şifrelemesi, yeniden oynatma ve idempotency davranışı henüz uygulanmadı.
 25. SQLite outbox için üretim publisher worker'ı, claim/eşzamanlılık, retry/backoff, alarm metrikleri, kapasite sınırı ve saklama/temizleme politikası henüz uygulanmadı.
@@ -140,6 +140,22 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
 62. Kapsama oranı ile eksik kayıt oranının beklenen/gerçek sayaçlardan nasıl
     hesaplanacağı SRS'de tanımlı değildir. Bu formüller, veri kökeni ve worker
     kanıt sözleşmesi kesinleşmeden `PartialExecutionFacts` otomatik üretilmez.
+63. `DQ-SCR-001`–`DQ-SCR-033` dokümantasyon sözleşmesi kesinleşti. Mevcut
+    runtime; standart sekiz ölçüm durumu, istisna sayaçları, veri öğesi seviyesi,
+    ayrı kapsam/güven/risk/kritiklik/teknik sağlık varlıkları, kritik veto/tavan,
+    sürümlü normalizasyon, istisna/override ve replay sözleşmesinin tamamını henüz
+    uygulamamaktadır.
+64. Üretim normalizasyon formülleri, eşik/ağırlık değerleri, kritik kural
+    veto/tavan/blokaj davranışları, kapsam/güven ve veri risk katsayıları `TBD`'dir.
+    Karar sahipleri Veri Yönetişimi, Risk Yönetimi ve İç Kontrol'dür;
+    `OPEN-BNK-004` ve `OPEN-BNK-013` kapanmadan değer uydurulmayacaktır.
+65. Dataset kritikliğini `SOURCE` kalite skoruna ağırlık olarak katan mevcut
+    teknik davranış `ADR-015` ile hedef mimaride `Superseded` olmuştur. Yeni model
+    sürümü, migration/backfill, trend sürüm sınırı, yeniden hesaplama ve geri alma
+    planı uygulanmadan mevcut skor geçmişi değiştirilmeyecektir.
+66. İstisna ve ham skordan ayrı değerlendirme/override için banka rol matrisi,
+    izinli türler, azami süre, risk kabul ve raporlama politikası açık kalır;
+    `OPEN-BNK-004`, `OPEN-BNK-005`, `OPEN-BNK-006` ve `OPEN-BNK-008` geçerlidir.
 
 ## Bankacılık Geçiş Açık Konuları
 

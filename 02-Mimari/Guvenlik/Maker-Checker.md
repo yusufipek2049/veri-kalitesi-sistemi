@@ -18,10 +18,27 @@ Kritik olmayan kural aktivasyonu mevcut başarılı-test ön koşuluyla doğruda
 
 Audit özeti yalnız teknik kural sürümü/onay isteği kimliklerini, politika sürümünü ve karar durumunu taşır. Karar gerekçe kodu domain geçmişinde tutulur ancak audit özetine alınmaz; session kimliği yalnız digest olarak saklanır.
 
+## Skorlama Politikası ve Anti-Gaming
+
+`DQ-SCR-014`, `DQ-SCR-015`, `DQ-SCR-017`, `DQ-SCR-022`, `DQ-SCR-023` ve
+`DQ-SCR-030` uyarınca aşağıdaki yüksek etkili işlemler güvenilir bağlam, gerekçe,
+sürüm ve maker-checker kararı olmadan etkinleşmez:
+
+- üretim eşik veya ağırlık değişikliği,
+- kritikliği düşürme veya kritik kural davranışını gevşetme,
+- kuralı pasifleştirme ya da ölçüm kapsamını daraltma,
+- süreli istisna veya ham skordan ayrı değerlendirme/override oluşturma,
+- resmî trend, rapor veya remediation önceliğini etkileyen model/politika değişikliği.
+
+İstisna ve override süresiz olamaz; risk kabulü ve bitiş zamanı taşır. Ham skor
+değişmez. Audit/outbox kalıcılaştırılamazsa kritik işlem fail-closed tamamlanmaz.
+Banka rol kodları, politika kapsam matrisi ve acil durum prosedürü `OPEN-BNK-004`,
+`OPEN-BNK-005` ve `OPEN-BNK-006` altında açık kalır.
+
 ## Açık Kapsam
 
 - Bekleyen isteğin süre aşımı ve maker tarafından geri çekilmesi.
-- Skor konfigürasyonu ve diğer kritik işlem sınıfları için ayrı onay politikaları.
+- Skorlama politikası, istisna ve override için banka onaylı rol/kapsam matrisi.
 - Banka onaylı maker/checker rol kodları ve gerçek LDAP grup eşlemesi.
 - Hazırlayanı bilinmeyen legacy kritik sürümlerin yeni güvenilir sürüme taşınma prosedürü.
-- Acil durum override akışı.
+- Acil durum değerlendirme/override akışının süre, risk kabulü ve raporlama biçimi.

@@ -42,6 +42,13 @@ Bu yüzeyler HTTP endpoint'i değil, application/domain servis metotlarıdır.
 | `ReportPreviewService` | `preview_summary` | Rol/source scope, 31 gün ve 500 source sınırı |
 | `IncidentResponseService` | incident/breach/decision/timeline | Güvenilir roller, farklı karar aktörü |
 
+`DQ-SCR-001`–`DQ-SCR-033` hedefinde HTTP skorlama yanıtı ham kalite skoru,
+kapsam, güven, risk/kritiklik, teknik sağlık, istisna/override ve tüm model/politika
+sürümlerini ayrı taşımalıdır. Mevcut `ScoringService` ve `DashboardQueryService`
+bu sözleşmenin yalnız kalite skoru, temel açıklama ve trend alt kümesini sağlar;
+ayrı risk/güven/istisna/override API yüzeyi uygulanmamıştır. Nihai endpoint ve
+OpenAPI şeması `TBD`'dir.
+
 ## Kimlik Doğrulama ve Yetkilendirme
 
 ### ActorContext Güven Sınırı
@@ -151,7 +158,9 @@ stateDiagram-v2
 
 `NEW` ve `CANCELLED` enum değerleri vardır, fakat mevcut servis oluşturmayı doğrudan
 `ASSIGNED` yapar ve cancellation metodu sunmaz. Bunlar kullanılmayan/gelecek durum
-adaylarıdır. SLA, eskalasyon süresi, yanlış pozitif ve istisna modeli yoktur.
+adaylarıdır. `DQ-SCR-022`, `DQ-SCR-023` ve `DQ-SCR-029` hedefindeki SLA,
+eskalasyon, istisna, ham skordan ayrı override ve risk bazlı remediation modeli
+yoktur.
 
 ## Zamanlanmış ve Asenkron İşler
 

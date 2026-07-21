@@ -2,7 +2,8 @@
 
 ## Test Yapısı
 
-`06-Testler/01-Birim/` altında 18 pytest dosyası vardır:
+`06-Testler/01-Birim/` altında 27 pytest dosyası vardır. Aşağıdaki tablo ana test
+alanlarını özetler:
 
 | Test alanı | Kapsanan ana davranış |
 | --- | --- |
@@ -36,7 +37,7 @@ secret redaksiyonu ve veri-minimum payload testleri dikkate değer güçlü nokt
 
 | Seviye | Durum | Açıklama |
 | --- | --- | --- |
-| Unit | Uygulanmış | 702 test |
+| Unit | Uygulanmış | 913 test |
 | Repository | Uygulanmış, unit içinde | Gerçek SQLite sorgu/constraint testleri |
 | Contract | Kısmen uygulanmış | Fake adaptörler port sözleşmesini sınar |
 | Integration | Planlanmış ancak uygulanmamış | Dizin boş; gerçek PostgreSQL/LDAP/ServiceNow yok |
@@ -62,9 +63,9 @@ python3 -m compileall -q 03-Backend/src 06-Testler
 PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc .
 ```
 
-İnceleme baseline'ında test ve Ruff lint geçmektedir. Full format kontrolünde dört
-eski dosyada biçim farkı sürmektedir. Bakım İterasyonu 29C.1 sonrasında full mypy
-109 kaynak dosyada sıfır hata raporlamaktadır; bu baseline henüz CI ile zorlanmaz.
+İnceleme baseline'ında test ve Ruff lint geçmektedir. Full format kontrolünde üç
+eski dosyada biçim farkı sürmektedir. Full mypy 131 kaynak dosyada sıfır hata
+raporlamaktadır; bu baseline henüz CI ile zorlanmaz.
 
 ## Performans ve Ölçeklenebilirlik
 
@@ -126,13 +127,15 @@ archive tier ve performans benchmark'ı yoktur. 20 milyon satırlık kabul hedef
 | Çok büyük servisler | `issues/service.py` 1013, `scoring/service.py` 913, `data_sources/service.py` 882, `servicenow/service.py` 864 satır | Değişiklik ve review maliyeti |
 | Çok büyük repository'ler | data source 770, issue 748, ServiceNow 690 satır | Şema, mapping ve query sorumlulukları iç içe |
 | Composition root yok | Servis wiring/startup bulunmuyor | Gerçek dependency graph/test edilemiyor |
-| Type-check CI kapısı eksik | Yerel mypy baseline'ı 109 dosyada sıfır; pipeline zorlaması yok | Yeni sapmalar otomatik engellenmez |
+| Type-check CI kapısı eksik | Yerel mypy baseline'ı 131 dosyada sıfır; pipeline zorlaması yok | Yeni sapmalar otomatik engellenmez |
 | Tool/dependency setup eksik | pytest/Ruff/mypy manifestte pinli değil; lock yok | Tekrarlanabilir build zayıf |
 | Runtime migration | Repository açılışında DDL/rebuild | Deployment ve rollback riski |
 | SQLite'a sıkı altyapı bağı | Servisler bazı yerlerde concrete repository tipi alır | Üretim DB geçişi zorlaşır |
 | Merkezi role/permission kataloğu yok | String rol setleri farklı policy'lerde | Yetki matrisi drift riski |
 | Legacy adapter/table | dashboard `_legacy`, `audit_records` | İki davranışın uzun süre yaşaması |
 | Enumda kullanılmayan durumlar | Issue `NEW`, `CANCELLED` servis akışında yok | Model ve gerçek state machine farklı |
+| Skorlama hedef modeli runtime'a taşınmadı | `DQ-SCR-001`–`DQ-SCR-033` dokümante; standart durumlar, kapsam/güven, risk ve override modeli kodda yok | Kabul edilen sözleşme ile çalışan prototip ayrışıyor |
+| Dataset kritiklik ağırlıklı SOURCE skoru | Mevcut runtime kritiklik katsayısını kalite agregasyonuna katıyor; `ADR-015` bunu hedef modelde `Superseded` olarak işaretliyor | Kalite ile kritiklik/risk göstergeleri birbirine karışıyor |
 | Dimension weight semantiği | Configte var, dimension/enterprise formülünde kullanılmıyor | İş beklentisiyle sapma riski |
 | Paketleme eksik | `[build-system]` ve script yok | Kurulum/dağıtım standart değil |
 | Frontend toolchain yok | Tasarım sistemi ve görsel test stratejisi belgelendi; runtime, Storybook ve Playwright proje kurulumu yok | Referans ekran henüz çalışan ürün veya otomatik regression kanıtı değil |

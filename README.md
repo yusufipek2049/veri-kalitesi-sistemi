@@ -24,8 +24,9 @@ Bu vault, SRS dokümanını görev bazında küçük bağlam parçalarıyla kull
 - [Uyum Kanıtları](08-Uyum-Kanitlari/KANIT-INDEX.md)
 - [Bankacılık Geçiş İterasyonları](09-Iterasyonlar/ITERASYON-INDEX.md)
 - [Teknik Mimari ve Sistem Analizi](docs/technical/README.md)
+- [Bağlayıcı Veri Kalitesi Skorlama Kararları](01-SRS/04-Fonksiyonel-Gereksinimler/04.06-Skorlama.md#bağlayıcı-skorlama-kararları)
 
 
 ## Güncel Geliştirme Baseline'ı
 
-İterasyon 1–16 ile bankacılık geçişindeki 17A–19G, 20A–24B, 26A–26B, 28A–28E ve 29A–29C teknik dikeyleri tamamlanmış, 744 birim testi geçmektedir. Repository için veri-minimum güvenli SDLC kontrolleri, deterministik teknik kanıt manifesti, byte düzeyinde drift kapısı ve altı kontrolü tek fail-closed komutta birleştiren yerel sürüm preflight'ı uygulanmıştır. Sıradaki hazır teknik artım kontrollü kaynak pasifleştirme ve yeni iş kabulünü engellemedir; kurumsal CI/CD, HTTP/frontend ve üretim entegrasyonları banka kararlarını beklemektedir.
+İterasyon 1–16 ile bankacılık geçişindeki 17A–29C, 31A–31C ve 32A–32D teknik dikeyleri tamamlanmış, 913 birim testi geçmektedir. Repository için veri-minimum güvenli SDLC kontrolleri, deterministik teknik kanıt manifesti, byte düzeyinde drift kapısı ve altı kontrolü tek fail-closed komutta birleştiren yerel sürüm preflight'ı uygulanmıştır. Kabul edilen `DQ-SCR-001`–`DQ-SCR-033` skorlama modeli dokümantasyona işlenmiştir; runtime geçişi, kurumsal CI/CD, HTTP/frontend ve üretim entegrasyonları sıradaki ürün artımlarına ve banka kararlarına bağlıdır.

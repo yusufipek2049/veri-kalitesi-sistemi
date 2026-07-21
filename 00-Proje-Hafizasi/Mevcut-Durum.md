@@ -26,7 +26,7 @@ tags:
 - 15 iş kuralı.
 - 19 temel veri varlığı.
 - 11 fonksiyonel olmayan gereksinim kategorisi.
-- 26 sistem kabul kriteri.
+- 38 sistem kabul kriteri.
 
 ## Uygulama Durumu
 
@@ -1089,6 +1089,25 @@ tags:
 - 9 yeni test vakasıyla toplam test sayısı 913 oldu. Tam mypy 131 dosyada, Ruff
   lint, değişen kapsam formatı ve `compileall` kontrolleri hatasız geçti. Tam
   depo format kontrolünde değişmeyen üç tarihsel dosyanın biçim farkı sürer.
+
+### 2026-07-21 — DQ-SCR skorlama kararlarının dokümantasyona uygulanması
+
+- `DQ-SCR-001`–`DQ-SCR-033` kesin proje kararı olarak skorlama, kural yönetimi,
+  dashboard, API, veri modeli, mimari, güvenlik/yönetişim, operasyon ve test
+  belgelerine işlendi.
+- Ham veri kalitesi skoru; kapsam, ölçüm güveni, dataset kritiklik profili/veri
+  riski ve teknik sağlık göstergesinden ayrıldı. Skorun personel performans KPI'sı
+  olmadığı bağlayıcı olarak kaydedildi.
+- Kural paydası, sekiz standart ölçüm durumu, iki aşamalı kural → boyut → dataset
+  agregasyonu, kritik kural veto/tavanı, sürümlü politika/model, istisna/override,
+  trend sürüm sınırı, alarm/remediation ve yeniden üretilebilirlik sözleşmeleri
+  tanımlandı.
+- `ADR-015`, dataset kritikliğini `SOURCE` kalite skoruna ağırlık olarak katan
+  tarihsel yaklaşımı hedef mimaride `Superseded` yaptı. Mevcut runtime bu hedefe
+  henüz taşınmadı; geçmiş skorlar değiştirilmeyecektir.
+- `AC-027`–`AC-038` ve `TS-027`–`TS-038` eklendi. Bu çalışma yalnız belge
+  sözleşmesini günceller; yeni runtime davranışının teknik olarak doğrulandığı veya
+  banka tarafından onaylandığı anlamına gelmez.
 
 ## İlgili Notlar
 
