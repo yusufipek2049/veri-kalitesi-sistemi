@@ -130,12 +130,12 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
 60. `31D` hız sınırı artımı için sayaç birimi, pencere türü, tüketim anı ve
     kalıcı/dağıtık sayaç davranışı SRS'de tanımlı değildir. Bu semantik ve kabul
     kriterleri kesinleşmeden çalışma zamanı hız sınırı uygulanmayacaktır.
-61. `32A`–`32C` sürümlü/onaylı dataset kısmi skor politikasını, fail-closed
+61. `32A`–`32D` sürümlü/onaylı dataset kısmi skor politikasını, fail-closed
     karar servisini ve kararın `QualityScore`, resmî agregasyon, trend ile rapor
     önizlemesine uygulanmasını; güvenilir actor, maker-checker onay/ret ve atomik
-    audit outbox akışını teknik olarak doğruladı.
+    audit outbox ile maker'a ait geri çekme akışını teknik olarak doğruladı.
     `PartialExecutionFacts` olgularının execution/worker tarafından güvenilir
-    üretilmesi, politika talebi geri çekme/süre aşımı, SLA ve resmî denetim
+    üretilmesi, politika talebi süre aşımı, SLA ve resmî denetim
     çıktısı adaptörleri ile banka rol eşlemesi açık kalır.
 62. Kapsama oranı ile eksik kayıt oranının beklenen/gerçek sayaçlardan nasıl
     hesaplanacağı SRS'de tanımlı değildir. Bu formüller, veri kökeni ve worker

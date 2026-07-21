@@ -267,6 +267,42 @@ class SQLiteDatasetPartialScorePolicyRepository:
             ) from exc
         return self.get(policy.policy_id)
 
+    def withdraw_with_audit(
+        self,
+        policy: DatasetPartialScorePolicy,
+        *,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: SQLiteTransactionalAudit,
+    ) -> DatasetPartialScorePolicy:
+        if audit_outbox.connection is not self.connection:
+            raise ScoringValidationError("Audit outbox must share the policy transaction.")
+        if policy.approval_status is not PartialScorePolicyStatus.WITHDRAWN:
+            raise ScoringValidationError("Partial score policy withdrawal status is invalid.")
+        _validate_policy(policy)
+        try:
+            with self._lock, self.connection:
+                cursor = self.connection.execute(
+                    """
+                    UPDATE dataset_partial_score_policies
+                    SET approval_status = ?, approved_by = NULL, audit_reference = ?
+                    WHERE policy_id = ? AND approval_status = ?
+                    """,
+                    (
+                        policy.approval_status.value,
+                        policy.audit_reference,
+                        policy.policy_id,
+                        PartialScorePolicyStatus.PENDING.value,
+                    ),
+                )
+                if cursor.rowcount != 1:
+                    raise ScoringValidationError("Dataset partial score policy is not pending.")
+                audit_outbox.stage(audit_event)
+        except sqlite3.DatabaseError as exc:
+            raise ScoringTechnicalError(
+                "Dataset partial score policy withdrawal and audit could not be persisted."
+            ) from exc
+        return self.get(policy.policy_id)
+
     def list_policies(self, dataset_id: str) -> list[DatasetPartialScorePolicy]:
         if not dataset_id.strip():
             raise ScoringValidationError("dataset_id is required.")
@@ -497,6 +533,60 @@ class DatasetPartialScorePolicyLifecycleService:
         )
         stored = self.repository.decide_with_audit(
             decided,
+            audit_event=prepared,
+            audit_outbox=self.transactional_audit,
+        )
+        self.transactional_audit.publish_pending()
+        return stored
+
+    def withdraw(
+        self,
+        *,
+        actor_context: ActorContext | None,
+        policy_id: str,
+        reason_code: str,
+    ) -> DatasetPartialScorePolicy:
+        now = _clock_value(self.clock)
+        current = self.repository.get(policy_id)
+        context = self._authorize(
+            actor_context,
+            required_roles=self.access_policy.maker_roles,
+            dataset_id=current.dataset_id,
+            now=now,
+        )
+        if current.approval_status is not PartialScorePolicyStatus.PENDING:
+            raise ScoringValidationError("Dataset partial score policy is not pending.")
+        if current.created_by != context.actor_id:
+            raise ScoringAuthorizationError(
+                "Only the policy maker can withdraw the partial score policy."
+            )
+        normalized_reason = _validate_reason_code(reason_code)
+        event = AuditEventInput(
+            actor_id=context.actor_id,
+            actor_type=context.actor_type.value,
+            correlation_id=context.correlation_id,
+            action="PARTIAL_SCORE_POLICY_APPROVAL_WITHDRAWN",
+            object_type="DatasetPartialScorePolicy",
+            object_id=current.policy_id,
+            result=AuditResult.SUCCESS,
+            reason_code=normalized_reason,
+            old_values=_policy_audit_values(current, self.access_policy.version),
+            new_values={
+                **_policy_audit_values(current, self.access_policy.version),
+                "status": PartialScorePolicyStatus.WITHDRAWN.value,
+            },
+            occurred_at=now,
+            session_id=context.session_id,
+        )
+        prepared = self.transactional_audit.prepare(event)
+        withdrawn = replace(
+            current,
+            approval_status=PartialScorePolicyStatus.WITHDRAWN,
+            approved_by=None,
+            audit_reference=prepared.event_id,
+        )
+        stored = self.repository.withdraw_with_audit(
+            withdrawn,
             audit_event=prepared,
             audit_outbox=self.transactional_audit,
         )
