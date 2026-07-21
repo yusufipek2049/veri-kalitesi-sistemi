@@ -901,6 +901,29 @@ tags:
   eşzamanlılığı, fiziksel imha, anonimleştirme, arşiv geri çağırma ve yedek
   re-delete açık kalır.
 
+### 2026-07-21 — İterasyon 25C: İdempotent imha işi ve veri-minimum kanıt zarfı
+
+- `BFR-LCM-002/003`, `BFR-AUD-004`, `BFR-SOD-002`, `FR-077`, `FR-079` ve
+  `NFR-SEC-001/008/011` için append-only imha işi/sonuç kanıtı sözleşmesi
+  tamamlandı.
+- İş yalnız onay referanslı `ApprovedByBank` politika, süresi dolmuş kayıt ve
+  aktif legal hold bulunmaması halinde hazırlanır; varsayılan provisional katalog
+  fail-closed kalır.
+- Idempotency anahtarı ile kayıt/kapsam kimlikleri özetlenir. Aynı anahtar/payload
+  tek iş döndürür; farklı payload ve ikinci farklı terminal sonuç reddedilir.
+- Hazırlayan güvenilir kullanıcı ile sonuç yazan güvenilir servis aktörü ayrı rol,
+  aktör türü ve veri kapsamıyla doğrulanır; aynı kimlik iki adımı tamamlayamaz.
+- `SUCCEEDED` ve `FAILED_TECHNICAL` ayrıdır. İş/sonuç ile redakte audit outbox
+  atomiktir; tablolar `UPDATE/DELETE` işlemlerini reddeder ve ham silinen değer,
+  kayıt/kapsam kimliği veya serbest hata metni taşımaz.
+- 20 yeni testle retention hedef grubu 46, toplam test sayısı 796 oldu. Tam mypy
+  119 dosyada, Ruff, format ve derleme kontrolleri hatasız geçti.
+- Kanıt `08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-25C-Idempotent-Imha-Isi-Kanit-Zarfi.md`
+  içinde `TechnicallyVerified` olarak kaydedildi.
+- Fiziksel silme/anonimleştirme/arşivleme adaptörü, gerçek onay/kanıt resolver'ı,
+  üretim claim/lease, banka rol/reason code eşlemesi, yedek re-delete ve arşiv
+  geri çağırma açık kalır.
+
 ## İlgili Notlar
 
 - [Alınan Kararlar](Alinan-Kararlar.md)
@@ -909,9 +932,9 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25B, Iterasyon 26A–26B, Iterasyon 28A–28E, Iterasyon 29A–29C ve Bakım İterasyonu 29C.1 çıktıları korunacaktır.
-- `pytest` ile 776 testin geçtiği doğrulanmıştır.
-- Tam mypy kontrolü 116 kaynak dosyada sıfır hata vermektedir.
-- Sıradaki teknik aday 25C idempotent imha işi ve veri-minimum kanıt zarfı sözleşmesidir. Fiziksel imha adaptörü, arşiv geri çağırma, 29D, 21B/frontend, hassas dışa aktarma, DR ve gerçek SIEM banka/altyapı kararlarını beklemektedir.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25C, Iterasyon 26A–26B, Iterasyon 28A–28E, Iterasyon 29A–29C ve Bakım İterasyonu 29C.1 çıktıları korunacaktır.
+- `pytest` ile 796 testin geçtiği doğrulanmıştır.
+- Tam mypy kontrolü 119 kaynak dosyada sıfır hata vermektedir.
+- Sıradaki teknik aday 25D yetkili arşiv geri çağırma talebi ve veri-minimum audit sözleşmesidir. Gerçek arşiv/fiziksel imha adaptörü, 29D, 21B/frontend, hassas dışa aktarma, DR ve gerçek SIEM banka/altyapı kararlarını beklemektedir.
 - Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

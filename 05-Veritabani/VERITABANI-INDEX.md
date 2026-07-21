@@ -35,3 +35,17 @@ tags:
 - Başarılı aday terfisi, kaynak revizyon/durum güncellemesi, eski `PENDING` aktivasyon isteklerinin `INVALIDATED` olması ve audit outbox yazımı aynı transaction içindedir.
 - `(data_source_id, data_source_revision)` üzerinde yalnız `PENDING` kayıtları kapsayan benzersiz indeks aynı revizyona eş zamanlı birden fazla açık istek oluşmasını engeller.
 - Onay kaydı, `ACTIVE` durum geçişi ve merkezi audit outbox aynı SQLite transaction içinde yazılır; üretim veritabanı ve migration aracı seçimi `OPEN-BNK-012` kapsamında açıktır.
+
+## İterasyon 25B–25C Şema Artımı
+
+- `legal_hold_events`, hold oluşturma ve serbest bırakma geçmişini append-only
+  olaylarla saklar; aktif durum olaylardan yeniden kurulur.
+- `disposal_jobs`, ham kayıt ve kapsam kimliği yerine SHA-256 özetleriyle
+  değişmez aday snapshot'ını saklar. Idempotency özeti benzersizdir.
+- `disposal_job_results`, iş başına tek terminal sonuç, sayaç, teknik hata kodu ve
+  opak kanıt referansı taşır; ham silinen kayıt veya serbest hata metni içermez.
+- İş/sonuç tablolarındaki `UPDATE` ve `DELETE` tetikleyicilerle reddedilir. Domain
+  kaydı ile audit outbox aynı SQLite transaction içinde yazılır.
+- SQLite yerel teknik prototiptir; üretim PostgreSQL migration'ı, uygulama
+  rolünden ayrılmış değişmezlik yetkisi, bölümleme ve WORM kararı `OPEN-BNK-012`
+  ve `OPEN-BNK-006` kapsamında açıktır.
