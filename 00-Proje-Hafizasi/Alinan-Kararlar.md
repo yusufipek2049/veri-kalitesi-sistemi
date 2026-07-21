@@ -265,6 +265,14 @@ tags:
 | 2026-07-21 | Talebi açan aktör aynı talebi onaylayamayacak; karar ayrı sürümlü rol, aynı veri kapsamı ve allowlist gerekçe gerektirecektir. | Arşivlenmiş audit/skor erişimi hassas ve denetlenebilir bir işlem olduğundan tek aktörün talep ile yetkilendirmeyi birleştirmesi görevler ayrılığını zayıflatır. | Requester'ın kendi talebini aktive etmesi, servis/break-glass hesabına örtük karar yetkisi vermek veya yalnız genel ayrıcalığı kabul etmek. | Yanlış rol/kapsam, servis hesabı, break-glass ve aynı aktör kararı fail-closed reddedilir; banka rol eşlemesi açık kalır. |
 | 2026-07-21 | Talep ve tek terminal onay/ret kararı append-only saklanacak; her olay redakte audit outbox ile aynı transaction'da yazılacaktır. | Karar geçmişi yerinde değişmemeli ve audit izi olmadan erişim yetkilendirmesi oluşmamalıdır. | Talep satırının durumunu güncellemek, ikinci karar eklemek veya best-effort audit kullanmak. | `UPDATE/DELETE`, farklı ikinci karar ve audit-stage arızası reddedilir; audit özeti yalnız durum, kayıt türü ve kapsam türünü taşır. |
 
+## 2026-07-21 İterasyon 27A Kararları
+
+| Tarih | Karar | Gerekçe | Alternatif | Sonuç |
+| --- | --- | --- | --- | --- |
+| 2026-07-21 | Ortam kimliği doğrudan çağıran girdisinden değil, sürümlü güven sözleşmesini uygulayan konfigürasyon sağlayıcısından yüklenecektir. | Serbest ortam adı veya sıradan ayar üretim kontrolünü baypas edebilir; kaynak belirsizliği fail-closed kalmalıdır. | Ortam değişkeni metnini doğrudan güvenilir kabul etmek veya kaynak okunamazsa varsayılan geliştirme ortamına düşmek. | Yanlış güven sözleşmesi kaynağı okunmadan reddedilir; sağlayıcı kesintisi ayrı teknik hata üretir ve başlangıç kanıtı oluşmaz. |
+| 2026-07-21 | Üretim dışı ortamda `BANK_PRODUCTION` veri kökeni ve üretim secret kapsamı yasaklanacak; tüm ortamlar yalnız kendi secret kapsamını kullanacaktır. | `BFR-OPS-001/002` ortam ve veri ayrımını teknik olarak zorunlu kılar; yanlış kapsam sessizce kabul edilmemelidir. | Yalnız ortam adını kaydetmek, UAT için üretim secret'ına izin vermek veya ihlali uyarı seviyesinde bırakmak. | Uyumsuz veri/secret sınıfı fail-closed politika engelidir; gerçek veri veya secret değeri kapıdan geçmez. |
+| 2026-07-21 | Başlangıç kanıtı secret referansını değil yalnız secret kapsamını ve sabit kontrol kodlarını taşıyacaktır. | Secret yolu değer olmasa bile altyapı topolojisi ve adlandırma bilgisi sızdırabilir. | Tam URI'yi loglamak veya sağlayıcı hata mesajını kanıta eklemek. | Kanıt veri-minimum kalır; doğrulama ve teknik hata yalnız allowlist neden kodu taşır. |
+
 ## İlişkili Notlar
 
 - [Sistem Açıklaması](../01-SRS/02-Sistem-Aciklamasi.md)

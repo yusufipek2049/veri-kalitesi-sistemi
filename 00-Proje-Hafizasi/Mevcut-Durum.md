@@ -946,6 +946,28 @@ tags:
   eşlemesi, PostgreSQL/WORM yetkileri ve geri çağrılan kopyanın yeniden imhası
   açık kalır.
 
+### 2026-07-21 — İterasyon 27A: Fail-closed ortam kimliği
+
+- `BFR-OPS-001/002`, `BRULE-004/005`, `NFR-SEC-005/008` ve `NFR-CMP-002`
+  için sürümlü ortam başlangıç kapısı tamamlandı.
+- Ortam kimliği yalnız `27A-trusted-source-v1` sözleşmeli sağlayıcıdan yüklenir;
+  doğrudan konfigürasyon ve yanlış güven sözleşmesi kaynak okunmadan reddedilir.
+- `LOCAL`, `DEVELOPMENT`, `TEST`, `ACCEPTANCE` ve `PRODUCTION` sınıfları ile
+  ortama özgü secret kapsamı tanımlandı. Üretim dışı ortamda gerçek banka verisi
+  ve üretim secret referansı fail-closed engellenir.
+- Secret URI'si sıkı allowlist ile doğrulanır. Başlangıç kanıtı yalnız politika,
+  revizyon, ortam, veri kökeni, secret kapsamı ve sabit kontrol kodlarını taşır;
+  secret referansını taşımaz.
+- Sağlayıcı arızası ayrı teknik hata olarak ele alınır; politika ihlali veya temiz
+  başlangıç sonucuna dönüştürülmez.
+- 34 yeni testle toplam test sayısı 855 oldu. Tam mypy 127 dosyada, Ruff lint,
+  değişen dosya formatı ve derleme kontrolleri geçti. Tam depo format kontrolünde
+  değişmeyen üç tarihsel dosyanın biçim farkı sürmektedir.
+- Kanıt `08-Uyum-Kanitlari/Yedek-Geri-Yukleme/Iterasyon-27A-Fail-Closed-Ortam-Kimligi-Kaniti.md`
+  içinde `TechnicallyVerified` olarak kaydedildi.
+- Gerçek deployment/attestation sağlayıcısı, secret manager ve veri hazırlama
+  kanıtı `OPEN-BNK-012`; yedek/restore/RTO/RPO/DR `OPEN-BNK-011` ile açık kalır.
+
 ## İlgili Notlar
 
 - [Alınan Kararlar](Alinan-Kararlar.md)
@@ -954,9 +976,9 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 28A–28E, Iterasyon 29A–29C ve Bakım İterasyonu 29C.1 çıktıları korunacaktır.
-- `pytest` ile 821 testin geçtiği doğrulanmıştır.
-- Tam mypy kontrolü 122 kaynak dosyada sıfır hata vermektedir.
-- Sıradaki teknik aday 27A fail-closed ortam kimliği ve üretim dışı veri/secret kullanım sınırı sözleşmesidir. Gerçek arşiv/fiziksel imha adaptörü, 29D, 21B/frontend, hassas dışa aktarma, DR ve gerçek SIEM banka/altyapı kararlarını beklemektedir.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C ve Bakım İterasyonu 29C.1 çıktıları korunacaktır.
+- `pytest` ile 855 testin geçtiği doğrulanmıştır.
+- Tam mypy kontrolü 127 kaynak dosyada sıfır hata vermektedir.
+- Sıradaki 27B restore tatbikat kanıtı dilimi `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını beklemektedir. Gerçek arşiv/fiziksel imha adaptörü, 29D, 21B/frontend, hassas dışa aktarma ve gerçek SIEM de banka/altyapı kararlarına bağlıdır.
 - Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

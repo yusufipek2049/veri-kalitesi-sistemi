@@ -80,7 +80,8 @@
       "review_status": "ComplianceReviewRequired",
       "evidence_paths": [
         "08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-18A-Siniflandirma-ve-Profil-Minimizasyonu-Kaniti.md",
-        "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28A-Yerel-Veri-Minimum-Secret-Tarama-Kaniti.md"
+        "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28A-Yerel-Veri-Minimum-Secret-Tarama-Kaniti.md",
+        "08-Uyum-Kanitlari/Yedek-Geri-Yukleme/Iterasyon-27A-Fail-Closed-Ortam-Kimligi-Kaniti.md"
       ],
       "blocker_ids": ["OPEN-BNK-007", "OPEN-BNK-012"],
       "decision_reference": null
@@ -93,7 +94,8 @@
         "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28A-Yerel-Veri-Minimum-Secret-Tarama-Kaniti.md",
         "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28B-Deterministik-Bagimlilik-SBOM-Kaniti.md",
         "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28C-Yerel-SAST-Surum-Kapisi-Kaniti.md",
-        "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28D-Bagimlilik-Zafiyet-Surum-Kapisi-Kaniti.md"
+        "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-28D-Bagimlilik-Zafiyet-Surum-Kapisi-Kaniti.md",
+        "08-Uyum-Kanitlari/Yedek-Geri-Yukleme/Iterasyon-27A-Fail-Closed-Ortam-Kimligi-Kaniti.md"
       ],
       "blocker_ids": ["OPEN-BNK-011", "OPEN-BNK-012"],
       "decision_reference": null
