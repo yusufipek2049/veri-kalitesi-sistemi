@@ -378,5 +378,20 @@ def build_default_redaction_policy() -> AuditRedactionPolicy:
                     "effective_from",
                 }
             ),
+            "SYNTHETIC_GENERATION_RUN_REQUESTED": frozenset(
+                {
+                    "dataset_id",
+                    "policy_version",
+                    "scenario_version",
+                    "schema_version",
+                    "generator_version",
+                    "configuration_version",
+                    "requested_record_count",
+                    "seed_present",
+                    "status",
+                    "synthetic_origin",
+                    "access_policy_version",
+                }
+            ),
         },
     )

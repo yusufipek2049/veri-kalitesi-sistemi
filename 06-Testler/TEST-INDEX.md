@@ -91,6 +91,11 @@ tags:
 | `AC/TS-055` | Fake/sandbox olay yaşam döngüsü ve üretim hedefi fail-closed negatifleri |
 | `AC/TS-056` | Hacim, timeout/kota teknik hata ayrımı, yaşam döngüsü, imha, replay ve `OPEN-014` kabul ayrımı |
 
+İterasyon 34A kanıtı
+`06-Testler/01-Birim/test_synthetic_data.py` içindedir. `AC/TS-049`un geçerli
+politika, ayrı run ve eksiksiz lineage alt kapsamı doğrulanmıştır; aynı seed ve
+sürümle kanonik çıktı eşdeğerliği `SYN-002` kapsamında açık kalır.
+
 Nicel dağılım, korelasyon, görev faydası, gizlilik, kusur yoğunluğu ve skor
 toleransı eşikleri `OPEN-024` sonuçlanana kadar `TBD`'dir. Sentetik performans
 testi `AC/TS-008` kapsamındaki anonimleştirilmiş üretim örneği kabulinin yerine
@@ -98,9 +103,9 @@ geçmez.
 
 ## Güncel Otomasyon Baseline'ı
 
-- 913 test geçmektedir.
+- 939 test geçmektedir.
 - Tam statik tip kontrolü `python3 -m mypy 03-Backend/src 06-Testler` komutuyla
-  131 kaynak dosyada sıfır hata vermektedir.
+  137 kaynak dosyada sıfır hata vermektedir.
 - `incident_response` hedef grubu, güvenlik olayı/ihlal ayrımı, 72 saat hedefi, veri işleyen kanıtı, maker-checker kararı, yetki/scope redleri, veri-minimum timeline görünümü, audit minimizasyonu ve rollback için 39 sentetik vaka içerir.
 - `secure_sdlc` hedef grubu; gerçek pozitif/yanlış pozitif, binary/büyük/dışlanan
   dosya, sembolik bağlantı, salt okunurluk, deterministik sıra, teknik hata ve

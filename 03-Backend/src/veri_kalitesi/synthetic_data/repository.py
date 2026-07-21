@@ -1,0 +1,582 @@
+"""Sentetik veri kayıt çekirdeği için append-only SQLite deposu."""
+
+from __future__ import annotations
+
+import sqlite3
+from datetime import datetime
+from decimal import Decimal
+from threading import RLock
+
+from veri_kalitesi.audit import PreparedAuditEvent, SQLiteTransactionalAudit
+from veri_kalitesi.synthetic_data.errors import (
+    SyntheticDataConflictError,
+    SyntheticDataTechnicalError,
+    SyntheticDataValidationError,
+)
+from veri_kalitesi.synthetic_data.models import (
+    SyntheticDatasetPolicy,
+    SyntheticGenerationRun,
+    SyntheticPolicyStatus,
+    SyntheticProfile,
+    SyntheticRunStatus,
+    SyntheticScenario,
+)
+
+
+class SQLiteSyntheticDataRepository:
+    def __init__(self, database: str = ":memory:") -> None:
+        self.connection = sqlite3.connect(database, check_same_thread=False)
+        self.connection.row_factory = sqlite3.Row
+        self._lock = RLock()
+        self._create_schema()
+
+    def _create_schema(self) -> None:
+        try:
+            self.connection.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS synthetic_dataset_policies (
+                    policy_id TEXT PRIMARY KEY,
+                    dataset_id TEXT NOT NULL,
+                    synthetic_generation_allowed INTEGER NOT NULL,
+                    synthetic_profile TEXT NOT NULL,
+                    volume_profile TEXT NOT NULL,
+                    distribution_profile TEXT NOT NULL,
+                    missingness_profile TEXT NOT NULL,
+                    defect_injection_profile TEXT NOT NULL,
+                    privacy_profile TEXT NOT NULL,
+                    retention_policy_id TEXT NOT NULL,
+                    ground_truth_enabled INTEGER NOT NULL,
+                    seed_strategy TEXT NOT NULL,
+                    expected_score_tolerance TEXT,
+                    criticality_profile_id TEXT NOT NULL,
+                    notification_test_enabled INTEGER NOT NULL,
+                    schema_version TEXT NOT NULL,
+                    policy_version TEXT NOT NULL,
+                    effective_from TEXT NOT NULL,
+                    effective_to TEXT,
+                    approved_by TEXT,
+                    approval_status TEXT NOT NULL,
+                    audit_reference TEXT,
+                    created_at TEXT NOT NULL,
+                    UNIQUE (dataset_id, policy_version)
+                );
+
+                CREATE TABLE IF NOT EXISTS synthetic_scenarios (
+                    scenario_record_id TEXT PRIMARY KEY,
+                    scenario_id TEXT NOT NULL,
+                    dataset_id TEXT NOT NULL,
+                    scenario_version TEXT NOT NULL,
+                    schema_version TEXT NOT NULL,
+                    configuration_version TEXT NOT NULL,
+                    synthetic_profile TEXT NOT NULL,
+                    volume_profile TEXT NOT NULL,
+                    distribution_profile TEXT NOT NULL,
+                    missingness_profile TEXT NOT NULL,
+                    defect_injection_profile TEXT NOT NULL,
+                    privacy_profile TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    UNIQUE (scenario_id, scenario_version)
+                );
+
+                CREATE TABLE IF NOT EXISTS synthetic_generation_runs (
+                    generation_run_id TEXT PRIMARY KEY,
+                    dataset_id TEXT NOT NULL,
+                    scenario_id TEXT NOT NULL,
+                    scenario_version TEXT NOT NULL,
+                    generator_version TEXT NOT NULL,
+                    configuration_version TEXT NOT NULL,
+                    schema_version TEXT NOT NULL,
+                    policy_version TEXT NOT NULL,
+                    random_seed TEXT NOT NULL,
+                    requested_record_count INTEGER NOT NULL,
+                    requested_by TEXT NOT NULL,
+                    audit_reference TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    output_reference TEXT,
+                    validation_reference TEXT,
+                    created_at TEXT NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_synthetic_policy_effective
+                ON synthetic_dataset_policies(
+                    dataset_id, approval_status, effective_from, effective_to
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_synthetic_runs_dataset
+                ON synthetic_generation_runs(dataset_id, created_at, generation_run_id);
+
+                CREATE TRIGGER IF NOT EXISTS synthetic_policies_no_update
+                BEFORE UPDATE ON synthetic_dataset_policies
+                BEGIN
+                    SELECT RAISE(ABORT, 'synthetic policy history is append-only');
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS synthetic_policies_no_delete
+                BEFORE DELETE ON synthetic_dataset_policies
+                BEGIN
+                    SELECT RAISE(ABORT, 'synthetic policy history is append-only');
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS synthetic_scenarios_no_update
+                BEFORE UPDATE ON synthetic_scenarios
+                BEGIN
+                    SELECT RAISE(ABORT, 'synthetic scenario history is append-only');
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS synthetic_scenarios_no_delete
+                BEFORE DELETE ON synthetic_scenarios
+                BEGIN
+                    SELECT RAISE(ABORT, 'synthetic scenario history is append-only');
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS synthetic_runs_no_update
+                BEFORE UPDATE ON synthetic_generation_runs
+                BEGIN
+                    SELECT RAISE(ABORT, 'synthetic run history is append-only');
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS synthetic_runs_no_delete
+                BEFORE DELETE ON synthetic_generation_runs
+                BEGIN
+                    SELECT RAISE(ABORT, 'synthetic run history is append-only');
+                END;
+                """
+            )
+            self.connection.commit()
+        except sqlite3.DatabaseError as exc:
+            raise SyntheticDataTechnicalError(
+                "Synthetic data registry schema could not be initialized."
+            ) from exc
+
+    def add_policy(self, policy: SyntheticDatasetPolicy) -> SyntheticDatasetPolicy:
+        _validate_policy(policy)
+        try:
+            with self._lock, self.connection:
+                self.connection.execute(
+                    """
+                    INSERT INTO synthetic_dataset_policies (
+                        policy_id, dataset_id, synthetic_generation_allowed,
+                        synthetic_profile, volume_profile, distribution_profile,
+                        missingness_profile, defect_injection_profile, privacy_profile,
+                        retention_policy_id, ground_truth_enabled, seed_strategy,
+                        expected_score_tolerance, criticality_profile_id,
+                        notification_test_enabled, schema_version, policy_version,
+                        effective_from, effective_to, approved_by, approval_status,
+                        audit_reference, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    _policy_values(policy),
+                )
+        except sqlite3.IntegrityError as exc:
+            raise SyntheticDataConflictError(
+                "Synthetic dataset policy identity or version conflicts."
+            ) from exc
+        except sqlite3.DatabaseError as exc:
+            raise SyntheticDataTechnicalError(
+                "Synthetic dataset policy could not be persisted."
+            ) from exc
+        return policy
+
+    def add_scenario(self, scenario: SyntheticScenario) -> SyntheticScenario:
+        _validate_scenario(scenario)
+        try:
+            with self._lock, self.connection:
+                self.connection.execute(
+                    """
+                    INSERT INTO synthetic_scenarios (
+                        scenario_record_id, scenario_id, dataset_id, scenario_version,
+                        schema_version, configuration_version, synthetic_profile,
+                        volume_profile, distribution_profile, missingness_profile,
+                        defect_injection_profile, privacy_profile, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    _scenario_values(scenario),
+                )
+        except sqlite3.IntegrityError as exc:
+            raise SyntheticDataConflictError(
+                "Synthetic scenario identity or version conflicts."
+            ) from exc
+        except sqlite3.DatabaseError as exc:
+            raise SyntheticDataTechnicalError("Synthetic scenario could not be persisted.") from exc
+        return scenario
+
+    def resolve_effective_policy(
+        self,
+        dataset_id: str,
+        *,
+        at: datetime,
+    ) -> SyntheticDatasetPolicy | None:
+        if not dataset_id.strip():
+            raise SyntheticDataValidationError("dataset_id is required.")
+        _validate_aware_time(at, "Policy resolution time")
+        try:
+            rows = self.connection.execute(
+                """
+                SELECT * FROM synthetic_dataset_policies
+                WHERE dataset_id = ?
+                  AND approval_status = ?
+                  AND effective_from <= ?
+                  AND (effective_to IS NULL OR effective_to > ?)
+                ORDER BY effective_from DESC, created_at DESC, policy_version DESC
+                LIMIT 2
+                """,
+                (
+                    dataset_id,
+                    SyntheticPolicyStatus.APPROVED.value,
+                    at.isoformat(),
+                    at.isoformat(),
+                ),
+            ).fetchall()
+        except sqlite3.DatabaseError as exc:
+            raise SyntheticDataTechnicalError(
+                "Effective synthetic dataset policy could not be read."
+            ) from exc
+        if len(rows) > 1:
+            raise SyntheticDataConflictError(
+                "Multiple effective synthetic dataset policies were found."
+            )
+        return _row_to_policy(rows[0]) if rows else None
+
+    def get_scenario(self, scenario_id: str, scenario_version: str) -> SyntheticScenario:
+        if not scenario_id.strip() or not scenario_version.strip():
+            raise SyntheticDataValidationError("Scenario identity and version are required.")
+        try:
+            row = self.connection.execute(
+                """
+                SELECT * FROM synthetic_scenarios
+                WHERE scenario_id = ? AND scenario_version = ?
+                """,
+                (scenario_id, scenario_version),
+            ).fetchone()
+        except sqlite3.DatabaseError as exc:
+            raise SyntheticDataTechnicalError("Synthetic scenario could not be read.") from exc
+        if row is None:
+            raise SyntheticDataValidationError("Synthetic scenario was not found.")
+        return _row_to_scenario(row)
+
+    def add_run_with_audit(
+        self,
+        run: SyntheticGenerationRun,
+        *,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: SQLiteTransactionalAudit,
+    ) -> SyntheticGenerationRun:
+        if audit_outbox.connection is not self.connection:
+            raise SyntheticDataValidationError(
+                "Audit outbox must share the synthetic run transaction."
+            )
+        _validate_run(run)
+        try:
+            with self._lock, self.connection:
+                self.connection.execute(
+                    """
+                    INSERT INTO synthetic_generation_runs (
+                        generation_run_id, dataset_id, scenario_id, scenario_version,
+                        generator_version, configuration_version, schema_version,
+                        policy_version, random_seed, requested_record_count,
+                        requested_by, audit_reference, status, output_reference,
+                        validation_reference, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    _run_values(run),
+                )
+                audit_outbox.stage(audit_event)
+        except sqlite3.IntegrityError as exc:
+            raise SyntheticDataConflictError("Synthetic generation run conflicts.") from exc
+        except sqlite3.DatabaseError as exc:
+            raise SyntheticDataTechnicalError(
+                "Synthetic generation run and audit could not be persisted."
+            ) from exc
+        return self.get_run(run.generation_run_id)
+
+    def get_run(self, generation_run_id: str) -> SyntheticGenerationRun:
+        if not generation_run_id.strip():
+            raise SyntheticDataValidationError("generation_run_id is required.")
+        try:
+            row = self.connection.execute(
+                "SELECT * FROM synthetic_generation_runs WHERE generation_run_id = ?",
+                (generation_run_id,),
+            ).fetchone()
+        except sqlite3.DatabaseError as exc:
+            raise SyntheticDataTechnicalError(
+                "Synthetic generation run could not be read."
+            ) from exc
+        if row is None:
+            raise SyntheticDataValidationError("Synthetic generation run was not found.")
+        return _row_to_run(row)
+
+    def list_runs(self, dataset_id: str) -> list[SyntheticGenerationRun]:
+        if not dataset_id.strip():
+            raise SyntheticDataValidationError("dataset_id is required.")
+        try:
+            rows = self.connection.execute(
+                """
+                SELECT * FROM synthetic_generation_runs
+                WHERE dataset_id = ?
+                ORDER BY created_at, generation_run_id
+                """,
+                (dataset_id,),
+            ).fetchall()
+        except sqlite3.DatabaseError as exc:
+            raise SyntheticDataTechnicalError(
+                "Synthetic generation runs could not be read."
+            ) from exc
+        return [_row_to_run(row) for row in rows]
+
+
+def _validate_policy(policy: SyntheticDatasetPolicy) -> None:
+    _validate_ids(
+        (
+            policy.policy_id,
+            policy.dataset_id,
+            policy.volume_profile,
+            policy.distribution_profile,
+            policy.missingness_profile,
+            policy.defect_injection_profile,
+            policy.privacy_profile,
+            policy.retention_policy_id,
+            policy.seed_strategy,
+            policy.criticality_profile_id,
+            policy.schema_version,
+            policy.policy_version,
+        ),
+        "Synthetic dataset policy fields",
+    )
+    if not isinstance(policy.synthetic_generation_allowed, bool):
+        raise SyntheticDataValidationError("Synthetic generation flag must be boolean.")
+    if not isinstance(policy.ground_truth_enabled, bool):
+        raise SyntheticDataValidationError("Ground truth flag must be boolean.")
+    if not isinstance(policy.notification_test_enabled, bool):
+        raise SyntheticDataValidationError("Notification test flag must be boolean.")
+    if not isinstance(policy.synthetic_profile, SyntheticProfile):
+        raise SyntheticDataValidationError("Synthetic profile is invalid.")
+    if not isinstance(policy.approval_status, SyntheticPolicyStatus):
+        raise SyntheticDataValidationError("Synthetic policy status is invalid.")
+    if policy.expected_score_tolerance is not None and (
+        not isinstance(policy.expected_score_tolerance, Decimal)
+        or not policy.expected_score_tolerance.is_finite()
+        or policy.expected_score_tolerance < 0
+    ):
+        raise SyntheticDataValidationError("Expected score tolerance is invalid.")
+    _validate_aware_time(policy.effective_from, "Policy effective time")
+    _validate_aware_time(policy.created_at, "Policy creation time")
+    if policy.effective_to is not None:
+        _validate_aware_time(policy.effective_to, "Policy expiry time")
+        if policy.effective_to <= policy.effective_from:
+            raise SyntheticDataValidationError("Policy expiry must follow effective time.")
+    if policy.approval_status is SyntheticPolicyStatus.APPROVED and (
+        not policy.approved_by
+        or not policy.approved_by.strip()
+        or not policy.audit_reference
+        or not policy.audit_reference.strip()
+    ):
+        raise SyntheticDataValidationError(
+            "Approved synthetic policy requires approver and audit reference."
+        )
+
+
+def _validate_scenario(scenario: SyntheticScenario) -> None:
+    _validate_ids(
+        (
+            scenario.scenario_record_id,
+            scenario.scenario_id,
+            scenario.dataset_id,
+            scenario.scenario_version,
+            scenario.schema_version,
+            scenario.configuration_version,
+            scenario.volume_profile,
+            scenario.distribution_profile,
+            scenario.missingness_profile,
+            scenario.defect_injection_profile,
+            scenario.privacy_profile,
+        ),
+        "Synthetic scenario fields",
+    )
+    if not isinstance(scenario.synthetic_profile, SyntheticProfile):
+        raise SyntheticDataValidationError("Synthetic scenario profile is invalid.")
+    _validate_aware_time(scenario.created_at, "Scenario creation time")
+
+
+def _validate_run(run: SyntheticGenerationRun) -> None:
+    _validate_ids(
+        (
+            run.generation_run_id,
+            run.dataset_id,
+            run.scenario_id,
+            run.scenario_version,
+            run.generator_version,
+            run.configuration_version,
+            run.schema_version,
+            run.policy_version,
+            run.requested_by,
+            run.audit_reference,
+        ),
+        "Synthetic generation run fields",
+    )
+    if isinstance(run.random_seed, bool) or not isinstance(run.random_seed, int):
+        raise SyntheticDataValidationError("Random seed must be an integer.")
+    if (
+        isinstance(run.requested_record_count, bool)
+        or not isinstance(run.requested_record_count, int)
+        or run.requested_record_count <= 0
+    ):
+        raise SyntheticDataValidationError("Requested record count must be positive.")
+    if run.status is not SyntheticRunStatus.REQUESTED:
+        raise SyntheticDataValidationError("Initial synthetic run status is invalid.")
+    if run.output_reference is not None or run.validation_reference is not None:
+        raise SyntheticDataValidationError(
+            "Requested synthetic run cannot contain output or validation references."
+        )
+    _validate_aware_time(run.created_at, "Run creation time")
+
+
+def _validate_ids(values: tuple[str, ...], name: str) -> None:
+    if any(not isinstance(value, str) or not value.strip() for value in values):
+        raise SyntheticDataValidationError(f"{name} are required.")
+
+
+def _validate_aware_time(value: datetime, name: str) -> None:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise SyntheticDataValidationError(f"{name} must be timezone-aware.")
+
+
+def _policy_values(policy: SyntheticDatasetPolicy) -> tuple[object, ...]:
+    return (
+        policy.policy_id,
+        policy.dataset_id,
+        1 if policy.synthetic_generation_allowed else 0,
+        policy.synthetic_profile.value,
+        policy.volume_profile,
+        policy.distribution_profile,
+        policy.missingness_profile,
+        policy.defect_injection_profile,
+        policy.privacy_profile,
+        policy.retention_policy_id,
+        1 if policy.ground_truth_enabled else 0,
+        policy.seed_strategy,
+        str(policy.expected_score_tolerance)
+        if policy.expected_score_tolerance is not None
+        else None,
+        policy.criticality_profile_id,
+        1 if policy.notification_test_enabled else 0,
+        policy.schema_version,
+        policy.policy_version,
+        policy.effective_from.isoformat(),
+        policy.effective_to.isoformat() if policy.effective_to else None,
+        policy.approved_by,
+        policy.approval_status.value,
+        policy.audit_reference,
+        policy.created_at.isoformat(),
+    )
+
+
+def _scenario_values(scenario: SyntheticScenario) -> tuple[object, ...]:
+    return (
+        scenario.scenario_record_id,
+        scenario.scenario_id,
+        scenario.dataset_id,
+        scenario.scenario_version,
+        scenario.schema_version,
+        scenario.configuration_version,
+        scenario.synthetic_profile.value,
+        scenario.volume_profile,
+        scenario.distribution_profile,
+        scenario.missingness_profile,
+        scenario.defect_injection_profile,
+        scenario.privacy_profile,
+        scenario.created_at.isoformat(),
+    )
+
+
+def _run_values(run: SyntheticGenerationRun) -> tuple[object, ...]:
+    return (
+        run.generation_run_id,
+        run.dataset_id,
+        run.scenario_id,
+        run.scenario_version,
+        run.generator_version,
+        run.configuration_version,
+        run.schema_version,
+        run.policy_version,
+        str(run.random_seed),
+        run.requested_record_count,
+        run.requested_by,
+        run.audit_reference,
+        run.status.value,
+        run.output_reference,
+        run.validation_reference,
+        run.created_at.isoformat(),
+    )
+
+
+def _row_to_policy(row: sqlite3.Row) -> SyntheticDatasetPolicy:
+    return SyntheticDatasetPolicy(
+        policy_id=row["policy_id"],
+        dataset_id=row["dataset_id"],
+        synthetic_generation_allowed=bool(row["synthetic_generation_allowed"]),
+        synthetic_profile=SyntheticProfile(row["synthetic_profile"]),
+        volume_profile=row["volume_profile"],
+        distribution_profile=row["distribution_profile"],
+        missingness_profile=row["missingness_profile"],
+        defect_injection_profile=row["defect_injection_profile"],
+        privacy_profile=row["privacy_profile"],
+        retention_policy_id=row["retention_policy_id"],
+        ground_truth_enabled=bool(row["ground_truth_enabled"]),
+        seed_strategy=row["seed_strategy"],
+        expected_score_tolerance=(
+            Decimal(row["expected_score_tolerance"])
+            if row["expected_score_tolerance"] is not None
+            else None
+        ),
+        criticality_profile_id=row["criticality_profile_id"],
+        notification_test_enabled=bool(row["notification_test_enabled"]),
+        schema_version=row["schema_version"],
+        policy_version=row["policy_version"],
+        effective_from=datetime.fromisoformat(row["effective_from"]),
+        effective_to=(
+            datetime.fromisoformat(row["effective_to"]) if row["effective_to"] is not None else None
+        ),
+        approved_by=row["approved_by"],
+        approval_status=SyntheticPolicyStatus(row["approval_status"]),
+        audit_reference=row["audit_reference"],
+        created_at=datetime.fromisoformat(row["created_at"]),
+    )
+
+
+def _row_to_scenario(row: sqlite3.Row) -> SyntheticScenario:
+    return SyntheticScenario(
+        scenario_record_id=row["scenario_record_id"],
+        scenario_id=row["scenario_id"],
+        dataset_id=row["dataset_id"],
+        scenario_version=row["scenario_version"],
+        schema_version=row["schema_version"],
+        configuration_version=row["configuration_version"],
+        synthetic_profile=SyntheticProfile(row["synthetic_profile"]),
+        volume_profile=row["volume_profile"],
+        distribution_profile=row["distribution_profile"],
+        missingness_profile=row["missingness_profile"],
+        defect_injection_profile=row["defect_injection_profile"],
+        privacy_profile=row["privacy_profile"],
+        created_at=datetime.fromisoformat(row["created_at"]),
+    )
+
+
+def _row_to_run(row: sqlite3.Row) -> SyntheticGenerationRun:
+    return SyntheticGenerationRun(
+        generation_run_id=row["generation_run_id"],
+        dataset_id=row["dataset_id"],
+        scenario_id=row["scenario_id"],
+        scenario_version=row["scenario_version"],
+        generator_version=row["generator_version"],
+        configuration_version=row["configuration_version"],
+        schema_version=row["schema_version"],
+        policy_version=row["policy_version"],
+        random_seed=int(row["random_seed"]),
+        requested_record_count=row["requested_record_count"],
+        requested_by=row["requested_by"],
+        audit_reference=row["audit_reference"],
+        status=SyntheticRunStatus(row["status"]),
+        output_reference=row["output_reference"],
+        validation_reference=row["validation_reference"],
+        created_at=datetime.fromisoformat(row["created_at"]),
+    )
