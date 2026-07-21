@@ -139,6 +139,23 @@ class QualityScore:
         )
 
 
+def is_official_score(score: QualityScore) -> bool:
+    """Skorun resmî agregasyon, trend ve raporlama için uygunluğunu döndürür."""
+
+    explicit = score.calculation_details.get("included_in_official_aggregation")
+    if isinstance(explicit, bool):
+        return explicit and score.score_value is not None
+    return score.score_status is ScoreStatus.CALCULATED and score.score_value is not None
+
+
+def is_official_observation(score: QualityScore) -> bool:
+    """Provizyonel kısmi sonucu resmî trend ve rapor gözleminden ayırır."""
+
+    if score.score_status is ScoreStatus.PARTIAL:
+        return is_official_score(score)
+    return True
+
+
 def _freeze(value: Any) -> Any:
     if isinstance(value, dict):
         return MappingProxyType({key: _freeze(item) for key, item in value.items()})

@@ -483,3 +483,9 @@ Bu sınıflandırma şu kuralları birlikte uygular:
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
 | --- | --- | --- | --- |
 | Kısmi skor uygunluğu yalnız geçerli, onaylı dataset politikası ve dışarıdan ölçülmüş çalışma olgularıyla değerlendirilecektir. Politika yokluğu veya herhangi bir koşul ihlali `PROVISIONAL` kararıdır. | `FR-048` tüm koşulların birlikte sağlanmasını ve politika yokluğunda güvenli varsayılanı gerektirir. Mevcut execution kaydı beklenen kayıt hacmi ve gerçek kapsama oranını güvenilir biçimde içermez. | Eksik oranları sonuç sayaçlarından tahmin etmek, onaysız politikayı kullanmak veya koşullardan bir kısmını yeterli saymak. | `PartialExecutionFacts` oranları ve opak kimlikleri açıkça taşır; karar neden kodu, politika sürümü, kapsama, çalışan/çalışmayan kural sayısı ve eksik partitionları açıklar. `QualityScore` entegrasyonu ayrı dilimde kalır. |
+
+## 2026-07-21 — İterasyon 32B Teknik Kararı
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| Resmî kabul edilen kısmi skor `PARTIAL` statüsünü koruyarak sayısal değer taşır ve resmî agregasyona katılır; provizyonel kısmi skor sayısal değer üretmez. Üst agregasyon, içerdiği resmî kısmi bileşeni `PARTIAL` statüsüyle görünür kılar. | `FR-048`, kısmi niteliğin açıkça gösterilmesini ve yalnız tüm politika koşulları sağlandığında resmî skora katılımı birlikte gerektirir. | Resmî kısmi sonucu `CALCULATED` olarak yeniden sınıflandırmak veya tüm `PARTIAL` sonuçları agregasyondan çıkarmak. | Resmîlik `included_in_official_aggregation` ile açıkça taşınır. Provizyonel sonuç resmî trend ve rapor önizlemesinden çıkarılır; `NO_DATA` ve teknik hata gözlemleri sıfıra çevrilmeden görünür kalır. |

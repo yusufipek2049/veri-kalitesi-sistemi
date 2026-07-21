@@ -131,11 +131,12 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
 60. `31D` hız sınırı artımı için sayaç birimi, pencere türü, tüketim anı ve
     kalıcı/dağıtık sayaç davranışı SRS'de tanımlı değildir. Bu semantik ve kabul
     kriterleri kesinleşmeden çalışma zamanı hız sınırı uygulanmayacaktır.
-61. `32A` sürümlü/onaylı dataset kısmi skor politikasını ve tüm koşulları
-    fail-closed değerlendiren karar servisini teknik olarak doğruladı.
+61. `32A`–`32B` sürümlü/onaylı dataset kısmi skor politikasını, fail-closed
+    karar servisini ve kararın `QualityScore`, resmî agregasyon, trend ile rapor
+    önizlemesine uygulanmasını teknik olarak doğruladı.
     `PartialExecutionFacts` olgularının execution/worker tarafından güvenilir
-    üretilmesi, kararın `QualityScore` ve resmî agregasyona bağlanması, politika
-    yaşam döngüsünün merkezi audit outbox'ı ve banka rol eşlemesi açık kalır.
+    üretilmesi, SLA ve resmî denetim çıktısı adaptörleri, politika yaşam
+    döngüsünün merkezi audit outbox'ı ve banka rol eşlemesi açık kalır.
 
 ## Bankacılık Geçiş Açık Konuları
 

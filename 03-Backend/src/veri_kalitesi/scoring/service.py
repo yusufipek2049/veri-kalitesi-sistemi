@@ -32,7 +32,14 @@ from veri_kalitesi.scoring.models import (
     ThresholdSet,
     default_criticality_weights,
     default_dimension_weights,
+    is_official_score,
     utc_now,
+)
+from veri_kalitesi.scoring.partial_score_policies import (
+    DatasetPartialScorePolicyService,
+    PartialExecutionFacts,
+    PartialScoreDecision,
+    PartialScoreEligibility,
 )
 from veri_kalitesi.scoring.repository import SQLiteScoreRepository
 
@@ -258,6 +265,7 @@ class ScoringService:
         rule_catalog: RuleCatalog,
         *,
         source_catalog: SourceCatalog | None = None,
+        partial_score_policy_service: DatasetPartialScorePolicyService | None = None,
         threshold_set: ThresholdSet | None = None,
         clock: Any = utc_now,
     ) -> None:
@@ -265,12 +273,18 @@ class ScoringService:
         self.execution_history = execution_history
         self.rule_catalog = rule_catalog
         self.source_catalog = source_catalog
+        self.partial_score_policy_service = partial_score_policy_service
         self.threshold_set_override = threshold_set
         self.clock = clock
         if threshold_set is not None:
             validate_threshold_set(threshold_set)
 
-    def calculate_execution(self, execution_id: str) -> tuple[QualityScore, ...]:
+    def calculate_execution(
+        self,
+        execution_id: str,
+        *,
+        partial_facts_by_dataset: Mapping[str, PartialExecutionFacts] | None = None,
+    ) -> tuple[QualityScore, ...]:
         configuration = self._configuration()
         execution = self.execution_history.get(execution_id)
         results = self.execution_history.list_results(execution_id)
@@ -284,16 +298,61 @@ class ScoringService:
         ):
             raise ScoringValidationError("Successful execution has missing rule results.")
 
+        versions = tuple(
+            self.rule_catalog.get_version(rule_version_id)
+            for rule_version_id in execution.rule_version_ids
+        )
+        decisions_by_rule_version = self._partial_decisions(
+            execution,
+            versions,
+            partial_facts_by_dataset,
+        )
         scores = tuple(
             self._score_rule(
                 execution,
-                self.rule_catalog.get_version(rule_version_id),
-                results_by_version.get(rule_version_id),
+                version,
+                results_by_version.get(version.rule_version_id),
                 configuration,
+                decisions_by_rule_version.get(version.rule_version_id),
             )
-            for rule_version_id in execution.rule_version_ids
+            for version in versions
         )
         return tuple(self.repository.add_or_get(score)[0] for score in scores)
+
+    def _partial_decisions(
+        self,
+        execution: RuleExecution,
+        versions: tuple[RuleVersion, ...],
+        facts_by_dataset: Mapping[str, PartialExecutionFacts] | None,
+    ) -> dict[str, PartialScoreDecision]:
+        if execution.status is not ExecutionStatus.PARTIAL or facts_by_dataset is None:
+            return {}
+        if self.partial_score_policy_service is None:
+            raise ScoringValidationError(
+                "Partial score policy service is required when partial facts are supplied."
+            )
+        if any(key != facts.dataset_id for key, facts in facts_by_dataset.items()):
+            raise ScoringValidationError("Partial score fact key must match dataset_id.")
+
+        dataset_by_version = {
+            version.rule_version_id: self.rule_catalog.get_rule(version.quality_rule_id).dataset_id
+            for version in versions
+        }
+        unknown_dataset_ids = set(facts_by_dataset).difference(dataset_by_version.values())
+        if unknown_dataset_ids:
+            raise ScoringValidationError(
+                "Partial score facts contain a dataset outside the execution."
+            )
+        evaluated_at = self.clock()
+        decisions_by_dataset = {
+            dataset_id: self.partial_score_policy_service.evaluate(facts, at=evaluated_at)
+            for dataset_id, facts in facts_by_dataset.items()
+        }
+        return {
+            rule_version_id: decisions_by_dataset[dataset_id]
+            for rule_version_id, dataset_id in dataset_by_version.items()
+            if dataset_id in decisions_by_dataset
+        }
 
     def calculate_dataset_score(self, execution_id: str, dataset_id: str) -> QualityScore:
         if not dataset_id.strip():
@@ -448,7 +507,7 @@ class ScoringService:
         included = [
             (score, data_source_id)
             for score, data_source_id in candidates
-            if score.score_status is ScoreStatus.CALCULATED and score.score_value is not None
+            if is_official_score(score)
         ]
         details: dict[str, Any] = {
             "formula_version": ENTERPRISE_FORMULA_VERSION,
@@ -476,7 +535,7 @@ class ScoringService:
                 )
             )
             level = classify_score(value, configuration.threshold_set)
-            status = ScoreStatus.CALCULATED
+            status = _aggregate_included_status(tuple(score for score, _ in included))
             details["formula"] = "sum(source_score) / source_count"
             details["included_components"] = [
                 {
@@ -491,6 +550,7 @@ class ScoringService:
         else:
             status = _aggregate_empty_status(tuple(score for score, _ in candidates))
             details["included_components"] = []
+        details["included_in_official_aggregation"] = bool(included)
         score = QualityScore(
             execution_id=execution.execution_id,
             rule_version_id=None,
@@ -512,11 +572,7 @@ class ScoringService:
         candidates: list[tuple[QualityScore, Dataset]],
         configuration: ScoringConfiguration,
     ) -> QualityScore:
-        included = [
-            (score, dataset)
-            for score, dataset in candidates
-            if score.score_status is ScoreStatus.CALCULATED and score.score_value is not None
-        ]
+        included = [(score, dataset) for score, dataset in candidates if is_official_score(score)]
         details: dict[str, Any] = {
             "formula_version": SOURCE_FORMULA_VERSION,
             "configuration_version": configuration.version,
@@ -545,7 +601,7 @@ class ScoringService:
                 )
             )
             level = classify_score(value, configuration.threshold_set)
-            status = ScoreStatus.CALCULATED
+            status = _aggregate_included_status(tuple(score for score, _ in included))
             details["formula"] = "sum(dataset_score * criticality_weight) / sum(weight)"
             details["included_components"] = [
                 {
@@ -569,6 +625,7 @@ class ScoringService:
         else:
             status = _aggregate_empty_status(tuple(score for score, _ in candidates))
             details["included_components"] = []
+        details["included_in_official_aggregation"] = bool(included)
         score = QualityScore(
             execution_id=execution.execution_id,
             rule_version_id=None,
@@ -596,11 +653,7 @@ class ScoringService:
         invalid_weights = [
             version.rule_version_id for _, version in candidates if _weight(version.weight) <= 0
         ]
-        included = [
-            (score, version)
-            for score, version in candidates
-            if score.score_status is ScoreStatus.CALCULATED and score.score_value is not None
-        ]
+        included = [(score, version) for score, version in candidates if is_official_score(score)]
         details: dict[str, Any] = {
             "formula_version": formula_version,
             "configuration_version": configuration.version,
@@ -631,7 +684,7 @@ class ScoringService:
                 )
             )
             level = classify_score(value, configuration.threshold_set)
-            status = ScoreStatus.CALCULATED
+            status = _aggregate_included_status(tuple(score for score, _ in included))
             details["formula"] = "sum(score * weight) / sum(weight)"
             details["included_components"] = [
                 {
@@ -648,6 +701,7 @@ class ScoringService:
         else:
             status = _aggregate_empty_status(tuple(score for score, _ in candidates))
             details["included_components"] = []
+        details["included_in_official_aggregation"] = bool(included) and not invalid_weights
         score = QualityScore(
             execution_id=execution.execution_id,
             rule_version_id=None,
@@ -667,12 +721,22 @@ class ScoringService:
         version: RuleVersion,
         result: RuleExecutionResult | None,
         configuration: ScoringConfiguration,
+        partial_decision: PartialScoreDecision | None = None,
     ) -> QualityScore:
         status = _score_status(execution, result)
+        official_partial = (
+            status is ScoreStatus.PARTIAL
+            and partial_decision is not None
+            and partial_decision.eligibility is PartialScoreEligibility.OFFICIAL
+            and result is not None
+            and result.checked_count > 0
+        )
         details: dict[str, Any] = {
             "formula_version": FORMULA_VERSION,
             "execution_status": execution.status.value,
-            "included_in_official_aggregation": status is ScoreStatus.CALCULATED,
+            "included_in_official_aggregation": (
+                status is ScoreStatus.CALCULATED or official_partial
+            ),
             "configuration_version": configuration.version,
         }
         value: Decimal | None = None
@@ -692,7 +756,16 @@ class ScoringService:
                     "not_evaluated": _percentage(result.not_evaluated_count, result.checked_count),
                 }
             details["completed_partitions"] = list(result.completed_partitions)
-        if status is ScoreStatus.CALCULATED:
+        if partial_decision is not None:
+            details["partial_result"] = True
+            details["score_eligibility"] = partial_decision.eligibility.value
+            details["coverage_ratio"] = str(partial_decision.coverage_ratio)
+            details["working_rule_count"] = partial_decision.executed_rule_count
+            details["non_working_rule_count"] = partial_decision.not_executed_rule_count
+            details["missing_partitions"] = list(partial_decision.missing_partitions)
+            details["partial_score_policy_version"] = partial_decision.policy_version
+            details["eligibility_reason_codes"] = list(partial_decision.reason_codes)
+        if status is ScoreStatus.CALCULATED or official_partial:
             assert result is not None
             value = calculate_rule_score(result.passed_count, result.checked_count)
             level = classify_score(value, configuration.threshold_set)
@@ -875,6 +948,12 @@ def _aggregate_empty_status(scores: tuple[QualityScore, ...]) -> ScoreStatus:
     if ScoreStatus.NOT_CALCULATED_TECHNICAL_ERROR in statuses:
         return ScoreStatus.NOT_CALCULATED_TECHNICAL_ERROR
     return ScoreStatus.PARTIAL
+
+
+def _aggregate_included_status(scores: tuple[QualityScore, ...]) -> ScoreStatus:
+    if any(score.score_status is ScoreStatus.PARTIAL for score in scores):
+        return ScoreStatus.PARTIAL
+    return ScoreStatus.CALCULATED
 
 
 def _percentage(part_count: int, total_count: int) -> float:

@@ -85,7 +85,8 @@ class ReportPreviewService:
         calculated = tuple(
             row.score_value
             for row in rows
-            if row.score_status is ScoreStatus.CALCULATED and row.score_value is not None
+            if row.score_status in {ScoreStatus.CALCULATED, ScoreStatus.PARTIAL}
+            and row.score_value is not None
         )
         average_score = (
             (sum(calculated, Decimal("0")) / Decimal(len(calculated))).quantize(
@@ -309,7 +310,7 @@ def _observations_are_valid(
         calculated_at = item.calculated_at.astimezone(timezone.utc)
         if not request.start_at <= calculated_at <= request.end_at:
             return False
-        if item.score_status is ScoreStatus.CALCULATED:
+        if item.score_status in {ScoreStatus.CALCULATED, ScoreStatus.PARTIAL}:
             if (
                 item.score_value is None
                 or not item.score_value.is_finite()
