@@ -229,6 +229,10 @@
         {
           "relative_path": "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19G-Baglanti-Revizyonu-Onay-Gecersizlestirme-Kaniti.md",
           "sha256": "70a8ae16fad90d891e138ee3f316970aa55dfd37193eda6161bbd21f4c17b3eb"
+        },
+        {
+          "relative_path": "08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19H-Kontrollu-Kaynak-Pasiflestirme-Kaniti.md",
+          "sha256": "b49ed08ab0ebb2b6b6a3362a73d38ff6237da1855436598dea4892766dec45ca"
         }
       ],
       "review_status": "ComplianceReviewRequired",
@@ -370,7 +374,7 @@
       "technical_status": "Missing"
     }
   ],
-  "controls_digest": "5723746b8a6f6ecb05abdb75ca7a05aaaab0bdd8a49ca764e0c23839d66e7769",
+  "controls_digest": "46f1b90f7da775db2c11ef6072c369228cb93aee1e15cb81541a14b95305f007",
   "missing_control_ids": [
     "CTRL-BDDK-BCP-001",
     "CTRL-KVKK-DEL-001",
@@ -390,5 +394,5 @@
     "Partial": 12,
     "TechnicallyVerified": 0
   },
-  "unique_evidence_artifact_count": 30
+  "unique_evidence_artifact_count": 31
 }

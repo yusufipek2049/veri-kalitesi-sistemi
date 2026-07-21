@@ -2563,6 +2563,165 @@ def test_bfr_aud_004_connection_revision_promotion_rolls_back_on_audit_failure(
     )
 
 
+def test_fr_010_authorized_actor_deactivates_source_with_minimized_atomic_audit() -> None:
+    service, source = _active_activation_source()
+
+    inactive = service.deactivate_data_source(
+        actor_context=_activation_context(
+            source.data_source_id,
+            "deactivator-1",
+            {"SOURCE_DEACTIVATOR"},
+        ),
+        data_source_id=source.data_source_id,
+        reason_code="SOURCE.MAINTENANCE",
+    )
+
+    audit = _audit_events(service)[-1]
+    assert inactive.status is DataSourceStatus.INACTIVE
+    assert inactive.revision == source.revision
+    assert audit.action == "DATA_SOURCE_DEACTIVATED"
+    assert audit.old_value_summary == {"status": "ACTIVE"}
+    assert audit.new_value_summary == {
+        "data_source_revision": source.revision,
+        "policy_version": "SOURCE_ACTIVATION_POLICY_V2",
+        "status": "INACTIVE",
+    }
+    assert "SOURCE.MAINTENANCE" not in str(audit)
+    assert source.secret_reference not in str(audit)
+
+
+def test_nfr_sec_001_deactivation_rejects_untrusted_role_scope_and_service() -> None:
+    for context_factory in (
+        lambda source_id: None,
+        lambda source_id: _activation_context(source_id, "viewer", {"SOURCE_VIEWER"}),
+        lambda source_id: _activation_context(
+            source_id,
+            "wrong-scope",
+            {"SOURCE_DEACTIVATOR"},
+            source_ids={"source-other"},
+        ),
+        lambda source_id: _activation_context(
+            source_id,
+            "service-deactivator",
+            {"SOURCE_DEACTIVATOR"},
+            actor_type=ActorType.SERVICE,
+        ),
+        lambda source_id: _activation_context(
+            source_id,
+            "privileged-viewer",
+            {"SOURCE_VIEWER"},
+            privileged=True,
+        ),
+    ):
+        service, source = _active_activation_source()
+        context = context_factory(source.data_source_id)
+        with pytest.raises(AuthorizationError):
+            service.deactivate_data_source(
+                actor_context=context,
+                data_source_id=source.data_source_id,
+                reason_code="SOURCE.MAINTENANCE",
+            )
+        assert service.repository.get_data_source(source.data_source_id).status is (
+            DataSourceStatus.ACTIVE
+        )
+
+
+def test_fr_010_deactivation_requires_active_source_and_reason() -> None:
+    service, source = _active_activation_source()
+    deactivator = _activation_context(
+        source.data_source_id,
+        "deactivator-1",
+        {"SOURCE_DEACTIVATOR"},
+    )
+
+    with pytest.raises(ValidationError, match="reason code"):
+        service.deactivate_data_source(
+            actor_context=deactivator,
+            data_source_id=source.data_source_id,
+            reason_code=" ",
+        )
+    service.deactivate_data_source(
+        actor_context=deactivator,
+        data_source_id=source.data_source_id,
+        reason_code="SOURCE.MAINTENANCE",
+    )
+    with pytest.raises(ValidationError, match="Only an active"):
+        service.deactivate_data_source(
+            actor_context=deactivator,
+            data_source_id=source.data_source_id,
+            reason_code="SOURCE.MAINTENANCE",
+        )
+
+
+def test_bfr_aud_004_deactivation_rolls_back_when_outbox_stage_fails() -> None:
+    service, source = _active_activation_source()
+    _use_failing_stage(service)
+
+    with pytest.raises(sqlite3.OperationalError, match="outbox write failure"):
+        service.deactivate_data_source(
+            actor_context=_activation_context(
+                source.data_source_id,
+                "deactivator-1",
+                {"SOURCE_DEACTIVATOR"},
+            ),
+            data_source_id=source.data_source_id,
+            reason_code="SOURCE.MAINTENANCE",
+        )
+
+    assert (
+        service.repository.get_data_source(source.data_source_id).status is DataSourceStatus.ACTIVE
+    )
+
+
+def test_fr_010_inactive_source_reactivation_requires_maker_checker() -> None:
+    service, source = _active_activation_source()
+    service.deactivate_data_source(
+        actor_context=_activation_context(
+            source.data_source_id,
+            "deactivator-1",
+            {"SOURCE_DEACTIVATOR"},
+        ),
+        data_source_id=source.data_source_id,
+        reason_code="SOURCE.MAINTENANCE",
+    )
+    maker = _activation_context(source.data_source_id, "maker-2", {"SOURCE_MAKER"})
+    rejected_request = service.request_activation(
+        actor_context=maker,
+        data_source_id=source.data_source_id,
+    )
+    service.decide_activation(
+        actor_context=_activation_context(
+            source.data_source_id,
+            "checker-2",
+            {"SOURCE_CHECKER"},
+        ),
+        activation_request_id=rejected_request.activation_request_id,
+        decision="REJECT",
+        reason_code="SOURCE.CHANGE.NOT_APPROVED",
+    )
+    assert service.repository.get_data_source(source.data_source_id).status is (
+        DataSourceStatus.INACTIVE
+    )
+
+    approved_request = service.request_activation(
+        actor_context=maker,
+        data_source_id=source.data_source_id,
+    )
+    service.decide_activation(
+        actor_context=_activation_context(
+            source.data_source_id,
+            "checker-3",
+            {"SOURCE_CHECKER"},
+        ),
+        activation_request_id=approved_request.activation_request_id,
+        decision="APPROVE",
+        reason_code="SOURCE.READ_ONLY.TESTED",
+    )
+    assert (
+        service.repository.get_data_source(source.data_source_id).status is DataSourceStatus.ACTIVE
+    )
+
+
 def test_fr_012_legacy_connection_test_schema_adds_revision_and_history(tmp_path: Path) -> None:
     database = tmp_path / "legacy-connection-revision.sqlite"
     connection = sqlite3.connect(database)
@@ -2622,6 +2781,7 @@ def _activation_service(
             actor_policy_version=ACTOR_POLICY_VERSION,
             maker_roles=frozenset({"SOURCE_MAKER"}),
             checker_roles=frozenset({"SOURCE_CHECKER"}),
+            deactivator_roles=frozenset({"SOURCE_DEACTIVATOR"}),
             target_business_days=3,
             expiration_business_days=10,
             business_calendar_version=activation_calendar.version,
@@ -2679,6 +2839,25 @@ def _tested_activation_source_without_file(
                 source.data_source_id,
             ),
         )
+    return service, service.repository.get_data_source(source.data_source_id)
+
+
+def _active_activation_source() -> tuple[DataSourceService, DataSource]:
+    service, source = _tested_activation_source_without_file()
+    request = service.request_activation(
+        actor_context=_activation_context(source.data_source_id, "maker-1", {"SOURCE_MAKER"}),
+        data_source_id=source.data_source_id,
+    )
+    service.decide_activation(
+        actor_context=_activation_context(
+            source.data_source_id,
+            "checker-1",
+            {"SOURCE_CHECKER"},
+        ),
+        activation_request_id=request.activation_request_id,
+        decision="APPROVE",
+        reason_code="SOURCE.READ_ONLY.TESTED",
+    )
     return service, service.repository.get_data_source(source.data_source_id)
 
 

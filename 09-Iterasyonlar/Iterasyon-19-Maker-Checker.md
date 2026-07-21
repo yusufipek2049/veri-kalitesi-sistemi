@@ -118,3 +118,16 @@ Gerçek banka iş günü/tatil kaynağı, banka onaylı maker/checker/worker rol
 - 13 yeni testle toplam 744 test geçti; veri kaynağı hedef grubu 71 testle geçti.
 
 Banka onaylı bağlantı güncelleme rolü, gerçek LDAP eşlemesi, üretim migration/çoklu instance eşzamanlılık yaklaşımı ve kontrollü pasife alma `ComplianceReviewRequired` veya açık durumdadır.
+
+## Dilim 19H Kapanışı
+
+`TechnicallyVerified` kapsam:
+
+- Yalnız güvenilir, geçerli, `SOURCE_DEACTIVATOR` rolüne ve kaynak kapsamına sahip normal kullanıcı aktif kaynağı gerekçeli olarak `INACTIVE` yapabilir.
+- Pasif kaynak yeni manuel execution kabul etmez; zamanı gelen schedule execution üretmeden pasifleştirilir ve sınıflandırılmış teknik olay oluşturur.
+- Pasifleştirme mevcut execution kayıtlarını veya çalışan iş durumlarını değiştirmez; çalışan işi tamamlama/iptal etme politikası banka kararına bırakılmıştır.
+- Pasif kaynak yeniden aktivasyon için mevcut maker-checker akışını kullanır; ret pasif durumu korur, farklı checker onayı kaynağı yeniden `ACTIVE` yapar.
+- Durum geçişi ve veri-minimum audit outbox aynı transaction'dadır; audit-stage arızasında kaynak aktif kalır.
+- 6 yeni testle toplam 750 test geçti; veri kaynağı ve execution hedef grupları 117 testle geçti.
+
+Banka onaylı deactivator rol kodu ve LDAP eşlemesi, çalışan iş politikası, üretim çoklu instance eşzamanlılığı ve operasyon bildirimi `ComplianceReviewRequired` veya açık durumdadır. Arşivleme bu dilimin dışındadır.

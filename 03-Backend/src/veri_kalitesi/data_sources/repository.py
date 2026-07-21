@@ -402,6 +402,34 @@ class SQLiteDataSourceRepository:
             raise NotFoundError("DataSource not found.")
         return _row_to_data_source(row)
 
+    def deactivate_data_source(
+        self,
+        data_source_id: str,
+        *,
+        expected_revision: int,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: SQLiteTransactionalAudit,
+    ) -> DataSource:
+        self._require_shared_audit_transaction(audit_outbox)
+        with self.connection:
+            cursor = self.connection.execute(
+                """
+                UPDATE data_sources
+                SET status = ?
+                WHERE data_source_id = ? AND revision = ? AND status = ?
+                """,
+                (
+                    DataSourceStatus.INACTIVE.value,
+                    data_source_id,
+                    expected_revision,
+                    DataSourceStatus.ACTIVE.value,
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise ValidationError("Data source is no longer eligible for deactivation.")
+            audit_outbox.stage(audit_event)
+        return self.get_data_source(data_source_id)
+
     def update_connection_test(
         self,
         result: ConnectionTestResult,
@@ -756,13 +784,14 @@ class SQLiteDataSourceRepository:
                     """
                     UPDATE data_sources
                     SET status = ?
-                    WHERE data_source_id = ? AND revision = ? AND status = ?
+                    WHERE data_source_id = ? AND revision = ? AND status IN (?, ?)
                     """,
                     (
                         DataSourceStatus.ACTIVE.value,
                         request.data_source_id,
                         request.data_source_revision,
                         DataSourceStatus.TEST_SUCCEEDED.value,
+                        DataSourceStatus.INACTIVE.value,
                     ),
                 )
                 if source_cursor.rowcount != 1:

@@ -72,7 +72,7 @@ class FakeRuleCatalog:
 
 @dataclass
 class FakeSourceCatalog:
-    source_status: DataSourceStatus = DataSourceStatus.TEST_SUCCEEDED
+    source_status: DataSourceStatus = DataSourceStatus.ACTIVE
 
     def get_dataset(self, dataset_id: str) -> Dataset:
         assert dataset_id == DATASET_ID
@@ -816,16 +816,50 @@ def test_fr_037_rule_003_uc_007_due_plan_is_disabled_if_source_becomes_inactive(
         rule_version_ids=(version.rule_version_id,),
         local_time="10:00",
     )
-    source_catalog.source_status = DataSourceStatus.TEST_FAILED
+    source_catalog.source_status = DataSourceStatus.INACTIVE
+
+    with pytest.raises(ExecutionValidationError, match="active data source"):
+        scheduler.create_schedule(
+            actor_id="user-2",
+            name="Yeni pasif kaynak planı",
+            schedule_type="DAILY",
+            timezone_name="Europe/Istanbul",
+            rule_version_ids=(version.rule_version_id,),
+            local_time="11:00",
+        )
 
     executions = scheduler.trigger_due(now=due_at)
 
     assert executions == ()
     assert execution_repository.list_executions() == []
+    assert len(schedule_repository.list_all()) == 1
     disabled = schedule_repository.get(schedule.schedule_id)
     assert disabled.is_active is False
     assert disabled.next_run_at is None
     assert events.events == [(schedule, "INVALID_EXECUTION_SCOPE")]
+
+
+def test_fr_010_fr_036_uc_008_inactive_source_preserves_running_and_rejects_new_execution() -> None:
+    source_catalog = FakeSourceCatalog()
+    execution_service, repository, version = _service(
+        FakeExecutionExecutor([(_computation(1, 1, 0),)]),
+        source_catalog=source_catalog,
+    )
+    existing = _start(execution_service, version)
+    running = repository.claim_next(datetime.now(timezone.utc))
+    source_catalog.source_status = DataSourceStatus.INACTIVE
+
+    with pytest.raises(ExecutionValidationError, match="active data source"):
+        execution_service.start_manual(
+            actor_id="user-2",
+            idempotency_key="manual-after-deactivation",
+            rule_version_ids=(version.rule_version_id,),
+        )
+
+    assert running is not None
+    assert running.execution_id == existing.execution_id
+    assert repository.get(existing.execution_id).status is ExecutionStatus.RUNNING
+    assert len(repository.list_executions()) == 1
 
 
 def test_fr_037_uc_007_preview_skips_nonexistent_dst_local_time() -> None:

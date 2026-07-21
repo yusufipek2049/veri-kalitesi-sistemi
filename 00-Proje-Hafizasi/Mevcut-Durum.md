@@ -855,6 +855,17 @@ tags:
 - Kanıt `08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19G-Baglanti-Revizyonu-Onay-Gecersizlestirme-Kaniti.md` içinde `TechnicallyVerified` olarak kaydedildi.
 - Banka rol/LDAP eşlemesi, üretim migration/çoklu instance eşzamanlılığı ve kontrollü kaynak pasifleştirme açık kalır.
 
+### 2026-07-21 — İterasyon 19H: Kontrollü kaynak pasifleştirme
+
+- `FR-010`, `FR-036`, `FR-037`, `UC-002`, `UC-007`, `UC-008`, `NFR-SEC-001/008/011`, `BFR-SOD-001/003/004` ve `BFR-AUD-004` için kontrollü kaynak pasifleştirme dilimi tamamlandı.
+- Güvenilir, geçerli, sürümlü deactivator rolüne ve source kapsamına sahip normal kullanıcı aktif kaynağı gerekçeli olarak `INACTIVE` yapabilir; yanlış rol/kapsam, servis hesabı ve ayrıcalıkla rol atlama fail-closed reddedilir.
+- Manual ve scheduled execution yalnız `ACTIVE` kaynak kabul eder. Pasif kaynak yeni execution kaydı üretmez; zamanı gelen plan sınıflandırılmış teknik olayla pasifleştirilir.
+- Pasifleştirme mevcut execution kayıtlarına dokunmaz. Pasif kaynağın yeniden aktivasyonu güncel başarılı test ve mevcut maker-checker akışıyla yapılır; ret pasif durumu korur.
+- Kaynak durum geçişi ve veri-minimum audit outbox atomiktir; stage arızasında kaynak `ACTIVE` kalır. Audit özeti gerekçe, secret, bağlantı yapılandırması, owner veya aktör kimliği içermez.
+- 6 yeni testle veri kaynağı ve execution hedef grupları 117, toplam test sayısı 750 oldu. Tam mypy 109 dosyada, Ruff, format ve derleme kontrolleri hatasız geçti.
+- Kanıt `08-Uyum-Kanitlari/Guvenlik-Testleri/Iterasyon-19H-Kontrollu-Kaynak-Pasiflestirme-Kaniti.md` içinde `TechnicallyVerified` olarak kaydedildi.
+- Banka onaylı deactivator rolü/LDAP eşlemesi, çalışan işin tamamlanması veya iptali politikası, üretim eşzamanlılığı ve operasyon bildirimi açık kalır; arşivleme ayrı artımdır.
+
 ## İlgili Notlar
 
 - [Alınan Kararlar](Alinan-Kararlar.md)
@@ -863,9 +874,9 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19G, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B, Iterasyon 28A–28E, Iterasyon 29A–29C ve Bakım İterasyonu 29C.1 çıktıları korunacaktır.
-- `pytest` ile 744 testin geçtiği doğrulanmıştır.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 26A–26B, Iterasyon 28A–28E, Iterasyon 29A–29C ve Bakım İterasyonu 29C.1 çıktıları korunacaktır.
+- `pytest` ile 750 testin geçtiği doğrulanmıştır.
 - Tam mypy kontrolü 109 kaynak dosyada sıfır hata vermektedir.
-- Sıradaki teknik aday kontrollü kaynak pasifleştirme ve yeni iş kabulünü engelleme dilimidir. 29D, 21B/frontend, hassas dışa aktarma, saklama/DR ve gerçek SIEM banka/altyapı kararlarını beklemektedir.
+- Hazır ve engellenmemiş yeni teknik aday bulunmamaktadır. 29D, 21B/frontend, hassas dışa aktarma, saklama/arşivleme/DR, gerçek SIEM ve çalışan iş pasifleştirme politikası banka/altyapı kararlarını beklemektedir.
 - Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

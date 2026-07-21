@@ -388,7 +388,10 @@ class DataSourceService:
             data_source_id=data_source_id,
         )
         source = self.repository.get_data_source(data_source_id)
-        if source.status is not DataSourceStatus.TEST_SUCCEEDED:
+        if source.status not in {
+            DataSourceStatus.TEST_SUCCEEDED,
+            DataSourceStatus.INACTIVE,
+        }:
             raise ValidationError("Activation requires a successfully tested data source.")
         if not source.owner_user_id or not source.owner_user_id.strip():
             raise ValidationError("Activation requires a data owner.")
@@ -495,7 +498,7 @@ class DataSourceService:
         source_status = (
             DataSourceStatus.ACTIVE
             if status is DataSourceActivationStatus.APPROVED
-            else DataSourceStatus.TEST_SUCCEEDED
+            else source.status
         )
         event = self._build_audit_event(
             actor_id=context.actor_id,
@@ -519,6 +522,51 @@ class DataSourceService:
         stored = self.repository.decide_activation_request(
             decided,
             activate_source=status is DataSourceActivationStatus.APPROVED,
+            audit_event=self.transactional_audit.prepare(event),
+            audit_outbox=self.transactional_audit,
+        )
+        self.transactional_audit.publish_pending()
+        return stored
+
+    def deactivate_data_source(
+        self,
+        *,
+        actor_context: ActorContext | None,
+        data_source_id: str,
+        reason_code: str,
+    ) -> DataSource:
+        policy = self._require_activation_policy()
+        context = self._authorize_activation_actor(
+            actor_context,
+            required_roles=policy.deactivator_roles,
+            data_source_id=data_source_id,
+        )
+        source = self.repository.get_data_source(data_source_id)
+        if source.status is not DataSourceStatus.ACTIVE:
+            raise ValidationError("Only an active data source can be deactivated.")
+        normalized_reason = reason_code.strip()
+        if not normalized_reason:
+            raise ValidationError("Data source deactivation reason code is required.")
+        event = self._build_audit_event(
+            actor_id=context.actor_id,
+            actor_type=context.actor_type.value,
+            session_id=context.session_id,
+            correlation_id=context.correlation_id,
+            action="DATA_SOURCE_DEACTIVATED",
+            object_type="DataSource",
+            object_id=data_source_id,
+            result=AuditResult.SUCCESS,
+            reason_code="DATA_SOURCE_DEACTIVATED",
+            old_values={"status": source.status.value},
+            new_values={
+                "data_source_revision": source.revision,
+                "policy_version": policy.version,
+                "status": DataSourceStatus.INACTIVE.value,
+            },
+        )
+        stored = self.repository.deactivate_data_source(
+            data_source_id,
+            expected_revision=source.revision,
             audit_event=self.transactional_audit.prepare(event),
             audit_outbox=self.transactional_audit,
         )
@@ -1199,7 +1247,10 @@ def _validate_activation_policy(policy: DataSourceActivationPolicy) -> None:
         raise ValidationError("Data source activation policy versions are required.")
     if not policy.maker_roles or not policy.checker_roles:
         raise ValidationError("Data source activation maker and checker roles are required.")
-    if any(not role.strip() for role in (*policy.maker_roles, *policy.checker_roles)):
+    if any(
+        not role.strip()
+        for role in (*policy.maker_roles, *policy.checker_roles, *policy.deactivator_roles)
+    ):
         raise ValidationError("Data source activation roles must not be blank.")
     if not policy.allowed_actor_types or not policy.allowed_actor_types <= {"USER", "SERVICE"}:
         raise ValidationError("Data source activation actor types are invalid.")

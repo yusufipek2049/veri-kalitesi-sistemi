@@ -361,13 +361,8 @@ class ExecutionService:
                 raise ExecutionValidationError("Manual execution requires the latest rule version.")
             dataset = self.source_catalog.get_dataset(rule.dataset_id)
             source = self.source_catalog.get_data_source(dataset.data_source_id)
-            if source.status not in {
-                DataSourceStatus.TEST_SUCCEEDED,
-                DataSourceStatus.ACTIVE,
-            }:
-                raise ExecutionValidationError(
-                    "Manual execution requires a successfully tested data source."
-                )
+            if source.status is not DataSourceStatus.ACTIVE:
+                raise ExecutionValidationError("Execution requires an active data source.")
             source_ids.append(source.data_source_id)
         return tuple(dict.fromkeys(source_ids))
 
