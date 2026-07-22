@@ -281,6 +281,41 @@ def test_fr_007_uc_002_creates_csv_data_source_with_secret_reference_and_audit(
     assert legacy_count == 0
 
 
+def test_fr_007_repository_lists_only_allowed_data_sources_in_name_order(
+    service: DataSourceService,
+) -> None:
+    second = service.create_data_source(
+        actor_id="user-1",
+        name="Z Kaynağı",
+        source_type="CSV",
+        connection_config={"file_path": "/safe/import/z.csv", "delimiter": ","},
+        secret_reference="secret://datasources/z",
+    )
+    first = service.create_data_source(
+        actor_id="user-1",
+        name="A Kaynağı",
+        source_type="CSV",
+        connection_config={"file_path": "/safe/import/a.csv", "delimiter": ","},
+        secret_reference="secret://datasources/a",
+    )
+    service.create_data_source(
+        actor_id="user-1",
+        name="Kapsam Dışı",
+        source_type="CSV",
+        connection_config={"file_path": "/safe/import/forbidden.csv", "delimiter": ","},
+        secret_reference="secret://datasources/forbidden",
+    )
+
+    listed = service.repository.list_data_sources(
+        frozenset({second.data_source_id, first.data_source_id})
+    )
+
+    assert [source.data_source_id for source in listed] == [
+        first.data_source_id,
+        second.data_source_id,
+    ]
+
+
 class FailingAuditRepository:
     def append(self, prepared: PreparedAuditEvent) -> AuditEvent:
         raise sqlite3.OperationalError("synthetic audit outage")

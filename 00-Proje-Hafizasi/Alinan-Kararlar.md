@@ -694,6 +694,12 @@ yeterlilik runtime/API uygulamasını veya banka marka onayını tamamlanmış s
 | --- | --- | --- | --- |
 | Tema tercihi yalnız `light`/`dark` değeri olarak saklanacak; depolama okunamaz veya değer geçersizse açık tema kullanılacak. Navigasyon ikonları sabit boyutlu ortak kutuda Lucide bileşenleriyle gösterilecektir. | Tema seçiminin uygulamayı kırmaması, hassas veri taşımaması ve menü ikonlarının simetrik kalması gerekir. | Sistem temasını örtük varsaymak; tüm tema nesnesini depolamak; karakter tabanlı geçici ikonları korumak; vendor logoları kullanmak. | `FE-DEC-001/003` runtime'a taşındı. Tema seçimi yetki kanıtı değildir; alan route'ları ve güvenli API bağlantıları sonraki artımlarda kalır. |
 
+## 2026-07-22 — İterasyon 35A Teknik Kararı
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| Veri kaynağı liste DTO'su yalnız kimlik, ad, ürün bağımsız tür, durum ve son test zamanını taşıyacak; okuma kapsamı güvenilir aktör bağlamındaki izinli kaynak kimliklerinden üretilecektir. `can_view_enterprise` tek başına tüm kaynak envanterini görme yetkisi sayılmayacaktır. | Bağlantı yapılandırması, secret referansı ve sahip kullanıcı kimliği liste ekranı için gerekli değildir. Kurum geneli skor izni ile kaynak envanteri iznini eşitlemek gereksiz veri ifşası oluşturur. | Tüm `DataSource` modelini döndürmek; istemcinin filtrelemesi; kurum geneli iznini tüm kaynaklara genişletmek. | `/api/v1/data-sources` veri-minimum ve scope filtreli çalışır. Boş kapsam boş liste, güvenilmeyen bağlam 403, depo hatası redakte edilmiş 503 üretir. Bu karar üretim IdP veya repository bağlantısını tamamlamaz. |
+
 ## 2026-07-22 — İterasyon 20E Teknik Kararı
 
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |

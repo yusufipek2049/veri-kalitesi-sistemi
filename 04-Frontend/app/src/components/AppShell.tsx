@@ -12,40 +12,42 @@ import {
   Sun,
   type LucideIcon,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { designTokens } from "../theme/tokens";
 import { useThemeMode } from "../theme/ThemeModeProvider";
 
 interface NavigationItem {
   label: string;
   icon: LucideIcon;
-  active?: boolean;
+  href: string;
 }
 
 const navigationGroups: Array<{ label: string; items: NavigationItem[] }> = [
   {
     label: "ANALİZ",
     items: [
-      { label: "Genel Bakış", icon: LayoutDashboard, active: true },
-      { label: "Veri Kaynakları", icon: Database },
-      { label: "Kurallar", icon: ListChecks },
-      { label: "Çalıştırmalar", icon: PlayCircle },
+      { label: "Genel Bakış", icon: LayoutDashboard, href: "/" },
+      { label: "Veri Kaynakları", icon: Database, href: "/data-sources" },
+      { label: "Kurallar", icon: ListChecks, href: "/rules" },
+      { label: "Çalıştırmalar", icon: PlayCircle, href: "/executions" },
     ],
   },
   {
     label: "OPERASYON",
     items: [
-      { label: "Sorunlar", icon: AlertCircle },
-      { label: "Raporlar", icon: FileText },
-      { label: "Denetim", icon: ScrollText },
+      { label: "Sorunlar", icon: AlertCircle, href: "/issues" },
+      { label: "Raporlar", icon: FileText, href: "/reports" },
+      { label: "Denetim", icon: ScrollText, href: "/audit" },
     ],
   },
 ];
 
 interface AppShellProps {
   children: ReactNode;
+  currentPage?: string;
 }
 
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({ children, currentPage = "Genel Bakış" }: AppShellProps) {
   const { mode, toggleMode } = useThemeMode();
   const themeActionLabel = mode === "light" ? "Koyu temaya geç" : "Açık temaya geç";
 
@@ -107,21 +109,24 @@ export function AppShell({ children }: AppShellProps) {
               <Box sx={{ display: "grid", gap: 1 }}>
                 {group.items.map((item) => {
                   const Icon = item.icon;
+                  const active = item.label === currentPage;
                   return (
                     <Tooltip key={item.label} placement="right" title={item.label}>
                       <Button
-                        aria-current={item.active ? "page" : undefined}
+                        aria-current={active ? "page" : undefined}
                         aria-label={item.label}
+                        component={Link}
+                        to={item.href}
                         fullWidth
                         sx={(theme) => ({
-                          bgcolor: item.active ? designTokens.color.nav.hover : "transparent",
+                          bgcolor: active ? designTokens.color.nav.hover : "transparent",
                           color: designTokens.color.nav.text,
                           justifyContent: "flex-start",
                           minHeight: theme.appLayout.navItemHeight,
                           minWidth: 0,
                           px: 3,
                           position: "relative",
-                          "&::before": item.active ? {
+                          "&::before": active ? {
                             bgcolor: "primary.main",
                             content: '""',
                             inset: 0,
@@ -178,7 +183,7 @@ export function AppShell({ children }: AppShellProps) {
             px: { md: 4, lg: 6 },
           })}
         >
-          <Typography color="text.secondary" variant="body2">Veri Kalitesi / <strong>Genel Bakış</strong></Typography>
+          <Typography color="text.secondary" variant="body2">Veri Kalitesi / <strong>{currentPage}</strong></Typography>
           <Stack direction="row" sx={{ alignItems: "center", gap: 2 }}>
             <Chip label="SENTETİK VERİ" size="small" color="primary" />
             <Tooltip title={themeActionLabel}>

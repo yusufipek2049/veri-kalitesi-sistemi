@@ -1,5 +1,6 @@
 import type { Preview } from "@storybook/react-vite";
 import { ThemeModeProvider } from "../src/theme/ThemeModeProvider";
+import { MemoryRouter } from "react-router-dom";
 
 export const globalTypes = {
   theme: {
@@ -19,7 +20,9 @@ const preview: Preview = {
   decorators: [
     (Story, context) => (
       <ThemeModeProvider forcedMode={context.globals.theme === "dark" ? "dark" : "light"}>
-        <Story />
+        <MemoryRouter>
+          <Story />
+        </MemoryRouter>
       </ThemeModeProvider>
     ),
   ],

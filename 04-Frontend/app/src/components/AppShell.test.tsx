@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ThemeModeProvider } from "../theme/ThemeModeProvider";
+import { MemoryRouter } from "react-router-dom";
 import { AppShell } from "./AppShell";
 
 afterEach(() => {
@@ -11,9 +12,11 @@ afterEach(() => {
 function renderShell() {
   return render(
     <ThemeModeProvider>
-      <AppShell>
-        <p>İçerik</p>
-      </AppShell>
+      <MemoryRouter>
+        <AppShell>
+          <p>İçerik</p>
+        </AppShell>
+      </MemoryRouter>
     </ThemeModeProvider>,
   );
 }
@@ -25,8 +28,8 @@ describe("AppShell", () => {
     expect(screen.getByRole("heading", { name: "ANALİZ" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "OPERASYON" })).toBeVisible();
     expect(screen.getAllByTestId("navigation-icon-slot")).toHaveLength(7);
-    expect(screen.getByRole("button", { name: "Veri Kaynakları" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Denetim" })).toBeVisible();
+    expect(screen.getByRole("link", { name: "Veri Kaynakları" })).toHaveAttribute("href", "/data-sources");
+    expect(screen.getByRole("link", { name: "Denetim" })).toHaveAttribute("href", "/audit");
   });
 
   it("açık temayla başlar ve koyu tema tercihini kalıcılaştırır", async () => {

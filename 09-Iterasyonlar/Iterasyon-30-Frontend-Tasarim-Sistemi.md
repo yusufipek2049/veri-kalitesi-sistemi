@@ -204,6 +204,7 @@ Durum: **TechnicallyVerified**
 ## Sonraki İş
 
 30D dashboard referans içerik tamamlaması ve 21C KPI bağlantısı tamamlandı.
-Kullanıcı öncelikli zincirde sıradaki hazır artım 35A salt okunur Veri Kaynakları
-ekranı ve istemci route kabuğudur. Üretim bağlantılı 30F gerçek IdP, yüksek
+Kullanıcı öncelikli zincirde 35A salt okunur Veri Kaynakları ekranı ve istemci
+route kabuğu tamamlandı; sıradaki hazır artım 35B salt okunur Kurallar ekranıdır.
+Üretim bağlantılı 30F gerçek IdP, yüksek
 erişilebilir session store, PostgreSQL repository ve geçiş kapısını bekler.
