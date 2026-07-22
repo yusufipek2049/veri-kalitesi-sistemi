@@ -118,3 +118,46 @@
   geçmişi silinmez veya değiştirilmez.
 - **Sonraki iterasyon:** Sayısal kusur yoğunluğu veya skor toleransı uydurmadan
   tamamlanabilecek kalıcı çıktı/run tamamlama diliminin hazır oluşunu değerlendir.
+
+## 34D — Kalıcı çıktı referansı ve append-only run tamamlama
+
+- **İterasyon adı:** Kalıcı çıktı referansı ve append-only run tamamlama
+- **Kullanıcı/sistem değeri:** Doğrulanmış Golden çıktının kanonik özeti, çıktı
+  ve doğrulama referansları ile terminal durumu özgün run talebi değiştirilmeden
+  kalıcı ve denetlenebilir hale gelir.
+- **Mevcut FR/UC/RULE:** `FR-093`, `UC-017`, `RULE-016`, `AC/TS-049` çıktı ve
+  doğrulama referansı alt kapsamı
+- **BFR/CTRL:** Yeni eşleme yoktur.
+- **Değiştirilen dosyalar:** `synthetic_data` ortak yetkilendirme, kanonik codec,
+  model, repository ve tamamlama servisi; merkezi audit allowlist'i, birim
+  testleri ve proje hafızası.
+- **Migration/config:** SQLite prototipine update/delete tetikleyicileriyle
+  korunan append-only `synthetic_run_completions` tablosu eklendi. Bu tablo
+  fiziksel çıktı/artifact deposu veya üretim veritabanı kararı değildir.
+- **Eklenen testler:** Başarılı ve blokeli tamamlama, idempotent tekrar,
+  payload/digest/referans manipülasyonu, eksik veya yanlış rol/kapsam, kayıtlı
+  run kapsamı manipülasyonu, append-only koruma, atomik audit rollback'i ve
+  teknik depo hatası için 12 vaka.
+- **Çalıştırılan komutlar:** Hedefli ve tam `pytest -q`, tam `mypy`, tam
+  `ruff check`, tam depo format kontrolü, `compileall`, `git diff --check` ve
+  yerel secret taraması.
+- **Mevcut regresyon sonucu:** 970 test geçti; mypy 144 dosyada ve Ruff lint
+  hatasız tamamlandı. Tam depo format kontrolü değişiklik dışındaki tarihsel
+  `03-Backend/src/veri_kalitesi/__init__.py` dosyasında biçim farkı bildirdi.
+  `28A-v1` taraması 396 dosyada secret bulgusu üretmedi.
+- **Güvenlik/veri gizliliği sonucu:** Yetki hem sunulan çıktı hem kayıtlı run
+  dataset kapsamı için doğrulanır. Payload, seed, session ve digest değeri audit
+  edilmez; yalnız veri-minimum durum, sayım ve opak referanslar yazılır. Ham
+  sentetik kayıtlar completion tablosunda saklanmaz.
+- **Kanıt yolları:** `06-Testler/01-Birim/test_synthetic_oracle.py`.
+- **Teknik durum:** `TechnicallyVerified`
+- **Banka onayı:** `ComplianceReviewRequired`
+- **Kalan risk:** Fiziksel payload/artifact deposu, saklama süreleri, genel şema
+  yükleyici, kayıt düzeyi kusur ground truth'u, sayısal tolerans, gerçek üretim
+  profili ve gizlilik kapısı açık kalır.
+- **Geri alma yaklaşımı:** `SyntheticRunFinalizationService` composition'dan
+  çıkarılarak yeni tamamlama kaydı durdurulabilir; append-only run, completion
+  ve audit geçmişi silinmez veya değiştirilmez.
+- **Sonraki iterasyon:** Sayısal eşik uydurmadan olay, kaynak, ingestion,
+  processing ve kalite kontrol zamanlarını deterministik üreten `SYN-004A`
+  çok dönemli zaman semantiği.

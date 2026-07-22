@@ -20,6 +20,7 @@ from veri_kalitesi.synthetic_data.models import (
     SyntheticGroundTruth,
     SyntheticPolicyStatus,
     SyntheticProfile,
+    SyntheticRunCompletion,
     SyntheticRunStatus,
     SyntheticScenario,
     SyntheticValidationResult,
@@ -151,6 +152,22 @@ class SQLiteSyntheticDataRepository:
                         REFERENCES synthetic_ground_truth(synthetic_record_id)
                 );
 
+                CREATE TABLE IF NOT EXISTS synthetic_run_completions (
+                    completion_id TEXT PRIMARY KEY,
+                    generation_run_id TEXT NOT NULL UNIQUE,
+                    status TEXT NOT NULL,
+                    output_reference TEXT NOT NULL,
+                    canonical_sha256 TEXT NOT NULL,
+                    payload_byte_count INTEGER NOT NULL,
+                    subject_count INTEGER NOT NULL,
+                    observation_count INTEGER NOT NULL,
+                    validation_result_id TEXT NOT NULL,
+                    validation_status TEXT NOT NULL,
+                    retention_policy_id TEXT NOT NULL,
+                    audit_reference TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+
                 CREATE INDEX IF NOT EXISTS idx_synthetic_policy_effective
                 ON synthetic_dataset_policies(
                     dataset_id, approval_status, effective_from, effective_to
@@ -217,6 +234,18 @@ class SQLiteSyntheticDataRepository:
                 BEFORE DELETE ON synthetic_validation_results
                 BEGIN
                     SELECT RAISE(ABORT, 'synthetic validation result is append-only');
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS synthetic_run_completions_no_update
+                BEFORE UPDATE ON synthetic_run_completions
+                BEGIN
+                    SELECT RAISE(ABORT, 'synthetic run completion is append-only');
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS synthetic_run_completions_no_delete
+                BEFORE DELETE ON synthetic_run_completions
+                BEGIN
+                    SELECT RAISE(ABORT, 'synthetic run completion is append-only');
                 END;
                 """
             )
@@ -314,6 +343,24 @@ class SQLiteSyntheticDataRepository:
                 "Multiple effective synthetic dataset policies were found."
             )
         return _row_to_policy(rows[0]) if rows else None
+
+    def get_policy(self, dataset_id: str, policy_version: str) -> SyntheticDatasetPolicy:
+        _validate_ids((dataset_id, policy_version), "Synthetic policy identity fields")
+        try:
+            row = self.connection.execute(
+                """
+                SELECT * FROM synthetic_dataset_policies
+                WHERE dataset_id = ? AND policy_version = ?
+                """,
+                (dataset_id, policy_version),
+            ).fetchone()
+        except sqlite3.DatabaseError as exc:
+            raise SyntheticDataTechnicalError(
+                "Synthetic dataset policy could not be read."
+            ) from exc
+        if row is None:
+            raise SyntheticDataValidationError("Synthetic dataset policy was not found.")
+        return _row_to_policy(row)
 
     def get_scenario(self, scenario_id: str, scenario_version: str) -> SyntheticScenario:
         if not scenario_id.strip() or not scenario_version.strip():
@@ -515,6 +562,126 @@ class SQLiteSyntheticDataRepository:
             raise SyntheticDataValidationError("Synthetic validation result was not found.")
         return _row_to_validation_result(row)
 
+    def get_validation_result_by_id(
+        self,
+        validation_result_id: str,
+    ) -> SyntheticValidationResult:
+        _validate_ids((validation_result_id,), "Synthetic validation result identity")
+        try:
+            row = self.connection.execute(
+                """
+                SELECT * FROM synthetic_validation_results
+                WHERE validation_result_id = ?
+                """,
+                (validation_result_id,),
+            ).fetchone()
+        except sqlite3.DatabaseError as exc:
+            raise SyntheticDataTechnicalError(
+                "Synthetic validation result could not be read."
+            ) from exc
+        if row is None:
+            raise SyntheticDataValidationError("Synthetic validation result was not found.")
+        return _row_to_validation_result(row)
+
+    def add_run_completion_with_audit(
+        self,
+        completion: SyntheticRunCompletion,
+        *,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: SQLiteTransactionalAudit,
+    ) -> tuple[SyntheticRunCompletion, bool]:
+        if audit_outbox.connection is not self.connection:
+            raise SyntheticDataValidationError(
+                "Audit outbox must share the synthetic completion transaction."
+            )
+        _validate_run_completion(completion)
+        try:
+            with self._lock, self.connection:
+                existing_row = self.connection.execute(
+                    """
+                    SELECT * FROM synthetic_run_completions
+                    WHERE generation_run_id = ?
+                    """,
+                    (completion.generation_run_id,),
+                ).fetchone()
+                if existing_row is not None:
+                    existing = _row_to_run_completion(existing_row)
+                    if _same_completion_evidence(existing, completion):
+                        return existing, False
+                    raise SyntheticDataConflictError(
+                        "Synthetic run already has different completion evidence."
+                    )
+                self.connection.execute(
+                    """
+                    INSERT INTO synthetic_run_completions (
+                        completion_id, generation_run_id, status, output_reference,
+                        canonical_sha256, payload_byte_count, subject_count,
+                        observation_count, validation_result_id, validation_status,
+                        retention_policy_id, audit_reference, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    _run_completion_values(completion),
+                )
+                audit_outbox.stage(audit_event)
+        except SyntheticDataConflictError:
+            raise
+        except sqlite3.IntegrityError as exc:
+            raise SyntheticDataConflictError("Synthetic run completion conflicts.") from exc
+        except sqlite3.DatabaseError as exc:
+            raise SyntheticDataTechnicalError(
+                "Synthetic run completion and audit could not be persisted."
+            ) from exc
+        return self.get_run_completion(completion.generation_run_id), True
+
+    def find_run_completion(
+        self,
+        generation_run_id: str,
+    ) -> SyntheticRunCompletion | None:
+        _validate_ids((generation_run_id,), "Synthetic run completion identity")
+        try:
+            row = self.connection.execute(
+                """
+                SELECT * FROM synthetic_run_completions
+                WHERE generation_run_id = ?
+                """,
+                (generation_run_id,),
+            ).fetchone()
+        except sqlite3.DatabaseError as exc:
+            raise SyntheticDataTechnicalError(
+                "Synthetic run completion could not be read."
+            ) from exc
+        return _row_to_run_completion(row) if row is not None else None
+
+    def get_run_completion(self, generation_run_id: str) -> SyntheticRunCompletion:
+        completion = self.find_run_completion(generation_run_id)
+        if completion is None:
+            raise SyntheticDataValidationError("Synthetic run completion was not found.")
+        return completion
+
+    def get_run_snapshot(self, generation_run_id: str) -> SyntheticGenerationRun:
+        run = self.get_run(generation_run_id)
+        completion = self.find_run_completion(generation_run_id)
+        if completion is None:
+            return run
+        return SyntheticGenerationRun(
+            generation_run_id=run.generation_run_id,
+            dataset_id=run.dataset_id,
+            scenario_id=run.scenario_id,
+            scenario_version=run.scenario_version,
+            generator_version=run.generator_version,
+            configuration_version=run.configuration_version,
+            schema_version=run.schema_version,
+            policy_version=run.policy_version,
+            random_seed=run.random_seed,
+            requested_record_count=run.requested_record_count,
+            requested_by=run.requested_by,
+            audit_reference=run.audit_reference,
+            status=completion.status,
+            output_reference=completion.output_reference,
+            validation_reference=completion.validation_result_id,
+            created_at=run.created_at,
+        )
+
 
 def _validate_policy(policy: SyntheticDatasetPolicy) -> None:
     _validate_ids(
@@ -691,6 +858,78 @@ def _validate_validation_result(
     _validate_aware_time(validation.created_at, "Validation result creation time")
 
 
+def _validate_run_completion(completion: SyntheticRunCompletion) -> None:
+    _validate_ids(
+        (
+            completion.completion_id,
+            completion.generation_run_id,
+            completion.output_reference,
+            completion.canonical_sha256,
+            completion.validation_result_id,
+            completion.retention_policy_id,
+            completion.audit_reference,
+        ),
+        "Synthetic run completion fields",
+    )
+    if completion.status not in {
+        SyntheticRunStatus.COMPLETED,
+        SyntheticRunStatus.BLOCKED,
+        SyntheticRunStatus.TECHNICAL_ERROR,
+    }:
+        raise SyntheticDataValidationError("Synthetic run completion status is invalid.")
+    if not isinstance(completion.validation_status, SyntheticValidationStatus):
+        raise SyntheticDataValidationError("Synthetic completion validation status is invalid.")
+    expected_status = {
+        SyntheticValidationStatus.PASS: SyntheticRunStatus.COMPLETED,
+        SyntheticValidationStatus.BLOCKED: SyntheticRunStatus.BLOCKED,
+        SyntheticValidationStatus.TECHNICAL_ERROR: SyntheticRunStatus.TECHNICAL_ERROR,
+    }[completion.validation_status]
+    if completion.status is not expected_status:
+        raise SyntheticDataValidationError(
+            "Synthetic run and validation terminal statuses do not match."
+        )
+    if (
+        len(completion.canonical_sha256) != 64
+        or any(character not in "0123456789abcdef" for character in completion.canonical_sha256)
+        or completion.output_reference != f"sha256:{completion.canonical_sha256}"
+    ):
+        raise SyntheticDataValidationError("Synthetic output digest reference is invalid.")
+    if completion.payload_byte_count <= 0:
+        raise SyntheticDataValidationError("Synthetic output payload size must be positive.")
+    if completion.subject_count < 0 or completion.observation_count < 0:
+        raise SyntheticDataValidationError("Synthetic output record counts cannot be negative.")
+    _validate_aware_time(completion.created_at, "Run completion time")
+
+
+def _same_completion_evidence(
+    existing: SyntheticRunCompletion,
+    candidate: SyntheticRunCompletion,
+) -> bool:
+    return (
+        existing.generation_run_id,
+        existing.status,
+        existing.output_reference,
+        existing.canonical_sha256,
+        existing.payload_byte_count,
+        existing.subject_count,
+        existing.observation_count,
+        existing.validation_result_id,
+        existing.validation_status,
+        existing.retention_policy_id,
+    ) == (
+        candidate.generation_run_id,
+        candidate.status,
+        candidate.output_reference,
+        candidate.canonical_sha256,
+        candidate.payload_byte_count,
+        candidate.subject_count,
+        candidate.observation_count,
+        candidate.validation_result_id,
+        candidate.validation_status,
+        candidate.retention_policy_id,
+    )
+
+
 def _validate_ids(values: tuple[str, ...], name: str) -> None:
     if any(not isinstance(value, str) or not value.strip() for value in values):
         raise SyntheticDataValidationError(f"{name} are required.")
@@ -820,6 +1059,24 @@ def _validation_result_values(validation: SyntheticValidationResult) -> tuple[ob
     )
 
 
+def _run_completion_values(completion: SyntheticRunCompletion) -> tuple[object, ...]:
+    return (
+        completion.completion_id,
+        completion.generation_run_id,
+        completion.status.value,
+        completion.output_reference,
+        completion.canonical_sha256,
+        completion.payload_byte_count,
+        completion.subject_count,
+        completion.observation_count,
+        completion.validation_result_id,
+        completion.validation_status.value,
+        completion.retention_policy_id,
+        completion.audit_reference,
+        completion.created_at.isoformat(),
+    )
+
+
 def _row_to_policy(row: sqlite3.Row) -> SyntheticDatasetPolicy:
     return SyntheticDatasetPolicy(
         policy_id=row["policy_id"],
@@ -942,6 +1199,24 @@ def _row_to_validation_result(row: sqlite3.Row) -> SyntheticValidationResult:
         actual_reference_codes_valid=bool(row["actual_reference_codes_valid"]),
         actual_temporal_order_valid=bool(row["actual_temporal_order_valid"]),
         actual_output_reference=row["actual_output_reference"],
+        audit_reference=row["audit_reference"],
+        created_at=datetime.fromisoformat(row["created_at"]),
+    )
+
+
+def _row_to_run_completion(row: sqlite3.Row) -> SyntheticRunCompletion:
+    return SyntheticRunCompletion(
+        completion_id=row["completion_id"],
+        generation_run_id=row["generation_run_id"],
+        status=SyntheticRunStatus(row["status"]),
+        output_reference=row["output_reference"],
+        canonical_sha256=row["canonical_sha256"],
+        payload_byte_count=row["payload_byte_count"],
+        subject_count=row["subject_count"],
+        observation_count=row["observation_count"],
+        validation_result_id=row["validation_result_id"],
+        validation_status=SyntheticValidationStatus(row["validation_status"]),
+        retention_policy_id=row["retention_policy_id"],
         audit_reference=row["audit_reference"],
         created_at=datetime.fromisoformat(row["created_at"]),
     )

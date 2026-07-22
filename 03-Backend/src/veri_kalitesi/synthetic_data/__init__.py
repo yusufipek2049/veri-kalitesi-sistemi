@@ -14,6 +14,7 @@ from veri_kalitesi.synthetic_data.generator import (
     GOLDEN_SCHEMA_VERSION,
     GoldenRelationalGenerator,
 )
+from veri_kalitesi.synthetic_data.finalization import SyntheticRunFinalizationService
 from veri_kalitesi.synthetic_data.models import (
     GoldenObservationRecord,
     GoldenRelationalDataset,
@@ -25,6 +26,7 @@ from veri_kalitesi.synthetic_data.models import (
     SyntheticPolicyStatus,
     SyntheticProfile,
     SyntheticRunAccessPolicy,
+    SyntheticRunCompletion,
     SyntheticRunStatus,
     SyntheticScenario,
     SyntheticValidationResult,
@@ -64,6 +66,8 @@ __all__ = [
     "SyntheticPolicyStatus",
     "SyntheticProfile",
     "SyntheticRunAccessPolicy",
+    "SyntheticRunCompletion",
+    "SyntheticRunFinalizationService",
     "SyntheticRunStatus",
     "SyntheticScenario",
     "SyntheticValidationResult",

@@ -7,11 +7,12 @@ from datetime import datetime
 from typing import Callable
 
 from veri_kalitesi.audit import AuditEventInput, AuditResult, SQLiteTransactionalAudit
-from veri_kalitesi.identity import ActorContext, is_trusted_actor_context
-from veri_kalitesi.synthetic_data.errors import (
-    SyntheticDataAuthorizationError,
-    SyntheticDataValidationError,
+from veri_kalitesi.identity import ActorContext
+from veri_kalitesi.synthetic_data.authorization import (
+    authorize_synthetic_actor,
+    validate_synthetic_access_policy,
 )
+from veri_kalitesi.synthetic_data.errors import SyntheticDataValidationError
 from veri_kalitesi.synthetic_data.models import (
     SyntheticDatasetPolicy,
     SyntheticGenerationRun,
@@ -35,7 +36,7 @@ class SyntheticGenerationRegistryService:
         self.transactional_audit = transactional_audit
         self.access_policy = access_policy
         self.clock = clock
-        _validate_access_policy(access_policy)
+        validate_synthetic_access_policy(access_policy)
 
     def request_run(
         self,
@@ -51,7 +52,13 @@ class SyntheticGenerationRegistryService:
     ) -> SyntheticGenerationRun:
         now = self.clock()
         _validate_aware_time(now, "Synthetic run request time")
-        context = self._authorize(actor_context, dataset_id=dataset_id, now=now)
+        context = authorize_synthetic_actor(
+            actor_context,
+            dataset_id=dataset_id,
+            at=now,
+            access_policy=self.access_policy,
+            operation="run requests",
+        )
         policy = self.repository.resolve_effective_policy(dataset_id, at=now)
         if policy is None:
             raise SyntheticDataValidationError(
@@ -114,36 +121,6 @@ class SyntheticGenerationRegistryService:
         self.transactional_audit.publish_pending()
         return stored
 
-    def _authorize(
-        self,
-        context: ActorContext | None,
-        *,
-        dataset_id: str,
-        now: datetime,
-    ) -> ActorContext:
-        if not is_trusted_actor_context(context):
-            raise SyntheticDataAuthorizationError("Trusted actor context is required.")
-        assert context is not None
-        if context.issued_at > now or context.expires_at <= now:
-            raise SyntheticDataAuthorizationError("Actor context is not currently valid.")
-        if context.policy_version != self.access_policy.actor_policy_version:
-            raise SyntheticDataAuthorizationError("Actor context policy version is not accepted.")
-        if context.actor_type not in self.access_policy.allowed_actor_types:
-            raise SyntheticDataAuthorizationError(
-                "Actor type is not allowed for synthetic run requests."
-            )
-        if context.privileged:
-            raise SyntheticDataAuthorizationError(
-                "Privileged context is not allowed for synthetic run requests."
-            )
-        if context.roles.isdisjoint(self.access_policy.requester_roles):
-            raise SyntheticDataAuthorizationError(
-                "Actor does not have the required synthetic data role."
-            )
-        if not context.can_view_enterprise and dataset_id not in context.permitted_dataset_ids:
-            raise SyntheticDataAuthorizationError("Actor does not have the required dataset scope.")
-        return context
-
 
 def _validate_effective_policy(policy: SyntheticDatasetPolicy) -> None:
     if not policy.synthetic_generation_allowed:
@@ -187,15 +164,6 @@ def _validate_policy_scenario_match(
         raise SyntheticDataValidationError(
             "Synthetic scenario configuration version does not match request."
         )
-
-
-def _validate_access_policy(policy: SyntheticRunAccessPolicy) -> None:
-    if not policy.version.strip() or not policy.actor_policy_version.strip():
-        raise SyntheticDataValidationError("Synthetic access policy versions are required.")
-    if not policy.requester_roles or any(not role.strip() for role in policy.requester_roles):
-        raise SyntheticDataValidationError("Synthetic requester roles are required.")
-    if not policy.allowed_actor_types:
-        raise SyntheticDataValidationError("Synthetic actor types are required.")
 
 
 def _validate_aware_time(value: datetime, name: str) -> None:

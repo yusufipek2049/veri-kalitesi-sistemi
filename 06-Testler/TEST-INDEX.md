@@ -96,7 +96,9 @@ tags:
 bütünlük ve kanonik replay kanıtı
 `06-Testler/01-Birim/test_synthetic_generator.py`; İterasyon 34C değişmez Golden
 ground truth, bağımsız yapısal karşılaştırma, yetki ve atomik audit kanıtı
-`06-Testler/01-Birim/test_synthetic_oracle.py` içindedir. `AC/TS-048/049` ve
+`06-Testler/01-Birim/test_synthetic_oracle.py`; İterasyon 34D kalıcı çıktı ve
+doğrulama referansı, append-only terminal run kanıtı, manipülasyon redleri ve
+atomik audit kanıtı aynı dosyadadır. `AC/TS-048/049` ve
 `AC/TS-050–052`nin sıfır kusurlu yapısal alt kapsamı tamamen yapay teknik V1
 profil için doğrulanmıştır; üretim benzerliği, skor toleransı veya anonimlik
 sonucu değildir.
@@ -108,9 +110,9 @@ geçmez.
 
 ## Güncel Otomasyon Baseline'ı
 
-- 958 test geçmektedir.
+- 970 test geçmektedir.
 - Tam statik tip kontrolü `python3 -m mypy 03-Backend/src 06-Testler` komutuyla
-  141 kaynak dosyada sıfır hata vermektedir.
+  144 kaynak dosyada sıfır hata vermektedir.
 - `incident_response` hedef grubu, güvenlik olayı/ihlal ayrımı, 72 saat hedefi, veri işleyen kanıtı, maker-checker kararı, yetki/scope redleri, veri-minimum timeline görünümü, audit minimizasyonu ve rollback için 39 sentetik vaka içerir.
 - `secure_sdlc` hedef grubu; gerçek pozitif/yanlış pozitif, binary/büyük/dışlanan
   dosya, sembolik bağlantı, salt okunurluk, deterministik sıra, teknik hata ve
