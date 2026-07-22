@@ -4,20 +4,28 @@ import { StatusBadge } from "./StatusBadge";
 
 interface AlertFeedProps {
   items: AlertViewModel[];
+  subtitle?: string;
 }
 
-export function AlertFeed({ items }: AlertFeedProps) {
+export function AlertFeed({ items, subtitle = "Son 24 saat · sentetik kayıtlar" }: AlertFeedProps) {
   return (
     <Paper component="section" variant="outlined" aria-labelledby="alert-feed-title" sx={{ borderRadius: 1.5, height: "100%", overflow: "hidden" }}>
       <Box sx={{ alignItems: "center", display: "flex", justifyContent: "space-between", px: 4, py: 3 }}>
         <Box>
           <Typography id="alert-feed-title" component="h2" variant="h3">Kritik Alarm Akışı</Typography>
-          <Typography color="text.secondary" variant="caption">Son 24 saat · sentetik kayıtlar</Typography>
+          <Typography color="text.secondary" variant="caption">{subtitle}</Typography>
         </Box>
-        <Button size="small" variant="text">Tümünü gör</Button>
+        {items.length > 0 ? <Button size="small" variant="text">Tümünü gör</Button> : null}
       </Box>
       <Divider />
       <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }}>
+        {items.length === 0 ? (
+          <Box component="li" sx={{ px: 4, py: 5 }}>
+            <Typography color="text.secondary" variant="body2">
+              Alarm akışı bu API diliminde sağlanmıyor.
+            </Typography>
+          </Box>
+        ) : null}
         {items.map((alert, index) => (
           <Box component="li" key={alert.id}>
             <Box sx={{ alignItems: "start", display: "grid", gap: 2, gridTemplateColumns: "auto minmax(0, 1fr) auto", px: 4, py: 3 }}>

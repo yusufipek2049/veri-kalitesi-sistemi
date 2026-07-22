@@ -10,6 +10,14 @@ const viewports = [
 
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.route("**/api/v1/dashboard/summary", async (route) => {
+    await route.fulfill({
+      body: JSON.stringify(dashboardApiFixture()),
+      contentType: "application/json",
+      headers: { "X-Correlation-ID": "e2e-dashboard-correlation" },
+      status: 200,
+    });
+  });
 });
 
 for (const viewport of viewports) {
@@ -18,6 +26,7 @@ for (const viewport of viewports) {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1, name: "Genel Bakış" })).toBeVisible();
     await expect(page.getByText("SENTETİK VERİ")).toBeVisible();
+    await expect(page.getByText(/Yerel dashboard API'si sentetik geliştirme skorlarıyla bağlıdır/)).toBeVisible();
     await expect(page.getByRole("img", { name: /Resmî nihai skor trendi/ })).toBeVisible();
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -36,9 +45,50 @@ test("grafik ve erişilebilir tablo aynı gözlemleri kullanır", async ({ page 
 
   const table = page.getByRole("table", { name: "Veri kalitesi trend tablosu" });
   await expect(table).toBeVisible();
-  await expect(table.getByRole("row")).toHaveCount(9);
-  await expect(table.getByText("Dışlandı")).toHaveCount(2);
+  await expect(table.getByRole("row")).toHaveCount(31);
+  await expect(table.getByRole("cell", { name: "Resmî", exact: true })).toHaveCount(7);
 });
+
+function dashboardApiFixture() {
+  const start = new Date("2026-06-23T00:00:00Z");
+  const scores = new Map<number, number>([
+    [0, 72.1],
+    [4, 76.8],
+    [8, 78.2],
+    [16, 82.4],
+    [20, 84.6],
+    [24, 86.2],
+    [28, 87.4],
+  ]);
+  const periods = Array.from({ length: 30 }, (_, index) => {
+    const periodStart = new Date(start);
+    periodStart.setUTCDate(start.getUTCDate() + index);
+    const periodEnd = new Date(periodStart);
+    periodEnd.setUTCDate(periodStart.getUTCDate() + 1);
+    const score = scores.get(index);
+    return {
+      period_start: periodStart.toISOString(),
+      period_end: periodEnd.toISOString(),
+      observations: score === undefined ? [] : [{
+        quality_score_id: `e2e-score-${index}`,
+        scope_type: "ENTERPRISE",
+        scope_id: null,
+        score_value: score.toFixed(2),
+        score_status: "CALCULATED",
+        level: "ACCEPTABLE",
+        calculated_at: periodStart.toISOString(),
+      }],
+    };
+  });
+  return {
+    api_version: "v1",
+    data_origin: "synthetic-development",
+    correlation_id: "e2e-dashboard-correlation",
+    as_of: "2026-07-22T12:00:00Z",
+    has_data: true,
+    periods,
+  };
+}
 
 test("klavye odağı görünür ve yetkisiz yüzey veri ifşa etmez", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1366, height: 768 });

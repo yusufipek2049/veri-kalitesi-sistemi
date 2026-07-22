@@ -22,11 +22,10 @@ sonraki değişiklikler bu baseline'ı korumalıdır.
 1. İterasyon 19G — Bağlantı yapılandırması revizyonu ve bekleyen aktivasyon onayını geçersizleştirme; `TechnicallyVerified`.
 2. İterasyon 19H — Kontrollü kaynak pasifleştirme ve yeni iş kabulünü engelleme; `TechnicallyVerified`.
 3. İterasyon 21A — Yetki güven sınırına bağlı dashboard trend domain sorgusu; `TechnicallyVerified`.
-4. İterasyon 21B — HTTP okuma yüzeyi; `OPEN-BNK-020` `ApprovedByBank` olarak
-   kapanmıştır. 20D süre, tek aktif oturum, yeni giriş iptali ve terminal
-   credential silme alt kapsamını uygular. BFF, `__Host-session`, CSRF ve diğer
-   merkezi iptal tetiklerinin üretim HTTP/session adaptöründe uygulanması ile
-   geçiş kapısındaki diğer bağımlılıklar tamamlandığında hazırdır.
+4. İterasyon 21B — Yerel/test dashboard özet HTTP yüzeyi `TechnicallyVerified`.
+   FastAPI, `/api/v1`, veri-minimum DTO, Problem Details, fail-closed production
+   resolver ve bağlı frontend uygulanmıştır. Gerçek BFF `__Host-session`, CSRF,
+   OIDC/session assertion ve üretim store bağlantısı açık kalır.
 5. İterasyon 22 — 22A–22I bildirim ve denetlenebilir issue yaşam döngüsü `TechnicallyVerified`.
 6. İterasyon 23 — ServiceNow veri-minimizasyonlu adaptör; 23A–23D `TechnicallyVerified`.
 7. İterasyon 24 — 24A audit inceleme ve 24B maskeli rapor önizleme `TechnicallyVerified`; hassas dışa aktarma `OPEN-BNK-014` nedeniyle engelli.
@@ -167,16 +166,23 @@ aşımı** zaman kaynağı, değerlendirme anı ve süre politikası kesinleşme
 Definition of Ready'i karşılamamaktadır. Güvenilir olgu üretimi de
 kapsama/eksik kayıt formülleriyle ayrıca engellidir; bu iki konu kesinleşmeden
 uygulama yapılmamalıdır.
+İterasyon 21B yerel/test dashboard özet API'sini tamamladı. Üretim bağlantısı
+için sıradaki hazır güvenlik artımı **İterasyon 20E — BFF oturum ve CSRF HTTP
+sınırı**dır; ardından dashboard API gerçek session assertion ve PostgreSQL skor
+repository'sine bağlanmalıdır. Ölçüm yeterliliği, kapsam, kullanım kararı ve alarm
+alanları ilgili runtime sözleşmeleri tamamlanmadan API tarafından üretilmemelidir.
+
 İterasyon 27B `OPEN-BNK-011/012`, gerçek fiziksel retention adaptörleri
 `OPEN-BNK-008`, hassas dışa aktarma `OPEN-BNK-014` ve gerçek SIEM/SOC
-`OPEN-BNK-010` kararlarını beklemektedir. 21B/frontend için `OPEN-BNK-020`
-kararı banka onaylıdır; kalan iş kararın HTTP/session katmanında uygulanmasıdır.
+`OPEN-BNK-010` kararlarını beklemektedir. 21B'nin üretim devamı için
+`OPEN-BNK-020` kararı banka onaylıdır; kalan iş kararın gerçek BFF
+HTTP/session/CSRF katmanında uygulanmasıdır.
 
 Kimlik zincirindeki sıradaki küçük uygulama artımı **İterasyon 20E — BFF oturum
 ve CSRF HTTP sınırı**dır. `__Host-session` cookie üretimi/döndürülmesi,
 synchronizer token, Origin/Referer/Fetch Metadata ve CORS allowlist kontrolleri
-ile state-changing `GET` reddi birlikte uygulanmalıdır. HTTP framework bağımlılığı
-mevcut mimari karara göre doğrulanmadan bu artım başlatılmamalıdır. Yüksek
+ile state-changing `GET` reddi birlikte uygulanmalıdır. FastAPI framework kararı
+`API-001` ile alınmış ve 21B okuma yüzeyinde doğrulanmıştır. Yüksek
 erişilebilir session store, at-rest şifreleme/KMS-HSM ve fiziksel `P90D`
 saklama/imha kanıtı ayrı üretim altyapısı artımlarıdır.
 
