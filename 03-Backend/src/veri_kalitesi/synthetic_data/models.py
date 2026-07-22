@@ -143,6 +143,64 @@ class GoldenObservationRecord:
 
 
 @dataclass(frozen=True)
+class SyntheticTemporalProfile:
+    profile_version: str
+    base_time: datetime
+    period_count: int
+    period_duration_seconds: int
+    source_created_delay_seconds: int
+    source_updated_delay_seconds: int
+    ingestion_delay_seconds: int
+    processing_delay_seconds: int
+    quality_check_delay_seconds: int
+    created_at: datetime = field(default_factory=utc_now)
+
+
+@dataclass(frozen=True)
+class TemporalObservationRecord:
+    observation_id: str
+    period_index: int
+    event_time: datetime
+    source_created_at: datetime
+    source_updated_at: datetime
+    ingestion_time: datetime
+    processing_time: datetime
+    quality_check_time: datetime
+
+
+@dataclass(frozen=True)
+class TemporalValidation:
+    record_count: int
+    period_count: int
+    all_periods_present: bool
+    period_assignment_valid: bool
+    semantic_order_valid: bool
+    utc_valid: bool
+    passed: bool
+
+
+@dataclass(frozen=True)
+class TemporalSyntheticDataset:
+    generation_run_id: str
+    dataset_id: str
+    scenario_id: str
+    scenario_version: str
+    generator_version: str
+    configuration_version: str
+    schema_version: str
+    policy_version: str
+    temporal_profile_version: str
+    random_seed: int
+    requested_record_count: int
+    synthetic_origin: bool
+    observations: tuple[TemporalObservationRecord, ...]
+    validation: TemporalValidation
+    canonical_payload: bytes
+    canonical_sha256: str
+    output_reference: str
+
+
+@dataclass(frozen=True)
 class GoldenStructuralValidation:
     subject_count: int
     observation_count: int

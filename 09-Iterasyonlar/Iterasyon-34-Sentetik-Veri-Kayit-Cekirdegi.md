@@ -161,3 +161,45 @@
 - **Sonraki iterasyon:** Sayısal eşik uydurmadan olay, kaynak, ingestion,
   processing ve kalite kontrol zamanlarını deterministik üreten `SYN-004A`
   çok dönemli zaman semantiği.
+
+## 34E — Deterministik çok dönemli zaman semantiği
+
+- **İterasyon adı:** Deterministik çok dönemli zaman semantiği
+- **Kullanıcı/sistem değeri:** Gerçek banka verisi veya üretim profili
+  kullanılmadan olay, kaynak oluşturma/güncelleme, ingestion, processing ve
+  kalite kontrol zamanları ayrı anlamlarla, UTC ve yeniden üretilebilir biçimde
+  birden çok dönemde sınanabilir.
+- **Mevcut FR/UC/RULE:** `FR-090`, `FR-094`, `UC-017`, `RULE-016`,
+  `AC/TS-054` zaman semantiği alt kapsamı
+- **BFR/CTRL:** Yeni eşleme yoktur.
+- **Değiştirilen dosyalar:** `synthetic_data` temporal profil/çıktı modelleri,
+  append-only repository tablosu, kanonik codec ve ayrı temporal generator/
+  validator; birim testleri ve proje hafızası.
+- **Migration/config:** SQLite prototipine append-only
+  `synthetic_temporal_profiles` tablosu eklendi. Profilin dönem ve gecikme
+  değerleri açık test girdileridir; üretim eşiği veya banka SLA değeri değildir.
+- **Eklenen testler:** Altı zaman alanı ve UTC sırası, dönem kapsamı/ataması,
+  bağımsız manipülasyon tespiti, byte eşdeğeri replay, seed duyarlılığı,
+  veri-minimum lineage, append-only profil, geçersiz/eksik profil, kapsam dışı
+  eksiklik/kusur/üretim profili redleri ve teknik depo hatası için 17 vaka.
+- **Çalıştırılan komutlar:** Hedefli ve tam `pytest -q`, tam `mypy`, tam
+  `ruff check`, tam depo format kontrolü, `compileall`, `git diff --check` ve
+  yerel secret taraması.
+- **Mevcut regresyon sonucu:** 987 test geçti; mypy 146 dosyada ve Ruff lint
+  hatasız tamamlandı. Tam depo format kontrolü değişiklik dışındaki tarihsel
+  `03-Backend/src/veri_kalitesi/__init__.py` dosyasında biçim farkı bildirdi.
+  `28A-v1` taraması 398 dosyada secret bulgusu üretmedi.
+- **Güvenlik/veri gizliliği sonucu:** Yalnız tamamen yapay profil kabul edilir;
+  üretim verisi/profili okunmaz. Kanonik payload aktör, session, run kimliği veya
+  secret taşımaz. Teknik depo arızası kalite sonucu olarak yorumlanmaz.
+- **Kanıt yolları:** `06-Testler/01-Birim/test_synthetic_temporal.py`.
+- **Teknik durum:** `TechnicallyVerified`
+- **Banka onayı:** `ComplianceReviewRequired`
+- **Kalan risk:** Eksiklik mekanizmaları, trend/sezonsallık/drift, geç/sırasız
+  akış, hacim/kota ve üretim benzerliği bu dilimde uygulanmadı. Nicel değerler
+  `OPEN-024`, gerçek profil erişimi `OPEN-025` kapsamındadır.
+- **Geri alma yaklaşımı:** `DeterministicTemporalGenerator` composition'dan
+  çıkarılarak yeni üretim durdurulabilir; append-only temporal profil, run ve
+  audit geçmişi değiştirilmez.
+- **Sonraki iterasyon:** Nicel oran uydurmadan kayıtlar arası geç ve sırasız
+  ingestion davranışını deterministik kanıtlayan `SYN-004B` teknik zaman dilimi.

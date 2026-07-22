@@ -171,9 +171,11 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
 69. Sentetik dataset politika, senaryo ve run kayıt çekirdeği 34A, tamamen yapay
     deterministik Golden ilişkisel üretici 34B, değişmez Golden yapısal ground
     truth ve bağımsız karşılaştırıcı 34C, kanonik çıktı/doğrulama referanslı
-    append-only terminal run kanıtı 34D ile runtime'a taşındı. Politika ve
+    append-only terminal run kanıtı 34D, append-only profilli deterministik çok
+    dönemli zaman semantiği 34E ile runtime'a taşındı. Politika ve
     senaryo oluşturma/onay yaşam döngüsü, gerçek fiziksel çıktı/artifact deposu,
-    sürümlü genel şema yükleyici, kusur enjeksiyonu, kayıt düzeyi ve
+    sürümlü genel şema yükleyici, eksiklik/trend/sezonsallık/drift, geç/sırasız
+    akış ve hacim profilleri, kusur enjeksiyonu, kayıt düzeyi ve
     sayısal ground truth, runtime kural/skor/olay karşılaştırması, gizlilik
     değerlendiricisi ve dataset kataloğu uygulanmadı.
     Dağılım/korelasyon/görev faydası/gizlilik eşikleri, kusur yoğunluğu oranları,

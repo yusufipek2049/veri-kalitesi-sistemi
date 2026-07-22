@@ -2,7 +2,7 @@
 type: project-memory
 status: draft
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-last_updated: 2026-07-21
+last_updated: 2026-07-22
 tags:
   - proje
   - mevcut-durum
@@ -1250,6 +1250,27 @@ tags:
   `03-Backend/src/veri_kalitesi/__init__.py` biçim farkı sürer; `28A-v1`
   taraması 396 dosyada secret bulgusu üretmedi.
 
+### 2026-07-22 — İterasyon 34E: Deterministik çok dönemli zaman semantiği
+
+- `FR-090`, `FR-094`, `UC-017`, `RULE-016` ve `AC/TS-054` zaman semantiği alt
+  kapsamı için `TEMPORAL_MULTI_PERIOD_GENERATOR_V1` eklendi.
+- Append-only temporal profil; UTC başlangıcı, dönem sayısı/süresi ve olaydan
+  kaynak oluşturma/güncelleme, ingestion, processing ve quality-check
+  aşamalarına kadar açık gecikme girdilerini sürümler. Bunlar teknik test
+  değerleridir; üretim SLA'sı veya banka eşiği değildir.
+- Ayrı generator aynı profil/seed ile run kimliğinden bağımsız byte eşdeğeri
+  kanonik çıktı üretir. `TemporalSemanticValidator` tüm dönemlerin temsilini,
+  event zamanının beyan edilen döneme düşmesini, altı alanın UTC olmasını ve
+  anlam sırasını üretim algoritmasından bağımsız doğrular.
+- Yalnız tamamen yapay, kusursuz ve eksiksiz profil kabul edilir. Eksik/geçersiz
+  profil doğrulama reddi; repository arızası teknik hata olur. Payload aktör,
+  session, run kimliği, secret veya gerçek kurum verisi taşımaz.
+- 17 yeni test vakasıyla toplam test sayısı 987 oldu. Tam mypy 146 dosyada,
+  Ruff lint, `compileall`, `git diff --check` ve yerel secret taraması hatasız
+  geçti. Tam depo format kontrolünde değişiklik dışındaki tarihsel
+  `03-Backend/src/veri_kalitesi/__init__.py` biçim farkı sürer; `28A-v1`
+  taraması 398 dosyada secret bulgusu üretmedi.
+
 ## İlgili Notlar
 
 ### OPEN-001–OPEN-018 Dokümantasyon Uyumlaştırması
@@ -1265,9 +1286,9 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A ve İterasyon 34A–34D çıktıları korunacaktır.
-- `pytest` ile 970 testin geçtiği doğrulanmıştır.
-- Tam mypy kontrolü 144 kaynak dosyada sıfır hata vermektedir.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A ve İterasyon 34A–34E çıktıları korunacaktır.
+- `pytest` ile 987 testin geçtiği doğrulanmıştır.
+- Tam mypy kontrolü 146 kaynak dosyada sıfır hata vermektedir.
 - Kısmi politika maker-checker onay/ret, geri çekme ve atomik audit akışı 32D ile tamamlandı. Süre aşımı açık kalır; güvenilir `PartialExecutionFacts` üretimi kapsama ve eksik kayıt oranı formüllerini beklemektedir. 31D hız sınırı sayaç/pencere semantiğini; CPU/IO sınırları güvenilir kaynak ölçüm adaptörünü beklemektedir. 27B restore tatbikat kanıtı `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını bekler; gerçek arşiv/fiziksel imha adaptörü, 29D, 21B/frontend, hassas dışa aktarma ve gerçek SIEM de banka/altyapı kararlarına bağlıdır.
 - Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.
