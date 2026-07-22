@@ -16,6 +16,12 @@ from veri_kalitesi.audit import (
     SQLiteAuditRepository,
 )
 from veri_kalitesi.dashboard import DashboardQueryService
+from veri_kalitesi.data_sources import (
+    DataSource,
+    DataSourceQueryService,
+    DataSourceStatus,
+    SourceType,
+)
 from veri_kalitesi.identity import DashboardAuthorizationPolicy, PolicyAuthorizationService
 from veri_kalitesi.scoring import (
     QualityScore,
@@ -26,6 +32,47 @@ from veri_kalitesi.scoring import (
 )
 
 POLICY_VERSION = "DEVELOPMENT_DASHBOARD_POLICY_V1"
+DEVELOPMENT_SOURCES = (
+    DataSource(
+        data_source_id="source-core-banking",
+        name="Temel Bankacılık",
+        source_type=SourceType.POSTGRESQL,
+        connection_config={},
+        secret_reference="development-reference-only",
+        status=DataSourceStatus.ACTIVE,
+    ),
+    DataSource(
+        data_source_id="source-customer-file",
+        name="Müşteri Dosyaları",
+        source_type=SourceType.CSV,
+        connection_config={},
+        secret_reference="development-reference-only",
+        status=DataSourceStatus.TEST_SUCCEEDED,
+    ),
+    DataSource(
+        data_source_id="source-risk-mart",
+        name="Risk Veri Martı",
+        source_type=SourceType.MSSQL,
+        connection_config={},
+        secret_reference="development-reference-only",
+        status=DataSourceStatus.INACTIVE,
+    ),
+    DataSource(
+        data_source_id="source-regulatory-api",
+        name="Düzenleyici Veri Servisi",
+        source_type=SourceType.REST,
+        connection_config={},
+        secret_reference="development-reference-only",
+        status=DataSourceStatus.TEST_FAILED,
+    ),
+)
+
+
+class DevelopmentDataSourceReader:
+    def list_data_sources(self, allowed_source_ids: frozenset[str]) -> list[DataSource]:
+        return [
+            source for source in DEVELOPMENT_SOURCES if source.data_source_id in allowed_source_ids
+        ]
 
 
 def create_development_app():  # type: ignore[no-untyped-def]
@@ -93,7 +140,7 @@ def create_development_app():  # type: ignore[no-untyped-def]
     resolver = DevelopmentActorContextResolver(
         runtime_environment="development",
         policy_version=POLICY_VERSION,
-        permitted_source_ids=frozenset(),
+        permitted_source_ids=frozenset(source.data_source_id for source in DEVELOPMENT_SOURCES),
         can_view_enterprise=True,
     )
     return create_dashboard_api(
@@ -101,4 +148,7 @@ def create_development_app():  # type: ignore[no-untyped-def]
         actor_context_resolver=resolver,
         allowed_origins=("http://127.0.0.1:5173", "http://localhost:5173"),
         data_origin="synthetic-development",
+        data_source_query_service=DataSourceQueryService(
+            DevelopmentDataSourceReader(), authorization
+        ),
     )

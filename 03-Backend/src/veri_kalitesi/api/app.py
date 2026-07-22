@@ -16,7 +16,16 @@ from veri_kalitesi.api.errors import (
     ApiSessionUnavailableError,
 )
 from veri_kalitesi.api.identity import ActorContextResolver, UnavailableActorContextResolver
-from veri_kalitesi.api.models import DashboardSummaryResponse
+from veri_kalitesi.api.models import (
+    DashboardSummaryResponse,
+    DataSourceListItemResponse,
+    DataSourceListResponse,
+)
+from veri_kalitesi.data_sources import (
+    DataSourceQueryAuthorizationError,
+    DataSourceQueryService,
+    DataSourceQueryTechnicalError,
+)
 from veri_kalitesi.dashboard import (
     DashboardAuthorizationError,
     DashboardQueryError,
@@ -32,6 +41,7 @@ def create_dashboard_api(
     bff_session_boundary: BffSessionBoundary | None = None,
     allowed_origins: Sequence[str] = (),
     data_origin: str = "runtime",
+    data_source_query_service: DataSourceQueryService | None = None,
 ) -> FastAPI:
     """Bağımlılıkları dışarıdan verilen, varsayılanı fail-closed API üretir."""
 
@@ -122,6 +132,30 @@ def create_dashboard_api(
             correlation_id=error.correlation_id,
         )
 
+    @app.exception_handler(DataSourceQueryAuthorizationError)
+    async def handle_data_source_authorization_error(
+        request: Request, error: DataSourceQueryAuthorizationError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=403,
+            title="Access denied",
+            detail="The requested data source scope is not available.",
+            correlation_id=error.correlation_id,
+        )
+
+    @app.exception_handler(DataSourceQueryTechnicalError)
+    async def handle_data_source_query_error(
+        request: Request, error: DataSourceQueryTechnicalError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=503,
+            title="Data sources temporarily unavailable",
+            detail="The data source query could not be completed.",
+            correlation_id=error.correlation_id,
+        )
+
     @app.exception_handler(ApiSessionUnavailableError)
     async def handle_session_unavailable_error(
         request: Request, error: ApiSessionUnavailableError
@@ -171,6 +205,25 @@ def create_dashboard_api(
             overview,
             correlation_id=request.state.correlation_id,
             data_origin=data_origin,
+        )
+
+    @app.get(
+        "/api/v1/data-sources",
+        response_model=DataSourceListResponse,
+        tags=["data-sources"],
+    )
+    async def get_data_sources(request: Request, response: Response) -> DataSourceListResponse:
+        if data_source_query_service is None:
+            raise DataSourceQueryTechnicalError(
+                "Data source service is unavailable.", request.state.correlation_id
+            )
+        actor_context = resolver.resolve(request)
+        sources = data_source_query_service.list_for_actor(actor_context)
+        response.headers["Cache-Control"] = "no-store"
+        return DataSourceListResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            items=tuple(DataSourceListItemResponse.from_domain(source) for source in sources),
         )
 
     @app.post("/api/v1/session/logout", status_code=204, tags=["session"])

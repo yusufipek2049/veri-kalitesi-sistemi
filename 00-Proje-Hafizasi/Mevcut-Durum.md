@@ -30,6 +30,25 @@ tags:
 
 ## Uygulama Durumu
 
+### 2026-07-22 — İterasyon 35A: Salt okunur Veri Kaynakları ekranı
+
+- `FR-007–FR-014`, `FE-DS-015`, `NFR-USA-001–006` kapsamında
+  `/api/v1/data-sources` veri-minimum okuma yüzeyi ve `/data-sources` istemci
+  rotası eklendi.
+- Liste yalnız güvenilir `ActorContext` içindeki izinli kaynak kimliklerini
+  sorgular. Yanıt kaynak kimliği, ad, ürün bağımsız tür, durum ve son test
+  zamanıyla sınırlıdır; bağlantı yapılandırması, secret referansı ve sahip
+  kullanıcı kimliği taşınmaz.
+- React Router tabanlı gerçek navigasyon, route bazlı kod bölme, yetkisiz ve
+  bulunamadı sınırları uygulandı. Kaynak ekranı metin/durum/tarih/kapsam
+  filtreleri, ürün bağımsız ve hizalı Lucide ikonları, açık/koyu tema ile
+  loading/empty/error/unauthorized/long-content durumlarını sunar.
+- 1036 pytest geçti, iki opt-in PostgreSQL testi atlandı; mypy 161 dosyada,
+  Ruff lint/format ve `compileall` hatasızdır. 26 Vitest, 27 Playwright,
+  TypeScript, Vite/Storybook build ve production npm audit geçti. `28A-v1`
+  taraması 481 dosyada sıfır secret bulgusu verdi. Dashboard chunk boyutu
+  uyarısı sürmektedir.
+
 ### 2026-07-16 — İterasyon 1: CSV veri kaynağı tanımı ve bağlantı testi
 
 - Backend kod iskeleti `03-Backend/src/veri_kalitesi` altında başlatıldı.

@@ -402,6 +402,20 @@ class SQLiteDataSourceRepository:
             raise NotFoundError("DataSource not found.")
         return _row_to_data_source(row)
 
+    def list_data_sources(self, allowed_source_ids: frozenset[str]) -> list[DataSource]:
+        """Yetki katmanından gelen kaynak kümesini ada göre deterministik döndürür."""
+
+        if not allowed_source_ids:
+            return []
+        source_ids = sorted(allowed_source_ids)
+        placeholders = ", ".join("?" for _ in source_ids)
+        rows = self.connection.execute(
+            f"SELECT * FROM data_sources WHERE data_source_id IN ({placeholders}) "
+            "ORDER BY name COLLATE NOCASE, data_source_id",
+            source_ids,
+        ).fetchall()
+        return [_row_to_data_source(row) for row in rows]
+
     def deactivate_data_source(
         self,
         data_source_id: str,

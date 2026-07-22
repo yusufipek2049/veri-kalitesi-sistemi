@@ -79,10 +79,12 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
     tema, tema tercihi, referansla uyumlu navigasyon grupları ve hizalı Lucide
     ikonları teknik olarak doğrulandı. `FE-DEC-001`–`FE-DEC-004` ile ikon,
     routing, tema tercihi ve dashboard KPI zaman/snapshot kararları kesinleşti.
-    Kurumsal font, onaylı görsel
+    35A ile `react-router-dom` route kabuğu, veri-minimum/scope filtreli veri
+    kaynağı API'si ve salt okunur Veri Kaynakları ekranı teknik olarak
+    doğrulandı. Kurumsal font, onaylı görsel
     baseline/diff eşiği, performans bütçesi ve banka marka onayı henüz
     tamamlanmamıştır. 21B yerel/test API bağlantısını eklemiştir; üretim dashboard
-    ve alan ekranları ilgili güvenli API'ler, gerçek IdP bağlantısı, yüksek
+    ve kalan alan ekranları ilgili güvenli API'ler, gerçek IdP bağlantısı, yüksek
     erişilebilir session store, PostgreSQL repository bağlantıları ve bankacılık
     geçiş kapısına bağlıdır.
 47. `28D-v1` doğrudan bağımlılık zafiyet bulgu zarfı, tamamlanmamış tarama teknik

@@ -75,5 +75,6 @@
 - [İterasyon 29C - Birleşik Yerel Sürüm On Kontrol Kanıtı](Surum-Paketleri/Iterasyon-29C-Birlesik-Yerel-Surum-On-Kontrol-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 30C - Uygulama Kabuğu ve Tema Kanıtı](Guvenlik-Testleri/Iterasyon-30C-Uygulama-Kabugu-ve-Tema-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 30D - Dashboard Referans İçerik Kanıtı](Guvenlik-Testleri/Iterasyon-30D-Dashboard-Referans-Icerik-Kaniti.md) - `TechnicallyVerified`
+- [İterasyon 35A - Veri Kaynakları Ekranı Kanıtı](Guvenlik-Testleri/Iterasyon-35A-Veri-Kaynaklari-Ekrani-Kaniti.md) - `TechnicallyVerified`
 
 Kanıt üretmek için [Kanıt Paketi Şablonu](Kan%C4%B1t-Paketi-Sablonu.md) kullanılır.

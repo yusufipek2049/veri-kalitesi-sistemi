@@ -158,11 +158,12 @@ function dashboardApiFixture() {
 test("klavye odağı görünür ve yetkisiz yüzey veri ifşa etmez", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1366, height: 768 });
   await page.goto("/?state=unauthorized");
+  await expect(page.getByText("Bu görünüm için yetkiniz yok")).toBeVisible();
 
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
     await page.keyboard.press("Tab");
-    const hasButtonFocus = await page.evaluate(() => document.activeElement?.tagName === "BUTTON");
-    if (hasButtonFocus) break;
+    const hasVisibleFocus = await page.evaluate(() => document.activeElement?.matches(":focus-visible") ?? false);
+    if (hasVisibleFocus) break;
   }
 
   const focusedElement = await page.evaluate(() => ({
@@ -171,7 +172,6 @@ test("klavye odağı görünür ve yetkisiz yüzey veri ifşa etmez", async ({ p
   }));
   expect(focusedElement.name?.trim()).toBeTruthy();
   expect(focusedElement.outline).not.toBe("none");
-  await expect(page.getByText("Bu görünüm için yetkiniz yok")).toBeVisible();
   await expect(page.getByText("Nihai Kalite Skoru")).not.toBeVisible();
   await page.screenshot({
     path: testInfo.outputPath("dashboard--unauthorized--1366x768.png"),

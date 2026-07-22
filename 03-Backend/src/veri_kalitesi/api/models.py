@@ -6,6 +6,36 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict
 
 from veri_kalitesi.dashboard import DashboardOverview
+from veri_kalitesi.data_sources import DataSource
+
+
+class DataSourceListItemResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    data_source_id: str
+    name: str
+    source_type: str
+    status: str
+    last_test_at: datetime | None
+
+    @classmethod
+    def from_domain(cls, source: DataSource) -> "DataSourceListItemResponse":
+        return cls(
+            data_source_id=source.data_source_id,
+            name=source.name,
+            source_type=source.source_type.value,
+            status=source.status.value,
+            last_test_at=source.last_test_at,
+        )
+
+
+class DataSourceListResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    items: tuple[DataSourceListItemResponse, ...]
 
 
 class DashboardObservationResponse(BaseModel):
