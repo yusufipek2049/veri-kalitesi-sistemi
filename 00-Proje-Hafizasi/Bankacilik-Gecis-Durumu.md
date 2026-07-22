@@ -18,8 +18,8 @@ tags:
 Yüklenen mevcut vault ve kod üzerinden doğrulanan durum:
 
 - İterasyon 1–16, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20E, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Iterasyon 31A–31C, Iterasyon 32A–32D, İterasyon 33A ve İterasyon 34A–34F teknik dikeyleri tamamlanmış ve proje hafızasına kaydedilmiştir.
-- `pytest` sonucu: **1009 test geçti**; iki gerçek PostgreSQL entegrasyon testi
-  opt-in koşuda ayrıca geçti. Tam mypy kontrolü 150 kaynak dosyada
+- `pytest` sonucu: **1029 test geçti**; iki gerçek PostgreSQL entegrasyon testi
+  opt-in koşuda ayrıca geçti. Tam mypy kontrolü 159 kaynak dosyada
   sıfır hata vermektedir.
 - Mevcut çalışan domain paketleri:
   - `data_sources`
@@ -78,7 +78,7 @@ Aşağıdaki davranışlar geriye dönük bozulmamalıdır:
 5. RuleVersion ve scoring configuration geçmişinin değişmez kalması.
 6. İdempotent execution ve scheduler tetikleme.
 7. Yetkisiz SOURCE drill-down'ın repository çağrısından önce reddedilmesi.
-8. 987 mevcut birim testinin ve sıfır hatalı tam mypy baseline'ının geriye dönük korunması.
+8. 1029 mevcut testin ve sıfır hatalı tam mypy baseline'ının geriye dönük korunması.
 9. Sınıflandırılmamış veya hassas alanların ham profil değerlerinin kalıcılaştırılmaması.
 
 ## En Kritik Kontrol Boşlukları
@@ -92,6 +92,7 @@ Aşağıdaki davranışlar geriye dönük bozulmamalıdır:
 | 5 | Kurumsal IdP/SSO-MFA ve RBAC üretim entegrasyonu tamamlanmadı | 20A context'i dashboard authorization'a bağlar; 20B giriş sınırı, 20C temel normal session, 20D onaylı süre/tek aktif oturum, 20E BFF cookie/CSRF ve 21B HTTP okumayı uygular; gerçek IdP endpoint/callback/state/nonce, banka eşlemesi, ayrıcalıklı/servis oturumu ve üretim altyapısı açık | Gerçek IdP ve üretim altyapısı |
 | 6 | Operasyon ve kanıt katmanı kısmi | Ortam başlangıç kapısı, audit/rapor erişimi, güvenlik olayı, ihlal şüphesi, timeline, retention dry-run/legal hold/imha kanıtı ve arşiv geri çağırma yetkilendirmesi uygulanmıştır; gerçek ortam sağlayıcısı, DR, fiziksel/arşiv adaptörleri ve SIEM/SOC eksiktir | Altyapı kurulumu ve operasyon kanıtı |
 | 7 | Kabul edilen skorlama ve ölçüm yeterliliği hedef modeli kısmen runtime'a taşındı | 33A kanonik sayaçları, 33B kritiklikten ayrılmış kaynak kalite skorunu uygular; ham/nihai skor, yeterlilik/geçerlilik kapısı, kullanım kararı, kapsam/güven, ayrı risk ve override modeli yoktur | Sonraki skorlama uygulama dilimleri |
+| 8 | Kanıta dayalı karar sistemi yalnız ikinci faz hedef sözleşmesidir | Kullanım amacı, etki, lineage, öneri, remediation, chaos ve kanıt paketi runtime'da yoktur; `OPEN-026–OPEN-036` açıktır | Kararların tamamlanması ve küçük ikinci faz dilimleri |
 
 ## Geçiş Kapısı
 

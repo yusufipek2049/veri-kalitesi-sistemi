@@ -9,20 +9,21 @@ bir bankacılık veri kalitesi çekirdeğidir. Kalite başarısızlığı ile al
 bağlantı hatasını farklı durumlar olarak saklaması en güçlü tasarım özelliklerinden
 biridir: çalışmayan kontrol, sıfır kalite skoru sayılmaz.
 
-Bugünkü kod bir son kullanıcı ürünü değil, iyi test edilmiş bir domain ve kalıcılık
-prototipidir. REST API, web arayüzü, gerçek LDAP/PostgreSQL/ServiceNow istemcileri,
-üretim job altyapısı, container/CI/CD, merkezi gözlemlenebilirlik ve DR mekanizmaları
-yoktur. Bu nedenle iş kuralları ve bankacılık kontrol sözleşmeleri önemli ölçüde
-hazır olsa da sistem üretime hazır değildir.
+Bugünkü kod, iyi test edilmiş domain/kalıcılık çekirdeğine ek olarak sınırlı
+FastAPI dashboard/logout yüzeyi ve React dashboard içerir. Gerçek kurumsal
+IdP/ServiceNow istemcileri, genel PostgreSQL repository geçişi, üretim job
+altyapısı, container/CI/CD, merkezi gözlemlenebilirlik ve DR mekanizmaları yoktur.
+Bu nedenle ürün yüzeyi kısmen çalışsa da sistem üretime hazır değildir. Kanıta
+dayalı karar desteği `ADR-019` ile ikinci faz hedefidir; uygulanmış değildir.
 
 ## Sistemin Genel Durumu
 
 | Alan | Değerlendirme | Kanıt |
 | --- | --- | --- |
-| Domain kapsamı | Güçlü prototip | 14 backend paketi, 37 SQLite tablosu |
-| Test disiplini | Güçlü birim test tabanı | 913 test geçiyor |
+| Domain kapsamı | Güçlü prototip | 18 backend domain/taşıma paketi |
+| Test disiplini | Güçlü test tabanı | 1029 test geçiyor; iki PostgreSQL testi opt-in |
 | Mimari sınırlar | Orta-iyi | Protocol tabanlı portlar, modüler paketler |
-| Uygulama bütünlüğü | Eksik | Composition root ve runtime giriş noktası yok |
+| Uygulama bütünlüğü | Kısmi | FastAPI/React dashboard var; kalan alan yüzeyleri yok |
 | Entegrasyon olgunluğu | Düşük | Dış sistemler fake/protokol seviyesinde |
 | Operasyon olgunluğu | Düşük | Deploy, health, metric, backup/restore yok |
 | Güvenlik tasarımı | Orta-iyi teknik taban | Fail-closed ActorContext, redaksiyon, hash-chain, maker-checker |
@@ -30,21 +31,19 @@ hazır olsa da sistem üretime hazır değildir.
 
 ## En Kritik Beş Bulgu
 
-1. **Çalıştırılabilir ürün yüzeyi yok.** `FastAPI`, Flask, Django veya başka HTTP
-   framework'ü; endpoint, OpenAPI ve frontend uygulaması bulunmuyor. Mimari belgede
-   gösterilen UI ve REST katmanı planlanmış ancak uygulanmamıştır.
-2. **Gerçek entegrasyonlar yok.** PostgreSQL, LDAP ve ServiceNow için test edilebilir
-   protokoller var; gerçek sürücü/istemci yok. Varsayılan PostgreSQL sürücüsü bilinçli
-   olarak hata üreten `MissingPostgreSQLDriver` sınıfıdır.
+1. **Ürün yüzeyi sınırlı.** FastAPI/React dashboard özeti ve logout vardır;
+   veri kaynağı, kural, çalıştırma, sorun, rapor ve denetim alan yüzeyleri yoktur.
+2. **Üretim entegrasyonları yok.** Yapay dataset için psycopg entegrasyonu olsa da
+   genel PostgreSQL repository geçişi, gerçek IdP ve ServiceNow istemcisi yoktur.
 3. **Kalıcılık ve kuyruk üretim ölçeğine uygun değil.** Repository'ler ayrı SQLite
    connection'ları ve süreç içi `RLock` kullanır. Dağıtık worker, lease/heartbeat,
    broker, HA ve merkezi migration sistemi yoktur.
 4. **Operasyon ve felaket kurtarma uygulanmamış.** Docker/Kubernetes, CI/CD, health
    endpoint, metric/trace, log pipeline, backup/restore ve banka onaylı RTO/RPO kanıtı
    bulunmuyor.
-5. **Güvenlik kontrolleri ürün sınırına bağlanmamış.** LDAP/RBAC, session, throttle,
-   masking, maker-checker ve audit çekirdekleri var; fakat HTTP cookie/CSRF, MFA/PAM,
-   kurumsal secret manager, WORM audit ve gerçek rol eşlemeleri açık.
+5. **Güvenlik kontrolleri ürün sınırına kısmen bağlı.** BFF cookie/CSRF dashboard
+   sınırında uygulanmıştır; gerçek IdP/MFA/PAM, kurumsal secret manager, WORM audit,
+   HA session store ve gerçek rol eşlemeleri açıktır.
 
 ## Mimari Olgunluk
 
@@ -83,6 +82,7 @@ kayıtlarıdır.
 ## Sonuç
 
 Projenin en değerli varlığı, bankacılık güven sınırlarını domain seviyesinde erken
-ele almış ve 913 birim testle korunan çekirdektir. En önemli sonraki aşama yeni
-domain özelliği eklemek değil; bu çekirdeği güvenli bir runtime, gerçek adaptörler
-ve işletilebilir altyapı ile uçtan uca çalışan ürüne dönüştürmektir.
+ele almış ve 1029 testle korunan çekirdektir. En önemli sonraki aşama mevcut
+frontend/API dikeylerini güvenli biçimde genişletmek, gerçek adaptörleri bağlamak
+ve işletilebilir altyapıyı tamamlamaktır. `ADR-019` hedefi ancak açık kararlar ve
+temel runtime bağımlılıkları tamamlandıkça ikinci faz küçük dilimlerine ayrılmalıdır.

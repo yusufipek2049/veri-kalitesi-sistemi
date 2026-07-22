@@ -33,3 +33,7 @@ tags:
 | UC-015 | Veri kalitesi raporu oluşturulması | [Aç](UC-015-Veri-kalitesi-raporu-olusturulmasi.md) |
 | UC-016 | Audit kayıtlarının incelenmesi | [Aç](UC-016-Audit-kayitlarinin-incelenmesi.md) |
 | UC-017 | Sentetik veri üretimi ve doğrulaması | [Aç](UC-017-Sentetik-veri-uretimi-ve-dogrulamasi.md) |
+| UC-018 | Kullanım amacı skoru ve kanıt inceleme | [Aç](UC-018-Kullanim-amaci-skoru-ve-kanit-inceleme.md) |
+| UC-019 | Değişiklik etki simülasyonu | [Aç](UC-019-Degisiklik-etki-simulasyonu.md) |
+| UC-020 | Kanıtlı öneri ve remediation | [Aç](UC-020-Kanitli-oneri-ve-remediation.md) |
+| UC-021 | Kontrol yeterliliği chaos deneyi | [Aç](UC-021-Kontrol-yeterliligi-chaos-deneyi.md) |

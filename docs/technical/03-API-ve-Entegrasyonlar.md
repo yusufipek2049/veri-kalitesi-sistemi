@@ -2,25 +2,35 @@
 
 ## HTTP API Durumu
 
-**Planlanmış ancak uygulanmamış.** Depoda web framework import'u, route decorator,
-controller, request/response schema, global exception handler, OpenAPI üretimi veya
-ASGI/WSGI server giriş noktası yoktur. Bu nedenle HTTP metodu/yolu bazında gerçek
-endpoint envanteri çıkarılamaz.
+**Kısmen uygulanmış.** FastAPI composition root'u dashboard özeti ve BFF logout
+endpoint'lerini, response şemasını, Problem Details hata eşlemesini, correlation
+ID'yi ve OpenAPI üretimini sağlar. Diğer domain servislerinin HTTP yüzeyi yoktur.
 
 | API özelliği | Durum |
 | --- | --- |
-| Versiyonlama | Yok |
+| Versiyonlama | `/api/v1` uygulanmış |
 | Pagination/filter/sort | Yalnız bazı repository/query nesnelerinde yerel filtre; HTTP yok |
-| Request validation | Domain servis doğrulamaları var; HTTP binding yok |
-| Hata modeli | Domain exception'ları var; HTTP status eşlemesi yok |
-| Correlation ID | Domain girdilerinde yaygın; header üretme/doğrulama yok |
+| Request validation | FastAPI dashboard/logout sınırında var; diğer alanlarda HTTP yok |
+| Hata modeli | RFC 9457 Problem Details dashboard/logout sınırında var |
+| Correlation ID | Sunucu tarafından üretilir ve güvenli hata yanıtına bağlanır |
 | Rate limit | Login throttle var; genel API rate limit yok |
-| OpenAPI/Swagger | Yok |
+| OpenAPI/Swagger | FastAPI yüzeyi için var |
 | Geriye uyumluluk | SQLite runtime migrationları var; API sözleşmesi yok |
 
-HTTP katmanı eklenirken caller tarafından verilen `actor_id`, rol veya scope kabul
-edilmemeli; yalnız `SessionService.validate()` sonucunda issuer tarafından üretilmiş
-`ActorContext` servislere geçirilmelidir.
+HTTP katmanı caller tarafından verilen `actor_id`, rol veya scope'u yetki kanıtı
+olarak kabul etmez; yalnız session resolver sonucunda issuer tarafından üretilmiş
+`ActorContext` servislere geçirilir. Production resolver yoksa istek fail-closed
+reddedilir.
+
+| Metot | Yol | Mevcut kapsam |
+| --- | --- | --- |
+| `GET` | `/api/v1/dashboard/summary` | Yetki filtreli veri-minimum özet ve trend |
+| `POST` | `/api/v1/session/logout` | BFF cookie/CSRF doğrulamasıyla merkezi logout |
+
+İkinci faz kanıt, lineage, öneri, yeniden üretim, remediation, chaos ve kanıt
+paketi operasyon sınıfları `FR-097–FR-111` ile tanımlıdır. Nihai endpoint adları
+uydurulmamış; [kanonik hedef mimaride](../../02-Mimari/Kanita-Dayali-Karar-Sistemi.md)
+işlem sınıfı, IAM, idempotency ve uzun iş davranışı belirlenmiştir.
 
 ## Python Servis API Envanteri
 
@@ -98,8 +108,8 @@ access/refresh token, opak `__Host-session` cookie, synchronizer-token CSRF,
 Origin/Referer/Fetch Metadata, CORS allowlist, tek aktif oturum, `PT1H` idle,
 `PT10H` absolute timeout ve merkezi iptal uygular.
 
-**Eksik uygulama:** Bu kararın HTTP middleware/composition root'a bağlanması,
-MFA/PAM/break-glass entegrasyonu, kurum onaylı yüksek erişilebilir session store
+**Eksik uygulama:** Gerçek IdP callback/state/nonce, MFA/PAM/break-glass entegrasyonu,
+kurum onaylı yüksek erişilebilir session store
 ve fallback PostgreSQL, at-rest şifreleme/KMS-HSM ve `P90D` fiziksel
 saklama/imha kanıtı.
 

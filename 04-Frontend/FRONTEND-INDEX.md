@@ -39,6 +39,7 @@ masaüstü görsel kontrolleri için `npm run test:e2e` kullanılır.
 
 - [Görsel Tasarım Sistemi](Gorsel-Tasarim-Sistemi.md)
 - [Dashboard Ekran Sözleşmesi](03-Dashboard/Dashboard-Ekran-Sozlesmesi.md)
+- [Kanıtlı Olay İnceleme Ekran Sözleşmesi](04-Sorun-ve-Bildirim/Kanitli-Olay-Inceleme-Ekran-Sozlesmesi.md)
 - [Veri Kalitesi Skorlama ve Ölçüm Yeterliliği](../02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md)
 - [Kurumsal dashboard referansı](references/reference-dashboard.png)
 - [Görsel Doğrulama Stratejisi](../06-Testler/03-Uctan-Uca/Gorsel-Dogrulama-Stratejisi.md)
@@ -59,6 +60,8 @@ masaüstü görsel kontrolleri için `npm run test:e2e` kullanılır.
 
 Menüde görünen alan adları 30C'de görsel uygulama kabuğudur; ilgili route ve
 ekranlar 35A–35F artımlarında güvenli API sınırlarıyla ayrı ayrı açılacaktır.
+Kanıtlı olay inceleme ekranı ikinci faz hedefidir; `FR-097–FR-111` backend/API,
+IAM ve açık kararları tamamlanmadan üretim route'u açılmaz.
 
 ## Ekranlar
 
@@ -72,6 +75,7 @@ ekranlar 35A–35F artımlarında güvenli API sınırlarıyla ayrı ayrı açı
 - Sorun yönetimi: [04.09-Sorun-Yonetimi](../01-SRS/04-Fonksiyonel-Gereksinimler/04.09-Sorun-Yonetimi.md)
 - Rapor ve dışa aktarma: [04.10-Raporlama](../01-SRS/04-Fonksiyonel-Gereksinimler/04.10-Raporlama.md)
 - Audit inceleme: [04.11-Audit](../01-SRS/04-Fonksiyonel-Gereksinimler/04.11-Audit.md)
+- Kanıtlı karar/olay inceleme: [04.14-Kanita-Dayali-Karar-Destegi](../01-SRS/04-Fonksiyonel-Gereksinimler/04.14-Kanita-Dayali-Karar-Destegi.md)
 
 ## UI Kuralları
 

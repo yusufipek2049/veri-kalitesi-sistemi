@@ -33,6 +33,7 @@ Bu bölüm, kullanıcı ekranlarını, harici yazılım entegrasyonlarını ve i
 | Kullanıcı ve rol yönetimi ekranı | IdP gruplarını rol ve kapsama eşlemek | Sistem Yöneticisi | Kullanıcı, harici grup referansı, roller, kapsam, durum, son giriş | Grup-rol/kapsam eşle, pasifleştir, matrisi görüntüle | Kullanıcı, rol, izin, kapsam | Çoklu grup ve deterministik çatışma/ret politikası | Çakışan rol; IdP kullanıcısı yok; yetki dışı işlem |
 | Audit log ekranı | Denetim kayıtlarını incelemek | Denetçi, Sistem Yöneticisi | Zaman, aktör, işlem, nesne, sonuç, eski/yeni değer, correlation ID, bütünlük | Filtrele, detay, dışa aktar, bütünlük doğrula | Tarih, kullanıcı, işlem, nesne, sonuç | Hassas değer maskesi; yalnız append-only okuma | Yetkisiz; bütünlük hatası; geniş sorgu |
 | Sistem ayarları ekranı | Eşik, ağırlık, normalizasyon, kritik kural, güven, kaynak kullanım, kısmi skor, istisna/override, saklama ve entegrasyon politikalarını yönetmek | Sistem Yöneticisi; Veri Yönetişimi; ilgili onay rolleri | Konfigürasyon sürümü, kapsam, değer, gerekçe, geçerlilik, risk sınıfı ve onay durumu | Taslak, doğrula, onaya gönder, etkinleştir, geri çek | Kategori, kapsam, durum, sürüm | Aralık, süre, bağımlılık, görevler ayrılığı ve risk bazlı dört göz ilkesi | Çakışan eşik; sürümsüz politika; süresiz istisna/override; onay eksik |
+| Kanıtlı olay inceleme | İkinci fazda skor, metrik, hesaplama, lineage, teşhis, öneri, run, değişiklik, zaman çizelgesi ve kanıt paketini birlikte incelemek | Data Owner, Data Steward, Veri Mühendisi, Denetçi; izinleri ayrı | Kullanım kararı, ayrı güven değerleri, etki, kanıt gücü/eksikleri ve gezilebilir kaynak referansları | Reproduction, simülasyon, öneri, remediation dry-run/onay, kanıt paketi; chaos ayrı izinle | Dataset, kullanım amacı, olay, zaman, drift, kanıt/güven durumu | Scope, sınıflandırma, maker-checker, idempotency, DLP ve değişmez sonuç | Eksik kanıt; yetkisiz; politika yok; teknik hata; incomplete lineage |
 
 ### Genel UI Kuralları
 
@@ -48,6 +49,9 @@ Bu bölüm, kullanıcı ekranlarını, harici yazılım entegrasyonlarını ve i
   kapsam, güven, kritiklik/risk ve teknik sağlık tek yüzdeye birleştirilmez.
   Yüksek skor yetersiz ölçümü gizlemez; skor çalışan performans KPI'sı olarak sunulmaz.
 - Masaüstü öncelikli responsive tasarım uygulanmalı; 1366×768 ve üzeri çözünürlükler desteklenmelidir. Mobil yönetim işlevleri MVP kapsamı dışındadır ve ikinci fazda ele alınacaktır.
+- Kanıtlı olay ekranında kalite, ölçüm, teşhis, öneri güveni ve kanıt gücü ayrı
+  gösterilmeli; korelasyon doğrulanmış neden gibi sunulmamalı ve tahmini etki
+  kaynak/formül/güven olmadan gösterilmemelidir.
 
 ## 8.2 Yazılım Arayüzleri
 
@@ -61,6 +65,7 @@ Bu bölüm, kullanıcı ekranlarını, harici yazılım entegrasyonlarını ve i
 | Dosya depolama servisi | CSV/Excel girdi ve rapor/kanıt dosyaları için kurum içi güvenli depolama. |
 | Kurumsal veri kataloğu/DLP | Hassas sınıflandırma, maskeleme, görüntüleme, raporlama ve loglama kısıtlarının kaynak sistemi. |
 | Sentetik veri yönetim API'si | Hedef iç API; `SyntheticDatasetPolicy`, senaryo, run, doğrulama ve katalog kayıtlarını sürümlü ve yetki kapsamlı sunar. Ground truth iş verisinden ayrı döner; gizlilik kapısı geçmeyen dataset kullanıma açılamaz. Üretim bildirimi/ServiceNow/SIEM hedefi bu API üzerinden seçilemez. Güvenilir HTTP/API sözleşmesi uygulanmadan yetenek dış erişime açılmaz. |
+| Kanıt, lineage ve karar kaynakları | İkinci faz hedef iç API; kurumsal lineage/değişiklik kaynaklarından yalnız otoriter referansları alır, kanıt/manifest/teşhis/öneri/etki/contract/chaos kayıtlarını yetki ve sınıflandırma kapsamında sunar. Sağlayıcı veya ürün `OPEN-028/029/032` kapanmadan varsayılmaz. |
 
 ## 8.3 İletişim Arayüzleri
 

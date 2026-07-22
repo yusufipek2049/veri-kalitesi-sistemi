@@ -6,3 +6,4 @@
 - [Saklama, İmha ve Legal Hold](Saklama-Imha-ve-Legal-Hold-Runbook.md)
 - [Yedekleme, Geri Yükleme ve DR](Yedekleme-Geri-Yukleme-ve-DR.md)
 - [Sürüm ve Değişiklik Yönetimi](Surum-ve-Degisiklik-Yonetimi.md)
+- [Kanıta Dayalı Karar ve Remediation Runbook'u](Kanita-Dayali-Karar-ve-Remediation-Runbook.md)

@@ -1,5 +1,15 @@
 # Deployment ve Operasyon
 
+## Kanıta Dayalı Karar Desteği Operasyon Sınırı
+
+İkinci faz operasyonu; manifest/evidence üretim başarısı, lineage kapsamı,
+reproduction başarısı, öneri kabul/başarı, rollback, chaos detection coverage,
+MTTD, MTTDiagnosis, MTTR ve olay tekrar oranını log/metric/trace correlation ile
+izlemeyi hedefler. Remediation `SuggestOnly` güvenli varsayılanıyla başlar;
+dry-run, canary, yeniden doğrulama, rollback ve alarm olmadan yükseltilemez.
+Operatör akışı [runbook'ta](../../07-Operasyon/Kanita-Dayali-Karar-ve-Remediation-Runbook.md)
+tanımlıdır; bu hedef çalışan üretim altyapısı değildir.
+
 ## Mevcut Çalıştırılabilirlik
 
 Depoda son kullanıcıya hizmet veren uygulama giriş noktası yoktur. `uvicorn`, web

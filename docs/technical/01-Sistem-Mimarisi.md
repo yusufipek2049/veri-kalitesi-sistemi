@@ -9,11 +9,11 @@
 | `02-Mimari/` | Hedef bağlam, mantıksal mimari ve güvenlik kararları | Hedef + kısmi uygulama açıklaması |
 | `03-Backend/src/veri_kalitesi/` | Çalışan Python domain, servis ve repository kodu | Aktif ana ürün kodu |
 | `03-Backend/01-*` ... `12-*` | Modül talimatları ve backend indeksi | Kod değil, yönlendirme |
-| `04-Frontend/` | Frontend hedef modülleri | Plan; yalnız indeks var |
+| `04-Frontend/` | React/Vite frontend, tasarım sözleşmeleri ve alan modülleri | Dashboard/theme uygulanmış; alan ekranları planlı |
 | `05-Veritabani/` | Veritabanı çalışma alanı | Plan; migration kodu burada yok |
-| `06-Testler/01-Birim/` | 27 test dosyası ve 913 test | Aktif |
-| `06-Testler/02-Entegrasyon/` | Entegrasyon test alanı | Boş |
-| `06-Testler/03-Uctan-Uca/` | E2E test alanı | Boş |
+| `06-Testler/01-Birim/` | 34 test dosyası; tam depoda 1029 test | Aktif |
+| `06-Testler/02-Entegrasyon/` | PostgreSQL yapay dataset entegrasyonu | İki opt-in test |
+| `06-Testler/03-Uctan-Uca/` | Frontend görsel/E2E stratejisi ve Playwright | 14 test |
 | `07-Operasyon/` | Runbook ve politika taslakları | Belge; çalışan otomasyon değil |
 | `08-Uyum-Kanitlari/` | İterasyon bazlı teknik kanıtlar | Aktif belge |
 | `09-Iterasyonlar/` | Bankacılık geçiş iterasyonları | Aktif plan/rapor |
@@ -22,16 +22,19 @@
 ## Teknoloji Yığını
 
 - **Dil:** Python `>=3.10`; async runtime kullanılmıyor.
-- **Web/backend framework:** Yok. Kod framework bağımsız domain servisleridir.
-- **Frontend:** Yok.
-- **Kalıcılık:** Python `sqlite3`; ORM yok, parametreli ham SQL kullanılıyor.
+- **Web/backend framework:** FastAPI dashboard özeti/logout composition root'u;
+  diğer domainler framework bağımsız servislerdir.
+- **Frontend:** React/Vite, MUI, ECharts, Storybook ve Playwright dashboard yüzeyi.
+- **Kalıcılık:** Çoğunlukla Python `sqlite3`; SQLAlchemy/Alembic bağımlılıkları
+  ve yapay dataset için psycopg/PostgreSQL vardır, genel repository geçişi yoktur.
 - **Cache:** Yok.
 - **Kuyruk:** `rule_executions` ve `servicenow_retry_jobs` SQLite tabloları; broker yok.
 - **Zamanlama:** Özel `SchedulingService`; harici scheduler ve cron parser yok.
 - **Kimlik:** LDAP adapter protokolü, grup-rol/scope politikası, kalıcı session ve throttle. Hedef web sınırı banka onaylı BFF, sunucu taraflı token ve opak `__Host-session` cookie modelidir.
-- **Dış entegrasyon:** Protocol sınırları; gerçek HTTP/LDAP/PostgreSQL client yok.
+- **Dış entegrasyon:** Protocol sınırları; yapay dataset psycopg bağlantısı dışında
+  gerçek IdP/ServiceNow ve genel PostgreSQL ürün adaptörleri yoktur.
 - **Test:** pytest; gerçek dış servis yerine fake adapter.
-- **Kalite:** Ruff ve mypy komutları kullanılıyor; araçlar manifestte sabitlenmemiş.
+- **Kalite:** Ruff ve mypy komutları kullanılıyor; 1029 test ve 159 dosyalık mypy baseline'ı vardır.
 - **Güvenli SDLC:** Yerel veri-minimum secret scanner, CycloneDX 1.5 doğrudan
   bağımlılık SBOM üreticisi, ürün bağımsız veri-minimum SAST/bağımlılık zafiyet
   sürüm kapıları, sızma testi bulgu/tekrar test takibi ve deterministik teknik
@@ -72,9 +75,9 @@ flowchart LR
     UI[Web UI]
     API[REST API]
 
-    USER -. planlanan .-> UI
-    UI -. planlanan .-> API
-    API -. planlanan .-> DQ
+    USER -->|dashboard| UI
+    UI -->|özet/logout| API
+    API -->|sınırlı composition root| DQ
     LDAP -. adapter protokolü .-> DQ
     SOURCES -->|CSV gerçek; PostgreSQL protokol| DQ
     DQ --> SQLITE
@@ -208,8 +211,8 @@ PostgreSQL protokolü kaynakta agregasyon bekler, fakat gerçek implementasyon y
 
 | Belgelenen hedef | Kod gerçekliği |
 | --- | --- |
-| Web UI ve versiyonlu REST API | Planlanmış ancak uygulanmamış |
-| PostgreSQL, SQL Server, Oracle, MySQL, CSV, Excel, REST bağlayıcıları | Yalnız CSV gerçek; PostgreSQL protokol; diğerleri enum |
+| Web UI ve versiyonlu REST API | Dashboard/theme ve `/api/v1` özet/logout kısmi; alan yüzeyleri planlı |
+| PostgreSQL, SQL Server, Oracle, MySQL, CSV, Excel, REST bağlayıcıları | CSV gerçek; yapay dataset psycopg entegrasyonu ve genel PostgreSQL protokolü; diğerleri enum |
 | Bağımsız ölçeklenebilir servisler | Tek Python modüler monolit |
 | Cron tabanlı planlar | ONCE/DAILY/WEEKLY/MONTHLY; genel cron yok |
 | Merkezi log/metric altyapısı | Uygulanmamış |

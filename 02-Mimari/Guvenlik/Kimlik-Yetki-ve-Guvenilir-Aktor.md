@@ -45,6 +45,27 @@ Context değişmez olmalıdır. Domain katmanı actor_id'yi ayrı serbest parame
 
 Kimlik doğrulama sonucu var ancak MFA kanıtı veya rol/scope eşlemesi yoksa erişim reddedilir. Kurumsal IdP erişilemezse yeni oturum açılmaz.
 
+## Kanıt ve Karar Desteği İzinleri
+
+İkinci faz yüzeyleri aşağıdaki izinleri tek geniş “yönetici” rolünde birleştirmez:
+
+- skor ve formül görüntüleme,
+- kaynak SQL/hesaplama kaynağı görüntüleme,
+- maskeli kayıt ve gerçek kayıt görüntüleme,
+- lineage görüntüleme,
+- öneri oluşturma ve ayrı öneri onaylama,
+- remediation başlatma ve otomasyon politikası değiştirme,
+- reproduction çalıştırma,
+- chaos deneyi oluşturma/çalıştırma,
+- kanıt paketi üretme ve ayrı indirme,
+- kural, kullanım profili ve politika değiştirme.
+
+Her karar güvenilir `ActorContext`, veri/olay scope'u, sınıflandırma ve sürümlü
+authorization politikasıyla verilir. Geçici gerçek kayıt veya ayrıcalıklı kanıt
+erişimi gerekçe, süre, onay ve audit gerektirir. Öneren ve onaylayan aynı aktör
+olamaz. Servis hesabı yalnız kendisine atanmış otomasyon eylemini yürütebilir;
+rol/scope üretemez. Banka rol kodları `OPEN-BNK-002` kapanmadan varsayılmaz.
+
 ## Banka Onaylı Normal Kullanıcı Oturum Sınırı
 
 `OPEN-BNK-020` `ApprovedByBank` durumundadır.

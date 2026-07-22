@@ -25,6 +25,7 @@ tags:
 | API ve entegrasyon | [04.12-API-ve-Entegrasyon](../01-SRS/04-Fonksiyonel-Gereksinimler/04.12-API-ve-Entegrasyon.md) | Tüm servis sözleşmeleri |
 | Olay müdahale | [17.02-Bankacilik-Kontrol-Gereksinimleri](../01-SRS/17-Bankacilik-Uyum/17.02-Bankacilik-Kontrol-Gereksinimleri.md) | SecurityIncident, PersonalDataBreachSuspicion, IncidentTimeline |
 | Güvenli SDLC yerel kontrolleri | [17.02-Bankacilik-Kontrol-Gereksinimleri](../01-SRS/17-Bankacilik-Uyum/17.02-Bankacilik-Kontrol-Gereksinimleri.md) | SecretScanPolicy, PythonProjectInventory, SastReleaseGate, DependencyVulnerabilityReleaseGate, PentestFindingTracker, TechnicalEvidenceManifestBuilder, TechnicalEvidenceManifestGate, LocalReleasePreflight |
+| Kanıta dayalı karar desteği (hedef) | [04.14-Kanita-Dayali-Karar-Destegi](../01-SRS/04-Fonksiyonel-Gereksinimler/04.14-Kanita-Dayali-Karar-Destegi.md), [kanonik mimari](../02-Mimari/Kanita-Dayali-Karar-Sistemi.md) | UseCaseScoreProfile, RunManifest, EvidenceItem/Link, LineageSnapshot, Diagnosis, Recommendation, RemediationAction, ImpactAssessment, DataContract, QualityDebtItem, ChaosExperiment, EvidencePackage |
 
 ## Çapraz NFR
 

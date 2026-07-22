@@ -2,7 +2,7 @@
 
 ## Test Yapısı
 
-`06-Testler/01-Birim/` altında 27 pytest dosyası vardır. Aşağıdaki tablo ana test
+`06-Testler/01-Birim/` altında 34 pytest dosyası vardır. Aşağıdaki tablo ana test
 alanlarını özetler:
 
 | Test alanı | Kapsanan ana davranış |
@@ -27,6 +27,8 @@ alanlarını özetler:
 | `test_secure_sdlc_evidence.py` | Deterministik teknik kanıt manifesti ve eksik/engelli kontrol raporu |
 | `test_secure_sdlc_evidence_gate.py` | Byte düzeyinde teknik kanıt manifest drift doğrulama kapısı |
 | `test_secure_sdlc_preflight.py` | Altı kontrollü birleşik fail-closed yerel sürüm preflight'ı |
+| `test_dashboard_api.py` | Dashboard özeti, Problem Details, güvenilir resolver ve BFF logout/CSRF |
+| `test_synthetic_*.py` | Sentetik politika, üretici, oracle, zaman semantiği ve PostgreSQL dataset doğrulaması |
 
 Testler geçici SQLite DB veya `:memory:` repository ile izoledir. LDAP, PostgreSQL,
 ServiceNow, audit sink ve resolver'lar fake/protokol implementasyonlarıdır. Gerçek
@@ -37,14 +39,14 @@ secret redaksiyonu ve veri-minimum payload testleri dikkate değer güçlü nokt
 
 | Seviye | Durum | Açıklama |
 | --- | --- | --- |
-| Unit | Uygulanmış | 913 test |
+| Unit | Uygulanmış | Tam depoda 1029 test |
 | Repository | Uygulanmış, unit içinde | Gerçek SQLite sorgu/constraint testleri |
 | Contract | Kısmen uygulanmış | Fake adaptörler port sözleşmesini sınar |
-| Integration | Planlanmış ancak uygulanmamış | Dizin boş; gerçek PostgreSQL/LDAP/ServiceNow yok |
-| API | Planlanmış ancak uygulanmamış | API yok |
-| End-to-end | Planlanmış ancak uygulanmamış | Dizin boş; runtime/UI yok |
+| Integration | Kısmen uygulanmış | 34F yapay dataset için iki opt-in PostgreSQL testi; LDAP/ServiceNow gerçek entegrasyonu yok |
+| API | Kısmen uygulanmış | Dashboard özeti ve BFF logout güvenlik/hata sözleşmesi |
+| End-to-end | Kısmen uygulanmış | Frontend için 14 Playwright testi; üretim IdP/veri bağlantısı yok |
 | Performance | Planlanmış ancak uygulanmamış | 20 milyon satır ve yük testi yok |
-| Synthetic data | Hedef tasarım belgelenmiş, runtime uygulanmamış | Politika/run/ground truth üreticisi ve gizlilik kapısı yok |
+| Synthetic data | Kısmen uygulanmış | 34A–34F politika/run, Golden üretici, ground truth, zaman ve PostgreSQL alt kapsamı; gizlilik kapısı ve genel runtime karşılaştırması yok |
 | Security | Kısmen uygulanmış | Negatif unit, local secret scan, direct SBOM, yerel SAST/bağımlılık zafiyet kapıları, pentest bulgu takibi, teknik kanıt manifesti/drift kapısı ve birleşik preflight; gerçek scanner/SCA/DAST/pentest yok |
 
 Coverage aracı, eşik veya rapor dosyası yapılandırılmamıştır. Test sayısı yüksek olsa
@@ -64,9 +66,8 @@ python3 -m compileall -q 03-Backend/src 06-Testler
 PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc .
 ```
 
-İnceleme baseline'ında test ve Ruff lint geçmektedir. Full format kontrolünde üç
-eski dosyada biçim farkı sürmektedir. Full mypy 131 kaynak dosyada sıfır hata
-raporlamaktadır; bu baseline henüz CI ile zorlanmaz.
+Güncel baseline'da 1029 test, Ruff lint/format ve 159 kaynak dosyalık tam mypy
+kontrolü geçmektedir; bu baseline henüz kurumsal CI ile zorlanmaz.
 
 ## Performans ve Ölçeklenebilirlik
 
@@ -129,7 +130,7 @@ archive tier ve performans benchmark'ı yoktur. 20 milyon satırlık kabul hedef
 | --- | --- | --- |
 | Çok büyük servisler | `issues/service.py` 1013, `scoring/service.py` 913, `data_sources/service.py` 882, `servicenow/service.py` 864 satır | Değişiklik ve review maliyeti |
 | Çok büyük repository'ler | data source 770, issue 748, ServiceNow 690 satır | Şema, mapping ve query sorumlulukları iç içe |
-| Composition root yok | Servis wiring/startup bulunmuyor | Gerçek dependency graph/test edilemiyor |
+| Composition root sınırlı | Dashboard/logout wiring'i var; diğer domainler HTTP/runtime graph'ına bağlı değil | Uçtan uca davranış yalnız ilk dikeyde test ediliyor |
 | Type-check CI kapısı eksik | Yerel mypy baseline'ı 131 dosyada sıfır; pipeline zorlaması yok | Yeni sapmalar otomatik engellenmez |
 | Tool/dependency setup eksik | pytest/Ruff/mypy manifestte pinli değil; lock yok | Tekrarlanabilir build zayıf |
 | Runtime migration | Repository açılışında DDL/rebuild | Deployment ve rollback riski |
@@ -137,12 +138,13 @@ archive tier ve performans benchmark'ı yoktur. 20 milyon satırlık kabul hedef
 | Merkezi role/permission kataloğu yok | String rol setleri farklı policy'lerde | Yetki matrisi drift riski |
 | Legacy adapter/table | dashboard `_legacy`, `audit_records` | İki davranışın uzun süre yaşaması |
 | Enumda kullanılmayan durumlar | Issue `NEW`, `CANCELLED` servis akışında yok | Model ve gerçek state machine farklı |
-| Skorlama hedef modeli runtime'a taşınmadı | `DQ-SCR-001`–`DQ-SCR-033` dokümante; standart durumlar, kapsam/güven, risk ve override modeli kodda yok | Kabul edilen sözleşme ile çalışan prototip ayrışıyor |
-| Dataset kritiklik ağırlıklı SOURCE skoru | Mevcut runtime kritiklik katsayısını kalite agregasyonuna katıyor; `ADR-015` bunu hedef modelde `Superseded` olarak işaretliyor | Kalite ile kritiklik/risk göstergeleri birbirine karışıyor |
+| Skorlama hedef modeli kısmen runtime'a taşındı | 33A kanonik sayaç/durum, 33B kritiklikten ayrılmış SOURCE kalite skoru; kapsam/güven, risk, override ve replay'in kalanı yok | Kabul edilen sözleşme ile çalışan prototip kısmen ayrışıyor |
+| Tarihsel SOURCE replay'i eksik | `SOURCE_EQUAL_DATASET_QUALITY_V2` aktiftir; eski `SOURCE_WEIGHTED_V1` kayıtlarının replay/backfill ilişkisi yok | Trend karşılaştırılabilirliği sınırlı |
 | Dimension weight semantiği | Configte var, dimension/enterprise formülünde kullanılmıyor | İş beklentisiyle sapma riski |
-| Sentetik veri hedef modeli runtime'a taşınmadı | `FR-088–FR-096`, `ADR-016` ve `AC/TS-048–056` dokümante; üretici, bağımsız ground truth/karşılaştırıcı ve gizlilik kapısı kodda yok | Gerçekçi test, yeniden üretilebilirlik ve gizlilik kanıtı üretilemiyor |
+| Sentetik veri hedef modeli kısmen runtime'a taşındı | 34A–34F çekirdeği var; gizlilik kapısı, eksiklik/drift/hacim ve genel kural/skor/olay karşılaştırması yok | Tam kabul ve anonimlik kanıtı üretilemiyor |
 | Paketleme eksik | `[build-system]` ve script yok | Kurulum/dağıtım standart değil |
-| Frontend toolchain yok | Tasarım sistemi ve görsel test stratejisi belgelendi; runtime, Storybook ve Playwright proje kurulumu yok | Referans ekran henüz çalışan ürün veya otomatik regression kanıtı değil |
+| Frontend alan yüzeyleri eksik | React/Vite dashboard, tema, Storybook ve Playwright var; alan ekranları ve operasyonel KPI API'si yok | Referans dashboard kısmi, iş akışları açılmıyor |
+| Kanıta dayalı karar runtime'ı yok | `ADR-019`, `FR-097–FR-111`, `AC/TS-057–071` belgelendi | Manifest/evidence, lineage, öneri, remediation ve chaos ikinci faz hedefi olarak kalıyor |
 
 Belirgin dairesel paket bağımlılığı saptanmamıştır. Ancak bazı domain servisleri
 concrete SQLite repository sınıfı aldığı için port/adapter ayrımı tutarlı değildir.
@@ -160,3 +162,5 @@ concrete SQLite repository sınıfı aldığı için port/adapter ayrımı tutar
 9. SAST/SCA/DAST ve bağımsız sızma testi hazırlığı.
 10. Sentetik Golden/bozulmuş/drift/gizlilik profilleri, kusur ground truth'u,
     false-positive/negative, bağımsız skor sapması ve üretim hedefi izolasyonu.
+11. `AC/TS-057–071` için formül/kanıt/manifest, ayrı güven, nedensellik,
+    yetkisiz remediation/chaos ve hassas kanıt negatifleri.

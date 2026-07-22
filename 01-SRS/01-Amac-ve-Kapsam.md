@@ -19,7 +19,7 @@ Bu bölüm, sistemin geliştirilme gerekçesini, SRS dokümanının hedefini, ka
 
 Kurumun operasyonel sistemleri, veri ambarı, veri gölü, dosya tabanlı kaynakları ve harici servisleri arasında üretilen verilerin hacmi ve çeşitliliği arttıkça veri kalitesinin yalnızca manuel kontrollerle sürdürülebilir biçimde yönetilmesi mümkün değildir. Eksik, geçersiz, tutarsız, tekrarlı, güncelliğini yitirmiş veya referans bütünlüğü bozulmuş veriler; raporlama hatalarına, operasyonel gecikmelere, mevzuat risklerine ve yanlış karar alınmasına yol açabilir.
 
-Veri Kalitesi İzleme ve Skorlama Sistemi; veri kaynaklarının merkezi olarak tanımlanmasını, veri kümelerinin profillenmesini, veri kalitesi kurallarının yönetilmesini, kuralların manuel veya zamanlanmış biçimde çalıştırılmasını, kalite skorlarının hesaplanmasını, sorunların sorumlu kişilere atanmasını ve denetlenebilir kayıtların saklanmasını sağlar.
+Veri Kalitesi İzleme ve Skorlama Sistemi; veri kaynaklarının merkezi olarak tanımlanmasını, veri kümelerinin profillenmesini, veri kalitesi kurallarının yönetilmesini, kuralların manuel veya zamanlanmış biçimde çalıştırılmasını, kalite skorlarının hesaplanmasını, sorunların sorumlu kişilere atanmasını ve denetlenebilir kayıtların saklanmasını sağlar. İkinci faz hedefinde aynı zamanda verinin belirli kullanım amacı için uygunluğunu, kontrol/ölçüm yeterliliğini, kaynaklı etki ve teşhisi, değişiklik simülasyonunu, kanıtlı öneriyi ve yeniden üretilebilir karar paketini politika sınırında sunar.
 
 ## 1.2 Amaç
 
@@ -46,11 +46,15 @@ Doküman; proje yöneticileri, iş analistleri, yazılım geliştiriciler, veri 
 - LDAP tabanlı kimlik doğrulama ve rol bazlı yetkilendirme.
 - Audit log, sonuç geçmişi ve raporlama için kayıt sınıfı bazlı saklama ve imha politikaları.
 - Kurum içi veri merkezi dağıtımı ve yerel geliştirme/prototip ortamı.
+- İkinci fazda kullanım amacı bazlı uygunluk, kanıt/run manifesti, lineage ve
+  değişiklik etkisi, kaynaklı teşhis/öneri, data contract, adaptif tarama,
+  gizlilik korumalı inceleme, kalite borcu, kontrollü chaos ve kanıt paketi.
 
 ### Kapsam Dışında
 
 
-- Kaynak sistemlerde verinin otomatik düzeltilmesi veya silinmesi.
+- Kaynak sistemlerde verinin otomatik düzeltilmesi veya silinmesi; ikinci faz
+  remediation hedefi de kaynak üretim verisini değiştiremez.
 - Kaynak sistemlere yazma yetkisi verilmesi.
 - Ana veri yönetimi, veri sözlüğü veya metadata kataloğunun tüm fonksiyonlarının yeniden geliştirilmesi.
 - İlk fazda gerçek zamanlı streaming veri kontrolü.
@@ -90,6 +94,12 @@ Doküman; proje yöneticileri, iş analistleri, yazılım geliştiriciler, veri 
 | RPO | Recovery Point Objective; kabul edilebilir veri kaybı süresi. |
 | RTO | Recovery Time Objective; kabul edilebilir hizmet geri dönüş süresi. |
 | KararAlındı | Teknik yön kullanıcı kararıyla kesinleşmiştir; uygulama ve gerekli kurumsal incelemeler ayrı izlenir. Ortama göre değişen değerler aktif ve sürümlü politikadan çözülür, politika yoksa sistem fail-closed davranır. |
+| Kanıt | Bir skor, teşhis, öneri, değişiklik veya kararın kaynağını ve bütünlüğünü gösteren veri-minimum, sürümlü referans. Audit log işlemin izi olsa da tek başına teknik kanıt değildir. |
+| Kullanım amacı profili | Datasetin belirli kullanımında uygulanacak boyut, ağırlık, eşik, kritik alan, bloke edici kural ve yeterlilik politika referansları. |
+| Reproduction manifesti | Snapshot/partition, sayaç, örnekleme/seed, kural/politika/model/motor sürümü, hash ve aktör bilgileriyle replay'i mümkün kılan değişmez kayıt. |
+| Lineage snapshot'ı | Tablo/kolon, dönüşüm, pipeline ve downstream varlık ilişkilerinin belirli kaynak/sürüm/zamandaki görünümü. |
+| Remediation | Kanıtlı önerinin dry-run, etki, yetki, onay, canary, yeniden doğrulama ve rollback ile yönetilen iyileştirme süreci; kaynak üretim verisine yazma yetkisi değildir. |
+| Kalite borcu | Çözülmemiş veya tekrarlayan kalite sorunlarının yaş, etki, tekrar, istisna ve sahiplik kanıtlarıyla izlenen birikimi. |
 
 ## 1.5 Referanslar
 

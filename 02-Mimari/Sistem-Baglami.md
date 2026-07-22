@@ -13,7 +13,7 @@ tags:
 # Sistem Bağlamı
 
 
-Sistem, operasyonel veritabanları, veri ambarı, veri gölü, dosya depoları ve REST servislerinden metadata ve kalite ölçüm sonuçları toplar. Kaynak sistemlerde veri değiştirmez; salt okunur erişimle sorgu ve örneklem gerçekleştirir. Kullanıcılar LDAP destekli kurumsal IdP/SSO üzerinden OIDC veya SAML ve zorunlu MFA ile doğrulanır. Sistem sonuçları dashboard ve raporlarla sunar, kritik bulgular için sistem içi bildirim oluşturur ve ara entegrasyon katmanı üzerinden ServiceNow ticket akışını yürütür.
+Sistem, operasyonel veritabanları, veri ambarı, veri gölü, dosya depoları ve REST servislerinden metadata ve kalite ölçüm sonuçları toplar. Kaynak sistemlerde veri değiştirmez; salt okunur erişimle sorgu ve örneklem gerçekleştirir. Kullanıcılar LDAP destekli kurumsal IdP/SSO üzerinden OIDC veya SAML ve zorunlu MFA ile doğrulanır. Sistem sonuçları dashboard ve raporlarla sunar, kritik bulgular için sistem içi bildirim oluşturur ve ara entegrasyon katmanı üzerinden ServiceNow ticket akışını yürütür. İkinci faz hedefinde kullanım amacı bazlı uygunluk, kanıt/lineage, etki ve değişiklik simülasyonu ile politika kontrollü öneri/remediation karar desteği eklenir; bu hedef kaynak üretim verisine yazma yetkisi vermez.
 
 Metinsel bağlamda kullanıcılar web arayüzü veya API aracılığıyla sisteme erişir. Kural motoru bağlayıcı ve kaynak kullanım politikaları üzerinden kontrolleri çalıştırır. Skorlama motoru ham ve kritik kontrol etkili nihai kalite skorunu üretir; ölçüm yeterliliği kapısı kapsam, güven, güncellik, teknik başarı ve kanıt koşullarını ayrı değerlendirerek kullanım kararını verir. Resmî ve provizyonel sonuçlar bu kapıda ayrılır. Audit altyapısı kritik işlemlerde fail-closed, rutin olaylarda dayanıklı outbox uygular. Kurumsal veri kataloğu veya DLP sistemi sınıflandırma ve kullanım kısıtlarının kaynağıdır.
 
@@ -32,4 +32,9 @@ flowchart LR
     INT -->|Ticket oluşturma / güncelleme| SN[ServiceNow]
     DQ -->|Rapor / skor API'si| BI[Raporlama Araçları]
     CAT[Kurumsal Veri Kataloğu / DLP] -->|Sınıflandırma ve kısıtlar| DQ
+    LIN[Kurumsal Lineage / Değişiklik Kaynakları] -->|Kaynaklı lineage ve olay referansları| DQ
+    DQ -->|Kanıt paketi / karar görünümü| GOV[Veri Yönetişimi / Risk / Denetim]
 ```
+
+Kurumsal lineage kaynağı, recommendation/LLM sağlayıcısı veya otomasyon hedefi
+bu diyagramla seçilmiş değildir; `OPEN-026–OPEN-036` geçerlidir.

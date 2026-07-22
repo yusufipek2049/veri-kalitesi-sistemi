@@ -12,7 +12,7 @@ tags:
 
 # Gereksinim İzlenebilirlik Matrisi
 
-Bu matris, iş hedeflerini fonksiyonel gereksinim, kullanım senaryosu, iş kuralı, kabul kriteri ve test senaryosuyla ilişkilendirir. Fonksiyonel gereksinimler aralık halinde gösterilmiş olsa da FR-001–FR-096'nın tamamı en az bir satırda kapsanmıştır.
+Bu matris, iş hedeflerini fonksiyonel gereksinim, kullanım senaryosu, iş kuralı, kabul kriteri ve test senaryosuyla ilişkilendirir. Fonksiyonel gereksinimler aralık halinde gösterilmiş olsa da FR-001–FR-111'in tamamı en az bir satırda kapsanmıştır.
 
 | İş Gereksinimi ID | Fonksiyonel Gereksinim ID | Kullanım Senaryosu ID | İş Kuralı ID | Kabul Kriteri ID | Test Senaryosu ID | Öncelik |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -35,6 +35,26 @@ Bu matris, iş hedeflerini fonksiyonel gereksinim, kullanım senaryosu, iş kura
 | BR-001, BR-005 | FR-086 | UC-004 | RULE-007 | AC-025 | TS-025 | Could |
 | BR-004, BR-008 | FR-087 | UC-013, UC-014 | RULE-003, RULE-011 | AC-019 | TS-019 | Should |
 | BR-001, BR-002, BR-003, BR-007 | FR-088–FR-096 | UC-017 | RULE-003–RULE-007, RULE-009–RULE-012, RULE-014, RULE-016, RULE-017 | AC-048–AC-056 | TS-048–TS-056 | Must |
+| BR-009, BR-010 | FR-097–FR-100 | UC-018, UC-019 | RULE-005, RULE-007, RULE-009, RULE-018–RULE-022 | AC-057–AC-060 | TS-057–TS-060 | Must/Should — ikinci faz |
+| BR-009–BR-011 | FR-101–FR-106 | UC-019, UC-020 | RULE-002, RULE-005, RULE-007, RULE-018–RULE-023 | AC-061–AC-065 | TS-061–TS-065 | Should/Could — ikinci faz |
+| BR-010, BR-011 | FR-107–FR-111 | UC-018, UC-020, UC-021 | RULE-002, RULE-005, RULE-007, RULE-009–RULE-011, RULE-014, RULE-017–RULE-023 | AC-066–AC-071 | TS-066–TS-071 | Must/Should/Could — ikinci faz |
+
+## Kanıta Dayalı Karar Sistemi İzlenebilirliği
+
+Kanonik hedef tasarım
+[Kanıta Dayalı Karar Sistemi](../02-Mimari/Kanita-Dayali-Karar-Sistemi.md),
+mimari karar `ADR-019`, gereksinim kaynağı
+[04.14-Kanıta Dayalı Karar Desteği](04-Fonksiyonel-Gereksinimler/04.14-Kanita-Dayali-Karar-Destegi.md)
+ve açık kararlar `OPEN-026–OPEN-036`'dır.
+
+| Gereksinim | Mimari / veri modeli | API / UI | IAM / güvenlik | Test / operasyon |
+| --- | --- | --- | --- | --- |
+| FR-097–FR-100 | UseCaseScoreProfile, EvidenceItem/Link, RunManifest, ImpactAssessment | Kullanım kararı, skor/kanıt/etki ve reproduction | Skor/formül/kanıt/reproduction izinleri | NFR-MNT-008; AC/TS-057–060; karar runbook'u |
+| FR-101–FR-103 | LineageSnapshot, ChangeEvent, Diagnosis | Simülasyon, lineage, drift ve kök neden | Lineage/değişiklik scope'u | AC/TS-061–063; sürüm/değişiklik kapısı |
+| FR-104–FR-105 | Recommendation, RemediationAction, ConfidenceAssessment | Öneri, dry-run, onay, canary ve rollback | Öneren/onaylayan ayrımı; otomasyon izinleri | AC/TS-064/069; remediation runbook'u |
+| FR-106–FR-109 | DataContract, QualityDebtItem, EvidenceItem | Sözleşme ihlali, tarama gerekçesi, maskeli kayıt ve borç görünümü | Gerçek/maskeli kayıt, DLP, geçici yetki | AC/TS-065–068 |
+| FR-110 | ChaosExperiment, InjectedFault, DetectionResult | Deney işi ve sonuçları | Ayrı chaos izni, ortam attestation ve onay | AC/TS-070; chaos runbook akışı |
+| FR-111 | IncidentTimelineEvent, EvidencePackage | Zaman çizelgesi ve asenkron paket | Paket üretme/indirme, DLP ve audit | NFR-MNT-008; AC/TS-071; saklama/dışa aktarma kapısı |
 
 ## Sentetik Veri İzlenebilirliği
 
@@ -97,7 +117,7 @@ Tüm satırlarda hedef mimari kararı `ADR-015`, kanonik gereksinim kaydı
 | `DQ-SCR-033` | FR-028, FR-035, FR-052 | Yönetişim ve yetki sınırı | Role bağlı yönetim yüzeyi | AC/TS-038 | OPEN-BNK-001/004/013 |
 
 
-**İzlenebilirlik kontrol sonucu:** BR-001–BR-008, FR-001–FR-096,
-`DQ-SCR-001`–`DQ-SCR-033`, UC-001–UC-017, RULE-001–RULE-017 ve
-AC-001–AC-056 matris kapsamındadır. Kapsam aralıkları ayrıntılı test yönetim
+**İzlenebilirlik kontrol sonucu:** BR-001–BR-011, FR-001–FR-111,
+`DQ-SCR-001`–`DQ-SCR-033`, UC-001–UC-021, RULE-001–RULE-023 ve
+AC-001–AC-071 matris kapsamındadır. Kapsam aralıkları ayrıntılı test yönetim
 aracına aktarılırken tekil satırlara bölünmelidir.

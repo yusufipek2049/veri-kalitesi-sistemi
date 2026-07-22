@@ -1,5 +1,13 @@
 # Riskler ve Yol Haritası
 
+## İkinci Faz Karar Desteği Yol Haritası
+
+`ADR-019` hedefi mevcut frontend ve skorlama artımlarından sonra şu bağımlılık
+sırasını izler: kanıt/manifest; kullanım amacı/etki; lineage/simülasyon;
+teşhis/öneri; kontrat/adaptif tarama/gizlilik/kalite borcu; kontrollü remediation;
+izole chaos ve kanıt paketi. `OPEN-026–OPEN-036` kapanmadan ürün, eşik,
+finansal katsayı, saklama, yetki, sağlayıcı veya otomasyon düzeyi varsayılmaz.
+
 ## Risk Değerlendirme Yöntemi
 
 Olasılık ve etki `Düşük/Orta/Yüksek` olarak kod kanıtına göre değerlendirilmiştir.

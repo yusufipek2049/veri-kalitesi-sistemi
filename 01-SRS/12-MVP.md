@@ -21,7 +21,7 @@ Bu bölüm, gereksinimleri MoSCoW yaklaşımıyla ve iki ürün fazında sınıf
 | Must Have | Kurumsal SSO/MFA, RBAC, kaynak tanımı/testi ve kullanım politikası, secret yönetimi, katalog/DLP sınıflandırması, metadata/profil, temel kural şablonları, manuel/zamanlanmış çalışma, timeout/retry/idempotency, resmî/provizyonel skor ayrımı, dashboard, sistem içi bildirim, temel issue yaşam döngüsü, temel rapor/dışa aktarma, audit ve API güvenliği | FR-001–FR-003, FR-005–FR-034 seçili Must öğeleri; FR-036–FR-061 Must öğeleri; FR-064–FR-070; FR-072, FR-075, FR-077–FR-084, FR-086 | Sistemin iş değerini, güvenliğini ve denetlenebilirliğini sağlayan asgari kapsam. |
 | Should Have | Yetki matrisi, kural onayı, bağımlılık sırası, iptal, gelişmiş trend, bildirim susturma/eskalasyon, kanıt dosyası, ServiceNow, gelişmiş raporlar, yatay ölçekleme ve dağıtık izleme | FR-004, FR-035, FR-038, FR-042, FR-052–FR-053, FR-058, FR-061, FR-063, FR-067, FR-071, FR-073–FR-074, FR-076, FR-087 | Kurumsal işletimi güçlendirir; MVP sonrası kısa vadede planlanmalıdır. |
 | Could Have | Aykırı değer analizi, webhook, çoklu tenant, gelişmiş otomasyon | FR-019, FR-085 ve Sistem Evrimi maddeleri | İş değerini artırır ancak temel kalite döngüsü bunlar olmadan çalışır. |
-| Won't Have for Now | ML anomali tespiti, otomatik kural önerisi, doğal dil kuralı, gerçek zamanlı streaming, otomatik kök neden, tam lineage, dış e-posta/SMS | Bölüm 14 gelecekteki kapsam | Yerel prototip ve ilk kurumsal sürümün riskini, maliyetini ve karmaşıklığını sınırlamak. |
+| Won't Have for Now | ML anomali tespiti, doğal dil kuralı, gerçek zamanlı streaming, otomatik kök neden, tam lineage, kanıtlı otomasyon/chaos ve dış e-posta/SMS | Bölüm 14 ve FR-097–FR-111 ikinci faz hedefi | Yerel prototip ve ilk kurumsal sürümün riskini, maliyetini ve karmaşıklığını sınırlamak; hedef sözleşmenin dokümante olması uygulandığı anlamına gelmez. |
 
 ## 12.2 MVP
 
@@ -62,5 +62,15 @@ MVP; uçtan uca “kaynağı tanımla → profille → kuralı oluştur/test et 
 - Webhook ve harici olay tüketimi.
 - Büyük ölçekli yatay worker ve kuyruk ölçekleme.
 - Çoklu kurum/tenant gereksinimi doğarsa veri ve yetki izolasyonu.
+- Kullanım amacı bazlı uygunluk profilleri ve ayrı güven değerleri.
+- Run manifesti, çoktan çoğa kanıt bağı, reproduction ve olay kanıt paketi.
+- Kaynaklı lineage, etki değerlendirmesi ve değişiklik blast-radius simülasyonu.
+- Kanıtlı teşhis/öneri ve `SuggestOnly` ile başlayan politika kontrollü remediation.
+- Data contract, adaptif/risk bazlı tarama ve kalite borcu yönetimi.
+- Gizlilik korumalı kayıt inceleme ve izole sentetik chaos kontrol yeterliliği.
 
-**Gerekçe:** Bu özellikler daha fazla metadata olgunluğu, eğitim verisi, entegrasyon izni ve işletim kapasitesi gerektirir. Önce MVP'deki deterministik ölçüm ve tarihsel veri tabanı kurulmalıdır.
+**Gerekçe:** Bu özellikler daha fazla metadata/lineage olgunluğu, kanıt kaynağı,
+entegrasyon izni, yönetişim politikası ve işletim kapasitesi gerektirir. Önce
+MVP'deki deterministik ölçüm ve tarihsel veri tabanı kurulmalıdır. Ayrıntılı hedef
+`FR-097–FR-111` ve `ADR-019`'dur; `OPEN-026–OPEN-036` kapanmadan eşik, sağlayıcı
+veya otomasyon yetkisi varsayılmaz.

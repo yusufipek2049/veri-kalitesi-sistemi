@@ -70,6 +70,11 @@ yerleşimde kalır.
 | Kalite Boyutu Matrisi | Heatmap + erişilebilir tablo | Alan × kalite boyutu skor/durum; `NotApplicable` ayrı | Hücre detayı |
 | Son İhlaller | Data table | Kapsam, kural kodu, durum, skor, zaman, issue ref | Sayfalama/sıralama/detay |
 
+İkinci fazda issue/skor detayı
+[Kanıtlı Olay İnceleme Ekranına](../04-Sorun-ve-Bildirim/Kanitli-Olay-Inceleme-Ekran-Sozlesmesi.md)
+gider. Dashboard kanıt, teşhis, öneri veya etki ayrıntılarını kendi KPI kartında
+özetleyip kaynak bağlarını kaybetmemelidir.
+
 Issue, aktif kural ve operasyon listesi alanları backend sözleşmesi oluşana kadar mock
 story'de sentetik veriyle gösterilebilir; production çağrısı veya alan adı olarak
 kesinleştirilemez. Mock veride gerçek kurum, kullanıcı, müşteri veya kaynak adı

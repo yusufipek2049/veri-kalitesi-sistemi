@@ -1,5 +1,15 @@
 # Domain ve Veri Modeli
 
+## İkinci Faz Kanıt ve Karar Modeli
+
+`ADR-019` hedefi; mevcut execution, skor, kural, politika, issue, approval ve
+audit varlıklarını yeniden kullanır. Bağımsız yaşam döngüsü gereken
+`UseCaseScoreProfile`, `RunManifest`, `EvidenceItem`, `EvidenceLink`, ayrı
+`ConfidenceAssessment` türleri, lineage/değişiklik/teşhis, öneri/remediation,
+etki/kalite borcu, veri kontratı, chaos ve kanıt paketi mantıksal varlıkları
+[kanonik veri modeli](../../01-SRS/07-Veri-Modeli/Kanit-ve-Karar-Destegi-Varliklari.md)
+belgesinde tanımlıdır. Bunlar migration uygulanmış tablo envanteri değildir.
+
 ## Domain Kavramları
 
 | Kavram | Kod karşılığı | Kalıcılık | Durum |
