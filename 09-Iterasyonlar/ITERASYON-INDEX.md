@@ -27,6 +27,6 @@
 14. [Iterasyon-32-Kismi-Skor-Politikasi](Iterasyon-32-Kismi-Skor-Politikasi.md) - 32A–32D `TechnicallyVerified`; süre aşımı ve güvenilir olgu üretimi açık
 15. [Iterasyon-33-Kanonik-Kural-Skoru](Iterasyon-33-Kanonik-Kural-Skoru.md) - 33A `TechnicallyVerified`; tarihsel backfill ve yeterlilik dilimleri açık
 16. [Iterasyon-34-Sentetik-Veri-Kayit-Cekirdegi](Iterasyon-34-Sentetik-Veri-Kayit-Cekirdegi.md) - 34A–34F `TechnicallyVerified`; PostgreSQL kusur dataseti hazır, uygulama profil/kural entegrasyonu ve gizlilik kapısı açık
-17. [Iterasyon-21-Dashboard-API](Iterasyon-21-Dashboard-API.md) - 21B yerel/test dashboard özet API ve bağlı frontend, 20E BFF cookie/CSRF sınırı `TechnicallyVerified`; gerçek IdP ve üretim altyapısı açık
+17. [Iterasyon-21-Dashboard-API](Iterasyon-21-Dashboard-API.md) - 21B güvenli özet API ve 21C operasyonel gösterge DTO'su `TechnicallyVerified`; 30D UI bağlantısı, gerçek IdP ve üretim altyapısı açık
 
 Her iterasyon [Iterasyon-Kapanis-Sablonu](Iterasyon-Kapanis-Sablonu.md) ile kapatılır.

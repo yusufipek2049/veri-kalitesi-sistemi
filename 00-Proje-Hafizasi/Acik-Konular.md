@@ -223,6 +223,11 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
     DLP/katalog erişimi ve kayıt sınıfı saklama/imha uygulaması mevcut değildir.
     İlgili `OPEN-BNK-*` incelemeleri geçerlidir; bu altyapı yokken hassas erişim,
     otomasyon ve kanıt dışa aktarma fail-closed kalır.
+74. Dashboard 21C DTO'su politika yokluğunu ve teknik hatayı güvenli biçimde
+    gösterir; gerçek `MeasurementQualificationResult`, kapsam/güven politikası,
+    kritik kural sonuç özeti, kullanım kararı ve alarm runtime kaynakları henüz
+    uygulanmadı. Bu kaynaklar yokken API olumlu yeterlilik veya sıfır kritik
+    ihlal sayısı üretmez.
 
 ## Bankacılık Geçiş Açık Konuları
 

@@ -165,10 +165,10 @@ def create_dashboard_api(
         request: Request, response: Response
     ) -> DashboardSummaryResponse:
         actor_context = resolver.resolve(request)
-        trend = dashboard_service.get_score_trend(actor_context)
+        overview = dashboard_service.get_overview(actor_context)
         response.headers["Cache-Control"] = "no-store"
         return DashboardSummaryResponse.from_domain(
-            trend,
+            overview,
             correlation_id=request.state.correlation_id,
             data_origin=data_origin,
         )

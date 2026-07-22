@@ -1378,6 +1378,23 @@ tags:
   erişilebilir session store, PostgreSQL skor repository'si ve üretim CORS
   topolojisi uygulanmadı; üretim geçiş kapısı açık kalır.
 
+### 2026-07-22 — İterasyon 21C: Dashboard operasyonel gösterge API'si
+
+- `FR-054`, `FR-056`, `UC-010`, `AC/TS-030/043/045` kapsamında mevcut
+  dashboard özet DTO'su ölçüm yeterliliği, kritik kontrol kullanılabilirliği ve
+  son 30 UTC günlük teknik hata özetiyle genişletildi.
+- Aktif yeterlilik politikası bulunmadığından olumlu durum uydurulmaz; ölçüm
+  varsa `VALIDATION_REQUIRED`, son ölçüm teknikse `TECHNICAL_FAILURE`, veri yoksa
+  `NO_DATA` üretilir. Kritik kural runtime sonucu yoksa sayılar `null` ve durum
+  `NOT_AVAILABLE` kalır.
+- Trend ile operasyonel göstergeler tek güvenilir authorization kararı ve tek
+  yetki filtreli repository okumasından üretilir. Teknik hata kalite skoruna
+  sıfır olarak çevrilmez; DTO hassas kapsam listesi veya teknik ayrıntı taşımaz.
+- 1031 pytest geçti, iki opt-in PostgreSQL testi atlandı; 159 dosyalık mypy,
+  Ruff lint/format, compileall, 13 frontend testi, TypeScript type-check, Vite
+  build ve 465 dosyalık secret taraması temizdir. Vite bundle boyutu uyarısı
+  sürmektedir.
+
 ### 2026-07-22 — Kanıta dayalı karar sistemi ikinci faz hedef sözleşmesi
 
 - `BR-009–BR-011`, `FR-097–FR-111`, `UC-018–UC-021`, `RULE-018–RULE-023`,

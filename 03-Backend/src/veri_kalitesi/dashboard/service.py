@@ -14,13 +14,20 @@ from veri_kalitesi.dashboard.errors import (
 )
 from veri_kalitesi.dashboard.models import (
     DashboardAccessScope,
+    DashboardCriticalControlIndicator,
+    DashboardMeasurementQualificationIndicator,
+    DashboardOperationalIndicators,
+    DashboardOverview,
     DashboardScoreNode,
     DashboardScoreTrend,
     DashboardScoreTree,
+    DashboardTechnicalErrorIndicator,
     DashboardTrendPeriod,
+    CriticalControlIndicatorStatus,
+    MeasurementQualificationIndicatorStatus,
 )
 from veri_kalitesi.identity import ActorContext, AuthorizationService, IdentityError
-from veri_kalitesi.scoring.models import QualityScore, ScoreScopeType
+from veri_kalitesi.scoring.models import QualityScore, ScoreScopeType, ScoreStatus
 
 
 class ScoreReader(Protocol):
@@ -90,6 +97,12 @@ class DashboardQueryService:
         self,
         actor_context: ActorContext | None,
     ) -> DashboardScoreTrend:
+        return self.get_overview(actor_context).trend
+
+    def get_overview(
+        self,
+        actor_context: ActorContext | None,
+    ) -> DashboardOverview:
         access_scope, correlation_id = self._authorize(actor_context)
         now = self.clock()
         if now.tzinfo is None or now.utcoffset() is None:
@@ -140,7 +153,11 @@ class DashboardQueryService:
                     observations=observations,
                 )
             )
-        return DashboardScoreTrend(as_of=as_of, periods=tuple(periods))
+        trend = DashboardScoreTrend(as_of=as_of, periods=tuple(periods))
+        return DashboardOverview(
+            trend=trend,
+            operational_indicators=_build_operational_indicators(authorized_scores),
+        )
 
     def _authorize(self, actor_context: ActorContext | None) -> tuple[DashboardAccessScope, str]:
         try:
@@ -230,3 +247,65 @@ def _score_time_utc(score: QualityScore) -> datetime:
     if calculated_at.tzinfo is None or calculated_at.utcoffset() is None:
         raise DashboardValidationError("Score calculated_at must be timezone-aware.")
     return calculated_at.astimezone(timezone.utc)
+
+
+def _build_operational_indicators(
+    authorized_scores: tuple[tuple[QualityScore, datetime], ...],
+) -> DashboardOperationalIndicators:
+    latest_by_scope: dict[tuple[ScoreScopeType, str | None], tuple[QualityScore, datetime]] = {}
+    for score, calculated_at in authorized_scores:
+        scope_key = (score.scope_type, score.scope_id)
+        current = latest_by_scope.get(scope_key)
+        if current is None or current[1] < calculated_at:
+            latest_by_scope[scope_key] = (score, calculated_at)
+
+    latest_scores = tuple(item[0] for item in latest_by_scope.values())
+    if not latest_scores:
+        qualification = DashboardMeasurementQualificationIndicator(
+            status=MeasurementQualificationIndicatorStatus.NO_DATA,
+            evaluated_scope_count=0,
+            reason_codes=("NO_AUTHORIZED_MEASUREMENT",),
+        )
+    elif any(
+        score.score_status is ScoreStatus.NOT_CALCULATED_TECHNICAL_ERROR for score in latest_scores
+    ):
+        qualification = DashboardMeasurementQualificationIndicator(
+            status=MeasurementQualificationIndicatorStatus.TECHNICAL_FAILURE,
+            evaluated_scope_count=len(latest_scores),
+            reason_codes=("LATEST_MEASUREMENT_TECHNICAL_FAILURE",),
+        )
+    else:
+        qualification = DashboardMeasurementQualificationIndicator(
+            status=MeasurementQualificationIndicatorStatus.VALIDATION_REQUIRED,
+            evaluated_scope_count=len(latest_scores),
+            reason_codes=("QUALIFICATION_POLICY_UNAVAILABLE",),
+        )
+
+    technical_scores = tuple(
+        (score, calculated_at)
+        for score, calculated_at in authorized_scores
+        if score.score_status is ScoreStatus.NOT_CALCULATED_TECHNICAL_ERROR
+    )
+    technical_errors = DashboardTechnicalErrorIndicator(
+        observation_count=len(technical_scores),
+        execution_count=len({score.execution_id for score, _ in technical_scores}),
+        affected_source_count=len(
+            {
+                score.scope_id
+                for score, _ in technical_scores
+                if score.scope_type is ScoreScopeType.SOURCE and score.scope_id is not None
+            }
+        ),
+        last_occurred_at=max(
+            (calculated_at for _, calculated_at in technical_scores),
+            default=None,
+        ),
+    )
+    return DashboardOperationalIndicators(
+        measurement_qualification=qualification,
+        critical_controls=DashboardCriticalControlIndicator(
+            status=CriticalControlIndicatorStatus.NOT_AVAILABLE,
+            reason_code="CRITICAL_RULE_RESULT_NOT_AVAILABLE",
+        ),
+        technical_errors=technical_errors,
+    )

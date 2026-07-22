@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
+from enum import Enum
 
 from veri_kalitesi.scoring.models import ScoreLevel, ScoreScopeType, ScoreStatus
 
@@ -58,3 +59,51 @@ class DashboardScoreTrend:
     @property
     def has_data(self) -> bool:
         return any(period.has_data for period in self.periods)
+
+
+class MeasurementQualificationIndicatorStatus(str, Enum):
+    NO_DATA = "NO_DATA"
+    VALIDATION_REQUIRED = "VALIDATION_REQUIRED"
+    TECHNICAL_FAILURE = "TECHNICAL_FAILURE"
+
+
+class CriticalControlIndicatorStatus(str, Enum):
+    NOT_AVAILABLE = "NOT_AVAILABLE"
+
+
+@dataclass(frozen=True)
+class DashboardMeasurementQualificationIndicator:
+    status: MeasurementQualificationIndicatorStatus
+    evaluated_scope_count: int
+    reason_codes: tuple[str, ...]
+    policy_version: str | None = None
+
+
+@dataclass(frozen=True)
+class DashboardCriticalControlIndicator:
+    status: CriticalControlIndicatorStatus
+    reason_code: str
+    passed_count: int | None = None
+    failed_count: int | None = None
+    not_evaluated_count: int | None = None
+
+
+@dataclass(frozen=True)
+class DashboardTechnicalErrorIndicator:
+    observation_count: int
+    execution_count: int
+    affected_source_count: int
+    last_occurred_at: datetime | None
+
+
+@dataclass(frozen=True)
+class DashboardOperationalIndicators:
+    measurement_qualification: DashboardMeasurementQualificationIndicator
+    critical_controls: DashboardCriticalControlIndicator
+    technical_errors: DashboardTechnicalErrorIndicator
+
+
+@dataclass(frozen=True)
+class DashboardOverview:
+    trend: DashboardScoreTrend
+    operational_indicators: DashboardOperationalIndicators
