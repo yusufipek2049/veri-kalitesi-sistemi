@@ -54,7 +54,9 @@ sonraki değişiklikler bu baseline'ı korumalıdır.
 
 | Ürün artımı | Yeni sıradaki yeri | Not |
 | --- | --- | --- |
-| Kalan cron desteği | Geçiş kapısından sonra | Parser/gramer kararı hâlâ açık |
+| Beş alanlı POSIX cron alt kümesinin uygulanması | Geçiş kapısından sonra | Gramer/timezone/DST kararı alındı; parser entegrasyonu ve testleri bekliyor |
+| Şema değişikliğinde ilişkili kuralları `REVIEW_REQUIRED` durumuna alma | Metadata/kural yönetimi artımı | Karar alındı; metadata değişim bayrağı ve kural geçişi uygulanacak |
+| Kalıcı `QualityDimension` UUID varlığı | Skorlama veri modeli artımı | Karar alındı; iş kodu korunarak migration/replay uygulanacak |
 | Dashboard trend ve operasyon listeleri | İterasyon 21 | Güvenilir yetki bağlamından sonra |
 | Bildirim ve issue yaşam döngüsü | İterasyon 22 | Veri minimizasyonu ve merkezi auditten sonra |
 | Raporlama ve audit inceleme | İterasyon 24 | Dışa aktarma kontrolüyle birlikte |
