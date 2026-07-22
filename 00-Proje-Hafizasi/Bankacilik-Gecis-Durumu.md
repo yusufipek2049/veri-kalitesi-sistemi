@@ -17,8 +17,9 @@ tags:
 
 Yüklenen mevcut vault ve kod üzerinden doğrulanan durum:
 
-- İterasyon 1–16, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20D, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Iterasyon 31A–31C, Iterasyon 32A–32D, İterasyon 33A ve İterasyon 34A–34E teknik dikeyleri tamamlanmış ve proje hafızasına kaydedilmiştir.
-- `pytest` sonucu: **993 test geçti**; tam mypy kontrolü 146 kaynak dosyada
+- İterasyon 1–16, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20D, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Iterasyon 31A–31C, Iterasyon 32A–32D, İterasyon 33A ve İterasyon 34A–34F teknik dikeyleri tamamlanmış ve proje hafızasına kaydedilmiştir.
+- `pytest` sonucu: **1009 test geçti**; iki gerçek PostgreSQL entegrasyon testi
+  opt-in koşuda ayrıca geçti. Tam mypy kontrolü 150 kaynak dosyada
   sıfır hata vermektedir.
 - Mevcut çalışan domain paketleri:
   - `data_sources`
@@ -54,8 +55,10 @@ Yüklenen mevcut vault ve kod üzerinden doğrulanan durum:
   tamamen yapay deterministik Golden ilişkisel üretici 34B, değişmez Golden
   yapısal ground truth ve bağımsız karşılaştırıcı 34C, kanonik çıktı/doğrulama
   referanslı append-only terminal run kanıtı 34D, append-only profilli
-  deterministik çok dönemli zaman semantiği 34E ile runtime'a taşındı;
-  eksiklik/drift/hacim, fiziksel çıktı/artifact deposu, kayıt düzeyi ve sayısal ground truth, runtime
+  deterministik çok dönemli zaman semantiği 34E ile runtime'a taşındı. 34F,
+  gerçek PostgreSQL üzerinde 17 ilişkisel tablo, kontrollü kusur, kayıt düzeyi
+  ground truth ve bağımsız SQL oracle'ını doğruladı;
+  eksiklik/drift/hacim, fiziksel çıktı/artifact deposu, sayısal skor ground truth'u, runtime
   kural/skor/olay karşılaştırması ve gizlilik kapısı uygulanmadı. Sentetik çıktı anonimlik
   veya banka onayı sayılmaz, gerçek operasyon hedeflerini tetikleyemez ve
   `OPEN-014` kapsamındaki nihai anonimleştirilmiş üretim örneği kabulinin yerine
@@ -109,7 +112,7 @@ Aşağıdaki maddeler tamamlanmadan yeni HTTP yüzeyi, hassas dışa aktarma vey
 
 ## Kontrol Durumu
 
-- Teknik geçiş: **Devam ediyor; İterasyon 17A–17E, 18A–18C, 19A–19H, 20A–20D, 21A, 22A–22I, 23A–23D, 24A–24B, 25A–25D, 26A–26B, 27A, 28A–28E, 29A–29C, 31A–31C, 32A–32D, 33A ve 34A–34E TechnicallyVerified**
+- Teknik geçiş: **Devam ediyor; İterasyon 17A–17E, 18A–18C, 19A–19H, 20A–20D, 21A, 22A–22I, 23A–23D, 24A–24B, 25A–25D, 26A–26B, 27A, 28A–28E, 29A–29C, 31A–31C, 32A–32D, 33A ve 34A–34F TechnicallyVerified**
 - BDDK/KVKK teknik kontrol eşlemesi: **Proposed**
 - Banka bilgi güvenliği onayı: **ComplianceReviewRequired**
 - Banka hukuk/uyum onayı: **ComplianceReviewRequired**

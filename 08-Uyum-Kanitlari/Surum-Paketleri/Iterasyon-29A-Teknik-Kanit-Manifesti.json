@@ -139,7 +139,7 @@
         },
         {
           "relative_path": "08-Uyum-Kanitlari/Erisim/Iterasyon-20C-Guvenli-Oturum-Yasam-Dongusu-Kaniti.md",
-          "sha256": "ff15ab6902f6dc7bf049361ac0147f29cd38fa546662c0ef3fee6e8b2ee902d4"
+          "sha256": "30b45a2df7a893ff768e0823e2ad178c81b35feacdb96a1f5e8e9f5a1fdb18ce"
         }
       ],
       "review_status": "ComplianceReviewRequired",
@@ -427,7 +427,7 @@
       "technical_status": "Missing"
     }
   ],
-  "controls_digest": "83590b3fe1f111ec00e3d98661c198517018ecb4bbebb4f5c3a4cffc9e8b2763",
+  "controls_digest": "afad8a64ad16d4f36422db29f61134bd361024e2136049f814a6fb0af7de9df4",
   "missing_control_ids": [
     "CTRL-BDDK-BCP-001",
     "CTRL-KVKK-XFER-001"

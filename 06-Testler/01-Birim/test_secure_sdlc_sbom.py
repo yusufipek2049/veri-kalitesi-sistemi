@@ -213,6 +213,9 @@ def test_repository_manifest_generates_expected_direct_inventory() -> None:
     assert payload["metadata"]["component"]["version"] == "0.1.0"
     assert [component["name"] for component in payload["components"]] == [
         "packaging",
+        "psycopg",
+        "psycopg-binary",
+        "sqlalchemy",
         "tomli",
     ]
     assert all("hashes" not in component for component in payload["components"])

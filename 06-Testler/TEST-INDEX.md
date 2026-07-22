@@ -106,6 +106,11 @@ hata ayrımını `06-Testler/01-Birim/test_synthetic_temporal.py` içinde kanıt
 profil için doğrulanmıştır; üretim benzerliği, skor toleransı veya anonimlik
 sonucu değildir.
 
+İterasyon 34F, [Sentetik PostgreSQL İlişkisel Dataset](02-Entegrasyon/Sentetik-PostgreSQL-Dataset.md)
+ile 17 kaynak tablo, kontrollü kusur, kayıt düzeyi ground truth, bağımsız SQL
+oracle'ı, güvenli reset ve gerçek PostgreSQL kalıcılığını doğrular. Bu çalışma
+uygulamanın genel kural motorunun uçtan uca doğrulaması değildir.
+
 Nicel dağılım, korelasyon, görev faydası, gizlilik, kusur yoğunluğu ve skor
 toleransı eşikleri aktif sürümlü doğrulama politikasından çözülür; politika yoksa
 çalışma `BLOCKED` olur. Sentetik performans
@@ -114,9 +119,10 @@ geçmez.
 
 ## Güncel Otomasyon Baseline'ı
 
-- 987 test geçmektedir.
+- 1009 test geçmektedir; iki gerçek PostgreSQL entegrasyon testi opt-in koşuda
+  ayrıca geçmektedir.
 - Tam statik tip kontrolü `python3 -m mypy 03-Backend/src 06-Testler` komutuyla
-  146 kaynak dosyada sıfır hata vermektedir.
+  150 kaynak dosyada sıfır hata vermektedir.
 - `incident_response` hedef grubu, güvenlik olayı/ihlal ayrımı, 72 saat hedefi, veri işleyen kanıtı, maker-checker kararı, yetki/scope redleri, veri-minimum timeline görünümü, audit minimizasyonu ve rollback için 39 sentetik vaka içerir.
 - `secure_sdlc` hedef grubu; gerçek pozitif/yanlış pozitif, binary/büyük/dışlanan
   dosya, sembolik bağlantı, salt okunurluk, deterministik sıra, teknik hata ve

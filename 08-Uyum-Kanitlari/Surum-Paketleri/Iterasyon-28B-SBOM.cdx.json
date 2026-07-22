@@ -11,6 +11,30 @@
       "version": "26.0"
     },
     {
+      "bom-ref": "pkg:pypi/psycopg@3.3.4",
+      "name": "psycopg",
+      "purl": "pkg:pypi/psycopg@3.3.4",
+      "scope": "required",
+      "type": "library",
+      "version": "3.3.4"
+    },
+    {
+      "bom-ref": "pkg:pypi/psycopg-binary@3.3.4",
+      "name": "psycopg-binary",
+      "purl": "pkg:pypi/psycopg-binary@3.3.4",
+      "scope": "required",
+      "type": "library",
+      "version": "3.3.4"
+    },
+    {
+      "bom-ref": "pkg:pypi/sqlalchemy@2.0.51",
+      "name": "sqlalchemy",
+      "purl": "pkg:pypi/sqlalchemy@2.0.51",
+      "scope": "required",
+      "type": "library",
+      "version": "2.0.51"
+    },
+    {
       "bom-ref": "pkg:pypi/tomli@2.4.1",
       "name": "tomli",
       "purl": "pkg:pypi/tomli@2.4.1",
@@ -23,6 +47,9 @@
     {
       "dependsOn": [
         "pkg:pypi/packaging@26.0",
+        "pkg:pypi/psycopg@3.3.4",
+        "pkg:pypi/psycopg-binary@3.3.4",
+        "pkg:pypi/sqlalchemy@2.0.51",
         "pkg:pypi/tomli@2.4.1"
       ],
       "ref": "pkg:generic/veri-kalitesi-sistemi@0.1.0"
@@ -30,6 +57,18 @@
     {
       "dependsOn": [],
       "ref": "pkg:pypi/packaging@26.0"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/psycopg@3.3.4"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/psycopg-binary@3.3.4"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/sqlalchemy@2.0.51"
     },
     {
       "dependsOn": [],
