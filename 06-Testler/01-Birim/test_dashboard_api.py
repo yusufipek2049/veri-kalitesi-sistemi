@@ -63,8 +63,75 @@ def test_fr_054_uc_010_dashboard_summary_returns_only_authorized_data() -> None:
     assert len(payload["periods"]) == 30
     assert [item["scope_id"] for item in observations] == ["source-a"]
     assert observations[0]["score_value"] == "84.20"
+    indicators = payload["operational_indicators"]
+    assert indicators["measurement_qualification"] == {
+        "status": "VALIDATION_REQUIRED",
+        "evaluated_scope_count": 1,
+        "reason_codes": ["QUALIFICATION_POLICY_UNAVAILABLE"],
+        "policy_version": None,
+    }
+    assert indicators["critical_controls"] == {
+        "status": "NOT_AVAILABLE",
+        "reason_code": "CRITICAL_RULE_RESULT_NOT_AVAILABLE",
+        "passed_count": None,
+        "failed_count": None,
+        "not_evaluated_count": None,
+    }
+    assert indicators["technical_errors"]["observation_count"] == 0
     assert response.headers["cache-control"] == "no-store"
     assert response.headers["x-correlation-id"] == payload["correlation_id"]
+
+
+def test_fr_054_fr_056_ac_030_technical_failure_is_not_zero_quality() -> None:
+    repository = SQLiteScoreRepository()
+    repository.add_or_get(
+        _score(
+            "technical-run",
+            ScoreScopeType.SOURCE,
+            "source-a",
+            None,
+            status=ScoreStatus.NOT_CALCULATED_TECHNICAL_ERROR,
+            calculated_at=NOW - timedelta(hours=1),
+        )
+    )
+    client = TestClient(_app(repository, source_ids=frozenset({"source-a"})))
+
+    response = client.get("/api/v1/dashboard/summary")
+
+    assert response.status_code == 200
+    payload = response.json()
+    observations = [item for period in payload["periods"] for item in period["observations"]]
+    assert observations[0]["score_value"] is None
+    assert observations[0]["score_status"] == "NOT_CALCULATED_TECHNICAL_ERROR"
+    indicators = payload["operational_indicators"]
+    assert indicators["measurement_qualification"]["status"] == "TECHNICAL_FAILURE"
+    assert indicators["technical_errors"] == {
+        "observation_count": 1,
+        "execution_count": 1,
+        "affected_source_count": 1,
+        "last_occurred_at": "2026-07-22T11:00:00Z",
+    }
+
+
+def test_fr_054_uc_010_empty_scope_does_not_fabricate_operational_counts() -> None:
+    client = TestClient(_app(SQLiteScoreRepository()))
+
+    response = client.get("/api/v1/dashboard/summary")
+
+    assert response.status_code == 200
+    indicators = response.json()["operational_indicators"]
+    assert indicators["measurement_qualification"] == {
+        "status": "NO_DATA",
+        "evaluated_scope_count": 0,
+        "reason_codes": ["NO_AUTHORIZED_MEASUREMENT"],
+        "policy_version": None,
+    }
+    assert indicators["technical_errors"] == {
+        "observation_count": 0,
+        "execution_count": 0,
+        "affected_source_count": 0,
+        "last_occurred_at": None,
+    }
 
 
 def test_fr_081_missing_production_session_fails_closed_before_query() -> None:
@@ -245,16 +312,19 @@ def _score(
     execution_id: str,
     scope_type: ScoreScopeType,
     scope_id: str | None,
-    value: str,
+    value: str | None,
+    *,
+    status: ScoreStatus = ScoreStatus.CALCULATED,
+    calculated_at: datetime = NOW - timedelta(days=1),
 ) -> QualityScore:
     return QualityScore(
         execution_id=execution_id,
         rule_version_id=None,
         scope_type=scope_type,
         scope_id=scope_id,
-        score_value=Decimal(value),
-        score_status=ScoreStatus.CALCULATED,
-        level=ScoreLevel.ACCEPTABLE,
-        calculation_details={"included_in_official_aggregation": True},
-        calculated_at=NOW - timedelta(days=1),
+        score_value=Decimal(value) if value is not None else None,
+        score_status=status,
+        level=ScoreLevel.ACCEPTABLE if value is not None else None,
+        calculation_details={"included_in_official_aggregation": value is not None},
+        calculated_at=calculated_at,
     )

@@ -730,3 +730,9 @@ Sayısal üretim eşikleri, fault büyüklükleri, saklama süreleri ve ürün a
 kararla uydurulmamıştır. Bunlar ilgili aktif sürümlü politika veya mevcut
 `OPEN-BNK-*` inceleme kayıtlarından çözülür; kayıt yoksa güvenli davranış
 uygulanır.
+
+## 2026-07-22 — İterasyon 21C Teknik Kararı
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| Dashboard operasyonel DTO'su aktif yeterlilik politikası yoksa `QUALIFIED` üretmeyecek; mevcut ölçümü `VALIDATION_REQUIRED`, son teknik sonucu `TECHNICAL_FAILURE`, veri yokluğunu `NO_DATA` gösterecektir. Kritik kural sonuç kaynağı bulunmadığında sayılar sıfır yerine `null/NOT_AVAILABLE` kalacaktır. | Sıfır kritik ihlal veya olumlu yeterlilik, veri/politika yokluğunu başarı gibi gösterir. Teknik hata da kalite düşüşü değildir. | Mevcut skordan yeterlilik tahmin etmek; kalite seviyesi `CRITICAL` olan skorları kritik kural saymak; eksik sayıları sıfır döndürmek; tüm alanları DTO dışında bırakmak. | 21C güvenli ve geriye uyumlu gösterge zarfını sunar. Tam yeterlilik, kritik kural ve alarm runtime'ı ayrı artımlardır; 30D yalnız mevcut alanları UI'a bağlar. |

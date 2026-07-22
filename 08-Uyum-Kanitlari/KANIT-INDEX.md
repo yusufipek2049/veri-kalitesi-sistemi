@@ -38,8 +38,11 @@
 - [İterasyon 20A - LDAP RBAC Sözleşme Kanıtı](Erisim/Iterasyon-20A-LDAP-RBAC-Sozlesme-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 20B - Başarısız Giriş Sınırlandırma Kanıtı](Erisim/Iterasyon-20B-Basarisiz-Giris-Sinirlandirma-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 20C - Güvenli Oturum Yaşam Döngüsü Kanıtı](Erisim/Iterasyon-20C-Guvenli-Oturum-Yasam-Dongusu-Kaniti.md) - `TechnicallyVerified`
+- [İterasyon 20D - Banka Onaylı Oturum Runtime Kanıtı](Erisim/Iterasyon-20D-Banka-Onayli-Oturum-Runtime-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 20E - BFF Oturum ve CSRF HTTP Kanıtı](Erisim/Iterasyon-20E-BFF-Oturum-CSRF-HTTP-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 21A - Yetki Filtreli Dashboard Trend Kanıtı](Erisim/Iterasyon-21A-Yetki-Filtreli-Dashboard-Trend-Kaniti.md) - `TechnicallyVerified`
+- [İterasyon 21B - Güvenli Dashboard API Kanıtı](Erisim/Iterasyon-21B-Guvenli-Dashboard-API-Kaniti.md) - `TechnicallyVerified`
+- [İterasyon 21C - Dashboard Operasyonel Gösterge API Kanıtı](Erisim/Iterasyon-21C-Dashboard-Operasyonel-Gosterge-API-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 22A - Sistem İçi Bildirim Kanıtı](Bildirim/Iterasyon-22A-Sistem-Ici-Bildirim-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 22B - Temel Issue State Machine Kanıtı](Sorun-Yonetimi/Iterasyon-22B-Temel-Issue-State-Machine-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 22C - Güvenilir Issue Yeniden Atama Kanıtı](Sorun-Yonetimi/Iterasyon-22C-Guvenilir-Issue-Yeniden-Atama-Kaniti.md) - `TechnicallyVerified`
