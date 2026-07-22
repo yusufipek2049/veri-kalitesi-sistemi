@@ -44,3 +44,27 @@ Context değişmez olmalıdır. Domain katmanı actor_id'yi ayrı serbest parame
 ## Fail-Closed
 
 Kimlik doğrulama sonucu var ancak MFA kanıtı veya rol/scope eşlemesi yoksa erişim reddedilir. Kurumsal IdP erişilemezse yeni oturum açılmaz.
+
+## Banka Onaylı Normal Kullanıcı Oturum Sınırı
+
+`OPEN-BNK-020` `ApprovedByBank` durumundadır.
+
+- Web oturumu BFF modelindedir. Access ve refresh token yalnız sunucu tarafında
+  tutulur; tarayıcıya yalnız opak `__Host-session` cookie'si verilir.
+- Cookie `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/` ve domainsizdir; girişte
+  ve ayrıcalık değişikliğinde döndürülür.
+- State-changing istekler synchronizer token custom header, Origin/Referer,
+  Fetch Metadata ve CORS allowlist doğrulamasından geçer. `GET` durum değiştirmez.
+- Normal kullanıcı başına tek aktif oturum vardır. Yeni başarılı giriş önceki
+  oturumu merkezi olarak iptal eder; yeni giriş engellenmez.
+- Idle timeout `PT1H`, mutlak timeout `PT10H`'dir. Arka plan istekleri idle
+  süresini, token yenileme mutlak süreyi uzatmaz.
+- Logout, süre aşımı, yeni giriş, kullanıcı pasifleştirme, kritik rol değişikliği,
+  güvenlik olayı ve IdP iptali merkezi revocation üretir. İptal edilen credential
+  yeniden kullanılamaz.
+- Üretim oturum deposu kurum onaylı yüksek erişilebilir merkezi hizmettir;
+  yoksa PostgreSQL kullanılır. Süreç belleği üretimde yasaktır. Session ID özeti
+  saklanır; aktarım TLS, at-rest şifreleme ve anahtar yönetimi kurum onaylı
+  KMS/HSM ile sağlanır.
+- Oturum sırrı sonlandırmada derhal silinir; access/refresh token arşivlenmez.
+  Veri-minimum güvenlik metadatası `P90D` saklanır ve legal hold ile uzatılabilir.

@@ -107,7 +107,8 @@ profil için doğrulanmıştır; üretim benzerliği, skor toleransı veya anoni
 sonucu değildir.
 
 Nicel dağılım, korelasyon, görev faydası, gizlilik, kusur yoğunluğu ve skor
-toleransı eşikleri `OPEN-024` sonuçlanana kadar `TBD`'dir. Sentetik performans
+toleransı eşikleri aktif sürümlü doğrulama politikasından çözülür; politika yoksa
+çalışma `BLOCKED` olur. Sentetik performans
 testi `AC/TS-008` kapsamındaki anonimleştirilmiş üretim örneği kabulinin yerine
 geçmez.
 

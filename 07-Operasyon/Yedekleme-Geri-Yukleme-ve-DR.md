@@ -2,27 +2,35 @@
 
 ## Bileşen bazlı hedef matrisi
 
-| Bileşen | RPO | RTO |
+| Bileşen | Normal kapsam RPO / RTO | Kritik düzenleyici veya risk zinciri RPO / RTO |
 | --- | --- | --- |
-| Sistem yapılandırmaları | TBD | TBD |
-| Kural tanımları ve sürümleri | TBD | TBD |
-| Eşik ve ağırlık politikaları | TBD | TBD |
-| Kullanıcı ve rol eşlemeleri | TBD | TBD |
-| Audit kayıtları | TBD | TBD |
-| Onay kayıtları | TBD | TBD |
-| Çalıştırma metadata kayıtları | TBD | TBD |
-| Skor sonuçları | TBD | TBD |
-| Rapor dosyaları | TBD | TBD |
-| Bildirim ve entegrasyon kuyrukları | TBD | TBD |
+| Sistem yapılandırmaları | `PT15M` / `PT4H` | `PT5M` / `PT1H` |
+| Kural tanımları ve sürümleri | `PT15M` / `PT4H` | `PT5M` / `PT1H` |
+| Eşik ve ağırlık politikaları | `PT15M` / `PT4H` | `PT5M` / `PT1H` |
+| Kullanıcı ve rol eşlemeleri | `PT15M` / `PT4H` | `PT5M` / `PT1H` |
+| Audit kayıtları | `PT15M` / `PT4H` | `PT5M` / `PT1H` |
+| Onay kayıtları | `PT15M` / `PT4H` | `PT5M` / `PT1H` |
+| Çalıştırma metadata kayıtları | `PT15M` / `PT4H` | `PT5M` / `PT1H` |
+| Skor sonuçları | `PT15M` / `PT4H` | `PT5M` / `PT1H` |
+| Rapor dosyaları | `PT15M` / `PT4H` | `PT5M` / `PT1H` |
+| Bildirim ve entegrasyon kuyrukları | `PT15M` / `PT4H` | `PT5M` / `PT1H` |
 
-Kesin değerler iş etki analizi yapılmadan atanmaz. Yeniden üretilemeyen veya hukuki/denetim değeri yüksek veri daha sıkı hedeflerle değerlendirilir.
+Normal kapsam ile kritik düzenleyici/risk zinciri ayrımı `OPEN-BNK-013`
+kapsam kaydından çözülür. Kapsam kaydı yoksa daha sıkı hedef uygulanır.
+Farklı bileşen hedefi ancak sürümlü `RecoveryObjectivePolicy` ile
+etkinleştirilebilir.
 
-## Diğer TBD kararlar
-- Yedek sıklığı
-- Şifreleme ve anahtar yönetimi
-- Coğrafi/tesis ayrılığı
-- Geri yükleme test sıklığı
-- Saklama ve imha
+## Diğer Kesin Kararlar
+
+- Yedek sıklığı etkin RPO hedefini karşılayacak biçimde otomasyon politikasıyla
+  uygulanır; bunu kanıtlamayan ortam üretime açılamaz.
+- Yedekler kurumsal anahtar yönetimiyle şifrelenir; anahtar yedekle aynı hata
+  alanında veya açık metin tutulmaz.
+- Üretim yedeği uygulama/veritabanı birincil hata alanından ayrı tutulur.
+- Geri yükleme testi sürümlü operasyon politikasında zorunludur; aktif test
+  sıklığı kaydı veya güncel başarılı kanıt yoksa DR kontrolü fail-closed kalır.
+- Saklama ve imha `RET-*` teknik politika matrisiyle yürütülür; legal hold imhaya
+  üstündür.
 
 ## Tatbikat kanıtı
 
@@ -52,5 +60,5 @@ secret kapsamı ortamla uyuşmuyorsa politika engeli oluşur. Her iki durumda da
 yükü başlatılmaz.
 
 Bu kontrol yedekleme, geri yükleme veya DR tatbikatı değildir. Gerçek deployment
-sağlayıcısı ve secret manager `OPEN-BNK-012`; yedek şifreleme, RTO/RPO ve geri
-yükleme sıklığı `OPEN-BNK-011` kararı olmadan tamamlanmış sayılmaz.
+sağlayıcısı, secret manager, yedek şifreleme ve geri yükleme otomasyonu
+uygulanıp kanıtlanmadan üretim DR kontrolü tamamlanmış sayılmaz.

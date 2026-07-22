@@ -67,34 +67,37 @@ Bu bölüm, sistemin temel veri varlıklarını, veri sözlüğünü, saklama po
 
 | Kayıt türü | Önerilen süre | Durum | Politika |
 | --- | --- | --- | --- |
-| Audit kayıtları | TBD | Hukuk/KVKK/Bilgi Güvenliği/İç Denetim onayı gerekli | Süre, çevrimiçi/arşiv ayrımı, imha ve sorumlu birim politika kaydındadır. |
-| Kimlik doğrulama ve yetkilendirme kayıtları | TBD | Onay gerekli | Veri minimizasyonu ve güvenlik olayı ayrımı uygulanır. |
-| Kural değişiklikleri | TBD | Onay gerekli | Tarihsel açıklanabilirlik korunur. |
-| Onay kayıtları | TBD | Onay gerekli | Maker-checker kanıtı korunur. |
-| Çalıştırma kayıtları | TBD | Onay gerekli | RuleVersion bağı korunur. |
-| Skor sonuçları | TBD | Onay gerekli | Resmî ve provizyonel sonuç ayrımı korunur. |
-| Kısmi ve geçici sonuçlar | TBD | Onay gerekli | Resmî sonuçlardan ayrı politika uygulanır. |
-| Bildirim kayıtları | TBD | Onay gerekli | İçerik minimizasyonu uygulanır. |
-| ServiceNow entegrasyon kayıtları | TBD | Onay gerekli | İdempotency ve audit bağı korunur. |
-| Rapor dosyaları | TBD | Onay gerekli | Çevrimiçi dosya ve arşiv ayrı tutulur; hassas rapor daha kısa çevrimiçi politikayı destekler. |
-| Rapor metadata kayıtları | TBD | Onay gerekli | Dosyadan bağımsız saklanır. |
-| Teknik loglar | TBD | Onay gerekli | Secret ve ham hassas veri içermez. |
-| Geçici işleme verileri | TBD | Onay gerekli | Amaç bitiminde güvenli imha uygulanır. |
-| Hata ve yeniden deneme kayıtları | TBD | Onay gerekli | Güvenli hata özeti ve operasyon gereksinimiyle sınırlıdır. |
-| Sentetik datasetler | TBD | Gizlilik/güvenlik ve veri sahibi onayı gerekli | Sentetik köken etiketi korunur; anonimlik varsayılmaz ve sınırsız saklanmaz. |
-| Sentetik üretim, ground truth ve doğrulama kayıtları | TBD | Onay gerekli | Datasetten ayrı kayıt sınıflarıdır; lineage ve test açıklanabilirliği korunur. |
+| Audit kayıtları | Kritik olay `P10Y`; rutin erişim/olay özeti `P5Y` | KararAlındı; banka incelemesi ayrı | `RET-10Y-BANKING` veya `RET-5Y-REGLOG` olay sınıfından çözülür. |
+| Kimlik doğrulama ve yetkilendirme kayıtları | Rutin güvenlik izi `P5Y`; sonlandırılmış normal session güvenlik metadatası ve rate-limit anahtarı `P90D` | ApprovedByBank | `RET-5Y-REGLOG` veya `RET-90D-TRANSIENT` uygulanır; session sırrı ile access/refresh token sonlandırmada derhal silinir ve arşivlenmez. |
+| Kural değişiklikleri | `P10Y` | KararAlındı | `RET-10Y-BANKING`; tarihsel açıklanabilirlik korunur. |
+| Onay kayıtları | `P10Y` | KararAlındı | `RET-10Y-BANKING`; maker-checker kanıtı korunur. |
+| Çalıştırma kayıtları | Resmî `P10Y`; resmî olmayan test `P1Y` | KararAlındı | `RET-10Y-BANKING` veya `RET-1Y-OPS`; RuleVersion bağı korunur. |
+| Skor sonuçları | Resmî `P10Y`; provizyonel/test `P1Y` | KararAlındı | Resmî ve provizyonel sonuç ayrımı saklama sınıfını belirler. |
+| Kısmi ve geçici sonuçlar | Resmî kabul edilmiş `P10Y`; diğerleri `P1Y` | KararAlındı | Resmî kullanım kararı sınıflandırmayı belirler. |
+| Bildirim kayıtları | `P1Y` | KararAlındı | `RET-1Y-OPS`; içerik minimizasyonu uygulanır. |
+| ServiceNow entegrasyon kayıtları | Eşleme/audit `P10Y`; terminal retry payloadı `P90D` | KararAlındı | `RET-10Y-BANKING` ve `RET-90D-TRANSIENT` ayrı uygulanır. |
+| Rapor dosyaları | `P30D` | KararAlındı | `RET-30D-EXPORT`; şifreli saklama ve kriptografik imha uygulanır. |
+| Rapor metadata kayıtları | `P10Y` | KararAlındı | `RET-10Y-BANKING`; dosyadan bağımsız saklanır. |
+| Teknik loglar | Ayrıntılı log `P90D`; veri-minimum SIEM özeti `P5Y` | KararAlındı | Secret ve ham hassas veri içermez. |
+| Geçici işleme verileri | En fazla `P30D` | KararAlındı | `RET-30D-EXPORT`; amaç tamamlanınca daha erken güvenli imha edilebilir. |
+| Hata ve yeniden deneme kayıtları | `P90D` | KararAlındı | `RET-90D-TRANSIENT`; güvenli hata özetiyle sınırlıdır. |
+| Sentetik datasetler | Fiziksel çıktı `P30D`; geri döndürülemez anonim toplulaştırma amaç sürdükçe | KararAlındı; kullanım onayı ayrı | `RET-30D-EXPORT` veya yalnız anonimlik kanıtı varsa `RET-ANON`. |
+| Sentetik üretim, ground truth ve doğrulama kayıtları | Operasyonel test `P1Y`; resmî kabul kanıtı `P10Y` | KararAlındı | `RET-1Y-OPS` veya `RET-10Y-BANKING`; lineage korunur. |
 
-Her `RetentionPolicy` kaydı en az kayıt sınıfı, saklama süresi, hukuki dayanak veya kurumsal gerekçe, çevrimiçi saklama süresi, arşiv süresi, imha yöntemi ve sorumlu birim alanlarını taşır. Kesin süreler onaylanmadan değer atanmaz.
+Her `RetentionPolicy` kaydı en az kayıt sınıfı, saklama süresi, hukuki dayanak
+veya kurumsal gerekçe, çevrimiçi saklama süresi, arşiv süresi, imha yöntemi ve
+sorumlu birim alanlarını taşır. Etkin `RET-*` sınıfı bulunmadan kayıt
+kalıcılaştırılmaz veya imha kararı verilmez.
 
 ### RetentionPolicy
 
 | Alan | Açıklama |
 | --- | --- |
 | record_class | Kayıt sınıfı |
-| retention_duration | Toplam saklama süresi; onaya kadar TBD |
+| retention_duration | Toplam saklama süresi; etkin `RET-*` politika sınıfından çözülür |
 | legal_or_corporate_basis | Hukuki dayanak veya kurumsal gerekçe |
-| online_duration | Çevrimiçi saklama süresi; onaya kadar TBD |
-| archive_duration | Arşiv süresi; onaya kadar TBD |
+| online_duration | Çevrimiçi saklama süresi; etkin politika kaydında zorunlu |
+| archive_duration | Arşiv süresi; etkin politika kaydında zorunlu |
 | destruction_method | Onaylı imha yöntemi |
 | responsible_unit | Sorumlu birim |
 | policy_version | Değişmez politika sürümü |
@@ -119,7 +122,7 @@ sınıflandırma kayıtlarına referans verir; aynı alanları kopyalamaz.
 | retention_policy_id | Ortak saklama ve imha politikası referansı |
 | ground_truth_enabled | Bağımsız ground truth zorunluluğu |
 | seed_strategy | Deterministik random seed üretim/sağlama yöntemi |
-| expected_score_tolerance | Beklenen/gerçekleşen skor toleransı; `OPEN-024` sonuçlanana kadar TBD |
+| expected_score_tolerance | Beklenen/gerçekleşen skor toleransı; senaryo/politika kaydında zorunlu, yoksa doğrulama `BLOCKED` |
 | criticality_profile_id | Ayrı dataset kritiklik profili referansı |
 | notification_test_enabled | Yalnız izole test hedefi kullanım izni |
 | schema_version | Sentetik şema sürümü |
@@ -155,8 +158,8 @@ başarısızlığı teknik hatadan ayrı tutulur.
 | Alan | Açıklama |
 | --- | --- |
 | component_class | Kurtarma hedefi uygulanan bileşen |
-| rpo_value | Bileşen RPO değeri; iş etki analizine kadar TBD |
-| rto_value | Bileşen RTO değeri; iş etki analizine kadar TBD |
+| rpo_value | Normal kapsam `PT15M`, kritik düzenleyici/risk zinciri `PT5M`; sürümlü override desteklenir |
+| rto_value | Normal kapsam `PT4H`, kritik düzenleyici/risk zinciri `PT1H`; sürümlü override desteklenir |
 | business_impact_reference | İş etki analizi referansı |
 | policy_version | Değişmez politika sürümü |
 | approval_status | Onay durumu |

@@ -114,7 +114,7 @@ Teknoloji seçimi bu SRS'nin zorunlu iş gereksinimi değildir. Üretimde statel
 | Veri Mühendisi | Teknik bağlantı, sorgu ve düzeltme desteği | Teknik metadata ve hata ayrıntıları | Günlük | Yüksek | Sorgu planı, teknik hata, şema bilgisi | Bağlantı testi; teknik tanı; çalıştırma desteği |
 | İş Birimi Kullanıcısı | Kalite durumunu izleme | Salt okunur, yetkili iş alanı | Haftalık/Aylık | Düşük-Orta | Özet skorlar ve raporlar | Dashboard görüntüleme; rapor alma |
 | Denetçi | Kanıt ve geçmiş inceleme | Salt okunur audit ve tarihsel sonuç erişimi | Dönemsel | Orta | Audit, rapor ve değişiklik geçmişi | Filtreleme; dışa aktarma |
-| Harici Veri Kaynağı | Veri ve metadata sağlar | İnsan kullanıcı değildir | Zamanlanmış | TBD | Salt okunur sorgu yüzeyi | Bağlantı ve sorgu yanıtı |
+| Harici Veri Kaynağı | Veri ve metadata sağlar | İnsan kullanıcı değildir | Zamanlanmış | Teknik entegrasyon | Salt okunur sorgu yüzeyi | Bağlantı ve sorgu yanıtı |
 | Bildirim Servisi | Sistem içi bildirim üretir | Servis hesabı | Olay bazlı | Teknik | Bildirim olayı ve alıcı metadatası | Bildirim oluşturma ve durum güncelleme |
 | Kimlik Doğrulama Servisi | Kurumsal IdP/SSO beyanı ve MFA kanıtı sağlar | Servis entegrasyonu | Her oturum | Teknik | Kullanıcı kimliği ve grup üyeliği | OIDC veya SAML doğrulama yanıtı sağlama |
 
@@ -124,14 +124,14 @@ Teknoloji seçimi bu SRS'nin zorunlu iş gereksinimi değildir. Üretimde statel
 | --- | --- | --- |
 | A-001 | Kurum içi veri merkezinde ağ, DNS, sertifika ve güvenlik duvarı kuralları sağlanır. | Varsayım |
 | A-002 | Her veritabanı için salt okunur kullanıcı oluşturulur. | Varsayım |
-| A-003 | LDAP destekli kurumsal IdP/SSO, MFA ve grup bilgisi sağlayabilir. | Kesinleşmiş yön; ürün/topoloji TBD |
-| A-004 | Kaynak sistem çalışma pencereleri ve kotaları sürümlü kaynak kullanım politikasında tanımlanır. | Kesinleşmiş karar; değerler TBD |
+| A-003 | LDAP destekli kurumsal IdP/SSO, MFA ve grup bilgisi sağlayabilir. | KararAlındı; OIDC veya SAML kullanılacak, kurum ürünü ve endpoint eşlemesi dağıtım konfigürasyonudur |
+| A-004 | Kaynak sistem çalışma pencereleri ve kotaları sürümlü kaynak kullanım politikasında tanımlanır. | KararAlındı; politika yoksa sorgu çalıştırılmaz |
 | A-005 | Data Owner ve Data Steward atamaları kurum tarafından yapılır. | İş birimi kararı gerekli |
 | A-006 | Yerel prototip i7-13620H, 16 GB RAM, RTX 4050 Ti ve üçüncü nesil SSD bulunan bilgisayarda çalışır. | Kesin kullanıcı girdisi |
-| A-007 | 20 milyon satırlık referans testi, onaylı anonimleştirilmiş üretim örneği ve kısıtlı test ortamıyla yürütülür. | Kesinleşmiş karar; veri onayı TBD |
+| A-007 | 20 milyon satırlık referans testi, onaylı anonimleştirilmiş üretim örneği ve kısıtlı test ortamıyla yürütülür. | KararAlındı; veri sahibi ve güvenlik onayı testin zorunlu giriş kanıtıdır |
 | A-008 | ServiceNow entegrasyonu için kurum tarafından servis hesabı ve API erişimi sağlanır. | Varsayım |
 | A-009 | Sistem içi bildirim tek zorunlu bildirim kanalıdır. | Kesin kullanıcı girdisi |
-| A-010 | Saklama ve imha kayıt sınıfı bazlı politika matrisiyle yönetilir; kesin süreler ilgili kurumsal onaylara kadar TBD'dir. | Kesinleşmiş karar; süreler TBD |
+| A-010 | Saklama ve imha kayıt sınıfı bazlı `RET-*` teknik politika matrisiyle yönetilir; banka incelemesi teknik karardan ayrı izlenir. | Kesinleşmiş karar; süre matrisi karara bağlandı |
 
 ## 2.5 Kısıtlar
 

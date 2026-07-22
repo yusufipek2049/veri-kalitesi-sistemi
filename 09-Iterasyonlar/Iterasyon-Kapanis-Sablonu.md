@@ -1,7 +1,7 @@
 ---
-iteration: TBD
+iteration: REQUIRED
 status: review
-completed_at: TBD
+completed_at: REQUIRED
 ---
 
 # İterasyon Kapanışı

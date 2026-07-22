@@ -20,11 +20,11 @@ tags:
 | data_source_id | UUID | 36 | Evet | Evet | Otomatik | Kaynak anahtarı | Hayır | UUID |
 | name | VARCHAR | 200 | Evet | Evet | Yok | Kurum içi benzersiz kaynak adı | Hayır | 1–200 karakter |
 | source_type | ENUM | 30 | Evet | Hayır | Yok | RELATIONAL_DATABASE/FILE/REST_API | Hayır | Desteklenen ürün bağımsız değer |
-| connection_config | JSON | TBD | Evet | Hayır | {} | Gizli olmayan bağlantı ayarları | Hassas olabilir | Şema doğrulaması |
+| connection_config | JSON | — | Evet | Hayır | {} | Gizli olmayan bağlantı ayarları | Hassas olabilir | Şema doğrulaması |
 | secret_reference | VARCHAR | 500 | Evet | Hayır | Yok | Secret manager anahtarı | Hassas | Ham secret içeremez |
 | status | ENUM | 30 | Evet | Hayır | TEST_PENDING | Kaynak durumu | Hayır | İzinli geçiş |
 | owner_user_id | UUID | 36 | Kritik kaynakta evet | Hayır | NULL | Data Owner referansı | Kişisel | Aktif User referansı |
-| last_test_at | TIMESTAMP | TBD | Hayır | Hayır | NULL | Son bağlantı testi | Hayır | UTC |
+| last_test_at | TIMESTAMP | — | Hayır | Hayır | NULL | Son bağlantı testi | Hayır | UTC |
 
 ## Dataset
 
@@ -57,7 +57,7 @@ tags:
 | reporting_restriction | VARCHAR | 500 | Evet | Hayır | Yok | Raporlama kısıtı | Hassas | Rapor üretiminde uygulanır |
 | logging_restriction | VARCHAR | 500 | Evet | Hayır | Yok | Loglama kısıtı | Hassas | Log redaksiyonunda uygulanır |
 | classification_source_reference | VARCHAR | 500 | Evet | Hayır | Yok | Katalog/DLP kaynak referansı | Hassas olabilir | Onaylı sistem |
-| classification_synced_at | TIMESTAMP | TBD | Evet | Hayır | Yok | Son sınıflandırma senkronizasyonu | Hayır | UTC |
+| classification_synced_at | TIMESTAMP | — | Evet | Hayır | Yok | Son sınıflandırma senkronizasyonu | Hayır | UTC |
 
 ## SourceUsagePolicy
 
@@ -68,16 +68,16 @@ OPEN-002 ve OPEN-003 aynı sürümlü politika varlığında uygulanır. Kaynak 
 | source_usage_policy_id | UUID | 36 | Evet | Evet | Otomatik | Politika anahtarı | Hayır | UUID |
 | data_source_id | UUID | 36 | Koşullu | Hayır | NULL | Kaynak kimliği | Hayır | Kaynak veya kaynak türünden biri zorunlu |
 | source_type | ENUM | 30 | Koşullu | Hayır | NULL | Ürün bağımsız kaynak türü | Hayır | Kaynak veya kaynak türünden biri zorunlu |
-| allowed_windows | JSON | TBD | Evet | Hayır | Yok | İzin verilen çalışma pencereleri | Hayır | Saat dilimi açık |
-| blocked_windows | JSON | TBD | Evet | Hayır | Yok | Yasaklı saatler | Hayır | Çakışma doğrulaması |
-| cpu_limit | DECIMAL | TBD | Hayır | Hayır | NULL | CPU kullanım sınırı | Hayır | Politika birimiyle doğrulanır |
-| io_limit | DECIMAL | TBD | Hayır | Hayır | NULL | IO kullanım sınırı | Hayır | Politika birimiyle doğrulanır |
-| max_query_duration | INTEGER | TBD | Evet | Hayır | Yok | Azami sorgu süresi | Hayır | Pozitif |
-| max_concurrent_queries | INTEGER | TBD | Evet | Hayır | Yok | Eş zamanlı sorgu kotası | Hayır | Pozitif |
-| max_workers | INTEGER | TBD | Evet | Hayır | Yok | Worker kotası | Hayır | Pozitif |
-| retry_count | INTEGER | TBD | Evet | Hayır | Yok | Yeniden deneme sayısı | Hayır | Negatif olamaz |
-| retry_delay | INTEGER | TBD | Evet | Hayır | Yok | Yeniden deneme gecikmesi | Hayır | Negatif olamaz |
-| rate_limit | JSON | TBD | Evet | Hayır | Yok | Hız sınırı ve penceresi | Hayır | Şema doğrulaması |
+| allowed_windows | JSON | — | Evet | Hayır | Yok | İzin verilen çalışma pencereleri | Hayır | Saat dilimi açık |
+| blocked_windows | JSON | — | Evet | Hayır | Yok | Yasaklı saatler | Hayır | Çakışma doğrulaması |
+| cpu_limit | DECIMAL | — | Hayır | Hayır | NULL | CPU kullanım sınırı | Hayır | Politika birimiyle doğrulanır |
+| io_limit | DECIMAL | — | Hayır | Hayır | NULL | IO kullanım sınırı | Hayır | Politika birimiyle doğrulanır |
+| max_query_duration | INTEGER | — | Evet | Hayır | Yok | Azami sorgu süresi | Hayır | Pozitif |
+| max_concurrent_queries | INTEGER | — | Evet | Hayır | Yok | Eş zamanlı sorgu kotası | Hayır | Pozitif |
+| max_workers | INTEGER | — | Evet | Hayır | Yok | Worker kotası | Hayır | Pozitif |
+| retry_count | INTEGER | — | Evet | Hayır | Yok | Yeniden deneme sayısı | Hayır | Negatif olamaz |
+| retry_delay | INTEGER | — | Evet | Hayır | Yok | Yeniden deneme gecikmesi | Hayır | Negatif olamaz |
+| rate_limit | JSON | — | Evet | Hayır | Yok | Hız sınırı ve penceresi | Hayır | Şema doğrulaması |
 | peak_hours_behavior | ENUM | 30 | Evet | Hayır | Yok | Yoğun saat davranışı | Hayır | Onaylı sözlük |
 | timeout_cancel_behavior | ENUM | 30 | Evet | Hayır | Yok | Zaman aşımı ve iptal davranışı | Hayır | Onaylı sözlük |
 | status | ENUM | 20 | Evet | Hayır | DRAFT | DRAFT/PENDING_APPROVAL/ACTIVE/RETIRED | Hayır | İzinli geçiş |
@@ -94,5 +94,5 @@ OPEN-002 ve OPEN-003 aynı sürümlü politika varlığında uygulanır. Kaynak 
 | execution_id | UUID | 36 | Evet | Hayır | Yok | Çalıştırma referansı | Hayır | Geçerli RuleExecution |
 | method | ENUM | 30 | Evet | Hayır | FULL | FULL/SAMPLE/PARTITION/AGGREGATE | Hayır | İzinli enum |
 | sample_ratio | DECIMAL | 5,4 | Hayır | Hayır | NULL | Örneklem oranı | Hayır | 0<oran≤1 |
-| metrics | JSON | TBD | Evet | Hayır | {} | Profil metrikleri | Hassas olabilir | Şema doğrulaması; ham hassas değer yok |
+| metrics | JSON | — | Evet | Hayır | {} | Profil metrikleri | Hassas olabilir | Şema doğrulaması; ham hassas değer yok |
 | status | ENUM | 30 | Evet | Hayır | RUNNING | Profil durumu | Hayır | İzinli geçiş |

@@ -63,10 +63,17 @@ Gerçek LDAP endpoint/TLS/sertifika adaptörü, banka grup değerleri, session/l
 `TechnicallyVerified` kapsam:
 
 - LDAP başarı akışı çağırandan session kimliği veya süre kabul etmez; yalnız güvenilir doğrulama context'ini zorunlu session servisine aktarır.
-- Sürümlü session politikası 30 dakikalık idle timeout tabanını ve enjekte edilen mutlak süreyi uygular; aktivite mutlak süreyi uzatmaz.
+- İterasyonun mevcut runtime sürümü 30 dakikalık idle timeout tabanını ve enjekte
+  edilen mutlak süreyi uygular; aktivite mutlak süreyi uzatmaz. Sonraki banka
+  onaylı `OPEN-BNK-020` politika sürümü `PT1H` idle ve `PT10H` mutlak süreyi
+  zorunlu kılar; runtime geçişi ayrı artımdır.
 - Yüksek entropili credential yalnız bir kez döndürülür; kalıcı SQLite kaydında yalnız özeti tutulur.
 - Aktif oturum doğrulaması güvenilir `ActorContext` üretir; timeout ve çıkış geçmişi fiziksel silinmeden `EXPIRED`/`REVOKED` kalır.
 - Servis hesabı, ayrıcalıklı kullanıcı, güvenilmez/süresi dolmuş context, bozuk credential ve depo/audit hataları normal kullanıcı oturumunda fail-closed reddedilir.
 - On yedi yeni testle toplam 254 test; kimlik hedef grubu 42 testle geçti.
 
-Gerçek LDAP, HTTP cookie/token/CSRF sınırı, eş zamanlı oturum limiti, mutlak süre, banka grup/ayrıcalık kararları, üretim deposu/şifreleme ve saklama onayı açık kalır; `ComplianceReviewRequired` durumundadır.
+Bu iterasyon kapanışında gerçek LDAP, HTTP cookie/token/CSRF sınırı, eş zamanlı
+oturum limiti, mutlak süre, banka grup/ayrıcalık kararları, üretim
+deposu/şifreleme ve saklama onayı açık kalmıştı. `OPEN-BNK-020` sonradan
+`ApprovedByBank` olarak kapandı; BFF/cookie/CSRF, merkezi iptal, üretim store,
+şifreleme ve `P90D` saklama davranışının uygulanması açıktır.

@@ -32,8 +32,8 @@ değildir.
 | Banka kontrol kararlarının açık kalması | Yüksek | Yüksek | P0 | `OPEN-BNK-*` listesi | Karar sahibi ve kanıt kapısı |
 | Kabul edilen skorlama/ölçüm yeterliliği modeliyle runtime'ın ayrışması | Yüksek | Yüksek | P1 | Kanonik sayaçlar, ham/nihai skor, yeterlilik/geçerlilik kapısı, kullanım kararı, kapsam/güven ve override kodda yok | İterasyon 33A'dan başlayan küçük, geriye uyumlu skorlama dilimleri |
 | Dataset kritikliğinin kalite skoruna karışması | Yüksek | Orta-Yüksek | P1 | Mevcut `SOURCE` formülü; `ADR-015` hedefinde `Superseded` | Kritiklik/risk göstergelerini kalite agregasyonundan ayır |
-| Yüksek fakat yetersiz/eski ölçümün operasyonel kararda kullanılması | Orta-Yüksek | Yüksek | P1 | Runtime'da ayrı yeterlilik ve `ValidUntil` kapısı yok; `OPEN-023` değerleri açık | Yeterlilik kapısını ve fail-closed kullanım kararını API/UI öncesi uygula |
-| Sentetik çıktının anonim kabul edilmesi veya üretim kaydını ezberlemesi | Orta | Yüksek | P1 | `ADR-016` hedef tasarım; gizlilik değerlendiricisi runtime'da yok | `OPEN-024/025` kararı, ayrılmış üretim erişimi ve fail-closed gizlilik kapısı |
+| Yüksek fakat yetersiz/eski ölçümün operasyonel kararda kullanılması | Orta-Yüksek | Yüksek | P1 | Runtime'da ayrı yeterlilik, aktif politika çözümleme ve `ValidUntil` kapısı yok | Yeterlilik kapısını ve fail-closed kullanım kararını API/UI öncesi uygula |
+| Sentetik çıktının anonim kabul edilmesi veya üretim kaydını ezberlemesi | Orta | Yüksek | P1 | `ADR-016/018` hedef tasarım; gizlilik değerlendiricisi runtime'da yok | Varsayılan kapalı üretim erişimi ve fail-closed gizlilik kapısını uygula |
 | Skor motorunun kendi çıktısıyla sentetik ground truth üretmesi | Orta | Yüksek | P1 | Bağımsız comparator/oracle runtime'da yok | Bağımsız ground truth, sürümlü seed/senaryo ve false-positive/negative kabul testleri |
 
 ## P0 - Üretime Çıkışı Engelleyen İşler
@@ -44,7 +44,8 @@ değildir.
 
 **Etkilenen:** `identity`, `dashboard`, `audit`, `reporting`, yeni API paketi.
 
-**Bağımlılıklar:** `OPEN-BNK-020` session taşıma/CSRF; LDAP policy sürümü.
+**Bağımlılıklar:** `OPEN-BNK-020` banka onaylıdır; BFF/session taşıma, CSRF,
+merkezi iptal ve üretim store uygulaması ile LDAP policy sürümü gerekir.
 
 **Kabul kriterleri:**
 

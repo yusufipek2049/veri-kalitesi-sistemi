@@ -104,7 +104,8 @@ aktive edilebilir; hazırlayan aynı değişikliği onaylayamaz.
 
 Bu aralıklar mevcut prototipin teknik varsayılanlarıdır; üretim eşiği değildir.
 `DQ-SCR-014` uyarınca hedef model dataset/kullanım bağlamlı sürümlü politika
-kullanır ve üretim değerleri `TBD`'dir.
+kullanır ve üretim değerlerini aktif, sürümlü politikalardan çözer; politika
+yoksa olumlu sınıflandırma veya yeterlilik sonucu üretmez.
 
 ### Hesaplanamayan Durumlar
 
@@ -140,7 +141,9 @@ ayrı temsil eder. Mevcut enumların bu sözlüğe migration eşlemesi uygulanma
 - Her skor model, kural, eşik, ağırlık, normalizasyon ve uygulama sürümünü taşır;
   replay orijinali koruyan ayrı sonuçtur (`DQ-SCR-025`, `DQ-SCR-032`).
 
-Üretim formülleri/katsayıları, rol matrisi ve `OPEN-BNK-013` kapsamı `TBD`'dir.
+Üretim formülleri/katsayıları aktif sürümlü risk politikasından, rol matrisi
+güvenilir IAM eşlemesinden çözülür. `OPEN-BNK-013` kapsam kararı veya gerekli
+politika yoksa risk sonucu üretilmez.
 
 ## Kural Yönetimi
 

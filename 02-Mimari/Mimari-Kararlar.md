@@ -17,18 +17,19 @@ tags:
 | ADR-003 | Yerel prototip için konteyner tabanlı modüler monolit | Önerilen başlangıç |
 | ADR-004 | Uzun işler için kuyruk ve worker modeli | Önerilen başlangıç |
 | ADR-005 | İlişkisel metadata ve sonuç deposu | Önerilen başlangıç |
-| ADR-006 | Servis/workload identity ile kurumsal secret manager; depoda yalnız referans | Kabul edildi; ürün TBD |
-| ADR-007 | LDAP destekli kurumsal IdP/SSO, OIDC veya SAML, zorunlu MFA ve RBAC | Kabul edildi; ürün/eşleme ayrıntıları TBD |
+| ADR-006 | Servis/workload identity ile kurumsal secret manager/PAM; depoda yalnız referans | KararAlındı; kurumsal hizmet eşlemesi ve adaptör uygulaması bekleniyor |
+| ADR-007 | LDAP destekli kurumsal IdP/SSO, OIDC veya SAML, zorunlu MFA ve RBAC | KararAlındı; endpoint ve grup-rol-scope eşleme uygulaması bekleniyor |
 | ADR-008 | ServiceNow'un ara entegrasyon tablosu veya entegrasyon servisiyle çekirdek issue yönetiminden ayrılması | Kabul edildi |
-| ADR-009 | Merkezi audit için hash zinciri, transactional outbox ve salt okunur/idempotent legacy aktarım | Teknik olarak doğrulandı; üretim ürünü ve operasyon onayı TBD |
-| ADR-010 | Kişisel veri işleme envanterinin DataField'e bağlı değişmez sürümler ve redakte transactional audit ile tutulması | Teknik olarak doğrulandı; banka referans sözlükleri TBD |
-| ADR-011 | Kritik kural aktivasyonunun sürümlü politika, güvenilir ActorContext ve RuleVersion'a bağlı atomik maker-checker kararıyla yapılması | 19A teknik olarak doğrulandı; scoring ve banka rol eşlemesi TBD |
+| ADR-009 | Merkezi audit için hash zinciri, PostgreSQL transactional outbox, kurumsal SIEM veya immutable object storage ve salt okunur/idempotent legacy aktarım | KararAlındı; üretim adaptörü ve operasyon kanıtı bekleniyor |
+| ADR-010 | Kişisel veri işleme envanterinin DataField'e bağlı değişmez sürümler ve redakte transactional audit ile tutulması | Teknik olarak doğrulandı; eşlenmeyen banka referans kodu fail-closed kalır |
+| ADR-011 | Kritik kural aktivasyonunun sürümlü politika, güvenilir ActorContext ve RuleVersion'a bağlı atomik maker-checker kararıyla yapılması | Teknik olarak doğrulandı; banka rol eşlemesi yoksa işlem reddedilir |
 | ADR-012 | Token tabanlı kurumsal görsel dil; marka rengi ile semantik durum renklerinin ayrılması | Tasarım baseline'ı kabul edildi; frontend uygulaması bekliyor |
 | ADR-013 | Storybook component doğrulaması ve Playwright görsel regression süreci | Kabul edildi; frontend uygulaması bekliyor |
-| ADR-014 | OPEN-001–OPEN-018 karar paketinin kapasite, politika, güvenlik, yaşam döngüsü ve hibrit dağıtım sınırı | Kabul edildi; sayısal ve ürün bazlı TBD değerler korunuyor |
-| ADR-015 | Açıklanabilir, sürümlü ve riskten ayrılmış veri kalitesi skorlama mimarisi (`DQ-SCR-001`–`DQ-SCR-033`) | Kabul edildi; mevcut uygulama farkları ve kurumsal değerler TBD |
-| ADR-016 | Politika kontrollü, deterministik ve bağımsız ground truth'lu sentetik veri hedef mimarisi | Kabul edildi hedef tasarım; runtime uygulaması ve nicel eşikler TBD |
+| ADR-014 | OPEN-001–OPEN-018 karar paketinin kapasite, politika, güvenlik, yaşam döngüsü ve hibrit dağıtım sınırı | KararAlındı; değişken değerlerde aktif sürümlü politika zorunlu |
+| ADR-015 | Açıklanabilir, sürümlü ve riskten ayrılmış veri kalitesi skorlama mimarisi (`DQ-SCR-001`–`DQ-SCR-033`) | KararAlındı; eksik politika olumlu sonuç üretmez |
+| ADR-016 | Politika kontrollü, deterministik ve bağımsız ground truth'lu sentetik veri hedef mimarisi | KararAlındı; eksik eşik/tolerans doğrulamayı `BLOCKED` yapar |
 | ADR-017 | React + TypeScript + Vite, MUI, ECharts, Storybook ve Playwright frontend teknoloji yığını | Kabul edildi; paket kurulumu ve frontend uygulaması bekliyor |
+| ADR-018 | Değişken üretim değerlerinde sürümlü ve fail-closed politika çözümleme | KararAlındı; açık karar yerine uygulama/konfigürasyon kapısı |
 
 ## ADR-017 — Frontend Teknoloji Yığını
 
@@ -50,7 +51,12 @@ veya banka marka/uyum onayının alındığı anlamına gelmez.
 
 Bu karar; düşük/beklenen/yüksek kapasite senaryolarını, kaynak bazlı kullanım politikasını, kayıt sınıfı bazlı saklama ile bileşen bazlı RPO/RTO'yu, kurumsal katalog/DLP sınıflandırmasını, katmanlı rapor saklamayı, risk bazlı maker-checker'ı, anonimleştirilmiş performans verisini, WCAG 2.2 AA hedefini, hibrit üretim dağıtımını, olay sınıfı bazlı audit davranışını ve dataset politikası kontrollü kısmi resmî skoru bağlayıcı kabul eder.
 
-Belirli ürünler; kapasite, kota, timeout, saklama, dosya boyutu ve RPO/RTO değerleri ilgili kurumsal analiz veya onaya kadar TBD kalır. Teknik uygulama banka onayı anlamına gelmez.
+Pilot VM/konteyner; üretimde kurumsal OpenShift/Kubernetes eşdeğeri, yüksek
+erişilebilir PostgreSQL, kurumsal broker veya RabbitMQ fallback'i ve kurumsal
+secret manager/PAM kullanılır. Kapasite, kota, timeout ve dosya boyutu gibi
+değişken değerler aktif sürümlü politika kaydından çözülür. RPO/RTO normal
+kapsamda `PT15M/PT4H`, kritik düzenleyici/risk zincirinde `PT5M/PT1H`dır.
+Teknik karar banka onayı anlamına gelmez.
 
 ## ADR-015 — Açıklanabilir ve Riskten Ayrılmış Skorlama
 
@@ -84,7 +90,8 @@ yeterlilik, kullanım kararı, kapsam, güven, risk/kritiklik ve teknik durumu t
 yüzdeye eritmez. Üretim eşikleri, ağırlıkları, veto/tavan davranışı, minimum
 kapsam ve örneklem güveni, geçerlilik süreleri, kullanım/blokaj yetkisi,
 remediation hedefleri, risk katsayıları, dataset türleri ve `OPEN-BNK-013` kapsamı
-`TBD` kalır. Karar banka uyum onayı anlamına gelmez.
+aktif sürümlü politika kaydından çözülür; kayıt yoksa ilgili olumlu karar
+üretilmez. Karar banka uyum onayı anlamına gelmez.
 
 ## ADR-016 — Politika Kontrollü Sentetik Veri ve Bağımsız Ground Truth
 
@@ -107,8 +114,25 @@ kabulünün yerine geçmez.
 [Sentetik Veri ve Gizlilik Stratejisi](Sentetik-Veri-ve-Gizlilik-Stratejisi.md),
 gereksinimler `FR-088–FR-096`, kullanım senaryosu `UC-017` ve kabul senaryoları
 `AC/TS-048–056` olur. Nicel fayda/gizlilik/skor toleransları ve üretim profilinden
-öğrenme yöntemi `OPEN-024/025` altında karara kadar `TBD` kalır. Bu karar runtime
+öğrenme yöntemi varsayılan olarak kapalıdır; yalnız ayrı onaylı politika
+sürümüyle açılabilir. Bu karar runtime
 uygulaması, hukuki anonimlik veya banka onayı değildir.
+
+## ADR-018 — Sürümlü Politika Kaydı Zorunluluğu
+
+**Bağlam:** Kapasite, kaynak kullanımı, skor, yeterlilik, risk, sentetik
+doğrulama ve operasyon değerleri önceki belgelerde karar bekleyen yer tutucular
+olarak işaretlenmişti. Teknik yönler kullanıcı kararıyla kesinleştirilmiştir;
+ortama göre değişen sayıları kod içinde sabitlemek doğru değildir.
+
+**Karar:** Değişken sayısal değerler aktif, sürümlü ve gerekli onayı taşıyan
+politika kaydından çözülür. Politika yoksa sistem örtük varsayılan kullanmaz;
+sorgu/işlem reddedilir veya
+olumlu yeterlilik, risk, kullanım ve sentetik doğrulama sonucu üretilmez.
+
+**Sonuç:** Sürümlü politika zorunluluğu açık karar değil, uygulanması gereken
+konfigürasyon ve operasyon kapısıdır. Teknik kararların `KararAlındı` olması
+runtime uygulaması, kurumsal ürün kurulumu veya `ApprovedByBank` sonucu değildir.
 
 ## ADR-012 — Token Tabanlı Kurumsal Görsel Dil
 

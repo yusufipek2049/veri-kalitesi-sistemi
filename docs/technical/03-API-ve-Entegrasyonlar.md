@@ -51,7 +51,8 @@ risk/kritiklik, istisna/override ve tüm model/politika/referans sürümlerini a
 taşımalıdır. Mevcut `ScoringService` ve `DashboardQueryService` bu sözleşmenin
 yalnız kalite skoru, temel açıklama ve trend alt kümesini sağlar; ayrı
 yeterlilik/kullanım/risk/güven/istisna/override API yüzeyi uygulanmamıştır. Nihai
-endpoint ve OpenAPI şeması `TBD`'dir.
+endpoint ve OpenAPI şeması güvenli HTTP/API sınırı uygulanmadan dış erişime
+açılmaz; bu sınır ayrı ürün artımında sürümlü sözleşmeyle tamamlanacaktır.
 
 ## Kimlik Doğrulama ve Yetkilendirme
 
@@ -92,8 +93,15 @@ servis hesabı ve Active Directory özellikleri yoktur.
   `REVOKED` geçişi ve gerekçe ile temsil edilir.
 - Validate/touch/logout ve hata yolları auditlenir.
 
-**Eksik:** HTTP cookie/JWT taşıma, `HttpOnly`/`Secure`/`SameSite`, CSRF, CORS, eşzamanlı
-oturum sınırı, MFA/PAM/break-glass, at-rest şifreleme ve dağıtık session store.
+**Karar:** `OPEN-BNK-020` banka onaylıdır. HTTP sınırı BFF, sunucu taraflı
+access/refresh token, opak `__Host-session` cookie, synchronizer-token CSRF,
+Origin/Referer/Fetch Metadata, CORS allowlist, tek aktif oturum, `PT1H` idle,
+`PT10H` absolute timeout ve merkezi iptal uygular.
+
+**Eksik uygulama:** Bu kararın HTTP middleware/composition root'a bağlanması,
+MFA/PAM/break-glass entegrasyonu, kurum onaylı yüksek erişilebilir session store
+ve fallback PostgreSQL, at-rest şifreleme/KMS-HSM ve `P90D` fiziksel
+saklama/imha kanıtı.
 
 ## Veri Kaynağı Entegrasyonları
 

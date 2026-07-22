@@ -89,7 +89,7 @@ Doküman; proje yöneticileri, iş analistleri, yazılım geliştiriciler, veri 
 | ServiceNow | Kurumun tercih ettiği olay, görev ve ticket yönetim sistemi. |
 | RPO | Recovery Point Objective; kabul edilebilir veri kaybı süresi. |
 | RTO | Recovery Time Objective; kabul edilebilir hizmet geri dönüş süresi. |
-| TBD | Daha sonra belirlenecek karar veya değer. |
+| KararAlındı | Teknik yön kullanıcı kararıyla kesinleşmiştir; uygulama ve gerekli kurumsal incelemeler ayrı izlenir. Ortama göre değişen değerler aktif ve sürümlü politikadan çözülür, politika yoksa sistem fail-closed davranır. |
 
 ## 1.5 Referanslar
 

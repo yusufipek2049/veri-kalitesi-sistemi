@@ -415,13 +415,18 @@ tags:
 
 - `FR-001`, `FR-005`, `UC-001`, `NFR-SEC-005`, `NFR-SEC-009`, `AC-001`, `BFR-IAM-001/002/004/005/006` alt kapsamları ve `CTRL-BDDK-IAM-001` için teknik oturum dikeyi tamamlandı.
 - LDAP başarı akışı artık çağırandan session kimliği veya bitiş zamanı kabul etmiyor; yalnız güvenilir ve halen geçerli authentication context'i session servisine aktarılıyor.
-- Sürümlü politika 30 dakikalık azami idle timeout ve enjekte edilen mutlak süreyi uygular. Aktivite idle zamanını yeniler fakat mutlak süreyi uzatmaz.
+- Mevcut runtime sürümlü politika 30 dakikalık idle timeout ve enjekte edilen
+  mutlak süreyi uygular. Sonraki banka onaylı `OPEN-BNK-020` politikası hedefi
+  `PT1H` idle ve `PT10H` mutlak süredir; runtime henüz bu yeni sürüme geçirilmedi.
 - Yüksek entropili credential yalnız bir kez döndürülür; SQLite yalnız SHA-256 özetini ve context'i yeniden üretmek için gerekli veri-minimum yetki alanlarını saklar.
 - Doğrulama son aktiviteyi kalıcı günceller; timeout `EXPIRED`, çıkış `REVOKED` olur ve credential yeniden kullanılamaz. Tarihsel kayıt fiziksel silinmez.
 - Güvenilmez/süresi dolmuş context, servis hesabı, ayrıcalıklı kullanıcı, değiştirilmiş credential ve session depo/audit arızası fail-closed reddedilir.
 - On yedi yeni testle toplam 254 test geçti; kimlik hedef grubu 42 testle geçti. Kanıt `08-Uyum-Kanitlari/Erisim/Iterasyon-20C-Guvenli-Oturum-Yasam-Dongusu-Kaniti.md` içinde `TechnicallyVerified` kaydedildi.
 - Lint, değişen dosyalarda format, `python3` derleme ve tüm testler geçti. Tam depo format kontrolünde değişmeyen dört eski dosyanın biçim farkı sürüyor.
-- HTTP cookie/token/CSRF sınırı, eş zamanlı oturum limiti, mutlak süre, üretim deposu/şifreleme ve saklama süresi `ComplianceReviewRequired` durumundadır.
+- Bu iterasyon kapanışında HTTP cookie/token/CSRF sınırı, eş zamanlı oturum
+  limiti, mutlak süre, üretim deposu/şifreleme ve saklama süresi inceleme
+  bekliyordu. `OPEN-BNK-020` daha sonra `ApprovedByBank` oldu; kararın runtime ve
+  üretim altyapısı uygulaması henüz tamamlanmadı.
 - Depo dizininde `.git` bulunmadığı için commit oluşturulmadı; değişiklikler küçük ve tek commit kapsamına uygundur.
 
 ### 2026-07-17 — İterasyon 21A: Yetki filtreli dashboard trend domain sorgusu
@@ -433,7 +438,10 @@ tags:
 - Saat dilimsiz saat ve gözlem damgaları reddedilir. Son 30 gün için 500 sentetik gözlemle yerel p95 koruması üç saniyenin altında geçti.
 - On bir yeni testle toplam 265 test geçti; dashboard hedef grubu 29 testle geçti. Kanıt `08-Uyum-Kanitlari/Erisim/Iterasyon-21A-Yetki-Filtreli-Dashboard-Trend-Kaniti.md` içinde `TechnicallyVerified` olarak kaydedildi.
 - Lint, değişen dosyalarda format, `python3` derleme ve tüm testler geçti. Tam depo format kontrolünde değişmeyen dört eski dosyanın biçim farkı sürüyor.
-- Serbest tarih aralığı/periyot seçimi, operasyon listeleri, grafik/tablo sunumu ve HTTP/cookie yüzeyi kapsam dışıdır; 21B geçiş kapısı ve `OPEN-BNK-020` nedeniyle engellidir.
+- Serbest tarih aralığı/periyot seçimi, operasyon listeleri, grafik/tablo sunumu
+  ve HTTP/cookie yüzeyi bu iterasyonun kapsamı dışındadır. `OPEN-BNK-020` artık
+  banka onaylıdır; 21B'nin kalan engeli onaylı oturum politikasının uygulanması ve
+  geçiş kapısındaki diğer bağımlılıklardır.
 - Depo dizininde `.git` bulunmadığı için commit oluşturulmadı; değişiklikler küçük ve tek commit kapsamına uygundur.
 
 ### 2026-07-17 — İterasyon 22A: Veri-minimum sistem içi bildirim yaşam döngüsü
@@ -1125,8 +1133,8 @@ tags:
   mimari, iş kuralları, operasyon, test ve izlenebilirlik belgeleri kanonik tasarıma
   bağlandı. `AC/TS-039`–`047` hedef kabul senaryolarıdır.
 - Bu çalışma dokümantasyon ve hedef tasarım artımıdır. Mevcut runtime alanları ve
-  formülleri henüz taşınmamıştır; üretim değerleri ile yetki/onay matrisi
-  `OPEN-023` ve ilişkili `OPEN-BNK` kayıtlarında açıktır.
+  formülleri henüz taşınmamıştır; üretim değerleri aktif sürümlü politikadan
+  çözülecek, politika veya yetki eşlemesi yoksa olumlu karar verilmeyecektir.
 - 39 değişen Markdown dosyasında yerel bağlantı, tablo sütunu ve whitespace
   kontrolleri geçti. 913 test, 131 dosyalık tam mypy, Ruff lint ve `compileall`
   geçti. `28A-v1` taraması 378 dosyada secret bulgusu üretmedi. Tam Ruff format
@@ -1146,8 +1154,9 @@ tags:
   `OPEN-014` kapsamındaki nihai anonimleştirilmiş üretim örneği kabulünün yerine
   geçen kanıt sayılmadı.
 - Tasarım runtime'a uygulanmadı. Nicel fayda/gizlilik/kusur yoğunluğu/skor
-  toleransı değerleri `OPEN-024`; üretim profili/örneği erişim ve onay modeli
-  `OPEN-025` altında açık bırakıldı.
+  toleransı aktif sentetik politikada zorunlu ve eksikse `BLOCKED`dır. Üretim
+  profili/örneği erişimi varsayılan kapalıdır; yalnız ayrı kurumsal onaylı
+  politikayla açılabilir.
 - 35 değişen/yeni Markdown dosyasında yerel bağlantı, tablo sütunu ve
   `FR/UC/RULE/AC` süreklilik kontrolleri geçti. 913 test, 131 dosyalık tam mypy,
   Ruff lint ve `compileall` geçti; `28A-v1` taraması 381 dosyada secret bulgusu
@@ -1322,7 +1331,7 @@ tags:
 - `OPEN-001`–`OPEN-018` kesinleşmiş kararları SRS açık konu tablosundan
   çıkarıldı; karar belgesindeki kanonik tablo korunmuştur.
 - `OPEN-BNK-003/004/005/006/007/010/012/014/015/016/017/020` teknik yönleri
-  `ProvisionalDecision`, `OPEN-BNK-021` ise `KararAlındı` durumuyla bankacılık
+  `KararAlındı`, `OPEN-BNK-021` ise `KararAlındı` durumuyla bankacılık
   geçiş teknik yön kararları tablosuna taşındı. Bu işlem banka onayı üretmez.
 - Bankacılık açık tablosunda yalnız `OPEN-BNK-001/002/008/009/011/013/018/019`
   kaldı. Cron, şema değişikliği ve `QualityDimension` için alınmış kararların
@@ -1331,9 +1340,34 @@ tags:
 ### OPEN-001–OPEN-018 Dokümantasyon Uyumlaştırması
 
 - Kapasite, kaynak kullanım politikası, kurumsal secret manager, IdP/SSO/MFA, kayıt sınıfı bazlı saklama, bileşen bazlı RPO/RTO, ServiceNow ara entegrasyonu, katalog/DLP sınıflandırması, katmanlı rapor saklama, risk bazlı maker-checker, bağlayıcı sırası, anonimleştirilmiş performans verisi, WCAG 2.2 AA, hibrit dağıtım, hibrit audit ve dataset kontrollü kısmi skor kararları SRS, veri modeli, mimari, operasyon ve test belgelerine işlendi.
-- `OPEN-001`–`OPEN-018` karar yönleri `Karara bağlandı` durumuna alındı. Ürün adları ile kapasite, kota, timeout, saklama, dosya boyutu ve RPO/RTO değerleri uydurulmadan TBD bırakıldı.
+- `OPEN-001`–`OPEN-018` karar yönleri `Karara bağlandı` durumuna alındı. Ürün yönleri ve teknik saklama/RPO/RTO değerleri kaydedildi; ortama göre değişen kapasite, kota, timeout ve dosya boyutu değerlerinde aktif sürümlü politika zorunlu kılındı.
 - 57 değişen Markdown dosyasında yerel bağlantı ve tablo yapısı kontrolü; 855 test, 127 dosyalık tam mypy, Ruff ve derleme kontrolleri geçti.
 - Bu çalışma dokümantasyon sözleşmesini günceller; yeni runtime davranışının uygulanmış veya banka tarafından onaylanmış olduğu anlamına gelmez.
+
+### 2026-07-22 — Karar durumlarının kesinleştirilmesi ve OPEN-BNK-020 banka onayı
+
+- Tüm geçici karar ve belirsiz değer yer tutucuları kaldırıldı. Teknik yönü
+  seçilmiş kayıtlar `KararAlındı` durumuna taşındı; ortama göre değişen değerler
+  aktif, sürümlü ve gerekli onayı taşıyan politikadan çözülür, politika yoksa
+  sistem fail-closed davranır.
+- Saklama matrisi ile normal `RPO=PT15M`, `RTO=PT4H` ve kritik
+  `RPO=PT5M`, `RTO=PT1H` hedefleri gereksinim, veri modeli ve operasyon
+  belgelerinde karar olarak kaydedildi.
+- `OPEN-BNK-020`, `USER-DECLARATION-2026-07-22-OPEN-BNK-020` referansıyla
+  `ApprovedByBank` durumuna alındı. BFF, tek aktif oturum, `PT1H` idle,
+  `PT10H` mutlak süre, `__Host-session`, synchronizer-token CSRF, merkezi iptal
+  ve `P90D` güvenlik metadatası gereksinim ve mimari sözleşmelerine işlendi.
+- Mevcut runtime 30 dakikalık idle tabanını kullanmaya devam etmektedir. Banka
+  onaylı politika sürümünün HTTP/session katmanında uygulanması, yüksek
+  erişilebilir üretim deposu, at-rest şifreleme/KMS-HSM ve fiziksel saklama/imha
+  kanıtı açık uygulama işleridir.
+- 988 Python testi, 146 dosyalık mypy, Ruff lint, `compileall`, 4 frontend birim
+  testi, frontend type-check ve üretim build'i geçti. 429 dosyalık `28A-v1`
+  secret taraması temizdir; yerel Markdown bağlantıları ve karar işareti taraması
+  hatasızdır. Frontend build'inde mevcut 500 kB chunk uyarısı sürmektedir.
+- Tam `ruff format --check`, bu dokümantasyon değişikliğinin dışında kalan
+  `03-Backend/src/veri_kalitesi/__init__.py` dosyasında mevcut tek biçim farkını
+  raporlamaktadır; bu iterasyonda Python kaynak kodu değiştirilmemiştir.
 
 - [Alınan Kararlar](Alinan-Kararlar.md)
 - [Açık Konular](Acik-Konular.md)
