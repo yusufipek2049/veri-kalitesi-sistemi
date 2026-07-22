@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 from dataclasses import FrozenInstanceError, dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -34,6 +35,7 @@ from veri_kalitesi.identity import (
     LdapGroupRoleScopePolicy,
     LdapIdentityAssertion,
     PolicyAuthorizationService,
+    SessionActivity,
     SessionDeniedError,
     SessionPolicy,
     SessionService,
@@ -503,7 +505,7 @@ def test_fr_001_fr_005_ac_001_ldap_login_creates_data_minimum_session() -> None:
     assert perf_counter() - started_at < 5
     assert len(grant.credential) >= 32
     assert is_trusted_actor_context(grant.context)
-    assert grant.context.expires_at == NOW + timedelta(hours=8)
+    assert grant.context.expires_at == NOW + timedelta(hours=10)
     assert [event.action for event in audit.list_events()[-2:]] == [
         "LDAP_AUTHENTICATION",
         "IDENTITY_SESSION",
@@ -528,13 +530,13 @@ def test_fr_005_session_validation_refreshes_last_activity() -> None:
     assert service.validate(grant.credential, "session-refreshed").session_id == context.session_id
 
 
-def test_fr_005_nfr_sec_009_idle_timeout_denies_at_thirty_minutes() -> None:
+def test_fr_005_nfr_sec_009_idle_timeout_denies_at_sixty_minutes() -> None:
     current = [NOW]
     audit = SQLiteAuditRepository()
     repository = SQLiteSessionRepository()
     service = _sessions(_audit_service(audit), repository=repository, clock=lambda: current[0])
     grant = _open_session(service)
-    current[0] += timedelta(minutes=30)
+    current[0] += timedelta(minutes=60)
 
     with pytest.raises(SessionDeniedError) as error:
         service.validate(grant.credential, "idle-timeout")
@@ -543,6 +545,44 @@ def test_fr_005_nfr_sec_009_idle_timeout_denies_at_thirty_minutes() -> None:
     row = repository.connection.execute("SELECT status FROM identity_sessions").fetchone()
     assert row["status"] == SessionStatus.EXPIRED.value
     assert audit.list_events()[-1].reason_code == "SESSION_IDLE_TIMEOUT"
+
+
+@pytest.mark.parametrize(
+    "activity",
+    [SessionActivity.BACKGROUND, SessionActivity.TOKEN_REFRESH],
+    ids=("background", "token-refresh"),
+)
+def test_nfr_sec_009_non_user_activity_does_not_extend_idle_timeout(
+    activity: SessionActivity,
+) -> None:
+    current = [NOW]
+    repository = SQLiteSessionRepository()
+    service = _sessions(
+        _audit_service(SQLiteAuditRepository()),
+        repository=repository,
+        clock=lambda: current[0],
+    )
+    grant = _open_session(service)
+    current[0] += timedelta(minutes=50)
+
+    service.validate(grant.credential, "background-validation", activity=activity)
+    current[0] = NOW + timedelta(minutes=60)
+
+    with pytest.raises(SessionDeniedError) as error:
+        service.validate(grant.credential, "idle-after-background")
+    assert error.value.reason_code == "SESSION_IDLE_TIMEOUT"
+
+
+def test_nfr_sec_009_untrusted_activity_classification_is_rejected() -> None:
+    service = _sessions(_audit_service(SQLiteAuditRepository()))
+    grant = _open_session(service)
+
+    with pytest.raises(ActorContextValidationError, match="Trusted session activity"):
+        service.validate(
+            grant.credential,
+            "untrusted-activity",
+            activity="BACKGROUND",  # type: ignore[arg-type]
+        )
 
 
 def test_fr_005_configured_stricter_idle_timeout_is_applied() -> None:
@@ -593,7 +633,8 @@ def test_fr_005_absolute_timeout_cannot_be_extended_by_activity() -> None:
 
 def test_fr_005_logout_revokes_credential_and_is_idempotent() -> None:
     audit = SQLiteAuditRepository()
-    service = _sessions(_audit_service(audit))
+    repository = SQLiteSessionRepository()
+    service = _sessions(_audit_service(audit), repository=repository)
     grant = _open_session(service)
 
     service.logout(grant.credential, "first-logout")
@@ -601,12 +642,46 @@ def test_fr_005_logout_revokes_credential_and_is_idempotent() -> None:
 
     with pytest.raises(SessionDeniedError) as error:
         service.validate(grant.credential, "reuse-after-logout")
-    assert error.value.reason_code == "SESSION_NOT_ACTIVE"
+    assert error.value.reason_code == "SESSION_NOT_FOUND"
+    row = repository.connection.execute(
+        "SELECT status, credential_digest FROM identity_sessions"
+    ).fetchone()
+    assert row["status"] == SessionStatus.REVOKED.value
+    assert row["credential_digest"] is None
     assert [event.reason_code for event in audit.list_events()[-3:]] == [
         "SESSION_REVOKED",
         "SESSION_ALREADY_INACTIVE",
-        "SESSION_NOT_ACTIVE",
+        "SESSION_NOT_FOUND",
     ]
+
+
+def test_open_bnk_020_new_login_atomically_revokes_previous_session() -> None:
+    audit = SQLiteAuditRepository()
+    repository = SQLiteSessionRepository()
+    service = _sessions(_audit_service(audit), repository=repository)
+    first = _open_session(service)
+
+    second = _open_session(service)
+
+    rows = repository.connection.execute(
+        """
+        SELECT session_id, status, credential_digest, revocation_reason
+        FROM identity_sessions ORDER BY issued_at, session_id
+        """
+    ).fetchall()
+    assert len(rows) == 2
+    assert sum(row["status"] == SessionStatus.ACTIVE.value for row in rows) == 1
+    revoked = next(row for row in rows if row["status"] == SessionStatus.REVOKED.value)
+    assert revoked["credential_digest"] is None
+    assert revoked["revocation_reason"] == "NEW_SUCCESSFUL_LOGIN"
+    assert (
+        service.validate(second.credential, "current-session").session_id
+        == second.context.session_id
+    )
+    with pytest.raises(SessionDeniedError) as error:
+        service.validate(first.credential, "previous-session")
+    assert error.value.reason_code == "SESSION_NOT_FOUND"
+    assert "SESSION_REVOKED_NEW_LOGIN" in [event.reason_code for event in audit.list_events()]
 
 
 def test_fr_005_changed_or_unknown_credential_is_generically_denied() -> None:
@@ -639,6 +714,50 @@ def test_fr_005_session_state_survives_repository_reopen(tmp_path: Path) -> None
     assert (
         reopened.validate(grant.credential, "reopened-session").actor_id == grant.context.actor_id
     )
+
+
+def test_fr_005_legacy_session_schema_is_migrated_for_credential_deletion(
+    tmp_path: Path,
+) -> None:
+    database = str(tmp_path / "legacy-sessions.sqlite")
+    connection = sqlite3.connect(database)
+    connection.execute(
+        """
+        CREATE TABLE identity_sessions (
+            session_id TEXT PRIMARY KEY,
+            credential_digest TEXT NOT NULL UNIQUE,
+            actor_id TEXT NOT NULL,
+            actor_type TEXT NOT NULL,
+            authentication_source TEXT NOT NULL,
+            roles TEXT NOT NULL,
+            permitted_source_ids TEXT NOT NULL,
+            permitted_dataset_ids TEXT NOT NULL,
+            can_view_enterprise INTEGER NOT NULL,
+            privileged INTEGER NOT NULL,
+            issued_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            last_activity_at TEXT NOT NULL,
+            status TEXT NOT NULL,
+            mapping_policy_version TEXT NOT NULL,
+            session_policy_version TEXT NOT NULL,
+            revoked_at TEXT,
+            revocation_reason TEXT
+        )
+        """
+    )
+    connection.commit()
+    connection.close()
+
+    repository = SQLiteSessionRepository(database)
+
+    credential_column = next(
+        column
+        for column in repository.connection.execute(
+            "PRAGMA table_info(identity_sessions)"
+        ).fetchall()
+        if column["name"] == "credential_digest"
+    )
+    assert credential_column["notnull"] == 0
 
 
 def test_fr_005_session_repository_failure_is_audited_and_fail_closed() -> None:
@@ -678,9 +797,10 @@ def test_fr_005_session_creation_audit_failure_revokes_persisted_session() -> No
         _open_session(service)
 
     row = repository.connection.execute(
-        "SELECT status, revocation_reason FROM identity_sessions"
+        "SELECT status, credential_digest, revocation_reason FROM identity_sessions"
     ).fetchone()
     assert row["status"] == SessionStatus.REVOKED.value
+    assert row["credential_digest"] is None
     assert row["revocation_reason"] == "SESSION_CREATION_AUDIT_FAILED"
 
 
@@ -748,17 +868,23 @@ def test_nfr_sec_005_session_repository_never_stores_raw_credential() -> None:
 
 
 def test_nfr_sec_009_session_policy_rejects_weak_or_incoherent_timeouts() -> None:
-    with pytest.raises(ActorContextValidationError, match="at most thirty"):
+    with pytest.raises(ActorContextValidationError, match="at most sixty"):
         SessionPolicy(
             version="weak-idle-policy",
-            idle_timeout=timedelta(minutes=31),
-            absolute_timeout=timedelta(hours=8),
+            idle_timeout=timedelta(minutes=61),
+            absolute_timeout=timedelta(hours=10),
         )
     with pytest.raises(ActorContextValidationError, match="must exceed"):
         SessionPolicy(
             version="invalid-absolute-policy",
             idle_timeout=timedelta(minutes=30),
             absolute_timeout=timedelta(minutes=30),
+        )
+    with pytest.raises(ActorContextValidationError, match="at most ten hours"):
+        SessionPolicy(
+            version="weak-absolute-policy",
+            idle_timeout=timedelta(minutes=60),
+            absolute_timeout=timedelta(hours=11),
         )
 
 
@@ -836,8 +962,8 @@ def _throttle(
 def _session_policy() -> SessionPolicy:
     return SessionPolicy(
         version=SESSION_POLICY_VERSION,
-        idle_timeout=timedelta(minutes=30),
-        absolute_timeout=timedelta(hours=8),
+        idle_timeout=timedelta(minutes=60),
+        absolute_timeout=timedelta(hours=10),
     )
 
 

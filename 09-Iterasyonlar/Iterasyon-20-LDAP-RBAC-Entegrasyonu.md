@@ -77,3 +77,30 @@ oturum limiti, mutlak süre, banka grup/ayrıcalık kararları, üretim
 deposu/şifreleme ve saklama onayı açık kalmıştı. `OPEN-BNK-020` sonradan
 `ApprovedByBank` olarak kapandı; BFF/cookie/CSRF, merkezi iptal, üretim store,
 şifreleme ve `P90D` saklama davranışının uygulanması açıktır.
+
+## Dilim 20D Kapanışı
+
+`TechnicallyVerified` kapsam:
+
+- `OPEN-BNK-020` için banka onaylı `PT1H` idle ve `PT10H` mutlak süre üst
+  sınırları runtime politikasında uygulanır; daha sıkı politika sürümleri
+  desteklenir.
+- Kullanıcı başına tek aktif normal oturum kuralı depo transaction'ında
+  uygulanır. Yeni başarılı giriş önceki aktif oturumu iptal eder, credential
+  özetini siler ve yeni oturumu aynı atomik işlemde kaydeder.
+- Logout, timeout, yeni giriş ve oluşturma auditi arızasıyla terminal duruma
+  geçen oturumların credential özeti tutulmaz; veri-minimum durum, zaman ve
+  neden metadatası korunur.
+- Oturum servisi `SessionRepository` protokolüne bağlanır. SQLite prototipi eski
+  `credential_digest NOT NULL` şemasını nullable şemaya açılışta geçirir.
+- Yalnız `USER_INTERACTION` idle aktivitesini yeniler; `BACKGROUND` ve
+  `TOKEN_REFRESH` doğrulamaları idle süresini uzatmaz. Güvenilmeyen aktivite
+  sınıfı reddedilir.
+- Kimlik hedefinde 47, tam depoda 993 test geçti. Tam mypy, Ruff lint/format,
+  `compileall` ve `git diff --check` kontrolleri hatasızdır.
+
+Bu dilim HTTP/BFF cookie taşımasını, synchronizer-token CSRF kontrollerini,
+kullanıcı pasifleştirme/rol değişimi/güvenlik olayı/IdP kaynaklı merkezi iptal
+adaptörlerini, yüksek erişilebilir üretim session store'unu, at-rest
+şifreleme/KMS-HSM bağlantısını veya `P90D` fiziksel saklama/imha kanıtını
+uygulamaz. Bu kapsamlar birbirinden bağımsız sonraki ürün artımlarıdır.
