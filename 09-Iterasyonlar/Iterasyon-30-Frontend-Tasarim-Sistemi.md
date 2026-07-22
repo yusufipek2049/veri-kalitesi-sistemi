@@ -93,7 +93,7 @@ Durum: **TechnicallyVerified**
 | 30C | Referansla uyumlu navigasyon grupları, gerçek/hizalı ikonlar ve açık-koyu tema | `TechnicallyVerified` |
 | 30D | Sentetik veri alanı karşılaştırması, kalite boyutu matrisi ve 21C hazırsa operasyonel KPI bağlantısı | 30C; gerçek KPI için 21C |
 | 30E | Ortak sayfalı data table standardı | 30B, API sayfalama sözleşmesi |
-| 30F | Üretim bağlantılı kurumsal dashboard | 20E, 21B/21C güvenli API, geçiş kapısı |
+| 30F | Üretim bağlantılı kurumsal dashboard | 20E `TechnicallyVerified`; 21B/21C güvenli API ve geçiş kapısı |
 | 30G | Onaylı görsel baseline ve diff eşiği | Banka marka/onay kararı |
 | 30H | Grafik erişilebilirliği genişletmesi | 30D–30G |
 
@@ -153,8 +153,8 @@ Durum: **TechnicallyVerified**
 
 ## Sonraki İş
 
-30C uygulama kabuğu ve tema artımı tamamlandı. Kullanıcı öncelikli zincirde
-sıradaki güvenlik ön koşulu 20E BFF/session/CSRF HTTP sınırıdır. Ardından 21C
-operasyonel gösterge API'si ve 30D dashboard referans içerik tamamlaması ayrı
-artımlar olarak uygulanır. Üretim bağlantılı 30F, 20E ile 21B/21C güvenli API
-sınırları tamamlanana kadar uygulanmaz.
+30C uygulama kabuğu ve tema artımı ile 20E BFF/session/CSRF HTTP sınırı
+tamamlandı. Kullanıcı öncelikli zincirde sıradaki artım 21C operasyonel gösterge
+API'sidir; 30D dashboard referans içerik tamamlaması ayrı artım olarak uygulanır.
+Üretim bağlantılı 30F, 21C güvenli API sınırı ve geçiş kapısı tamamlanana kadar
+uygulanmaz.

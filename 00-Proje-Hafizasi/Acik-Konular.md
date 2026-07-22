@@ -56,10 +56,11 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
     maker/checker/deactivator/worker rol kodları açık kalır.
 28. Başarısız giriş sınırlandırması opak kullanıcı/istemci anahtarlarıyla teknik olarak uygulandı. Üretim anahtar türetme/rotasyon yöntemi, secret manager bağlantısı, güvenilir istemci referansının proxy/ağ sınırı, paylaşımlı depo ürünü ve LDAP ile uyumlu nihai eşik/pencere/süre onayı açık kalır.
 30. Dashboard trendi güvenilir scope ile sabit son 30 UTC gün için uygulandı;
-    21B yerel/test FastAPI özetini ve bağlı grafik/tablo görünümünü doğruladı.
-    Serbest tarih aralığı/periyot seçimi, operasyon listeleri, gerçek
-    OIDC/session assertion ve banka onaylı BFF cookie/CSRF politikasının HTTP
-    katmanında uygulanması açık kalır.
+    21B yerel/test FastAPI özetini ve bağlı grafik/tablo görünümünü, 20E ise
+    banka onaylı BFF cookie/CSRF HTTP sınırını doğruladı. Serbest tarih
+    aralığı/periyot seçimi, operasyon listeleri, gerçek OIDC/SAML callback ve
+    state/nonce, banka grup-rol eşlemesi, HA session store ve üretim şifreleme
+    bağlantısı açık kalır.
 31. Sistem içi bildirim domain yaşam döngüsü sabit veri-minimum şablon ve güvenilir resolver protokolüyle uygulandı. Gerçek sahiplik/fallback grup kaynağı, şablon yönetimi, susturma/eskalasyon politikası, asenkron retry/DLQ, saklama-imha ve HTTP/UI yüzeyi açık kalır.
 32. Otomatik issue oluşturma, atama/inceleme, korunan çözüm, başarısız/teknik doğrulama, farklı aktörle başarılı `VERIFIED`, doğrulama bağlı `CLOSED`, aynı başarısızlıkla yeniden açma ve yeni kalite başarısızlığını append-only ilişkilendirme uygulandı. Gerçek assignment/kullanıcı dizini, çözüm koruma, doğrulama ve ilişki resolver adaptörleri; banka onaylı çözen/doğrulayan rol eşlemesi, bildirim retry/DLQ, saklama-imha ve ServiceNow açık kalır.
 34. ServiceNow ticket oluşturma allowlist projeksiyon, güvenilir servis context'i ve idempotent fake adaptörle teknik olarak doğrulandı. Gerçek endpoint/credential, banka alan-durum eşlemesi, servis hesabı yetkilendirmesi, timeout/retry/backoff, durum senkronizasyonu ve `OPEN-BNK-009` onayı açık kalır.
@@ -81,7 +82,7 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
     Kurumsal font, onaylı görsel
     baseline/diff eşiği, performans bütçesi ve banka marka onayı henüz
     tamamlanmamıştır. 21B yerel/test API bağlantısını eklemiştir; üretim dashboard
-    ve alan ekranları 20E BFF oturum/CSRF sınırı, ilgili güvenli API'ler, yüksek
+    ve alan ekranları ilgili güvenli API'ler, gerçek IdP bağlantısı, yüksek
     erişilebilir session store, PostgreSQL repository bağlantıları ve bankacılık
     geçiş kapısına bağlıdır.
 47. `28D-v1` doğrudan bağımlılık zafiyet bulgu zarfı, tamamlanmamış tarama teknik

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import secrets
 import sqlite3
@@ -61,12 +62,14 @@ class SessionPolicy:
 class SessionGrant:
     context: ActorContext
     credential: bytes = field(repr=False)
+    csrf_token: bytes = field(repr=False)
 
 
 @dataclass(frozen=True)
 class SessionRecord:
     session_id: str
     credential_digest: str | None
+    csrf_token_digest: str | None
     actor_id: str
     actor_type: ActorType
     authentication_source: str
@@ -120,6 +123,7 @@ class SQLiteSessionRepository:
                 CREATE TABLE IF NOT EXISTS identity_sessions (
                     session_id TEXT PRIMARY KEY,
                     credential_digest TEXT UNIQUE,
+                    csrf_token_digest TEXT,
                     actor_id TEXT NOT NULL,
                     actor_type TEXT NOT NULL,
                     authentication_source TEXT NOT NULL,
@@ -140,6 +144,7 @@ class SQLiteSessionRepository:
                 """
             )
             self._migrate_credential_digest_nullable()
+            self._migrate_csrf_token_digest()
             self.connection.executescript(
                 """
                 CREATE INDEX IF NOT EXISTS idx_identity_sessions_actor_status
@@ -167,6 +172,7 @@ class SQLiteSessionRepository:
             CREATE TABLE identity_sessions (
                 session_id TEXT PRIMARY KEY,
                 credential_digest TEXT UNIQUE,
+                csrf_token_digest TEXT,
                 actor_id TEXT NOT NULL,
                 actor_type TEXT NOT NULL,
                 authentication_source TEXT NOT NULL,
@@ -186,7 +192,7 @@ class SQLiteSessionRepository:
             );
 
             INSERT INTO identity_sessions (
-                session_id, credential_digest, actor_id, actor_type,
+                session_id, credential_digest, csrf_token_digest, actor_id, actor_type,
                 authentication_source, roles, permitted_source_ids,
                 permitted_dataset_ids, can_view_enterprise, privileged,
                 issued_at, expires_at, last_activity_at, status,
@@ -196,6 +202,7 @@ class SQLiteSessionRepository:
             SELECT
                 session_id,
                 CASE WHEN status = 'ACTIVE' THEN credential_digest ELSE NULL END,
+                NULL,
                 actor_id, actor_type, authentication_source, roles,
                 permitted_source_ids, permitted_dataset_ids,
                 can_view_enterprise, privileged, issued_at, expires_at,
@@ -208,6 +215,12 @@ class SQLiteSessionRepository:
             COMMIT;
             """
         )
+
+    def _migrate_csrf_token_digest(self) -> None:
+        columns = self.connection.execute("PRAGMA table_info(identity_sessions)").fetchall()
+        if any(column["name"] == "csrf_token_digest" for column in columns):
+            return
+        self.connection.execute("ALTER TABLE identity_sessions ADD COLUMN csrf_token_digest TEXT")
 
     def replace_active(
         self,
@@ -227,7 +240,8 @@ class SQLiteSessionRepository:
                 self.connection.execute(
                     """
                     UPDATE identity_sessions
-                    SET credential_digest = NULL, status = ?, revoked_at = ?,
+                    SET credential_digest = NULL, csrf_token_digest = NULL,
+                        status = ?, revoked_at = ?,
                         revocation_reason = ?
                     WHERE actor_id = ? AND actor_type = ? AND status = ?
                     """,
@@ -243,13 +257,14 @@ class SQLiteSessionRepository:
                 self.connection.execute(
                     """
                     INSERT INTO identity_sessions (
-                        session_id, credential_digest, actor_id, actor_type,
+                        session_id, credential_digest, csrf_token_digest,
+                        actor_id, actor_type,
                         authentication_source, roles, permitted_source_ids,
                         permitted_dataset_ids, can_view_enterprise, privileged,
                         issued_at, expires_at, last_activity_at, status,
                         mapping_policy_version, session_policy_version,
                         revoked_at, revocation_reason
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     _record_values(record),
                 )
@@ -309,7 +324,8 @@ class SQLiteSessionRepository:
                 self.connection.execute(
                     """
                     UPDATE identity_sessions
-                    SET credential_digest = NULL, status = ?, revoked_at = ?,
+                    SET credential_digest = NULL, csrf_token_digest = NULL,
+                        status = ?, revoked_at = ?,
                         revocation_reason = ?
                     WHERE session_id = ? AND status = ?
                     """,
@@ -341,6 +357,7 @@ class SessionService:
         issuer: ActorContextIssuer | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
         credential_generator: Callable[[int], bytes] = secrets.token_bytes,
+        csrf_token_generator: Callable[[int], bytes] = secrets.token_bytes,
         session_id_generator: Callable[[], str] = lambda: str(uuid.uuid4()),
     ) -> None:
         self.repository = repository
@@ -349,6 +366,7 @@ class SessionService:
         self.issuer = issuer or ActorContextIssuer()
         self.clock = clock
         self.credential_generator = credential_generator
+        self.csrf_token_generator = csrf_token_generator
         self.session_id_generator = session_id_generator
 
     def open_authenticated_session(
@@ -372,9 +390,12 @@ class SessionService:
         ):
             raise ActorContextValidationError("User session requires a non-privileged user.")
         credential = self.credential_generator(32)
+        csrf_token = self.csrf_token_generator(32)
         session_id = self.session_id_generator()
         if not isinstance(credential, bytes) or len(credential) < 32:
             raise ActorContextValidationError("Session credential must contain 32 bytes.")
+        if not isinstance(csrf_token, bytes) or len(csrf_token) < 32:
+            raise ActorContextValidationError("CSRF token must contain 32 bytes.")
         if not session_id.strip():
             raise ActorContextValidationError("Session ID is required.")
         expires_at = now + self.policy.absolute_timeout
@@ -393,7 +414,13 @@ class SessionService:
             policy_version=authenticated_context.policy_version,
             correlation_id=correlation_id,
         )
-        record = _context_to_record(context, credential, self.policy.version, now)
+        record = _context_to_record(
+            context,
+            credential,
+            csrf_token,
+            self.policy.version,
+            now,
+        )
         revoked_records = self._replace_active(record, correlation_id, now)
         try:
             for revoked_record in revoked_records:
@@ -414,7 +441,11 @@ class SessionService:
                 correlation_id,
             )
             raise
-        return SessionGrant(context=context, credential=credential)
+        return SessionGrant(
+            context=context,
+            credential=credential,
+            csrf_token=csrf_token,
+        )
 
     def validate(
         self,
@@ -427,6 +458,52 @@ class SessionService:
         self._validate_request(credential, correlation_id)
         if not isinstance(activity, SessionActivity):
             raise ActorContextValidationError("Trusted session activity type is required.")
+        record = self._resolve_active_record(credential, correlation_id, now)
+        record = self._touch_for_activity(record, activity, correlation_id, now)
+        context = self._issue_context(record, correlation_id)
+        self._record(record, correlation_id, AuditResult.SUCCESS, "SESSION_VALIDATED", now)
+        return context
+
+    def validate_csrf(
+        self,
+        credential: bytes,
+        csrf_token: bytes,
+        correlation_id: str,
+        *,
+        activity: SessionActivity = SessionActivity.USER_INTERACTION,
+    ) -> ActorContext:
+        now = self._now()
+        self._validate_request(credential, correlation_id)
+        if not isinstance(activity, SessionActivity):
+            raise ActorContextValidationError("Trusted session activity type is required.")
+        record = self._resolve_active_record(credential, correlation_id, now)
+        if (
+            not isinstance(csrf_token, bytes)
+            or len(csrf_token) < 32
+            or record.csrf_token_digest is None
+            or not hmac.compare_digest(
+                record.csrf_token_digest,
+                _credential_digest(csrf_token),
+            )
+        ):
+            self._deny(record, correlation_id, "CSRF_VALIDATION_FAILED", now)
+        record = self._touch_for_activity(record, activity, correlation_id, now)
+        context = self._issue_context(record, correlation_id)
+        self._record(
+            record,
+            correlation_id,
+            AuditResult.SUCCESS,
+            "SESSION_CSRF_VALIDATED",
+            now,
+        )
+        return context
+
+    def _resolve_active_record(
+        self,
+        credential: bytes,
+        correlation_id: str,
+        now: datetime,
+    ) -> SessionRecord:
         record = self._find(credential, correlation_id, now)
         if record is None:
             self._deny(None, correlation_id, "SESSION_NOT_FOUND", now)
@@ -450,14 +527,21 @@ class SessionService:
                 correlation_id,
             )
             self._deny(record, correlation_id, "SESSION_IDLE_TIMEOUT", now)
+        return record
+
+    def _touch_for_activity(
+        self,
+        record: SessionRecord,
+        activity: SessionActivity,
+        correlation_id: str,
+        now: datetime,
+    ) -> SessionRecord:
         if activity is SessionActivity.USER_INTERACTION:
             try:
-                record = self.repository.touch(record.session_id, now)
+                return self.repository.touch(record.session_id, now)
             except SessionTechnicalError:
                 self._unavailable(correlation_id, now)
-        context = self._issue_context(record, correlation_id)
-        self._record(record, correlation_id, AuditResult.SUCCESS, "SESSION_VALIDATED", now)
-        return context
+        return record
 
     def logout(self, credential: bytes, correlation_id: str) -> None:
         now = self._now()
@@ -597,12 +681,14 @@ class SessionService:
 def _context_to_record(
     context: ActorContext,
     credential: bytes,
+    csrf_token: bytes,
     session_policy_version: str,
     now: datetime,
 ) -> SessionRecord:
     return SessionRecord(
         session_id=context.session_id,
         credential_digest=_credential_digest(credential),
+        csrf_token_digest=_credential_digest(csrf_token),
         actor_id=context.actor_id,
         actor_type=context.actor_type,
         authentication_source=context.authentication_source,
@@ -628,6 +714,7 @@ def _record_values(record: SessionRecord) -> tuple[object, ...]:
     return (
         record.session_id,
         record.credential_digest,
+        record.csrf_token_digest,
         record.actor_id,
         record.actor_type.value,
         record.authentication_source,
@@ -651,6 +738,7 @@ def _row_to_record(row: sqlite3.Row) -> SessionRecord:
     return SessionRecord(
         session_id=row["session_id"],
         credential_digest=row["credential_digest"],
+        csrf_token_digest=row["csrf_token_digest"],
         actor_id=row["actor_id"],
         actor_type=ActorType(row["actor_type"]),
         authentication_source=row["authentication_source"],

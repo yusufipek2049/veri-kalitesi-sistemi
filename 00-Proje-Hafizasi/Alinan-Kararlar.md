@@ -438,7 +438,7 @@ gelmez; kalan onay ve ürün ayrıntıları sonuç sütununda korunur.
 | OPEN-BNK-015 | `ActorContext` yalnız güvenilir identity/session adaptöründen üretilecek | `KararAlındı` | Issuer sahipliği ve session assertion doğrulaması |
 | OPEN-BNK-016 | PostgreSQL transactional outbox ve ayrı publisher worker | `KararAlındı` | Şifreleme, sahiplik, replay ve operasyon prosedürü |
 | OPEN-BNK-017 | Onay hedefi 3 iş günü, otomatik sona erme 10 iş günü | `KararAlındı` | Banka iş takvimi ve rol sahibi onayı |
-| OPEN-BNK-020 | BFF üzerinde opak server-side session; 1 saat hareketsizlik, 10 saat mutlak süre, tek aktif oturum, `__Host-session` cookie, synchronizer-token CSRF, merkezi iptal ve 90 günlük güvenlik metadatası | `ApprovedByBank` | Üretim deposu, şifreleme/KMS-HSM, HTTP katmanı ve 90 günlük fiziksel saklama uygulama kanıtı |
+| OPEN-BNK-020 | BFF üzerinde opak server-side session; 1 saat hareketsizlik, 10 saat mutlak süre, tek aktif oturum, `__Host-session` cookie, synchronizer-token CSRF, merkezi iptal ve 90 günlük güvenlik metadatası | `ApprovedByBank` | Gerçek IdP callback/state/nonce, üretim deposu, şifreleme/KMS-HSM ve 90 günlük fiziksel saklama uygulama kanıtı |
 | OPEN-BNK-021 | Kısmi çalışma yalnız onaylı dataset politikasındaki tüm koşulları sağlarsa resmî skora girebilir; aksi halde `PROVISIONAL` olur ve resmî skor/SLA/trend/raporlamadan dışlanır | `KararAlındı` | Üretim eşikleri ve banka onaylı politika kayıtları ayrı açık bağımlılıktır |
 
 ## Bankacılık Geçiş Açık Konuları
@@ -503,9 +503,9 @@ tamamlandığı anlamına gelmez.
 
 İterasyon 21B, `API-001/003/004/006/008–012/014` kararlarının dashboard okuma
 alt kapsamını uygulamıştır. Alembic bağımlılığı envantere alınmış, ancak bu
-iterasyonda şema değişikliği olmadığı için migration üretilmemiştir. Üretim
-OIDC/SAML BFF, cookie/CSRF ve kalıcı PostgreSQL skor deposu sonraki ayrı
-artımlardır.
+iterasyonda şema değişikliği olmadığı için migration üretilmemiştir. İterasyon
+20E cookie/CSRF ve BFF resolver sınırını teknik olarak doğrulamıştır. Gerçek
+OIDC/SAML callback ve kalıcı PostgreSQL skor deposu ayrı artımlardır.
 
 ## 2026-07-21 — İterasyon 31A Teknik Kararı
 
@@ -685,11 +685,17 @@ Karar referansı: `USER-DECLARATION-2026-07-22-FE-DEC-001-004`.
 | FE-DEC-004 | Dashboard ölçüm yeterliliği son geçerli ölçümden, kritik kontrol özeti son tamamlanan execution'dan, teknik hata özeti seçili dönemden ve varsayılan olarak son 30 UTC günden hesaplanacaktır. | Üç göstergenin farklı zaman anlamlarını tek snapshot gibi göstermemek ve mevcut 30 günlük dashboard filtresiyle teknik hata sayımını tutarlı kılmak gerekir. | KararAlındı |
 
 Bu kararlar frontend dependency ve gösterim sözleşmesini kesinleştirir; 21C
-yeterlilik runtime/API uygulamasını, 20E güvenli BFF sınırını veya banka marka
-onayını tamamlanmış saymaz.
+yeterlilik runtime/API uygulamasını veya banka marka onayını tamamlanmış saymaz.
+20E güvenli BFF sınırı daha sonra teknik olarak doğrulanmıştır.
 
 ## 2026-07-22 — İterasyon 30C Teknik Kararı
 
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
 | --- | --- | --- | --- |
 | Tema tercihi yalnız `light`/`dark` değeri olarak saklanacak; depolama okunamaz veya değer geçersizse açık tema kullanılacak. Navigasyon ikonları sabit boyutlu ortak kutuda Lucide bileşenleriyle gösterilecektir. | Tema seçiminin uygulamayı kırmaması, hassas veri taşımaması ve menü ikonlarının simetrik kalması gerekir. | Sistem temasını örtük varsaymak; tüm tema nesnesini depolamak; karakter tabanlı geçici ikonları korumak; vendor logoları kullanmak. | `FE-DEC-001/003` runtime'a taşındı. Tema seçimi yetki kanıtı değildir; alan route'ları ve güvenli API bağlantıları sonraki artımlarda kalır. |
+
+## 2026-07-22 — İterasyon 20E Teknik Kararı
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| Synchronizer CSRF token session credential'dan ayrı üretilecek, yalnız özeti session kaydında tutulacak ve terminal geçişte credential özetiyle birlikte silinecektir. BFF okuma resolver'ı idle süresini uzatmayan `BACKGROUND`; doğru CSRF ile durum değiştiren istek ise `USER_INTERACTION` sınıfını kullanacaktır. | Cookie tabanlı BFF oturumunda CSRF kanıtını session yaşam döngüsüne bağlamak, açık token kalıcılığını önlemek ve otomatik dashboard sorgularının idle süresini yapay biçimde uzatmamasını sağlamak gerekir. | Double-submit cookie; token'ı açık veritabanı alanında tutmak; tüm GET isteklerinde idle süresini yenilemek; Origin/Referer kontrollerinden yalnız birini uygulamak. | `OPEN-BNK-020` HTTP alt kapsamı uygulanmıştır. Gerçek IdP callback/state/nonce ve üretim store/şifreleme ayrı artımlardır. |

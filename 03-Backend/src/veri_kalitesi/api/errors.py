@@ -13,5 +13,13 @@ class ApiAuthenticationError(ApiError):
     """Güvenilir oturum bağlamı üretilemedi."""
 
 
+class ApiCsrfError(ApiError):
+    """Durum değiştiren istek güvenilir CSRF kanıtı üretemedi."""
+
+
 class ApiConfigurationError(ApiError):
     """API güvenli biçimde başlatılamadı."""
+
+
+class ApiSessionUnavailableError(ApiError):
+    """Oturum sınırı teknik olarak kullanılamıyor."""

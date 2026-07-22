@@ -9,7 +9,12 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from veri_kalitesi.api.errors import ApiAuthenticationError
+from veri_kalitesi.api.bff import BffSessionBoundary, CSRF_HEADER_NAME
+from veri_kalitesi.api.errors import (
+    ApiAuthenticationError,
+    ApiCsrfError,
+    ApiSessionUnavailableError,
+)
 from veri_kalitesi.api.identity import ActorContextResolver, UnavailableActorContextResolver
 from veri_kalitesi.api.models import DashboardSummaryResponse
 from veri_kalitesi.dashboard import (
@@ -24,6 +29,7 @@ def create_dashboard_api(
     dashboard_service: DashboardQueryService,
     *,
     actor_context_resolver: ActorContextResolver | None = None,
+    bff_session_boundary: BffSessionBoundary | None = None,
     allowed_origins: Sequence[str] = (),
     data_origin: str = "runtime",
 ) -> FastAPI:
@@ -31,7 +37,9 @@ def create_dashboard_api(
 
     if any(origin == "*" or not origin.strip() for origin in allowed_origins):
         raise ValueError("CORS origins must be explicit non-blank values.")
-    resolver = actor_context_resolver or UnavailableActorContextResolver()
+    if actor_context_resolver is not None and bff_session_boundary is not None:
+        raise ValueError("Only one actor context resolver may be configured.")
+    resolver = actor_context_resolver or bff_session_boundary or UnavailableActorContextResolver()
     app = FastAPI(
         title="Veri Kalitesi API",
         version="1.0.0",
@@ -43,13 +51,49 @@ def create_dashboard_api(
         CORSMiddleware,
         allow_origins=list(allowed_origins),
         allow_credentials=True,
-        allow_methods=["GET"],
-        allow_headers=["Accept", "Content-Type"],
+        allow_methods=["GET", "POST"],
+        allow_headers=["Accept", "Content-Type", CSRF_HEADER_NAME],
+        expose_headers=["X-Correlation-ID", CSRF_HEADER_NAME],
     )
 
     @app.middleware("http")
     async def add_correlation_id(request: Request, call_next):  # type: ignore[no-untyped-def]
         request.state.correlation_id = str(uuid4())
+        if request.method.upper() not in {"GET", "HEAD", "OPTIONS"}:
+            if bff_session_boundary is None:
+                return _problem(
+                    request,
+                    status=401,
+                    title="Authentication required",
+                    detail="A trusted user session is required.",
+                    correlation_id=request.state.correlation_id,
+                )
+            try:
+                bff_session_boundary.protect_state_changing(request)
+            except ApiCsrfError:
+                return _problem(
+                    request,
+                    status=403,
+                    title="Request rejected",
+                    detail="The state-changing request could not be verified.",
+                    correlation_id=request.state.correlation_id,
+                )
+            except ApiAuthenticationError:
+                return _problem(
+                    request,
+                    status=401,
+                    title="Authentication required",
+                    detail="A trusted user session is required.",
+                    correlation_id=request.state.correlation_id,
+                )
+            except ApiSessionUnavailableError:
+                return _problem(
+                    request,
+                    status=503,
+                    title="Session temporarily unavailable",
+                    detail="The session request could not be completed.",
+                    correlation_id=request.state.correlation_id,
+                )
         response = await call_next(request)
         response.headers["X-Correlation-ID"] = request.state.correlation_id
         return response
@@ -75,6 +119,18 @@ def create_dashboard_api(
             status=403,
             title="Access denied",
             detail="The requested dashboard scope is not available.",
+            correlation_id=error.correlation_id,
+        )
+
+    @app.exception_handler(ApiSessionUnavailableError)
+    async def handle_session_unavailable_error(
+        request: Request, error: ApiSessionUnavailableError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=503,
+            title="Session temporarily unavailable",
+            detail="The session request could not be completed.",
             correlation_id=error.correlation_id,
         )
 
@@ -116,6 +172,17 @@ def create_dashboard_api(
             correlation_id=request.state.correlation_id,
             data_origin=data_origin,
         )
+
+    @app.post("/api/v1/session/logout", status_code=204, tags=["session"])
+    async def logout(request: Request, response: Response) -> Response:
+        if bff_session_boundary is None:
+            raise ApiAuthenticationError(
+                "Authenticated session could not be established.",
+                request.state.correlation_id,
+            )
+        bff_session_boundary.logout(request, response)
+        response.status_code = 204
+        return response
 
     return app
 

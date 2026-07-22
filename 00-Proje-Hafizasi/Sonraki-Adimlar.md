@@ -14,7 +14,7 @@ tags:
 
 ## Geçiş Önceliği
 
-Mevcut 16 iterasyonun, Iterasyon 17A–17E audit, Iterasyon 18A–18C veri koruma, Iterasyon 19A–19H maker-checker, Iterasyon 20A–20D LDAP/oturum güvenliği ve Iterasyon 25A–25D saklama/legal hold/imha/arşiv yetkilendirme dikeylerinin çekirdeği korunur. Banka kararları tamamlanmadan yeni HTTP yüzeyi açılmaz.
+Mevcut 16 iterasyonun, Iterasyon 17A–17E audit, Iterasyon 18A–18C veri koruma, Iterasyon 19A–19H maker-checker, Iterasyon 20A–20E LDAP/oturum güvenliği ve Iterasyon 25A–25D saklama/legal hold/imha/arşiv yetkilendirme dikeylerinin çekirdeği korunur. Banka kararları tamamlanmadan yeni HTTP yüzeyi açılmaz.
 
 Bakım İterasyonu 29C.1 ile tam mypy baseline'ı sıfır hataya indirilmiştir;
 sonraki değişiklikler bu baseline'ı korumalıdır.
@@ -24,8 +24,9 @@ sonraki değişiklikler bu baseline'ı korumalıdır.
 3. İterasyon 21A — Yetki güven sınırına bağlı dashboard trend domain sorgusu; `TechnicallyVerified`.
 4. İterasyon 21B — Yerel/test dashboard özet HTTP yüzeyi `TechnicallyVerified`.
    FastAPI, `/api/v1`, veri-minimum DTO, Problem Details, fail-closed production
-   resolver ve bağlı frontend uygulanmıştır. Gerçek BFF `__Host-session`, CSRF,
-   OIDC/session assertion ve üretim store bağlantısı açık kalır.
+   resolver ve bağlı frontend uygulanmıştır. 20E BFF `__Host-session` ve CSRF
+   HTTP sınırını tamamlamıştır; gerçek OIDC/SAML callback, state/nonce ve üretim
+   store bağlantısı açık kalır.
 5. İterasyon 22 — 22A–22I bildirim ve denetlenebilir issue yaşam döngüsü `TechnicallyVerified`.
 6. İterasyon 23 — ServiceNow veri-minimizasyonlu adaptör; 23A–23D `TechnicallyVerified`.
 7. İterasyon 24 — 24A audit inceleme ve 24B maskeli rapor önizleme `TechnicallyVerified`; hassas dışa aktarma `OPEN-BNK-014` nedeniyle engelli.
@@ -42,7 +43,7 @@ sonraki değişiklikler bu baseline'ı korumalıdır.
 | 17 | Merkezi audit bütünlüğü | `BR-007`, `FR-077`–`FR-079`, `BFR-AUD-001`–`BFR-AUD-004` | Ortak olay zarfı, redaksiyon, correlation ve bütünlük doğrulaması | 17A–17E `TechnicallyVerified`; üretim operasyonlaştırması açık |
 | 18 | Veri sınıflandırma ve maskeleme | `RULE-009`, `RULE-010`, `NFR-PRV-*`, `BFR-DATA-001`–`BFR-DATA-004` | Onaylı sınıf sözlüğü ve deny-by-default görüntüleme/örnek politikası | 18A–18C `TechnicallyVerified`; banka eşlemesi/onayları açık |
 | 19 | Maker-checker | `RULE-001`, `RULE-005`, `RULE-007`, `BFR-SOD-001`–`BFR-SOD-004` | Hazırlayan kendi kritik değişikliğini aktive edemez | 19A–19H `TechnicallyVerified`; banka rol eşlemesi, gerçek takvim/worker, diğer kritik işlem sınıfları ve çalışan iş politikası açık |
-| 20 | LDAP/RBAC adaptörü | `FR-001`–`FR-006`, `UC-001`, `BFR-IAM-001`–`BFR-IAM-006` | LDAP grubu güvenilir role/scope'a dönüşür; giriş ve oturum başarısızlığı fail-closed | 20A adaptör/eşleme, 20B giriş sınırı, 20C temel session ve 20D onaylı süre/tek oturum runtime alt kapsamı `TechnicallyVerified`; HTTP/BFF ve üretim altyapısı açık |
+| 20 | LDAP/RBAC adaptörü | `FR-001`–`FR-006`, `UC-001`, `BFR-IAM-001`–`BFR-IAM-006` | LDAP grubu güvenilir role/scope'a dönüşür; giriş ve oturum başarısızlığı fail-closed | 20A adaptör/eşleme, 20B giriş sınırı, 20C temel session, 20D onaylı süre/tek oturum ve 20E BFF cookie/CSRF `TechnicallyVerified`; gerçek IdP ve üretim altyapısı açık |
 | 21 | Dashboard trend ve HTTP okuma | `FR-054`–`FR-057`, `UC-010`, `NFR-PERF-001`, `NFR-PERF-002` | Son 30 gün trendi boş dönemleri sıfırlaştırmadan ve güvenilir scope ile döner | 21A `TechnicallyVerified`; 21B HTTP geçiş kapısına bağlı |
 | 22 | Bildirim ve issue | `FR-059`, `FR-060`, `FR-064`–`FR-070`, `BFR-DATA-003` | Hassas veri içermeyen sistem içi bildirim ve denetlenebilir issue state machine | 22A–22I `TechnicallyVerified`; gerçek adaptörler ve operasyon politikaları açık |
 | 23 | ServiceNow adaptörü | `FR-070`, `FR-087`, `BFR-EXT-001`–`BFR-EXT-003` | Alan whitelist'i, idempotency ve ham veri çıkışının engellenmesi | 23A–23D `TechnicallyVerified`; gerçek ağ/dağıtık state ve banka kararları açık |
@@ -97,9 +98,8 @@ hazır oldukları anda genel teknik borç backlogunun önünde ele alınacaktır
 1. **İterasyon 30C — Uygulama kabuğu görsel uyumu ve tema:**
    `TechnicallyVerified`; referans grupları, hizalı ikonlar ve açık/koyu tema
    tamamlandı.
-2. **İterasyon 20E — BFF oturum ve CSRF HTTP sınırı:** Sıradaki artım; üretime bağlı yeni ekran
-   API'lerinin güvenlik ön koşulu.
-3. **İterasyon 21C — Dashboard operasyonel gösterge API'si:** Ölçüm
+2. **İterasyon 20E — BFF oturum ve CSRF HTTP sınırı:** `TechnicallyVerified`.
+3. **İterasyon 21C — Dashboard operasyonel gösterge API'si:** Sıradaki artım; ölçüm
    yeterliliği, kritik kontrol ve teknik hata alanlarının veri-minimum DTO ile
    sağlanması. Olumlu yeterlilik aktif politika olmadan üretilmeyecektir.
 4. **İterasyon 30D — Dashboard referans içerik tamamlaması:** 21C alanlarının
@@ -109,8 +109,9 @@ hazır oldukları anda genel teknik borç backlogunun önünde ele alınacaktır
    yetki, loading/empty/error durumları, Storybook ve Playwright kanıtıyla ayrı
    teslim edilecektir.
 
-30C sentetik/görsel artımı tamamlandı. 21C ve 35A–35F'nin
-üretim bağlantılı API'leri 20E tamamlanmadan açılmaz. Rapor dosyası dışa aktarma,
+30C ve 20E tamamlandı. 21C ve 35A–35F'nin üretim bağlantısı gerçek IdP callback,
+HA session store ve ilgili güvenli API/repository sınırları tamamlanmadan açılmaz.
+Rapor dosyası dışa aktarma,
 `OPEN-BNK-014` kapsamındaki banka veri sahibi/bilgi güvenliği onayı ve güvenli
 dışa aktarma uygulaması tamamlanmadan 35E kapsamına alınmaz; güvenli rapor
 önizleme ayrı kalır.
@@ -156,9 +157,10 @@ Uygulama kabuğu görsel uyumu ve tema** tamamlandı. 30C, referanstaki navigasy
 sınıflandırmasını, hizalı Lucide ikonlarını, açık/koyu tema üretimini, kullanıcı
 tema seçimini ve iki temada beş viewport doğrulamasını sunar.
 
-Kullanıcı öncelikli frontend zincirindeki sıradaki güvenlik ön koşulu
-**İterasyon 20E — BFF oturum ve CSRF HTTP sınırı** olmalıdır. Bu sınırdan sonra
-21C operasyonel gösterge API'si ve 30D dashboard içerik tamamlaması uygulanır.
+Kullanıcı öncelikli frontend zincirindeki BFF güvenlik ön koşulu
+**İterasyon 20E — BFF oturum ve CSRF HTTP sınırı** tamamlandı. Sıradaki küçük
+artım **21C operasyonel gösterge API'si**, ardından 30D dashboard içerik
+tamamlamasıdır.
 Sentetik veri alanı karşılaştırması ile kalite boyutu matrisi 30D kapsamındadır.
 
 **İterasyon 34E — Deterministik çok dönemli zaman semantiği** de `FR-090`,
@@ -207,23 +209,20 @@ aşımı** zaman kaynağı, değerlendirme anı ve süre politikası kesinleşme
 Definition of Ready'i karşılamamaktadır. Güvenilir olgu üretimi de
 kapsama/eksik kayıt formülleriyle ayrıca engellidir; bu iki konu kesinleşmeden
 uygulama yapılmamalıdır.
-İterasyon 21B yerel/test dashboard özet API'sini tamamladı. Üretim bağlantısı
-için sıradaki hazır güvenlik artımı **İterasyon 20E — BFF oturum ve CSRF HTTP
-sınırı**dır; ardından dashboard API gerçek session assertion ve PostgreSQL skor
-repository'sine bağlanmalıdır. Ölçüm yeterliliği, kapsam, kullanım kararı ve alarm
+İterasyon 21B yerel/test dashboard özet API'sini, 20E BFF cookie/CSRF HTTP
+sınırını tamamladı. Sıradaki hazır dashboard artımı **İterasyon 21C —
+operasyonel gösterge API'si**dir; üretim bağlantısı ayrıca gerçek IdP session
+assertion ve PostgreSQL skor repository'sini bekler. Ölçüm yeterliliği, kapsam, kullanım kararı ve alarm
 alanları ilgili runtime sözleşmeleri tamamlanmadan API tarafından üretilmemelidir.
 
 İterasyon 27B `OPEN-BNK-011/012`, gerçek fiziksel retention adaptörleri
 `OPEN-BNK-008`, hassas dışa aktarma `OPEN-BNK-014` ve gerçek SIEM/SOC
 `OPEN-BNK-010` kararlarını beklemektedir. 21B'nin üretim devamı için
-`OPEN-BNK-020` kararı banka onaylıdır; kalan iş kararın gerçek BFF
-HTTP/session/CSRF katmanında uygulanmasıdır.
+`OPEN-BNK-020` kararı banka onaylı ve 20D/20E teknik alt kapsamları uygulanmıştır;
+kalan iş gerçek IdP, HA store, KMS/HSM ve fiziksel saklama kanıtıdır.
 
-Kimlik zincirindeki sıradaki küçük uygulama artımı **İterasyon 20E — BFF oturum
-ve CSRF HTTP sınırı**dır. `__Host-session` cookie üretimi/döndürülmesi,
-synchronizer token, Origin/Referer/Fetch Metadata ve CORS allowlist kontrolleri
-ile state-changing `GET` reddi birlikte uygulanmalıdır. FastAPI framework kararı
-`API-001` ile alınmış ve 21B okuma yüzeyinde doğrulanmıştır. Yüksek
+Kimlik zincirindeki **İterasyon 20E — BFF oturum ve CSRF HTTP sınırı**
+tamamlanmıştır. Gerçek OIDC/SAML callback ve state/nonce doğrulaması, yüksek
 erişilebilir session store, at-rest şifreleme/KMS-HSM ve fiziksel `P90D`
 saklama/imha kanıtı ayrı üretim altyapısı artımlarıdır.
 
