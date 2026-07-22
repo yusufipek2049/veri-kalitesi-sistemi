@@ -18,7 +18,7 @@ producer_role: Codex
 - Katalog: [İterasyon 29A Teknik Kanıt Kataloğu](Iterasyon-29A-Teknik-Kanit-Katalogu.json)
 - Saklanan manifest: [İterasyon 29A Teknik Kanıt Manifesti](Iterasyon-29A-Teknik-Kanit-Manifesti.json)
 - Doğrulanan saklanan/üretilen SHA-256:
-  `8909af184797ffe493082f2a9a8ebbfbad818c987416830a76732ec15eaa8a24`
+  `e83a5e1664c03c5d3506871f64b83f82237b2128b2a8d533dcb30d3571ed5db9`
 
 ## Doğrulanan Teknik Davranış
 

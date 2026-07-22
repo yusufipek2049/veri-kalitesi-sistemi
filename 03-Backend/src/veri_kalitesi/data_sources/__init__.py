@@ -39,6 +39,7 @@ from veri_kalitesi.data_sources.postgresql import (
     TimeoutConnectionError,
     is_read_only_sql,
 )
+from veri_kalitesi.data_sources.postgresql_driver import SQLAlchemyPostgreSQLDriver
 from veri_kalitesi.data_sources.repository import SQLiteDataSourceRepository
 from veri_kalitesi.data_sources.secrets import EmptySecretResolver, InMemorySecretResolver
 from veri_kalitesi.data_sources.service import BusinessCalendar, DataSourceService
@@ -93,6 +94,7 @@ __all__ = [
     "PostgreSQLConnector",
     "PostgreSQLProbeResult",
     "SQLiteDataSourceRepository",
+    "SQLAlchemyPostgreSQLDriver",
     "SourceType",
     "TLSConnectionError",
     "TimeoutConnectionError",

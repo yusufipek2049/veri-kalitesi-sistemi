@@ -17,8 +17,8 @@ producer_role: Codex
 - Politika: `29A-v1`
 - Katalog: [İterasyon 29A Teknik Kanıt Kataloğu](Iterasyon-29A-Teknik-Kanit-Katalogu.json)
 - Manifest: [İterasyon 29A Teknik Kanıt Manifesti](Iterasyon-29A-Teknik-Kanit-Manifesti.json)
-- Katalog SHA-256: `1ff1e643da61a44ed6a87a7d28a146b67fa43813adc62b86c52bceefe38ce3a0`
-- Manifest SHA-256: `8909af184797ffe493082f2a9a8ebbfbad818c987416830a76732ec15eaa8a24`
+- Katalog SHA-256: `6ba1f9b7460cddf92863ec8e57ed2df9d3317b096b42510daa0e2e3b727c0546`
+- Manifest SHA-256: `e83a5e1664c03c5d3506871f64b83f82237b2128b2a8d533dcb30d3571ed5db9`
 
 ## Doğrulanan Teknik Davranış
 
@@ -54,9 +54,8 @@ dosyada 27 eski hata değişmemiştir.
 ## Durum Özeti
 
 - `TechnicallyVerified`: 0 kontrol
-- `Partial`: 12 kontrol
-- `Missing`: 3 kontrol (`CTRL-BDDK-BCP-001`, `CTRL-KVKK-DEL-001`,
-  `CTRL-KVKK-XFER-001`)
+- `Partial`: 13 kontrol
+- `Missing`: 2 kontrol (`CTRL-BDDK-BCP-001`, `CTRL-KVKK-XFER-001`)
 - Açık kararlarla engelli: 14 kontrol
 - `ComplianceReviewRequired`: 15 kontrol
 - `ApprovedByBank`: 0 kontrol

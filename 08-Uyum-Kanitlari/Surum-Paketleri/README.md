@@ -8,15 +8,15 @@ Gerçek banka verisi veya secret eklenmez.
 
 - [İterasyon 28B - Proje 0.1.0 Doğrudan Bağımlılık SBOM'u](Iterasyon-28B-SBOM.cdx.json)
   - Biçim: CycloneDX 1.5 JSON
-  - SHA-256: `b97b67b2a8bc8f9ec574f0ab953710325399aa3ed7dae7434212f83d8ea209d3`
+  - SHA-256: `cb74c19807ed7bff58cc7d8c474df24a0e15c7bbe8b7850007887e8338afc38b`
   - Kapsam: PEP 621 ile beyan edilmiş doğrudan çalışma zamanı bağımlılıkları
 - [İterasyon 29A - Teknik Kanıt Kataloğu](Iterasyon-29A-Teknik-Kanit-Katalogu.json)
   - Biçim: Sürümlü veri-minimum JSON katalog
-  - SHA-256: `1ff1e643da61a44ed6a87a7d28a146b67fa43813adc62b86c52bceefe38ce3a0`
+  - SHA-256: `6ba1f9b7460cddf92863ec8e57ed2df9d3317b096b42510daa0e2e3b727c0546`
 - [İterasyon 29A - Teknik Kanıt Manifesti](Iterasyon-29A-Teknik-Kanit-Manifesti.json)
   - Biçim: Deterministik JSON manifest
-  - SHA-256: `8909af184797ffe493082f2a9a8ebbfbad818c987416830a76732ec15eaa8a24`
-  - Kapsam: 15 BDDK/KVKK kontrolü, 26 benzersiz teknik kanıt artifact'ı
+  - SHA-256: `e83a5e1664c03c5d3506871f64b83f82237b2128b2a8d533dcb30d3571ed5db9`
+  - Kapsam: 15 BDDK/KVKK kontrolü, 36 benzersiz teknik kanıt artifact'ı
 - [İterasyon 29A - Teknik Kanıt Manifest Kanıtı](Iterasyon-29A-Teknik-Kanit-Manifest-Kaniti.md)
   - Durum: `TechnicallyVerified`; kontrol seviyesinde banka onayı değildir
 - [İterasyon 29B - Teknik Kanıt Manifest Drift Kapısı Kanıtı](Iterasyon-29B-Teknik-Kanit-Manifest-Drift-Kapisi-Kaniti.md)

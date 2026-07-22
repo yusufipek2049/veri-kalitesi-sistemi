@@ -95,7 +95,7 @@ Bu maddeler `ADR-016` hedef tasarımını küçük dikeylere böler.
 | --- | --- | --- | --- | --- |
 | SYN-001 | Sentetik dataset politika, senaryo ve run kayıt çekirdeği | FR-088, FR-093; AC/TS-049 | Fail-closed politika çözümleme, değişmez sürüm/seed/run kaydı ve veri-minimum audit | 34A `TechnicallyVerified` |
 | SYN-002 | Deterministik Golden ilişkisel üretici | FR-089, FR-090; AC/TS-048/049 | Şema, anahtar, referans, durum ve temel dağılım ilişkileri aynı seed ile tekrar üretilebilir | 34B üretici ve 34D kalıcı terminal referansları `TechnicallyVerified`; yalnız tamamen yapay teknik V1 profil |
-| SYN-003 | Kusur enjeksiyonu, ground truth ve bağımsız karşılaştırıcı | FR-091, FR-092; AC/TS-050–052 | Geçerli uç/kusur ayrımı, boyut-kural bağı ve runtime'dan bağımsız beklenen sonuç | 34C Golden yapısal alt kapsam `TechnicallyVerified`; kayıt düzeyi kusur, skor ve olay karşılaştırması `OPEN-024` nedeniyle kısmen engelli |
+| SYN-003 | Kusur enjeksiyonu, ground truth ve bağımsız karşılaştırıcı | FR-091, FR-092; AC/TS-050–052 | Geçerli uç/kusur ayrımı, boyut-kural bağı ve runtime'dan bağımsız beklenen sonuç | 34F kayıt düzeyi dokuz teknik kusur sınıfı ve bağımsız SQL oracle'ı `TechnicallyVerified`; runtime kural/skor/olay karşılaştırması açık |
 | SYN-004 | Zaman, eksiklik, drift ve hacim profilleri | FR-090, FR-094; AC/TS-054/056 | Zaman alanı anlamları, eksiklik mekanizmaları, drift ve kaynak bütçeli hacim replay'i | 34E çok dönemli zaman semantiği `TechnicallyVerified`; eksiklik/drift/hacim açık, üretim performans kabulü `OPEN-014` ile ayrı |
 | SYN-005 | Gizlilik kapısı, yaşam döngüsü ve izole olay testi | FR-095, FR-096; AC/TS-053/055/056 | Gizlilik sonucu, retention yaşam döngüsü ve üretim hedefi fail-closed negatifleri | KararAlındı; runtime politika/gizlilik değerlendiricisi uygulanmadı |
 
@@ -141,6 +141,12 @@ istisna/override; API/UI/trend; alarm ve remediation. Üretim
 eşik/ağırlık/veto/güven değerleri, geçerlilik süreleri, kullanım kararları ve
 banka rol matrisi karar gerektirdiği için ilgili dilimler `OPEN-023` ve
 `OPEN-BNK-004/008/010/013/017` ile engellidir.
+
+**İterasyon 34F — PostgreSQL ilişkisel kusur dataseti** tamamlandı. Sentetik
+zincirde sıradaki hazır küçük artım, mevcut PostgreSQL datasetini metadata ve
+profil adaptörüne bağlayıp satır sayısı, null, distinct ve temel dağılım
+sonuçlarını ham örnek kalıcılaştırmadan karşılaştırmalıdır. Genel kural motoru
+entegrasyonu ve ayrıntılı kusur alt türleri sonraki ayrı dilimlerdir.
 
 Kesinleşen kararların uygulama backlogunda sürümlü `SourceUsagePolicy` kayıt,
 kota çözümleme, çalışma penceresi ve dinamik timeout/retry dilimleri 31A–31C ile

@@ -203,3 +203,38 @@
   audit geçmişi değiştirilmez.
 - **Sonraki iterasyon:** Nicel oran uydurmadan kayıtlar arası geç ve sırasız
   ingestion davranışını deterministik kanıtlayan `SYN-004B` teknik zaman dilimi.
+
+## 34F — PostgreSQL ilişkisel kusur dataseti ve bağımsız ground truth
+
+- **İterasyon adı:** PostgreSQL ilişkisel kusur dataseti ve bağımsız ground truth
+- **Kullanıcı/sistem değeri:** Geliştirici, gerçek banka verisi kullanmadan 17
+  ilişkisel kaynak tabloyu kontrollü kusurlarla PostgreSQL üzerinde üretip profil
+  ve kural çalışmalarında tekrar kullanabilir.
+- **Mevcut FR/UC/RULE:** `FR-089`–`FR-095`, `UC-017`, `RULE-016/017`,
+  `AC/TS-048`–`AC/TS-056` teknik alt kapsamları
+- **Değişiklik:** Deterministik üretici, 17 tablo kataloğu, ayrı source/control
+  şemaları, dokuz kusur sınıfı, kayıt düzeyi ground truth, bağımsız SQL oracle,
+  profil/performans ölçümleri ve güvenli generate/reset CLI'ları eklendi.
+- **Test:** 16 birim testi ile gerçek `data_quality_test` PostgreSQL üzerinde iki
+  entegrasyon testi eklendi. 17 × 19.000 kalıcı kayıt, tekrar üretim reddi ve
+  kapsam dışı şemayı koruyan reset doğrulandı.
+- **Kontroller:** Tam depoda 1009 test, 150 dosyalık mypy, 152 dosyalık Ruff
+  format, tam Ruff lint, `compileall` ve `git diff --check` geçti. İki gerçek
+  PostgreSQL entegrasyon testi opt-in koşuda ayrıca geçti. `28A-v1` secret
+  taraması temiz, güncellenen SBOM sonrası `29B-v1` manifest kapısı `MATCH`tir.
+- **Gerçek çalışma:** 323.000 satır, 63.022 ground-truth kusuru, tablo başına
+  %17,55–%18,26 kusurlu kayıt, dokuz sınıfta sıfır FP/FN; üretim 51,03 saniye.
+- **Güvenlik/veri gizliliği:** Yalnız tamamen yapay veri üretilir. Ortam, açık
+  izin ve veritabanı adı fail-closed doğrulanır; parola CLI argümanı değildir.
+- **Teknik durum:** `TechnicallyVerified`
+- **Banka onayı:** `ComplianceReviewRequired`
+- **Kalan risk:** Uygulama metadata/profil ve kural motoru bu dataset üzerinde
+  uçtan uca çalıştırılmadı; ayrıntılı kusur alt türleri, tüm senaryoların gerçek
+  DB ölçümü ve `OPEN-014` nihai performans kabulü ayrıdır.
+- **Kanıt:**
+  [PostgreSQL Sentetik Dataset Kanıtı](../08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-34F-PostgreSQL-Sentetik-Dataset-Kaniti.md)
+- **Geri alma yaklaşımı:** CLI devreden çıkarılır ve yalnız sabit
+  `synthetic_source`/`synthetic_control` şemaları güvenli reset ile kaldırılır;
+  kapsam dışı şemalara dokunulmaz.
+- **Sonraki iterasyon:** Sentetik PostgreSQL kaynağını mevcut metadata/profil
+  adaptörüne bağlayan ve ham örnek kalıcılaştırmayan dar entegrasyon.

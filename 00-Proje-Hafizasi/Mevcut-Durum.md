@@ -1324,6 +1324,20 @@ tags:
 - 988 test, 146 dosyalık tam mypy, Ruff, `compileall`, `git diff --check` ve
   429 dosyalık `28A-v1` secret taraması hatasız tamamlandı.
 
+### 2026-07-22 — İterasyon 34F: PostgreSQL ilişkisel kusur dataseti
+
+- `FR-089`–`FR-095`, `UC-017`, `RULE-016/017` ve `AC/TS-048`–`AC/TS-056`
+  teknik alt kapsamında 17 ilişkisel PostgreSQL kaynak tablosu oluşturuldu.
+- `seed=2026` ve `mixed-quality` ile tablo başına 19.000, toplam 323.000 tamamen
+  yapay kayıt üretildi. 63.022 ground-truth kusuru ve tablo başına
+  %17,55–%18,26 kusurlu kayıt gerçek `data_quality` veritabanında doğrulandı.
+- Dokuz kusur sınıfında bağımsız SQL oracle'ı sıfır FP/FN üretti. Kanonik
+  SHA-256 `4e5b7e13adbf0afc1ca271bbbba17aa3832c060903267cb02516991a0ecc3e01`.
+- Güvenli generate/reset CLI'ı, tekrar üretim reddi, yeniden bağlantı sonrası
+  kalıcılık ve kapsam dışı şemayı koruyan reset entegrasyon testleri eklendi.
+- Bu dataset uygulama kural motoru, anonimlik, banka onayı veya 20 milyon
+  satırlık nihai performans kabulü değildir.
+
 ## İlgili Notlar
 
 ### 2026-07-22 — Açık karar kayıtlarının ayrıştırılması
@@ -1398,9 +1412,10 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20D, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1, İterasyon 30A–30B, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A–33B ve İterasyon 34A–34E çıktıları korunacaktır.
-- `pytest` ile 993 testin geçtiği doğrulanmıştır.
-- Tam mypy kontrolü 146 kaynak dosyada sıfır hata vermektedir.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20D, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1, İterasyon 30A–30B, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A–33B ve İterasyon 34A–34F çıktıları korunacaktır.
+- `pytest` ile 1009 testin geçtiği, iki gerçek PostgreSQL entegrasyon testinin
+  opt-in koşuda ayrıca geçtiği doğrulanmıştır.
+- Tam mypy kontrolü 150 kaynak dosyada sıfır hata vermektedir.
 - Kısmi politika maker-checker onay/ret, geri çekme ve atomik audit akışı 32D ile tamamlandı. Süre aşımı açık kalır; güvenilir `PartialExecutionFacts` üretimi kapsama ve eksik kayıt oranı formüllerini beklemektedir. 31D hız sınırı sayaç/pencere semantiğini; CPU/IO sınırları güvenilir kaynak ölçüm adaptörünü beklemektedir. 27B restore tatbikat kanıtı `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını bekler; gerçek arşiv/fiziksel imha adaptörü, 29D, 21B/frontend, hassas dışa aktarma ve gerçek SIEM de banka/altyapı kararlarına bağlıdır.
 - Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

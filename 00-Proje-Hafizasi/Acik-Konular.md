@@ -193,9 +193,10 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
     dönemli zaman semantiği 34E ile runtime'a taşındı. Politika ve
     senaryo oluşturma/onay yaşam döngüsü, gerçek fiziksel çıktı/artifact deposu,
     sürümlü genel şema yükleyici, eksiklik/trend/sezonsallık/drift, geç/sırasız
-    akış ve hacim profilleri, kusur enjeksiyonu, kayıt düzeyi ve
-    sayısal ground truth, runtime kural/skor/olay karşılaştırması, gizlilik
-    değerlendiricisi ve dataset kataloğu uygulanmadı.
+    akış ve hacim profilleri, sayısal skor ground truth'u, runtime
+    kural/skor/olay karşılaştırması ve gizlilik değerlendiricisi uygulanmadı.
+    34F ile 17 tabloluk PostgreSQL dataset kataloğu, dokuz teknik kusur sınıfı,
+    kayıt düzeyi ground truth ve bağımsız SQL oracle'ı eklendi.
     Dağılım/korelasyon/görev faydası/gizlilik eşikleri, kusur yoğunluğu oranları
     ve skor toleransı aktif sentetik politika kaydında zorunludur; eksik kayıt
     doğrulamayı `BLOCKED` yapar. Runtime politika uygulaması henüz yoktur.
@@ -205,6 +206,10 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
     kanıtlamadan açılamaz. Bu onay ve gerçek adaptör henüz yoktur. Sentetik
     üretim anonimlik kanıtı veya `OPEN-014` nihai kabulünün yerine geçen kanıt
     sayılmayacaktır.
+71. Uygulamanın metadata/profil ve kural yürütme adaptörlerinin 34F PostgreSQL
+    kaynağına bağlanması, ayrıntılı kusur alt türleri, diğer beş senaryonun
+    gerçek PostgreSQL ölçümü ve `OPEN-014` kapsamındaki 20 milyon satırlık
+    anonimleştirilmiş kabul testi açık kalır.
 
 ## Bankacılık Geçiş Açık Konuları
 
