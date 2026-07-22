@@ -122,5 +122,6 @@ geçmez.
   kapıları, sızma testi bulgu yaşam döngüsü/tekrar test kanıtı ve teknik kanıt
   manifesti, byte düzeyinde drift kapısı ve altı kontrollü birleşik yerel preflight
   için toplam 204 sentetik vaka içerir.
-- Frontend runtime, Storybook ve Playwright otomasyonu henüz kurulmamıştır; görsel
-  doğrulama stratejisi `Proposed` durumundadır.
+- Frontend runtime, Storybook ve Playwright otomasyonu henüz kurulmamıştır; React,
+  TypeScript, Vite, MUI, ECharts, Storybook ve Playwright seçimi ile görsel
+  doğrulama stratejisi kabul edilmiştir.

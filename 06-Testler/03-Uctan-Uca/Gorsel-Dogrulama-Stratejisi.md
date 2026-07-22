@@ -1,8 +1,8 @@
 ---
 type: test-strategy
-status: proposed
+status: accepted
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-last_updated: 2026-07-20
+last_updated: 2026-07-22
 tags:
   - testing
   - frontend
@@ -16,7 +16,8 @@ tags:
 Bu belge Storybook component doğrulaması ile Playwright ekran/akış doğrulamasının
 asgari sözleşmesidir. Frontend runtime, Storybook ve Playwright proje bağımlılıkları
 henüz kurulmamıştır; bu kayıt uygulanmış otomasyon iddiası değildir. Toolchain ve
-yeni dependency seçimi açık onay gerektirir.
+yeni dependency seçimi tamamlanmıştır: Storybook ve Playwright kullanılacaktır.
+Kurulum ilgili frontend artımında yapılır.
 
 Tasarım doğruluk kaynağı:
 [Görsel Tasarım Sistemi](../../04-Frontend/Gorsel-Tasarim-Sistemi.md). İlk ekran sözleşmesi:

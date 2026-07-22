@@ -10,6 +10,17 @@ tags:
 
 # Frontend Ekran Haritası
 
+## Onaylı Teknoloji Yığını
+
+- Uygulama: React + TypeScript + Vite
+- Component sistemi: MUI
+- Grafik: ECharts
+- Component doğrulama: Storybook
+- Ekran, akış ve görsel regression: Playwright
+
+Bu seçimler `ADR-017` ile kabul edilmiştir; yeniden teknoloji veya dependency
+onayı beklenmez. Paket kurulumu ve frontend uygulaması henüz tamamlanmamıştır.
+
 ## Tasarım ve Uygulama Kaynakları
 
 - [Görsel Tasarım Sistemi](Gorsel-Tasarim-Sistemi.md)
@@ -17,6 +28,7 @@ tags:
 - [Veri Kalitesi Skorlama ve Ölçüm Yeterliliği](../02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md)
 - [Kurumsal dashboard referansı](references/reference-dashboard.png)
 - [Görsel Doğrulama Stratejisi](../06-Testler/03-Uctan-Uca/Gorsel-Dogrulama-Stratejisi.md)
+- [Frontend Teknoloji Yığını Kararı](../02-Mimari/Mimari-Kararlar.md#adr-017--frontend-teknoloji-yığını)
 
 ## Ekranlar
 
