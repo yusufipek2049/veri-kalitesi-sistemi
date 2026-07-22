@@ -125,6 +125,10 @@ geçmez.
   kapıları, sızma testi bulgu yaşam döngüsü/tekrar test kanıtı ve teknik kanıt
   manifesti, byte düzeyinde drift kapısı ve altı kontrollü birleşik yerel preflight
   için toplam 204 sentetik vaka içerir.
-- Frontend runtime, Storybook ve Playwright otomasyonu henüz kurulmamıştır; React,
-  TypeScript, Vite, MUI, ECharts, Storybook ve Playwright seçimi ile görsel
-  doğrulama stratejisi kabul edilmiştir.
+- İterasyon 30B frontend runtime, Storybook ve Playwright otomasyonunu kurdu.
+  Frontend için 4 Vitest birim testi ve 7 Playwright testi geçmektedir; Storybook
+  normal, loading, empty, teknik hata, yetkisiz ve uzun içerik dashboard
+  durumları ile altı semantik durum rozeti üretmektedir. Beş zorunlu masaüstü
+  viewport'unda yatay taşma, grafik/tablo eşliği ve görünür klavye odağı
+  doğrulanmıştır. Görseller yalnız sentetik veri içerir; üretim API'si veya
+  banka verisi doğrulaması değildir.

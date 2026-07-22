@@ -180,6 +180,7 @@ node_modules/
 .svelte-kit/
 .vite/
 storybook-static/
+*.tsbuildinfo
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
