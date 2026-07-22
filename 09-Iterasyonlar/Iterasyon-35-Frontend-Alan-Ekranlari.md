@@ -56,4 +56,56 @@ Yetkili kullanıcı, erişebildiği veri kaynaklarını gerçek bir istemci rota
 
 ## Sonraki Dilim
 
-35B, aynı güvenlik ve durum sözleşmeleriyle salt okunur Kurallar ekranıdır.
+## 35B — Salt Okunur Kurallar Ekranı
+
+Durum: **TechnicallyVerified**
+
+### Kullanıcı Değeri
+
+Yetkili kullanıcı, erişebildiği datasetlerdeki kuralları son sürüm, durum,
+kalite boyutu ve kritiklik bilgileriyle tarayıp filtreleyebilir.
+
+### Kapsam
+
+- Güvenilir aktör dataset kapsamına göre filtrelenen `GET /api/v1/rules`.
+- Kural tanımı/SQL, eşik, ağırlık, alan ve kullanıcı kimliği içermeyen DTO.
+- `/rules` rotasında metin, durum, kalite boyutu ve kritiklik filtreleri.
+- Ürün bağımsız, sabit eksenli Lucide kural türü ikonları ve iki tema.
+- Loading, empty, technical error, unauthorized ve long-content durumları.
+
+### Gereksinim Bağlantıları
+
+- `FR-023–FR-035` salt okunur envanter alt kapsamı
+- `UC-005`, `UC-006`
+- `FE-DS-015`
+- `NFR-USA-001–NFR-USA-006`
+
+### Doğrulama
+
+- Backend: dört yeni API testi ve bir repository testi; dataset scope filtresi,
+  sahte header etkisizliği, son sürüm seçimi, veri-minimum yanıt, boş kapsam ve
+  güvenli teknik hata.
+- Frontend: 33 Vitest ve 39 Playwright testi; beş viewport, açık/koyu tema,
+  yatay taşma, ikon ekseni, birleşik filtre, klavye odağı ve yetkisiz veri ifşa
+  etmeme.
+- TypeScript, Vite/Storybook build, production npm audit, 1041 pytest, 162
+  dosyalık mypy, Ruff ve `compileall` geçti.
+- `28A-v1` taraması 491 dosyada sıfır secret bulgusu verdi.
+
+### Görsel İyileştirme Turları
+
+1. Altı kolonlu masaüstü satırı `lg` eşiğine taşındı; 1024 pikselde durum ve
+   kritiklik odaklı dört kolonlu düzenle metin çakışması giderildi.
+2. Teknik kural türü enumları kullanıcıya dönük Türkçe etiketlere çevrildi;
+   uzun `REFERENTIAL_INTEGRITY` metninin kaba satır kırılması kaldırıldı.
+
+### Sınırlar
+
+- Kural oluşturma, düzenleme, test, onay ve aktivasyon eylemleri yoktur.
+- Yerel uygulama yalnız sentetik kurallar kullanır. Gerçek IdP, yüksek
+  erişilebilir session store ve üretim repository bağlantısı uygulanmamıştır.
+- Bu kayıt banka onayı veya üretim uygunluğu değildir.
+
+## Sonraki Dilim
+
+35C, aynı güvenlik ve durum sözleşmeleriyle salt okunur Çalıştırmalar ekranıdır.

@@ -30,6 +30,24 @@ tags:
 
 ## Uygulama Durumu
 
+### 2026-07-22 — İterasyon 35B: Salt okunur Kurallar ekranı
+
+- `FR-023–FR-035`, `UC-005`, `UC-006`, `FE-DS-015` ve
+  `NFR-USA-001–006` içinden salt okunur envanter alt kapsamı tamamlandı.
+- `/api/v1/rules`, yalnız güvenilir `ActorContext` içindeki izinli dataset
+  kimlikleri için her kuralın son değişmez sürüm özetini döndürür. Yanıt; kural
+  tanımı veya özel SQL, eşik, ağırlık, alan ve kullanıcı kimliklerini içermez.
+- `/rules` rotası metin, durum, kalite boyutu ve kritiklik filtreleri; ürün
+  bağımsız hizalı Lucide ikonları; açık/koyu tema ile loading, empty, error,
+  unauthorized ve long-content durumlarını sunar.
+- 1024 piksel görünümündeki kolon sıkışması orta genişlik düzeniyle giderildi;
+  teknik kural türleri kullanıcıya dönük Türkçe etiketlere çevrildi.
+- 1041 pytest geçti, iki opt-in PostgreSQL testi atlandı; mypy 162 dosyada,
+  Ruff lint/format ve `compileall` hatasızdır. 33 Vitest, 39 Playwright,
+  TypeScript, Vite/Storybook build ve production npm audit geçti. `28A-v1`
+  taraması 491 dosyada sıfır secret bulgusu verdi. Mevcut dashboard chunk boyutu
+  uyarısı sürmektedir.
+
 ### 2026-07-22 — İterasyon 35A: Salt okunur Veri Kaynakları ekranı
 
 - `FR-007–FR-014`, `FE-DS-015`, `NFR-USA-001–006` kapsamında

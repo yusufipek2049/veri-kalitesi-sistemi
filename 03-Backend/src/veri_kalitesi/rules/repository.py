@@ -249,6 +249,43 @@ class SQLiteRuleRepository:
         ).fetchall()
         return [_row_to_version(row) for row in rows]
 
+    def list_rules_with_latest_version(
+        self, allowed_dataset_ids: frozenset[str]
+    ) -> list[tuple[QualityRule, RuleVersion]]:
+        """Yetkili datasetlerdeki kuralları son değişmez sürümüyle listeler."""
+
+        if not allowed_dataset_ids:
+            return []
+        dataset_ids = sorted(allowed_dataset_ids)
+        placeholders = ", ".join("?" for _ in dataset_ids)
+        rows = self.connection.execute(
+            f"""
+            SELECT
+                rules.*,
+                versions.rule_version_id AS latest_rule_version_id,
+                versions.version_no AS latest_version_no,
+                versions.rule_type AS latest_rule_type,
+                versions.definition AS latest_definition,
+                versions.threshold AS latest_threshold,
+                versions.weight AS latest_weight,
+                versions.criticality AS latest_criticality,
+                versions.prepared_by_actor_id AS latest_prepared_by_actor_id,
+                versions.created_at AS latest_created_at
+            FROM quality_rules rules
+            JOIN rule_versions versions
+              ON versions.quality_rule_id = rules.quality_rule_id
+             AND versions.version_no = (
+                SELECT MAX(candidate.version_no)
+                FROM rule_versions candidate
+                WHERE candidate.quality_rule_id = rules.quality_rule_id
+             )
+            WHERE rules.dataset_id IN ({placeholders})
+            ORDER BY rules.code COLLATE NOCASE, rules.quality_rule_id
+            """,
+            dataset_ids,
+        ).fetchall()
+        return [(_row_to_rule(row), _row_to_latest_version(row)) for row in rows]
+
     def update_rule_status(
         self,
         quality_rule_id: str,
@@ -542,6 +579,21 @@ def _row_to_version(row: sqlite3.Row) -> RuleVersion:
         criticality=RuleCriticality(row["criticality"]),
         prepared_by_actor_id=row["prepared_by_actor_id"],
         created_at=datetime.fromisoformat(row["created_at"]),
+    )
+
+
+def _row_to_latest_version(row: sqlite3.Row) -> RuleVersion:
+    return RuleVersion(
+        rule_version_id=row["latest_rule_version_id"],
+        quality_rule_id=row["quality_rule_id"],
+        version_no=row["latest_version_no"],
+        rule_type=RuleType(row["latest_rule_type"]),
+        definition=json.loads(row["latest_definition"]),
+        threshold=row["latest_threshold"],
+        weight=row["latest_weight"],
+        criticality=RuleCriticality(row["latest_criticality"]),
+        prepared_by_actor_id=row["latest_prepared_by_actor_id"],
+        created_at=datetime.fromisoformat(row["latest_created_at"]),
     )
 
 

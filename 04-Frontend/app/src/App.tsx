@@ -5,6 +5,8 @@ import { AppShell } from "./components/AppShell";
 import { DataSourceApiError, fetchDataSources } from "./dataSources/api";
 import { dataSourcesFromApi, syntheticDataSources, type DataSourceListItem, type DataSourceState } from "./dataSources/model";
 import { DashboardApiError, fetchDashboardSummary } from "./dashboard/api";
+import { RuleApiError, fetchRules } from "./rules/api";
+import { rulesFromApi, syntheticRules, type RuleListItem, type RuleState } from "./rules/model";
 import {
   dashboardViewModelFromApi,
   syntheticDashboardViewModel,
@@ -15,6 +17,7 @@ import {
 const dashboardStates: DashboardState[] = ["normal", "loading", "empty", "error", "unauthorized", "long-content"];
 const DashboardPage = lazy(() => import("./dashboard/DashboardPage").then((module) => ({ default: module.DashboardPage })));
 const DataSourcesPage = lazy(() => import("./dataSources/DataSourcesPage").then((module) => ({ default: module.DataSourcesPage })));
+const RulesPage = lazy(() => import("./rules/RulesPage").then((module) => ({ default: module.RulesPage })));
 
 function DashboardRoute() {
   const requestedState = new URLSearchParams(window.location.search).get("state") as DashboardState | null;
@@ -95,6 +98,39 @@ function DataSourcesRoute() {
   return <DataSourcesPage correlationId={correlationId} items={items} onRefresh={() => void load()} state={fixtureState ?? state} />;
 }
 
+const ruleStates: RuleState[] = ["normal", "loading", "empty", "error", "unauthorized", "long-content"];
+
+function RulesRoute() {
+  const requestedState = new URLSearchParams(window.location.search).get("state") as RuleState | null;
+  const fixtureState = import.meta.env.DEV && requestedState && ruleStates.includes(requestedState) ? requestedState : null;
+  const [state, setState] = useState<RuleState>(fixtureState ?? "loading");
+  const [items, setItems] = useState<RuleListItem[]>(syntheticRules);
+  const [correlationId, setCorrelationId] = useState<string>();
+  const load = useCallback(async (signal?: AbortSignal) => {
+    if (fixtureState) return;
+    setState("loading");
+    try {
+      const response = await fetchRules(signal);
+      const nextItems = rulesFromApi(response);
+      setItems(nextItems);
+      setCorrelationId(response.correlation_id);
+      setState(nextItems.length ? "normal" : "empty");
+    } catch (error) {
+      if (signal?.aborted) return;
+      if (error instanceof RuleApiError) {
+        setCorrelationId(error.correlationId);
+        setState(error.kind === "unauthorized" ? "unauthorized" : "error");
+      } else setState("error");
+    }
+  }, [fixtureState]);
+  useEffect(() => {
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
+  return <RulesPage correlationId={correlationId} items={items} onRefresh={() => void load()} state={fixtureState ?? state} />;
+}
+
 function RouteBoundary({ unauthorized = false }: { unauthorized?: boolean }) {
   const navigate = useNavigate();
   return (
@@ -116,8 +152,8 @@ export default function App() {
       <Routes>
         <Route element={<DashboardRoute />} path="/" />
         <Route element={<DataSourcesRoute />} path="/data-sources" />
+        <Route element={<RulesRoute />} path="/rules" />
         <Route element={<RouteBoundary unauthorized />} path="/unauthorized" />
-        <Route element={<Navigate replace to="/not-found" />} path="/rules" />
         <Route element={<Navigate replace to="/not-found" />} path="/executions" />
         <Route element={<Navigate replace to="/not-found" />} path="/issues" />
         <Route element={<Navigate replace to="/not-found" />} path="/reports" />

@@ -700,6 +700,12 @@ yeterlilik runtime/API uygulamasını veya banka marka onayını tamamlanmış s
 | --- | --- | --- | --- |
 | Veri kaynağı liste DTO'su yalnız kimlik, ad, ürün bağımsız tür, durum ve son test zamanını taşıyacak; okuma kapsamı güvenilir aktör bağlamındaki izinli kaynak kimliklerinden üretilecektir. `can_view_enterprise` tek başına tüm kaynak envanterini görme yetkisi sayılmayacaktır. | Bağlantı yapılandırması, secret referansı ve sahip kullanıcı kimliği liste ekranı için gerekli değildir. Kurum geneli skor izni ile kaynak envanteri iznini eşitlemek gereksiz veri ifşası oluşturur. | Tüm `DataSource` modelini döndürmek; istemcinin filtrelemesi; kurum geneli iznini tüm kaynaklara genişletmek. | `/api/v1/data-sources` veri-minimum ve scope filtreli çalışır. Boş kapsam boş liste, güvenilmeyen bağlam 403, depo hatası redakte edilmiş 503 üretir. Bu karar üretim IdP veya repository bağlantısını tamamlamaz. |
 
+## 2026-07-22 — İterasyon 35B Teknik Kararı
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| Kural liste DTO'su yalnız kural kimliği, kodu, adı, dataset kimliği, boyutu, durumu ve son değişmez sürümün kimlik/tür/kritiklik/zaman özetini taşıyacaktır. Kapsam güvenilir aktör bağlamındaki izinli dataset kimliklerinden üretilecek; `can_view_enterprise` kural envanteri yetkisi sayılmayacaktır. | Kural tanımı, özel SQL, eşik, ağırlık, alan kimlikleri, sahip ve hazırlayan kimlikleri listeleme işi için gerekli değildir. İstemci tarafı filtreleme yetkisiz veriyi gereksiz yere taşır. | Tüm domain modellerini döndürmek; yalnız istemcide dataset filtresi uygulamak; kurum geneli skor iznini tüm kurallara genişletmek. | `/api/v1/rules` veri-minimum ve dataset scope filtreli çalışır. Boş kapsam boş liste, güvenilmeyen bağlam 403, depo hatası redakte edilmiş 503 üretir. Yazma, test ve aktivasyon işlemleri bu salt okunur yüzeyin dışındadır. |
+
 ## 2026-07-22 — İterasyon 20E Teknik Kararı
 
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |

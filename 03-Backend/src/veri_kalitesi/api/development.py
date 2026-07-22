@@ -23,6 +23,15 @@ from veri_kalitesi.data_sources import (
     SourceType,
 )
 from veri_kalitesi.identity import DashboardAuthorizationPolicy, PolicyAuthorizationService
+from veri_kalitesi.rules import (
+    QualityDimension,
+    QualityRule,
+    RuleCriticality,
+    RuleQueryService,
+    RuleStatus,
+    RuleType,
+    RuleVersion,
+)
 from veri_kalitesi.scoring import (
     QualityScore,
     ScoreLevel,
@@ -66,6 +75,128 @@ DEVELOPMENT_SOURCES = (
         status=DataSourceStatus.TEST_FAILED,
     ),
 )
+DEVELOPMENT_RULES = (
+    (
+        QualityRule(
+            quality_rule_id="rule-customer-id-required",
+            code="DQ_CUSTOMER_ID_REQUIRED",
+            name="Müşteri kimliği zorunluluğu",
+            dataset_id="dataset-customer",
+            field_ids=("field-customer-id",),
+            primary_dimension=QualityDimension.COMPLETENESS,
+            owner_user_id="development-owner",
+            status=RuleStatus.ACTIVE,
+        ),
+        RuleVersion(
+            rule_version_id="rule-version-customer-id-3",
+            quality_rule_id="rule-customer-id-required",
+            version_no=3,
+            rule_type=RuleType.REQUIRED,
+            definition={},
+            threshold=100,
+            weight=1,
+            criticality=RuleCriticality.CRITICAL,
+            prepared_by_actor_id="development-maker",
+            created_at=datetime(2026, 7, 19, 8, 30, tzinfo=timezone.utc),
+        ),
+    ),
+    (
+        QualityRule(
+            quality_rule_id="rule-account-iban-unique",
+            code="DQ_ACCOUNT_IBAN_UNIQUE",
+            name="IBAN tekillik kontrolü",
+            dataset_id="dataset-account",
+            field_ids=("field-account-iban",),
+            primary_dimension=QualityDimension.UNIQUENESS,
+            owner_user_id="development-owner",
+            status=RuleStatus.ACTIVE,
+        ),
+        RuleVersion(
+            rule_version_id="rule-version-account-iban-2",
+            quality_rule_id="rule-account-iban-unique",
+            version_no=2,
+            rule_type=RuleType.UNIQUE,
+            definition={},
+            threshold=99.5,
+            weight=1,
+            criticality=RuleCriticality.HIGH,
+            prepared_by_actor_id="development-maker",
+            created_at=datetime(2026, 7, 18, 10, 15, tzinfo=timezone.utc),
+        ),
+    ),
+    (
+        QualityRule(
+            quality_rule_id="rule-risk-score-range",
+            code="DQ_RISK_SCORE_RANGE",
+            name="Risk skoru geçerlilik aralığı",
+            dataset_id="dataset-risk",
+            field_ids=("field-risk-score",),
+            primary_dimension=QualityDimension.VALIDITY,
+            owner_user_id="development-owner",
+            status=RuleStatus.REVIEW_REQUIRED,
+        ),
+        RuleVersion(
+            rule_version_id="rule-version-risk-score-4",
+            quality_rule_id="rule-risk-score-range",
+            version_no=4,
+            rule_type=RuleType.RANGE,
+            definition={},
+            threshold=98,
+            weight=1,
+            criticality=RuleCriticality.CRITICAL,
+            prepared_by_actor_id="development-maker",
+            created_at=datetime(2026, 7, 21, 13, 45, tzinfo=timezone.utc),
+        ),
+    ),
+    (
+        QualityRule(
+            quality_rule_id="rule-transaction-freshness",
+            code="DQ_TRANSACTION_FRESHNESS",
+            name="İşlem verisi güncelliği",
+            dataset_id="dataset-transaction",
+            field_ids=("field-transaction-created-at",),
+            primary_dimension=QualityDimension.TIMELINESS,
+            owner_user_id="development-owner",
+            status=RuleStatus.DRAFT,
+        ),
+        RuleVersion(
+            rule_version_id="rule-version-transaction-freshness-1",
+            quality_rule_id="rule-transaction-freshness",
+            version_no=1,
+            rule_type=RuleType.FRESHNESS,
+            definition={},
+            threshold=95,
+            weight=1,
+            criticality=RuleCriticality.MEDIUM,
+            prepared_by_actor_id="development-maker",
+            created_at=datetime(2026, 7, 22, 7, 5, tzinfo=timezone.utc),
+        ),
+    ),
+    (
+        QualityRule(
+            quality_rule_id="rule-branch-code-reference",
+            code="DQ_BRANCH_CODE_REFERENCE",
+            name="Şube kodu referans bütünlüğü",
+            dataset_id="dataset-account",
+            field_ids=("field-branch-code",),
+            primary_dimension=QualityDimension.INTEGRITY,
+            owner_user_id="development-owner",
+            status=RuleStatus.PASSIVE,
+        ),
+        RuleVersion(
+            rule_version_id="rule-version-branch-code-2",
+            quality_rule_id="rule-branch-code-reference",
+            version_no=2,
+            rule_type=RuleType.REFERENTIAL_INTEGRITY,
+            definition={},
+            threshold=99,
+            weight=1,
+            criticality=RuleCriticality.LOW,
+            prepared_by_actor_id="development-maker",
+            created_at=datetime(2026, 7, 17, 9, 0, tzinfo=timezone.utc),
+        ),
+    ),
+)
 
 
 class DevelopmentDataSourceReader:
@@ -73,6 +204,16 @@ class DevelopmentDataSourceReader:
         return [
             source for source in DEVELOPMENT_SOURCES if source.data_source_id in allowed_source_ids
         ]
+
+
+class DevelopmentRuleReader:
+    def list_rules_with_latest_version(
+        self, allowed_dataset_ids: frozenset[str]
+    ) -> list[tuple[QualityRule, RuleVersion]]:
+        return sorted(
+            (item for item in DEVELOPMENT_RULES if item[0].dataset_id in allowed_dataset_ids),
+            key=lambda item: (item[0].code.casefold(), item[0].quality_rule_id),
+        )
 
 
 def create_development_app():  # type: ignore[no-untyped-def]
@@ -141,6 +282,7 @@ def create_development_app():  # type: ignore[no-untyped-def]
         runtime_environment="development",
         policy_version=POLICY_VERSION,
         permitted_source_ids=frozenset(source.data_source_id for source in DEVELOPMENT_SOURCES),
+        permitted_dataset_ids=frozenset(rule.dataset_id for rule, _ in DEVELOPMENT_RULES),
         can_view_enterprise=True,
     )
     return create_dashboard_api(
@@ -151,4 +293,5 @@ def create_development_app():  # type: ignore[no-untyped-def]
         data_source_query_service=DataSourceQueryService(
             DevelopmentDataSourceReader(), authorization
         ),
+        rule_query_service=RuleQueryService(DevelopmentRuleReader(), authorization),
     )

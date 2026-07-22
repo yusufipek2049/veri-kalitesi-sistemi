@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict
 
 from veri_kalitesi.dashboard import DashboardOverview
 from veri_kalitesi.data_sources import DataSource
+from veri_kalitesi.rules import QualityRule, RuleVersion
 
 
 class DataSourceListItemResponse(BaseModel):
@@ -36,6 +37,47 @@ class DataSourceListResponse(BaseModel):
     data_origin: str
     correlation_id: str
     items: tuple[DataSourceListItemResponse, ...]
+
+
+class RuleListItemResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    quality_rule_id: str
+    code: str
+    name: str
+    dataset_id: str
+    primary_dimension: str
+    status: str
+    rule_version_id: str
+    version_no: int
+    rule_type: str
+    criticality: str
+    created_at: datetime
+
+    @classmethod
+    def from_domain(cls, rule: QualityRule, version: RuleVersion) -> "RuleListItemResponse":
+        return cls(
+            quality_rule_id=rule.quality_rule_id,
+            code=rule.code,
+            name=rule.name,
+            dataset_id=rule.dataset_id,
+            primary_dimension=rule.primary_dimension.value,
+            status=rule.status.value,
+            rule_version_id=version.rule_version_id,
+            version_no=version.version_no,
+            rule_type=version.rule_type.value,
+            criticality=version.criticality.value,
+            created_at=version.created_at,
+        )
+
+
+class RuleListResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    items: tuple[RuleListItemResponse, ...]
 
 
 class DashboardObservationResponse(BaseModel):

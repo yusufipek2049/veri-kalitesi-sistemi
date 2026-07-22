@@ -23,6 +23,12 @@ from veri_kalitesi.rules.models import (
     RuleVersion,
 )
 from veri_kalitesi.rules.repository import SQLiteRuleRepository
+from veri_kalitesi.rules.query import (
+    RuleQueryAuthorizationError,
+    RuleQueryError,
+    RuleQueryService,
+    RuleQueryTechnicalError,
+)
 from veri_kalitesi.rules.service import BusinessCalendar, RuleService, RuleTestExecutor
 from veri_kalitesi.rules.templates import build_rule_plan
 
@@ -37,6 +43,10 @@ __all__ = [
     "RuleCriticality",
     "RuleError",
     "RuleNotFoundError",
+    "RuleQueryAuthorizationError",
+    "RuleQueryError",
+    "RuleQueryService",
+    "RuleQueryTechnicalError",
     "RuleService",
     "RuleStatus",
     "RuleTestComputation",
