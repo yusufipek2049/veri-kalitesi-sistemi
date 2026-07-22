@@ -9,7 +9,9 @@ import {
 } from "@mui/material";
 import { AlertFeed } from "../components/AlertFeed";
 import { AppShell } from "../components/AppShell";
+import { FieldScoreComparison } from "../components/FieldScoreComparison";
 import { KpiCard } from "../components/KpiCard";
+import { QualityDimensionMatrix } from "../components/QualityDimensionMatrix";
 import { TrendPanel } from "../components/TrendPanel";
 import {
   longContentKpis,
@@ -128,6 +130,10 @@ export function DashboardPage({
             <Box sx={{ display: "grid", gap: 4, gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(0, 2fr) minmax(320px, 1fr)" } }}>
               <TrendPanel description={data.trendDescription} observations={data.trendObservations} />
               <AlertFeed items={data.alerts} subtitle="Yetkili kapsam · veri-minimum görünüm" />
+            </Box>
+            <Box sx={{ display: "grid", gap: 4, gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(0, 1fr) minmax(0, 1.25fr)" } }}>
+              <FieldScoreComparison items={data.fieldScores} />
+              <QualityDimensionMatrix rows={data.qualityDimensionRows} />
             </Box>
             <Paper component="section" variant="outlined" sx={{ borderRadius: 1.5, p: 4 }}>
               <Typography component="h2" variant="h3">Ölçüm Notu</Typography>

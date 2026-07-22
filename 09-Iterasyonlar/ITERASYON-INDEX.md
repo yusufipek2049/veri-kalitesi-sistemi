@@ -2,11 +2,12 @@
 
 ## Gerçek başlangıç noktası
 
-- 16 iterasyon, İterasyon 17A–17E, İterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20E, Iterasyon 21A–21B, İterasyon 22A–22İ, İterasyon 23A–23D, İterasyon 24A–24B, İterasyon 25A–25D, İterasyon 26A–26B, İterasyon 27A, İterasyon 28A–28E, İterasyon 29A–29C, İterasyon 30A–30C, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A–33B ve İterasyon 34A–34F teknik dikeyleri tamamlandı.
-- Tam depoda 1029 test geçiyor; iki gerçek PostgreSQL entegrasyon testi opt-in
+- 16 iterasyon, İterasyon 17A–17E, İterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20E, Iterasyon 21A–21C, İterasyon 22A–22İ, İterasyon 23A–23D, İterasyon 24A–24B, İterasyon 25A–25D, İterasyon 26A–26B, İterasyon 27A, İterasyon 28A–28E, İterasyon 29A–29C, İterasyon 30A–30D, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A–33B ve İterasyon 34A–34F teknik dikeyleri tamamlandı.
+- Tam depoda 1031 test geçiyor; iki gerçek PostgreSQL entegrasyon testi opt-in
   koşuda ayrıca geçiyor. Tam mypy kontrolü 159 dosyada sıfır hata veriyor.
-- Son ürün artımı banka onaylı normal kullanıcı cookie/CSRF politikasını FastAPI
-  BFF sınırına taşır; gerçek IdP ve üretim session altyapısını tamamlamaz.
+- Son ürün artımı 21C operasyonel göstergelerini frontend KPI'larına bağlar ve
+  sentetik referans karşılaştırmalarını ekler; gerçek IdP ve üretim session/veri
+  altyapısını tamamlamaz.
 - İterasyon 27A `TechnicallyVerified` durumundadır. Restore/DR dilimleri `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını bekler.
 
 ## Sıra
@@ -21,12 +22,12 @@
 8. [Iterasyon-27-Ortam-Ayrimi-ve-DR](Iterasyon-27-Ortam-Ayrimi-ve-DR.md) - 27A `TechnicallyVerified`; restore/DR engelli
 9. [Iterasyon-28-Guvenli-SDLC](Iterasyon-28-Guvenli-SDLC.md) - 28A–28E `TechnicallyVerified`
 10. [Iterasyon-29-Teknik-Kanit-Paketi](Iterasyon-29-Teknik-Kanit-Paketi.md) - 29A–29C `TechnicallyVerified`; 29D engelli
-11. [Iterasyon-30-Frontend-Tasarim-Sistemi](Iterasyon-30-Frontend-Tasarim-Sistemi.md) - 30A dokümantasyon, 30B sentetik çalışma ve 30C uygulama kabuğu/tema artımları `TechnicallyVerified`; üretim bağlantısı engelli
+11. [Iterasyon-30-Frontend-Tasarim-Sistemi](Iterasyon-30-Frontend-Tasarim-Sistemi.md) - 30A dokümantasyon ile 30B–30D frontend artımları `TechnicallyVerified`; 35A alan ekranı sırada, üretim bağlantısı engelli
 12. [Bakım-Iterasyonu-29C1-Tam-Depo-Tip-Kontrolu](Bakim-Iterasyonu-29C1-Tam-Depo-Tip-Kontrolu.md) - `TechnicallyVerified`
 13. [Iterasyon-31-Kaynak-Kullanim-Politikasi](Iterasyon-31-Kaynak-Kullanim-Politikasi.md) - 31A–31C `TechnicallyVerified`; CPU/IO ve hız sınırı alanları açık
 14. [Iterasyon-32-Kismi-Skor-Politikasi](Iterasyon-32-Kismi-Skor-Politikasi.md) - 32A–32D `TechnicallyVerified`; süre aşımı ve güvenilir olgu üretimi açık
 15. [Iterasyon-33-Kanonik-Kural-Skoru](Iterasyon-33-Kanonik-Kural-Skoru.md) - 33A `TechnicallyVerified`; tarihsel backfill ve yeterlilik dilimleri açık
 16. [Iterasyon-34-Sentetik-Veri-Kayit-Cekirdegi](Iterasyon-34-Sentetik-Veri-Kayit-Cekirdegi.md) - 34A–34F `TechnicallyVerified`; PostgreSQL kusur dataseti hazır, uygulama profil/kural entegrasyonu ve gizlilik kapısı açık
-17. [Iterasyon-21-Dashboard-API](Iterasyon-21-Dashboard-API.md) - 21B güvenli özet API ve 21C operasyonel gösterge DTO'su `TechnicallyVerified`; 30D UI bağlantısı, gerçek IdP ve üretim altyapısı açık
+17. [Iterasyon-21-Dashboard-API](Iterasyon-21-Dashboard-API.md) - 21B güvenli özet API ve 21C operasyonel gösterge DTO'su `TechnicallyVerified`; 30D UI bağlantısı tamamlandı, gerçek IdP ve üretim altyapısı açık
 
 Her iterasyon [Iterasyon-Kapanis-Sablonu](Iterasyon-Kapanis-Sablonu.md) ile kapatılır.

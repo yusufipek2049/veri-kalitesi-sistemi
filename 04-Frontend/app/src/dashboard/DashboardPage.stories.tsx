@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { DashboardPage } from "./DashboardPage";
+import { syntheticDashboardViewModel } from "./model";
 
 const meta = {
   title: "Dashboard/Genel Bakış",
@@ -18,3 +19,13 @@ export const Empty: Story = { args: { state: "empty" } };
 export const TechnicalError: Story = { args: { state: "error" } };
 export const Unauthorized: Story = { args: { state: "unauthorized" } };
 export const LongContent: Story = { args: { state: "long-content" } };
+export const ComparisonUnavailable: Story = {
+  args: {
+    data: {
+      ...syntheticDashboardViewModel,
+      fieldScores: [],
+      qualityDimensionRows: [],
+    },
+    state: "normal",
+  },
+};

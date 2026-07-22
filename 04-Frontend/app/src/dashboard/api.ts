@@ -45,5 +45,42 @@ function isDashboardSummary(payload: unknown): payload is DashboardSummaryApiRes
       typeof period?.period_start === "string"
       && typeof period?.period_end === "string"
       && Array.isArray(period?.observations)
-    ));
+    ))
+    && isOperationalIndicators(candidate.operational_indicators);
+}
+
+function isOperationalIndicators(
+  value: DashboardSummaryApiResponse["operational_indicators"] | undefined,
+): value is DashboardSummaryApiResponse["operational_indicators"] {
+  if (!value || typeof value !== "object") return false;
+  const qualification = value.measurement_qualification;
+  const controls = value.critical_controls;
+  const technical = value.technical_errors;
+  return Boolean(
+    qualification
+      && ["NO_DATA", "VALIDATION_REQUIRED", "TECHNICAL_FAILURE"].includes(qualification.status)
+      && isNonNegativeInteger(qualification.evaluated_scope_count)
+      && Array.isArray(qualification.reason_codes)
+      && qualification.reason_codes.every((reason) => typeof reason === "string")
+      && (qualification.policy_version === null || typeof qualification.policy_version === "string")
+      && controls
+      && controls.status === "NOT_AVAILABLE"
+      && typeof controls.reason_code === "string"
+      && isNullableNonNegativeInteger(controls.passed_count)
+      && isNullableNonNegativeInteger(controls.failed_count)
+      && isNullableNonNegativeInteger(controls.not_evaluated_count)
+      && technical
+      && isNonNegativeInteger(technical.observation_count)
+      && isNonNegativeInteger(technical.execution_count)
+      && isNonNegativeInteger(technical.affected_source_count)
+      && (technical.last_occurred_at === null || typeof technical.last_occurred_at === "string"),
+  );
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+function isNullableNonNegativeInteger(value: unknown): value is number | null {
+  return value === null || isNonNegativeInteger(value);
 }

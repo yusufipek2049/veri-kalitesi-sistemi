@@ -39,10 +39,33 @@ export interface AlertViewModel {
   nextAction: string;
 }
 
+export interface FieldScoreViewModel {
+  id: string;
+  label: string;
+  score: number | null;
+  tone: StatusTone;
+  statusLabel: string;
+}
+
+export interface QualityDimensionCellViewModel {
+  dimension: string;
+  score: number | null;
+  tone: StatusTone;
+  statusLabel: string;
+}
+
+export interface QualityDimensionRowViewModel {
+  fieldId: string;
+  fieldLabel: string;
+  cells: QualityDimensionCellViewModel[];
+}
+
 export interface DashboardViewModel {
   kpis: KpiViewModel[];
   trendObservations: TrendObservation[];
   alerts: AlertViewModel[];
+  fieldScores: FieldScoreViewModel[];
+  qualityDimensionRows: QualityDimensionRowViewModel[];
   dataNotice: string;
   trendDescription: string;
   measurementNote: string;
@@ -64,6 +87,28 @@ export interface DashboardApiPeriod {
   observations: DashboardApiObservation[];
 }
 
+export interface DashboardOperationalIndicatorsApiResponse {
+  measurement_qualification: {
+    status: "NO_DATA" | "VALIDATION_REQUIRED" | "TECHNICAL_FAILURE";
+    evaluated_scope_count: number;
+    reason_codes: string[];
+    policy_version: string | null;
+  };
+  critical_controls: {
+    status: "NOT_AVAILABLE";
+    reason_code: string;
+    passed_count: number | null;
+    failed_count: number | null;
+    not_evaluated_count: number | null;
+  };
+  technical_errors: {
+    observation_count: number;
+    execution_count: number;
+    affected_source_count: number;
+    last_occurred_at: string | null;
+  };
+}
+
 export interface DashboardSummaryApiResponse {
   api_version: "v1";
   data_origin: string;
@@ -71,6 +116,7 @@ export interface DashboardSummaryApiResponse {
   as_of: string;
   has_data: boolean;
   periods: DashboardApiPeriod[];
+  operational_indicators: DashboardOperationalIndicatorsApiResponse;
 }
 
 export const kpis: KpiViewModel[] = [
@@ -129,6 +175,32 @@ export const trendObservations: TrendObservation[] = [
   { date: "2026-07-21", displayDate: "21 Tem", rawScore: 89.1, finalScore: 87.4, qualification: "LimitedCoverage", usageDecision: "ConditionallyAllowed", coverageRate: 94, technicalStatus: "Başarılı", official: true },
 ];
 
+export const syntheticFieldScores: FieldScoreViewModel[] = [
+  { id: "field-finance", label: "Finans", score: 94.2, tone: "success", statusLabel: "İyi" },
+  { id: "field-customer", label: "Müşteri", score: 89, tone: "warning", statusLabel: "İzlenmeli" },
+  { id: "field-operations", label: "Operasyon", score: 86.4, tone: "info", statusLabel: "Kabul Edilebilir" },
+  { id: "field-risk", label: "Risk", score: 78.1, tone: "warning", statusLabel: "Riskli" },
+  { id: "field-reference", label: "Referans", score: 68.7, tone: "critical", statusLabel: "Kritik" },
+];
+
+const qualityDimensions = ["Tamlık", "Doğruluk", "Geçerlilik", "Tutarlılık", "Tekillik", "Güncellik", "Bütünlük"];
+
+const dimensionScores: Array<[string, Array<number | null>]> = [
+  ["Finans", [96, 94, 93, 90, 98, 91, 95]],
+  ["Müşteri", [69, 89, 94, 88, 96, 82, 86]],
+  ["Operasyon", [87, 88, 84, 92, 89, null, 88]],
+  ["Risk", [79, 80, 81, 70, 88, 77, 76]],
+  ["Referans", [null, 66, 78, 64, 86, 68, 69]],
+];
+
+export const syntheticQualityDimensionRows: QualityDimensionRowViewModel[] = dimensionScores.map(
+  ([fieldLabel, scores], rowIndex) => ({
+    fieldId: `dimension-field-${rowIndex + 1}`,
+    fieldLabel,
+    cells: qualityDimensions.map((dimension, index) => dimensionCell(dimension, scores[index] ?? null)),
+  }),
+);
+
 export const alerts: AlertViewModel[] = [
   {
     id: "ALT-SYN-1042",
@@ -163,6 +235,8 @@ export const syntheticDashboardViewModel: DashboardViewModel = {
   kpis,
   trendObservations,
   alerts,
+  fieldScores: syntheticFieldScores,
+  qualityDimensionRows: syntheticQualityDimensionRows,
   dataNotice: "Bu ekran yalnız sentetik gösterim verisi kullanır; üretim API'si, kullanıcı oturumu veya banka verisi bağlı değildir.",
   trendDescription: "Son 30 UTC gün · yalnız resmî skorlar",
   measurementNote: "Son sonuç sınırlı kapsama rağmen onaylı sentetik politika koşullarını karşılıyor. Provizyonel 13 Temmuz sonucu resmî trend ve SLA hesabına katılmadı; önceki resmî skor geçersiz kılınmadı.",
@@ -207,17 +281,19 @@ export function dashboardViewModelFromApi(
         tone: latestTone,
         statusLabel: scoreStatusLabel(latest?.score_status),
       },
-      unavailableKpi("qualification", "Ölçüm Yeterliliği"),
-      unavailableKpi("critical-rules", "Kritik Kontroller"),
-      unavailableKpi("technical-errors", "Teknik Hatalar"),
+      measurementQualificationKpi(response.operational_indicators),
+      criticalControlKpi(response.operational_indicators),
+      technicalErrorKpi(response.operational_indicators),
     ],
     trendObservations: observations,
     alerts: [],
+    fieldScores: response.data_origin === "synthetic-development" ? syntheticFieldScores : [],
+    qualityDimensionRows: response.data_origin === "synthetic-development" ? syntheticQualityDimensionRows : [],
     dataNotice: response.data_origin === "synthetic-development"
       ? "Yerel dashboard API'si sentetik geliştirme skorlarıyla bağlıdır; üretim oturumu veya banka verisi kullanılmaz."
       : "Dashboard verisi yetkili API kapsamından yüklenmiştir.",
     trendDescription: `Son 30 UTC gün · ${scopeLabel} · yalnız resmî skorlar`,
-    measurementNote: "Bu ilk API dilimi yalnız mevcut resmî skor ve trend alanlarını taşır. Ölçüm yeterliliği, kapsam, kullanım kararı ve alarm akışı sonraki sözleşmeler tamamlanmadan üretilmez.",
+    measurementNote: "Ölçüm yeterliliği ve teknik sağlık 21C operasyonel göstergelerinden alınır. Kapsam, kullanım kararı, kritik kontrol sonuçları ve alarm akışı ilgili runtime sözleşmeleri tamamlanmadan üretilmez.",
   };
 }
 
@@ -248,15 +324,96 @@ function formatUtcDateTime(value: string): string {
   return new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(value));
 }
 
-function unavailableKpi(id: string, label: string): KpiViewModel {
+function measurementQualificationKpi(
+  indicators: DashboardOperationalIndicatorsApiResponse,
+): KpiViewModel {
+  const qualification = indicators.measurement_qualification;
+  if (qualification.status === "TECHNICAL_FAILURE") {
+    return {
+      id: "qualification",
+      label: "Ölçüm Yeterliliği",
+      value: "—",
+      detail: `${qualification.evaluated_scope_count} kapsam değerlendirildi · kalite skoru sıfırlanmadı`,
+      tone: "technical",
+      statusLabel: "Teknik Başarısızlık",
+    };
+  }
+  if (qualification.status === "VALIDATION_REQUIRED") {
+    return {
+      id: "qualification",
+      label: "Ölçüm Yeterliliği",
+      value: "İnceleme",
+      detail: `${qualification.evaluated_scope_count} kapsam · aktif yeterlilik politikası bulunamadı`,
+      tone: "warning",
+      statusLabel: "Doğrulama Gerekli",
+    };
+  }
+  return unavailableKpi("qualification", "Ölçüm Yeterliliği", "Yetkili kapsamda ölçüm bulunamadı");
+}
+
+function criticalControlKpi(
+  indicators: DashboardOperationalIndicatorsApiResponse,
+): KpiViewModel {
+  const controls = indicators.critical_controls;
+  if (controls.status === "NOT_AVAILABLE") {
+    return unavailableKpi(
+      "critical-rules",
+      "Kritik Kontroller",
+      "Kritik kural sonuç kaynağı henüz bağlı değil",
+    );
+  }
+  return unavailableKpi("critical-rules", "Kritik Kontroller", "Kritik kontrol sonucu bulunamadı");
+}
+
+function technicalErrorKpi(
+  indicators: DashboardOperationalIndicatorsApiResponse,
+): KpiViewModel {
+  const technical = indicators.technical_errors;
+  if (technical.observation_count === 0) {
+    return {
+      id: "technical-errors",
+      label: "Teknik Hatalar",
+      value: "0",
+      detail: "Son 30 UTC günlük yetkili kapsamda teknik hata yok",
+      tone: "success",
+      statusLabel: "Teknik Hata Yok",
+    };
+  }
+  const lastOccurred = technical.last_occurred_at
+    ? formatUtcDateTime(technical.last_occurred_at)
+    : "zaman bilgisi yok";
+  return {
+    id: "technical-errors",
+    label: "Teknik Hatalar",
+    value: String(technical.observation_count),
+    detail: `${technical.execution_count} çalıştırma · ${technical.affected_source_count} kaynak · son olay ${lastOccurred}`,
+    tone: "technical",
+    statusLabel: "Teknik Hata",
+  };
+}
+
+function unavailableKpi(id: string, label: string, detail: string): KpiViewModel {
   return {
     id,
     label,
     value: "—",
-    detail: "Bu API diliminde sağlanmıyor",
+    detail,
     tone: "unknown",
     statusLabel: "Veri Yok",
   };
+}
+
+function dimensionCell(dimension: string, score: number | null): QualityDimensionCellViewModel {
+  if (score === null) {
+    return { dimension, score, tone: "unknown", statusLabel: "Hesaplanmadı" };
+  }
+  if (score < 70) {
+    return { dimension, score, tone: "critical", statusLabel: "Kritik" };
+  }
+  if (score < 85) {
+    return { dimension, score, tone: "warning", statusLabel: "Riskli" };
+  }
+  return { dimension, score, tone: "success", statusLabel: "Yeterli" };
 }
 
 function scoreTone(status: string | undefined): StatusTone {
