@@ -672,3 +672,24 @@ değil uygulama ve uygunluk kanıtı olarak izlenir.
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
 | --- | --- | --- | --- |
 | Kontrollü referans kusurları içeren ham sentetik kaynak tabloları fiziksel foreign key taşımayacak; beklenen ilişkiler sürümlü tablo tanımı, ayrı ground truth ve bağımsız SQL oracle'ıyla doğrulanacaktır. Kaynak kayıtları `synthetic_source`, run ve kanıt kayıtları `synthetic_control` şemasında tutulacaktır. | Fiziksel foreign key kasıtlı orphan kayıtlarının üretilmesini engeller; ground truth'u kaynak satırına gömmek test edilen veri ile beklenen sonucu birbirine bağlar. Ayrı şema güvenli reset sınırını belirginleştirir. | Constraint'leri geçici kapatmak; ground truth kolonlarını kaynak tablolara eklemek; tüm test tablolarını ortak uygulama şemasına yazmak. | 17 tamamen yapay tablo ve dokuz kusur sınıfı deterministik üretilir. Reset yalnız iki sabit sentetik şemayı kaldırır. Bu karar üretim şeması, anonimlik veya banka onayı değildir. |
+
+## 2026-07-22 — FE-DEC-001–004 Frontend Kararları
+
+Karar referansı: `USER-DECLARATION-2026-07-22-FE-DEC-001-004`.
+
+| ID | Karar | Gerekçe | Durum |
+| --- | --- | --- | --- |
+| FE-DEC-001 | Navigasyon ve kaynak türü ikonlarında `lucide-react` kullanılacak; kurumca ürünü kesinleşmemiş kaynaklarda vendor logosu yerine ürün bağımsız database/file/API ikonları gösterilecektir. | Görsel hizayı ve erişilebilir ikon kullanımını standartlaştırırken doğrulanmamış ürün/marka iddiası oluşturmamak gerekir. | KararAlındı |
+| FE-DEC-002 | İstemci routing katmanı `react-router-dom` ile kurulacak; route bazlı code splitting ile yetkisiz ve bulunamadı durum sınırları desteklenmelidir. | Menü öğelerinin gerçek sayfalara bağlanması, ekranların bağımsız yüklenmesi ve güvenli durum yüzeylerinin tutarlı yönetilmesi gerekir. | KararAlındı |
+| FE-DEC-003 | İlk açılışta açık tema kullanılacak; kullanıcı açık/koyu seçimi yalnız `light` veya `dark` değeri olarak `localStorage` içinde saklanacaktır. | Varsayılan görsel baseline korunurken tema tercihi hassas veri veya kimlik bilgisi saklamadan kalıcı olmalıdır. | KararAlındı |
+| FE-DEC-004 | Dashboard ölçüm yeterliliği son geçerli ölçümden, kritik kontrol özeti son tamamlanan execution'dan, teknik hata özeti seçili dönemden ve varsayılan olarak son 30 UTC günden hesaplanacaktır. | Üç göstergenin farklı zaman anlamlarını tek snapshot gibi göstermemek ve mevcut 30 günlük dashboard filtresiyle teknik hata sayımını tutarlı kılmak gerekir. | KararAlındı |
+
+Bu kararlar frontend dependency ve gösterim sözleşmesini kesinleştirir; 21C
+yeterlilik runtime/API uygulamasını, 20E güvenli BFF sınırını veya banka marka
+onayını tamamlanmış saymaz.
+
+## 2026-07-22 — İterasyon 30C Teknik Kararı
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| Tema tercihi yalnız `light`/`dark` değeri olarak saklanacak; depolama okunamaz veya değer geçersizse açık tema kullanılacak. Navigasyon ikonları sabit boyutlu ortak kutuda Lucide bileşenleriyle gösterilecektir. | Tema seçiminin uygulamayı kırmaması, hassas veri taşımaması ve menü ikonlarının simetrik kalması gerekir. | Sistem temasını örtük varsaymak; tüm tema nesnesini depolamak; karakter tabanlı geçici ikonları korumak; vendor logoları kullanmak. | `FE-DEC-001/003` runtime'a taşındı. Tema seçimi yetki kanıtı değildir; alan route'ları ve güvenli API bağlantıları sonraki artımlarda kalır. |

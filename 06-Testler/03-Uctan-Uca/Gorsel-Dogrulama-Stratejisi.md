@@ -14,10 +14,9 @@ tags:
 ## Amaç ve Mevcut Durum
 
 Bu belge Storybook component doğrulaması ile Playwright ekran/akış doğrulamasının
-asgari sözleşmesidir. Frontend runtime, Storybook ve Playwright proje bağımlılıkları
-henüz kurulmamıştır; bu kayıt uygulanmış otomasyon iddiası değildir. Toolchain ve
-yeni dependency seçimi tamamlanmıştır: Storybook ve Playwright kullanılacaktır.
-Kurulum ilgili frontend artımında yapılır.
+asgari sözleşmesidir. Frontend runtime, Storybook ve Playwright İterasyon 30B ile
+kurulmuş; açık/koyu tema viewport matrisi İterasyon 30C ile uygulanmıştır. Onaylı
+pixel-diff eşiği ve kurumsal CI render ortamı henüz kesinleşmemiştir.
 
 Tasarım doğruluk kaynağı:
 [Görsel Tasarım Sistemi](../../04-Frontend/Gorsel-Tasarim-Sistemi.md). İlk ekran sözleşmesi:

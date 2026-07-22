@@ -1,16 +1,20 @@
-export const designTokens = {
-  color: {
-    brand: {
-      primary: "#FDB813",
-      primaryHover: "#E5A500",
-      onPrimary: "#172033",
-    },
-    nav: {
-      background: "#0B1F3A",
-      hover: "#142D4F",
-      text: "#DCE6F3",
-      muted: "#91A4BC",
-    },
+const sharedColorTokens = {
+  brand: {
+    primary: "#FDB813",
+    primaryHover: "#E5A500",
+    onPrimary: "#172033",
+  },
+  nav: {
+    background: "#0B1F3A",
+    hover: "#142D4F",
+    text: "#DCE6F3",
+    muted: "#91A4BC",
+  },
+} as const;
+
+export const colorModeTokens = {
+  light: {
+    ...sharedColorTokens,
     canvas: "#F3F5F7",
     surface: "#FFFFFF",
     surfaceMuted: "#F8FAFC",
@@ -34,6 +38,37 @@ export const designTokens = {
       unknownSurface: "#EEF1F5",
     },
   },
+  dark: {
+    ...sharedColorTokens,
+    canvas: "#111418",
+    surface: "#1A1F26",
+    surfaceMuted: "#222832",
+    text: {
+      primary: "#F5F7FA",
+      muted: "#B5BDC9",
+    },
+    border: "#353D49",
+    status: {
+      critical: "#FF8A8A",
+      criticalSurface: "#3B2025",
+      technical: "#D8A1E3",
+      technicalSurface: "#35223C",
+      warning: "#FFB96A",
+      warningSurface: "#3B2A18",
+      success: "#89D18F",
+      successSurface: "#1D3523",
+      info: "#78BDF2",
+      infoSurface: "#1C3042",
+      unknown: "#C1C9D4",
+      unknownSurface: "#2A3039",
+    },
+  },
+} as const;
+
+export const designTokens = {
+  color: {
+    ...colorModeTokens.light,
+  },
   radius: {
     control: 4,
     surface: 6,
@@ -46,6 +81,10 @@ export const designTokens = {
   layout: {
     navExpanded: 216,
     navCompact: 72,
+    navItemHeight: 40,
+    navIconSize: 18,
+    navIconSlot: 24,
+    brandMarkSize: 32,
     topBarHeight: 56,
     contentMaxWidth: 1680,
     chartHeight: 300,
@@ -64,3 +103,5 @@ export type StatusTone =
   | "success"
   | "info"
   | "unknown";
+
+export type AppColorMode = keyof typeof colorModeTokens;

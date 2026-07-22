@@ -21,23 +21,52 @@ test.beforeEach(async ({ page }) => {
 });
 
 for (const viewport of viewports) {
-  test(`dashboard ${viewport.name} görünümünde taşma üretmez`, async ({ page }, testInfo) => {
-    await page.setViewportSize(viewport);
-    await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1, name: "Genel Bakış" })).toBeVisible();
-    await expect(page.getByText("SENTETİK VERİ")).toBeVisible();
-    await expect(page.getByText(/Yerel dashboard API'si sentetik geliştirme skorlarıyla bağlıdır/)).toBeVisible();
-    await expect(page.getByRole("img", { name: /Resmî nihai skor trendi/ })).toBeVisible();
+  for (const colorMode of ["light", "dark"] as const) {
+    test(`dashboard ${viewport.name} ${colorMode} görünümünde taşma üretmez`, async ({ page }, testInfo) => {
+      await page.setViewportSize(viewport);
+      await page.addInitScript((mode) => window.localStorage.setItem("veri-kalitesi-theme", mode), colorMode);
+      await page.goto("/");
+      await expect(page.locator("html")).toHaveAttribute("data-theme", colorMode);
+      await expect(page.getByRole("heading", { level: 1, name: "Genel Bakış" })).toBeVisible();
+      await expect(page.getByText("SENTETİK VERİ")).toBeVisible();
+      await expect(page.getByText(/Yerel dashboard API'si sentetik geliştirme skorlarıyla bağlıdır/)).toBeVisible();
+      await expect(page.getByRole("img", { name: /Resmî nihai skor trendi/ })).toBeVisible();
 
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-    expect(overflow).toBeLessThanOrEqual(1);
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      expect(overflow).toBeLessThanOrEqual(1);
 
-    await page.screenshot({
-      path: testInfo.outputPath(`dashboard--normal--${viewport.name}.png`),
-      fullPage: true,
+      await page.screenshot({
+        path: testInfo.outputPath(`dashboard--normal--${colorMode}--${viewport.name}.png`),
+        fullPage: true,
+      });
     });
-  });
+  }
 }
+
+test("navigasyon grupları ve ikon merkezleri referans hiyerarşisini korur", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  await expect(page.getByRole("heading", { name: "ANALİZ" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "OPERASYON" })).toBeVisible();
+  const iconSlots = page.getByTestId("navigation-icon-slot");
+  await expect(iconSlots).toHaveCount(7);
+  const centers = await iconSlots.evaluateAll((slots) => slots.map((slot) => {
+    const bounds = slot.getBoundingClientRect();
+    return bounds.left + bounds.width / 2;
+  }));
+  expect(Math.max(...centers) - Math.min(...centers)).toBeLessThanOrEqual(0.5);
+});
+
+test("tema seçimi kalıcıdır ve erişilebilir adı değişir", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Koyu temaya geç" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.getByRole("button", { name: "Açık temaya geç" })).toBeVisible();
+
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+});
 
 test("grafik ve erişilebilir tablo aynı gözlemleri kullanır", async ({ page }) => {
   await page.goto("/");

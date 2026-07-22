@@ -12,6 +12,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Normal: Story = { args: { state: "normal" } };
+export const DarkTheme: Story = { args: { state: "normal" }, globals: { theme: "dark" } };
 export const Loading: Story = { args: { state: "loading" } };
 export const Empty: Story = { args: { state: "empty" } };
 export const TechnicalError: Story = { args: { state: "error" } };

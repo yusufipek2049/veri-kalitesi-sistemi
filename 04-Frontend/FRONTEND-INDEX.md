@@ -20,8 +20,9 @@ tags:
 
 Bu seçimler `ADR-017` ile kabul edilmiştir; yeniden teknoloji veya dependency
 onayı beklenmez. İterasyon 30B ile paketler ve sentetik dashboard çalışma
-iskeleti `04-Frontend/app/` altında kurulmuştur. Bu çalışma üretim API'si,
-kurumsal IdP/oturum veya banka verisine bağlı bir dashboard değildir.
+iskeleti, İterasyon 30C ile gruplandırılmış ikonlu navigasyon ve açık/koyu tema
+`04-Frontend/app/` altında kurulmuştur. Bu çalışma üretim API'si, kurumsal
+IdP/oturum veya banka verisine bağlı bir dashboard değildir.
 
 ## Çalıştırma
 
@@ -43,14 +44,21 @@ masaüstü görsel kontrolleri için `npm run test:e2e` kullanılır.
 - [Görsel Doğrulama Stratejisi](../06-Testler/03-Uctan-Uca/Gorsel-Dogrulama-Stratejisi.md)
 - [Frontend Teknoloji Yığını Kararı](../02-Mimari/Mimari-Kararlar.md#adr-017--frontend-teknoloji-yığını)
 
-## Uygulanan İlk Artım
+## Uygulanan Artımlar
 
-- Semantik token kaynağı ve açık MUI teması.
+- Açık/koyu semantik token kaynakları ve MUI tema üreticisi.
+- İlk açılışta açık tema; yalnız `light`/`dark` değerini saklayan kullanıcı
+  seçimi ve depolama hatasında güvenli açık tema varsayılanı.
+- `ANALİZ`/`OPERASYON` navigasyon grupları ve sabit kutularda hizalı Lucide
+  ikonları.
 - Sentetik genel bakış uygulama kabuğu, KPI kartları, durum rozeti, alarm akışı.
 - ECharts resmî skor trendi ve aynı view-model'i kullanan erişilebilir tablo.
 - Normal, loading, empty, teknik hata, yetkisiz ve uzun içerik Storybook durumları.
 - `1440×900`, `1280×800`, `1024×768`, `1366×768` ve `1920×1080`
-  Playwright kontrolleri.
+  viewport'larının açık/koyu tema Playwright kontrolleri.
+
+Menüde görünen alan adları 30C'de görsel uygulama kabuğudur; ilgili route ve
+ekranlar 35A–35F artımlarında güvenli API sınırlarıyla ayrı ayrı açılacaktır.
 
 ## Ekranlar
 
