@@ -76,7 +76,7 @@ esas alınır; bu teknik analiz mevcut runtime farklarını ayrıca belirtir.
 | Kural şablonu/sürümü/onayı | Uygulanmış | `RuleService`, `rule_*` tabloları | Gerçek kural executor adaptörü |
 | Kuyruk ve zamanlama | Kısmen uygulanmış | `ExecutionService`, `SchedulingService` | Broker, worker process, cron ve dağıtık lock |
 | Mevcut skorlama ve trend alt kümesi | Uygulanmış | `ScoringService`, `DashboardQueryService` | Kanonik sayaçlar, ham/nihai skor, ölçüm yeterliliği, kullanım kararı, onaylı kurumsal politikalar ve HTTP/UI |
-| LDAP/RBAC ve oturum | Kısmen uygulanmış | LDAP/session servisleri | LDAP client, HTTP taşıma, cookie/CSRF/MFA/PAM |
+| LDAP/RBAC ve oturum | Kısmen uygulanmış; `OPEN-BNK-020` banka onaylı | LDAP/session servisleri | LDAP client; onaylı BFF, `__Host-session`, CSRF, merkezi iptal ve üretim store/şifreleme uygulaması |
 | Bildirim ve issue yaşam döngüsü | Uygulanmış domain çekirdeği | notification/issue servisleri | UI/HTTP, gerçek resolver ve operasyon politikası |
 | ServiceNow | Kısmen uygulanmış | `ServiceNowAdapter` protokolü ve fake testler | Gerçek HTTP istemcisi, credential ve durum senkronu |
 | Audit bütünlüğü | Kısmen uygulanmış | SQLite hash-chain ve outbox | WORM/imza, merkezi platform ve publisher worker |

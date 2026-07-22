@@ -6,35 +6,38 @@ last_updated: 2026-07-22
 tags:
   - proje
   - acik-konu
-  - tbd
+  - uygulama-bagimliligi
 ---
 
 # Açık Konular
 
 Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../01-SRS/15-Acik-Konular.md).
 
-`KararAlındı` ve `ProvisionalDecision` durumundaki teknik yönler
-[Alınan Kararlar](Alinan-Kararlar.md) belgesindedir. Bu dosya yalnız `Açık`,
-`DecisionRequired` veya kurumsal/banka incelemesi gerektiren belirsizlikleri ve
+`KararAlındı` durumundaki teknik yönler [Alınan Kararlar](Alinan-Kararlar.md)
+belgesindedir. Bu dosya yalnız `Açık` veya kurumsal/banka incelemesi gerektiren
+belirsizlikleri ve
 kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
 
 ## Geliştirmeyi En Çok Etkileyen Açık Konular
 
-1. İlk ve ikinci ilişkisel veritabanı ürünlerinin kurum standardı, canlı sürücü paketleri ve entegrasyon ortamı onayı TBD'dir.
-2. Üretim worker/kota/pencere/CPU/IO/timeout/rate değerleri ile CPU/IO ve hız sınırı çalışma zamanı ölçüm modeli TBD'dir.
-3. Kurumsal secret manager ürünü ve servis/workload identity erişim eşlemesi TBD'dir.
-4. Kurumsal IdP ürünü, grup-rol-scope eşleme değerleri ve break-glass ürün/rol ayrıntıları TBD'dir.
+1. PostgreSQL, `psycopg 3` ve SQLAlchemy seçilmiştir; kurum içi kalıcı entegrasyon veritabanı erişimi ve ikinci ilişkisel ürünün kurum standardı eşlemesi beklenmektedir.
+2. Worker/kota/pencere/CPU/IO/timeout/rate değerleri aktif sürümlü kaynak politikasından çözülecektir; kapasite testinden üretilmiş üretim politika kaydı ve CPU/IO/rate ölçüm adaptörü henüz yoktur.
+3. Kurumsal secret manager/PAM kullanımı karara bağlanmıştır; seçilen kurumsal hizmetin servis/workload identity eşlemesi ve gerçek adaptörü beklenmektedir.
+4. Kurumsal IdP üzerinden OIDC veya SAML, MFA, PAM ve çift onaylı break-glass karara bağlanmıştır; endpoint, grup-rol-scope değerleri ve üretim rol eşlemeleri beklenmektedir.
 5. `AC-008` için veri sahibi onayı, anonimleştirilmiş üretim örneği, yeniden kimliklendirme risk değerlendirmesi ve test ortamı henüz hazırlanmamıştır.
 6. ServiceNow gerçek tablo/alan/durum eşlemesi, servis hesabı, endpoint/TLS ve veri aktarım onayı açıktır.
-7. Kayıt sınıfı saklama süreleri ile bileşen RPO/RTO hedefleri iş etki analizi ve kurum onaylarına kadar TBD'dir.
-8. Kurumsal konteyner platformu, yüksek erişilebilirlik veritabanı, broker ve kalıcı dosya depolama ürünleri TBD'dir.
-9. Üretim outbox/kuyruk ürünü, alarm eşikleri ve kapasite değerleri TBD'dir.
-10. Kısmi resmî skor için kurumsal eşik değerleri ve banka onaylı politika kayıtları TBD'dir.
+7. Teknik saklama matrisi ile normal/kritik RPO/RTO hedefleri karara bağlanmıştır; mevzuat eşlemesi, banka incelemesi, yedek şifreleme ve restore sıklığı kanıtı beklenmektedir.
+8. Pilot VM/konteyner; üretimde kurumsal OpenShift/Kubernetes eşdeğeri, yüksek erişilebilir PostgreSQL ve kurumsal broker/RabbitMQ fallback'i karara bağlanmıştır. Kalıcı dosya deposunun kurum hizmet eşlemesi ve altyapı kurulumu beklenmektedir.
+9. PostgreSQL transactional outbox ve ayrı publisher worker karara bağlanmıştır; kapasite testiyle üretilmiş alarm/eşik politikası ve üretim işletim kanıtı beklenmektedir.
+10. Kısmi resmî skorun koşulları sürümlü/onaylı dataset politikasından çözülecektir; banka onaylı üretim politika kayıtlarının oluşturulması beklenmektedir.
 11. Dashboard güvenilir `ActorContext` ve `AuthorizationService` sınırına taşındı; diğer servislerdeki serbest `actor_id` kullanımı ile context issuer'ın gerçek LDAP/session adaptörüne bağlanması İterasyon 20 ve sonraki modül geçişlerini gerektirir.
 13. Kurum içi kalıcı PostgreSQL entegrasyon veritabanı erişimi ve seçilen sürücü/havuz yaklaşımının kurum standardı onayı beklenmektedir.
 15. `AC-008` için veri sahibi onaylı, anonimleştirilmiş üretim örneği, yeniden kimliklendirme risk değerlendirmesi ve donanım gözlemli performans testi henüz hazırlanmadı; birim testleri yalnız SAMPLE sözleşmesini doğruluyor.
 16. `RuleTestExecutor` için PostgreSQL/CSV kaynak adaptörleri, sorgu maliyet tahmini ve regex çalışma timeoutu henüz uygulanmadı; mevcut iterasyon güvenli domain sözleşmesini, şablon planlarını ve test geçmişini doğruluyor.
-17. Üretim iş kuyruğu/broker ürünü, çoklu worker claim stratejisi ve worker sayısı henüz seçilmedi; yerel prototip SQLite üzerinde süreç içi kilitle kalıcı kuyruk davranışını doğruluyor.
+17. Kurumsal broker veya RabbitMQ fallback'i ve PostgreSQL transactional outbox
+    karara bağlandı; çoklu worker lease/heartbeat, kayıp worker recovery ve
+    kapasite profili henüz uygulanmadı. Yerel prototip SQLite üzerinde süreç içi
+    kilitle kalıcı kuyruk davranışını doğruluyor.
 18. Bağlantı, sorgu ve toplam timeout değerleri worker yürütücü sözleşmesinde ayrı taşınıyor ve iptal adaptörü tanımlandı; gerçek PostgreSQL/CSV adaptörlerinde sorgu iptali ile duvar saati zorlaması henüz uygulanmadı.
 21. Yeni `SOURCE_EQUAL_DATASET_QUALITY_V2` kaynak kalite agregasyonu dataset
     kritikliğini kalite formülünden çıkardı ve ayrı profil kanıtı taşır. Tarihsel
@@ -52,7 +55,10 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
     işin tamamlanması/iptali politikası, operasyon bildirimi ve banka onaylı
     maker/checker/deactivator/worker rol kodları açık kalır.
 28. Başarısız giriş sınırlandırması opak kullanıcı/istemci anahtarlarıyla teknik olarak uygulandı. Üretim anahtar türetme/rotasyon yöntemi, secret manager bağlantısı, güvenilir istemci referansının proxy/ağ sınırı, paylaşımlı depo ürünü ve LDAP ile uyumlu nihai eşik/pencere/süre onayı açık kalır.
-30. Dashboard trendi güvenilir scope ile sabit son 30 UTC gün için uygulandı. Serbest tarih aralığı/periyot seçimi, operasyon listeleri, grafik/tablo sunumu ve HTTP taşıma katmanı açık kalır; 21B `OPEN-BNK-020` ve geçiş kapısına bağlıdır.
+30. Dashboard trendi güvenilir scope ile sabit son 30 UTC gün için uygulandı.
+    Serbest tarih aralığı/periyot seçimi, operasyon listeleri, grafik/tablo sunumu
+    ve banka onaylı BFF/cookie/CSRF politikasının HTTP katmanında uygulanması 21B
+    ile geçiş kapısında kalan uygulama işidir.
 31. Sistem içi bildirim domain yaşam döngüsü sabit veri-minimum şablon ve güvenilir resolver protokolüyle uygulandı. Gerçek sahiplik/fallback grup kaynağı, şablon yönetimi, susturma/eskalasyon politikası, asenkron retry/DLQ, saklama-imha ve HTTP/UI yüzeyi açık kalır.
 32. Otomatik issue oluşturma, atama/inceleme, korunan çözüm, başarısız/teknik doğrulama, farklı aktörle başarılı `VERIFIED`, doğrulama bağlı `CLOSED`, aynı başarısızlıkla yeniden açma ve yeni kalite başarısızlığını append-only ilişkilendirme uygulandı. Gerçek assignment/kullanıcı dizini, çözüm koruma, doğrulama ve ilişki resolver adaptörleri; banka onaylı çözen/doğrulayan rol eşlemesi, bildirim retry/DLQ, saklama-imha ve ServiceNow açık kalır.
 34. ServiceNow ticket oluşturma allowlist projeksiyon, güvenilir servis context'i ve idempotent fake adaptörle teknik olarak doğrulandı. Gerçek endpoint/credential, banka alan-durum eşlemesi, servis hesabı yetkilendirmesi, timeout/retry/backoff, durum senkronizasyonu ve `OPEN-BNK-009` onayı açık kalır.
@@ -158,14 +164,15 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
     ayrı kapsam/güven/risk/kritiklik/teknik sağlık varlıkları, kritik veto/tavan,
     sürümlü normalizasyon, istisna/override ve replay sözleşmesinin kalanını henüz
     uygulamamaktadır.
-64. Üretim normalizasyon formülleri, eşik/ağırlık değerleri, kritik kural
-    veto/tavan/blokaj davranışları, kapsam/güven ve veri risk katsayıları `TBD`'dir.
-    Karar sahipleri Veri Yönetişimi, Risk Yönetimi ve İç Kontrol'dür;
-    `OPEN-BNK-004` ve `OPEN-BNK-013` kapanmadan değer uydurulmayacaktır.
-65. Dataset kritikliğini `SOURCE` kalite skoruna ağırlık olarak katan mevcut
-    teknik davranış `ADR-015` ile hedef mimaride `Superseded` olmuştur. Yeni model
-    sürümü, migration/backfill, trend sürüm sınırı, yeniden hesaplama ve geri alma
-    planı uygulanmadan mevcut skor geçmişi değiştirilmeyecektir.
+64. Üretim normalizasyon, eşik/ağırlık, kritik veto/tavan/blokaj, kapsam/güven
+    ve veri risk değerleri aktif, sürümlü ve onaylı politika kaydından
+    çözülecektir. Politika yoksa ilgili yeterlilik/risk/kullanım sonucu
+    fail-closed üretilmeyecektir; üretim politika kayıtlarının oluşturulması
+    beklenmektedir.
+65. `SOURCE_EQUAL_DATASET_QUALITY_V2` kritiklik ağırlığını kaynak kalite
+    skorundan çıkarmıştır. Tarihsel `SOURCE_WEIGHTED_V1` kayıtlarının yeni
+    modelle replay/backfill ilişkisi, trend sürüm sınırı ve geri alma planı
+    henüz uygulanmamıştır.
 66. İstisna ve ham skordan ayrı değerlendirme/override için banka rol matrisi,
     izinli türler, azami süre, risk kabul ve raporlama politikası açık kalır;
     `OPEN-BNK-004`, `OPEN-BNK-005`, `OPEN-BNK-006` ve `OPEN-BNK-008` geçerlidir.
@@ -174,11 +181,11 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
     runtime'a taşındı. Eski kanoniksiz sonuçların backfill/sürüm geçişi, ham/nihai
     skor ayrımı, yeterlilik durumları, geçerlilik kapısı ve ayrı kullanım kararı
     henüz uygulanmadı; geçiş `OPEN-022` sonrası küçük dilimlerle yürütülmelidir.
-68. Ölçüm yöntemine göre kapsam pay/payda sözleşmesi, üretim minimum kapsamı ve
-    örneklem güveni, yeterlilik kanıt/onay matrisi, geçerlilik süreleri,
-    kullanım/blokaj yetkileri ile remediation/eskalasyon
-    hedefleri `TBD`'dir. Bu değerler `OPEN-023` ve `OPEN-BNK-004/008/010/013/017`
-    kararı olmadan kodlanmamalıdır.
+68. Ölçüm yöntemine göre kapsam pay/payda sözleşmesi, minimum kapsam, örneklem
+    güveni, yeterlilik kanıt/onay matrisi, geçerlilik, kullanım/blokaj ve
+    remediation/eskalasyon değerleri aktif sürümlü politika kaydından
+    çözülecektir. Kayıt yoksa olumlu yeterlilik veya kullanım kararı
+    üretilmeyecektir; runtime politika modeli henüz tamamlanmamıştır.
 69. Sentetik dataset politika, senaryo ve run kayıt çekirdeği 34A, tamamen yapay
     deterministik Golden ilişkisel üretici 34B, değişmez Golden yapısal ground
     truth ve bağımsız karşılaştırıcı 34C, kanonik çıktı/doğrulama referanslı
@@ -189,15 +196,15 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
     akış ve hacim profilleri, kusur enjeksiyonu, kayıt düzeyi ve
     sayısal ground truth, runtime kural/skor/olay karşılaştırması, gizlilik
     değerlendiricisi ve dataset kataloğu uygulanmadı.
-    Dağılım/korelasyon/görev faydası/gizlilik eşikleri, kusur yoğunluğu oranları,
-    skor toleransı ve izinli üretim yöntemleri `OPEN-024` kapsamında
-    `DecisionRequired` durumundadır.
-70. Sentetik üretimde onaylı üretim profili veya örneği kullanılıp
-    kullanılmayacağı; kullanılırsa erişim/ortam ayrımı, minimizasyon, saklama,
-    yeniden tanımlama ve onay süreci `OPEN-025` kapsamında
-    `ComplianceReviewRequired / LegalReviewRequired / SecurityReviewRequired`
-    durumundadır. Sentetik üretim anonimlik kanıtı veya `OPEN-014` nihai kabulünün
-    yerine geçen kanıt sayılmayacaktır.
+    Dağılım/korelasyon/görev faydası/gizlilik eşikleri, kusur yoğunluğu oranları
+    ve skor toleransı aktif sentetik politika kaydında zorunludur; eksik kayıt
+    doğrulamayı `BLOCKED` yapar. Runtime politika uygulaması henüz yoktur.
+70. Sentetik üretimde üretim profili veya örneğinden öğrenme varsayılan olarak
+    yasaktır. Ayrı veri sahibi, hukuk/KVKK ve bilgi güvenliği onaylı politika;
+    erişim/ortam ayrımı, minimizasyon, saklama ve yeniden tanımlama kontrolünü
+    kanıtlamadan açılamaz. Bu onay ve gerçek adaptör henüz yoktur. Sentetik
+    üretim anonimlik kanıtı veya `OPEN-014` nihai kabulünün yerine geçen kanıt
+    sayılmayacaktır.
 
 ## Bankacılık Geçiş Açık Konuları
 

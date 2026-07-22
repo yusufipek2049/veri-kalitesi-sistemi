@@ -31,7 +31,9 @@ tags:
 2. Kurumsal IdP, LDAP destekli kimlik doğrulama ve MFA adımını yürütür.
 3. IdP, doğrulanmış OIDC veya SAML beyanı ile grup bilgilerini döndürür.
 4. Sistem çoklu grup üyeliğini sürümlü çatışma/ret politikasıyla yerel rol ve kapsama eşler.
-5. Sistem güvenli oturum oluşturur ve giriş audit kaydı yazar.
+5. Sistem BFF üzerinde sunucu taraflı opak oturum oluşturur, önceki normal
+   kullanıcı oturumunu merkezi olarak iptal eder, `__Host-session` cookie'sini
+   döndürür ve giriş audit kaydı yazar.
 6. Kullanıcı yetkili ana dashboarda yönlendirilir.
 
 **Alternatif Akışlar**
@@ -45,6 +47,10 @@ tags:
 2. IdP ulaşılamazsa sistem teknik hata kodu üretir ve güvenliksiz yerel girişe düşmez; yalnız kontrollü, süreli ve auditli break-glass hesabı ayrı politikayla kullanılabilir.
 3. MFA eksik veya başarısızsa oturum oluşturulmaz.
 4. Başarısız giriş limiti aşılırsa hesap/istemci geçici olarak engellenir.
+5. Oturum boşta 60 dakikayı veya toplam 10 saati aşarsa yeniden kimlik doğrulama
+   istenir; arka plan isteği ve token yenileme bu süreleri uzatmaz.
+6. State-changing istek synchronizer token veya Origin/Referer/Fetch Metadata
+   kontrollerini geçmezse işlem reddedilir ve oturum sırrı loglanmaz.
 
 | Alan | Tanım |
 | --- | --- |
@@ -53,4 +59,4 @@ tags:
 | Başarı Garantisi | Yetkili kullanıcı doğru rol kapsamıyla sisteme erişir. |
 | Minimum Garanti | Hata durumunda hiçbir yetkisiz oturum oluşmaz; deneme kaydedilir. |
 | İlgili Fonksiyonel Gereksinimler | FR-001, FR-002, FR-003, FR-005, FR-006, FR-081 |
-| Kabul Kriterleri | Geçerli SSO beyanı ve MFA kanıtı olan kullanıcı 5 saniye içinde giriş yapmalı; MFA'sı eksik veya geçersiz kullanıcı hiçbir korumalı ekrana erişememelidir. |
+| Kabul Kriterleri | Geçerli SSO beyanı ve MFA kanıtı olan kullanıcı 5 saniye içinde giriş yapmalı; MFA'sı eksik veya geçersiz kullanıcı hiçbir korumalı ekrana erişememelidir. Tarayıcı access/refresh token'a erişmemeli, yalnız güvenli opak cookie taşımalı; ikinci başarılı giriş önceki oturumu iptal etmeli ve iptal edilen credential yeniden kullanılamamalıdır. |

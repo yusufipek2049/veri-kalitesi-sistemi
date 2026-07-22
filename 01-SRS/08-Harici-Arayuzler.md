@@ -18,7 +18,7 @@ Bu bölüm, kullanıcı ekranlarını, harici yazılım entegrasyonlarını ve i
 
 | Ekran | Amaç | Kullanıcı rolleri | Görüntülenecek bilgiler | Yapılabilecek işlemler | Filtreler | Validasyonlar | Hata mesajları |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| Giriş ekranı | Kurumsal SSO ve MFA ile güvenli giriş | Tüm kullanıcılar | SSO yönlendirmesi, oturum ve hata/correlation ID | SSO ile giriş, yardım | TBD | IdP beyanı, MFA kanıtı ve oturum bütünlüğü | Kimlik doğrulama başarısız; MFA eksik; IdP ulaşılamıyor; geçici engelleme |
+| Giriş ekranı | Kurumsal SSO ve MFA ile güvenli giriş | Tüm kullanıcılar | SSO yönlendirmesi, oturum ve hata/correlation ID | SSO ile giriş, yardım | Kurumsal IdP | IdP beyanı, MFA kanıtı ve oturum bütünlüğü | Kimlik doğrulama başarısız; MFA eksik; IdP ulaşılamıyor; geçici engelleme |
 | Ana dashboard | Genel kalite ve operasyon durumunu sunmak | Tüm yetkili kullanıcılar | Ham/nihai kalite skoru, ölçüm yeterliliği, kritik kural ve kullanım kararı, kapsam, güven, kritiklik/risk, teknik sağlık, boyut/kural kırılımı, trend, kritik sorun ve son işler | Filtre, sıralama, drill-down, görünüm değiştirme | Tarih, kaynak, birim, sahip, boyut, kalite/yeterlilik/kullanım/teknik durum, risk/kritiklik, model sürümü | Tarih aralığı, karşılaştırılabilir sürüm ve kapsam yetkisi | Veri yok; yetersiz veya sınırlı kapsam; eski skor; teknik hata; sorgu zaman aşımı; yetkisiz kapsam |
 | Veri kaynakları ekranı | Kaynakları yönetmek | Sistem Yöneticisi, Veri Mühendisi | Ad, tür, durum, sahip, son test, dataset sayısı | Ekle, test et, güncelle, aktif/pasif, arşivle | Tür, durum, sahip, test sonucu | Benzersiz ad; zorunlu alan; secret açık gösterilmez | Bağlantı, TLS, kimlik, yetki, sürücü hataları |
 | Veri kümeleri ekranı | Keşfedilen veri kümelerini ve sahipliği göstermek | Veri Kalitesi Uzmanı, Data Steward | Kaynak, namespace, ad, kayıt tahmini, kritiklik, sahip, kural sayısı | Profil başlat, sahip/kritiklik düzenle, detay aç | Kaynak, şema, kritiklik, sahip | Geçerli sahip; yetkili kapsam | Metadata eski; nesne kaldırılmış; yetkisiz |
@@ -47,7 +47,7 @@ Bu bölüm, kullanıcı ekranlarını, harici yazılım entegrasyonlarını ve i
 - Ham/nihai kalite skoru, ölçüm yeterliliği, kritik kural, kullanım kararı,
   kapsam, güven, kritiklik/risk ve teknik sağlık tek yüzdeye birleştirilmez.
   Yüksek skor yetersiz ölçümü gizlemez; skor çalışan performans KPI'sı olarak sunulmaz.
-- Masaüstü öncelikli responsive tasarım uygulanmalı; 1366×768 ve üzeri çözünürlükler desteklenmelidir. Mobil yönetim işlevleri MVP için TBD'dir.
+- Masaüstü öncelikli responsive tasarım uygulanmalı; 1366×768 ve üzeri çözünürlükler desteklenmelidir. Mobil yönetim işlevleri MVP kapsamı dışındadır ve ikinci fazda ele alınacaktır.
 
 ## 8.2 Yazılım Arayüzleri
 
@@ -60,7 +60,7 @@ Bu bölüm, kullanıcı ekranlarını, harici yazılım entegrasyonlarını ve i
 | Veri kaynağı bağlayıcıları | Ürün bağımsız arayüz; kimlik, bağlantı testi, metadata keşfi, sorgu, timeout, iptal, hata sınıflandırması ve gözlemlenebilirlik sözleşmesi. |
 | Dosya depolama servisi | CSV/Excel girdi ve rapor/kanıt dosyaları için kurum içi güvenli depolama. |
 | Kurumsal veri kataloğu/DLP | Hassas sınıflandırma, maskeleme, görüntüleme, raporlama ve loglama kısıtlarının kaynak sistemi. |
-| Sentetik veri yönetim API'si | Hedef iç API; `SyntheticDatasetPolicy`, senaryo, run, doğrulama ve katalog kayıtlarını sürümlü ve yetki kapsamlı sunar. Ground truth iş verisinden ayrı döner; gizlilik kapısı geçmeyen dataset kullanıma açılamaz. Üretim bildirimi/ServiceNow/SIEM hedefi bu API üzerinden seçilemez. Endpoint ve taşıma ayrıntıları runtime iterasyonuna kadar TBD'dir. |
+| Sentetik veri yönetim API'si | Hedef iç API; `SyntheticDatasetPolicy`, senaryo, run, doğrulama ve katalog kayıtlarını sürümlü ve yetki kapsamlı sunar. Ground truth iş verisinden ayrı döner; gizlilik kapısı geçmeyen dataset kullanıma açılamaz. Üretim bildirimi/ServiceNow/SIEM hedefi bu API üzerinden seçilemez. Güvenilir HTTP/API sözleşmesi uygulanmadan yetenek dış erişime açılmaz. |
 
 ## 8.3 İletişim Arayüzleri
 

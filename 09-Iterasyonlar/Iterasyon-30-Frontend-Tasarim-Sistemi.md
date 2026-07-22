@@ -1,7 +1,7 @@
 ---
 iteration: 30
 status: in-progress
-completed_at: TBD
+completed_at: null
 ---
 
 # İterasyon 30 — Frontend Tasarım Sistemi ve Kurumsal Dashboard
@@ -111,4 +111,6 @@ tamamlanmış saymaz.
 30B sentetik çalışma artımı tamamlandı. Aynı güvenlik sınırını koruyan sıradaki
 hazır frontend artımı 30C sentetik veri alanı karşılaştırması ve kalite boyutu
 matrisidir. Üretim bağlantılı 30E, 21B güvenli HTTP/API sınırı ve
-`OPEN-BNK-020` tamamlanana kadar uygulanmaz.
+`OPEN-BNK-020` banka onaylıdır; onaylı BFF/session/CSRF politikasının üretim
+HTTP katmanında uygulanması ve geçiş kapısındaki diğer bağımlılıklar tamamlanana
+kadar uygulanmaz.

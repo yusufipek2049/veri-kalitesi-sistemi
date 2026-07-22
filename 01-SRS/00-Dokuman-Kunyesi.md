@@ -53,4 +53,4 @@ tags:
 15. Açık Konular ve Varsayımlar  
 16. Doküman Kalite Kontrolü
 
-> **Doküman notu:** Bu sürüm, yanıtlanan netleştirme sorularına göre hazırlanmıştır. Kesinleşmemiş kapasite, güvenlik, performans ve saklama ayrıntıları “Varsayım”, “Önerilen başlangıç hedefi” veya “TBD” olarak işaretlenmiştir.
+> **Doküman notu:** Bu sürüm, yanıtlanan netleştirme sorularına göre hazırlanmıştır. Ortama veya kullanım bağlamına göre değişen kapasite, güvenlik ve performans değerleri aktif, sürümlü ve onaylı politika kayıtlarından çözülür; politika kaydı yoksa sistem fail-closed davranır. Saklama ve RPO/RTO teknik değerleri karar tablolarında tanımlıdır.

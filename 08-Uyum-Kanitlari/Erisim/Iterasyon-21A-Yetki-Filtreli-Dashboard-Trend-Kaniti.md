@@ -49,7 +49,10 @@ Ek kontroller:
 - Audit: Yetki kararı mevcut merkezi audit sözleşmesini kullanır; trend sorgusu yeni kalıcı yazım veya hassas audit payloadı oluşturmaz.
 - Maker-checker etkisi: Salt okunur sorgu yeni kritik konfigürasyon değişikliği yaratmaz; maker-checker kapsamı yoktur.
 - Geri alma: `get_score_trend` ve repository okuma metodu kaldırılarak önceki skor ağacı davranışına dönülebilir; kalıcı veri şeması değişmemiştir.
-- Kalan risk: Serbest tarih/periyot, operasyon listeleri, grafik/tablo ve HTTP/cookie/CSRF yüzeyi kapsam dışıdır; 21B `OPEN-BNK-020` nedeniyle engellidir.
+- Kalan risk: Serbest tarih/periyot, operasyon listeleri, grafik/tablo ve
+  HTTP/cookie/CSRF yüzeyi kapsam dışıdır. `OPEN-BNK-020` politika kararı
+  `ApprovedByBank` durumundadır; 21B onaylı BFF/session politikasının runtime
+  uygulamasını ve geçiş kapısındaki diğer bağımlılıkları bekler.
 
 ## Onaylar
 

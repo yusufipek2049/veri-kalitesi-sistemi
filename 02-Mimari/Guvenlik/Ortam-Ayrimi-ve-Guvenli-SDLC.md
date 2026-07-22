@@ -18,7 +18,11 @@
 - Dağıtım, geri alma, sağlık kontrolü ve kontrollü kapatma davranışları işletim prosedüründe bulunur.
 - Uygulama kurumsal secret manager'a servis veya workload identity ile erişir; yerel geliştirmede üretim secret'ı kullanılmaz.
 
-Belirli platform, veritabanı, broker ve secret manager ürünü TBD'dir.
+Pilot ortam VM/konteyner, üretim kurumsal OpenShift/Kubernetes eşdeğeri,
+veritabanı yüksek erişilebilir PostgreSQL, kuyruk kurumsal broker veya RabbitMQ
+fallback'i ve secret yönetimi kurumsal secret manager/PAM olarak karara
+bağlanmıştır. Kurumsal hizmet kimlikleri ile endpoint eşlemeleri dağıtım
+konfigürasyonunda sağlanır; eksik eşleme başlangıç kapısını fail-closed tutar.
 
 ## Sentetik Veri Ortam Kapısı
 

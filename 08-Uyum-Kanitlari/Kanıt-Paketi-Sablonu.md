@@ -2,8 +2,8 @@
 control_ids: []
 requirement_ids: []
 status: draft
-version: TBD
-executed_at: TBD
+version: REQUIRED
+executed_at: REQUIRED
 ---
 
 # Kanıt Paketi

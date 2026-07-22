@@ -22,7 +22,8 @@ operasyonel akışları tetikleyebileceğini tanımlar.
 Bu hedef tasarım mevcut runtime davranışının uygulanmış veya banka tarafından
 onaylanmış olduğu anlamına gelmez. Üretim eşikleri, skor tavanları, ağırlıklar,
 minimum kapsam, örneklem güveni, geçerlilik süreleri, remediation hedefleri,
-bloke etme yetkileri ve onay rolleri `TBD`'dir.
+bloke etme yetkileri ve onay rolleri aktif, sürümlü politika kaydından çözülür;
+kayıt yoksa olumlu yeterlilik veya kullanım kararı üretilmez.
 
 Skor personel performansı veya cezalandırıcı KPI değildir. Skor; veri durumunu
 göstermek, bozulmayı erken bulmak, riski önceliklendirmek, aksiyon üretmek ve
@@ -83,7 +84,7 @@ durumu ve güvenli hata kodu birlikte tutulur.
 | Koşul | Kural skoru | Ölçüm durumu | Yeterlilik etkisi |
 | --- | --- | --- | --- |
 | Politika gereği kural uygulanamaz | `NULL` | `NotApplicable` | `NotApplicable` |
-| Beklenen dönemde veri yok | `NULL` | `NoData` | Politika değerlendirmesine göre `NotQualified` veya `Stale`; değer `TBD` |
+| Beklenen dönemde veri yok | `NULL` | `NoData` | Aktif politika sonucu `NotQualified` veya `Stale`; politika yoksa `NotQualified` |
 | Uygulanabilir kayıt var, ölçüm başlatılmadı | `NULL` | `NotMeasured` | `NotQualified` veya `ValidationRequired` |
 | Teknik çalışma tamamlanmadı | `NULL` | `TechnicalError` | `TechnicalFailure` |
 | Tüm uygun kayıtlar geçerli istisnada | `NULL` | `SuppressedByException` | Varsayılan `Qualified` değildir; politika ve istisna kanıtı değerlendirilir |
@@ -159,7 +160,8 @@ Manuel değerlendirme/override ham veya nihai skoru değiştirmez.
 
 Kritik politika bulunamazsa sistem olumlu kullanım kararı üretmez;
 `UsageDecision=Undetermined` ve `MeasurementQualificationStatus=NotQualified`
-uygulanır. Hangi aktörün hangi kullanım bağlamını bloke edebileceği `TBD`'dir.
+uygulanır. Hangi aktörün hangi kullanım bağlamını bloke edebileceği sürümlü rol
+ve kullanım politikasıyla belirlenir; eşleme yoksa yetki reddedilir.
 
 ## 6. Ölçüm Yeterliliği
 
@@ -207,14 +209,14 @@ ancak yeni ölçüm gibi işlenmez; kendi ölçüm zamanı ve yeterlilik durumu 
 
 | Alan | Zorunlu davranış |
 | --- | --- |
-| `CoverageRate` | Ölçüm yöntemine göre politika tanımlı ölçülen kapsam / tanımlı evren oranıdır; kesin pay/payda sözleşmesi ve üretim eşiği `OPEN-023` kapsamında `TBD`'dir |
-| `CoverageStatus` | `Sufficient`, `Limited`, `Unknown`, `NotApplicable`; kesin eşikler `TBD` |
+| `CoverageRate` | Ölçüm yöntemine göre aktif politikadaki ölçülen kapsam / tanımlı evren oranıdır; politika yoksa oran resmî yeterlilik üretmez |
+| `CoverageStatus` | `Sufficient`, `Limited`, `Unknown`, `NotApplicable`; eşikler aktif sürümlü politikadan çözülür, kayıt yoksa `Unknown` |
 | `SamplingMethod` | `FullScan`, `Sample`, `Incremental`, `Partitioned`, `SourceAggregate` |
 | `SampleSize` / `PopulationSize` | Biliniyorsa saklanır; tahminse yöntem ve hata payı belirtilir |
-| `ConfidenceLevel` | Yalnız doğrulanmış örnekleme yöntemi üretebilir; kesin minimum `TBD` |
+| `ConfidenceLevel` | Yalnız doğrulanmış örnekleme yöntemi ve aktif politika üretebilir; politika yoksa olumlu güven seviyesi verilmez |
 | `EvidenceCompleteness` | Sayaç, sürüm, snapshot ve audit kanıtının tamamlık durumu |
 | `LastSuccessfulRunAt` | Son teknik olarak başarılı ve skor üreten çalışma zamanı |
-| `ValidUntil` | Ölçüm politikası ve iş tarihi üzerinden üretilen geçerlilik sonu; süre `TBD` |
+| `ValidUntil` | Ölçüm politikası ve iş tarihi üzerinden üretilen geçerlilik sonu; aktif süre kaydı yoksa sonuç resmî kullanım için geçerli sayılmaz |
 
 Tam tarama, kontrollü örnekleme, artımlı kontrol, bölümleme ve kaynakta toplulaştırma
 aynı güven iddiasıyla sunulmaz. Örnekleme yöntemi, büyüklüğü, kapsanan dönem,
@@ -256,7 +258,8 @@ politika altyapısı kurulmaz.
 
 Politika yokluğu, eksik sürüm veya çelişkili etkin kayıt fail-closed yeterlilik
 kararı üretir: skor hesaplanabilse bile `NotQualified` ve `UsageDecision=Undetermined`.
-Sayısal üretim değerleri açık kararlar tamamlanana kadar `TBD` kalır.
+Sayısal üretim değerleri aktif, sürümlü ve gerekli onayı taşıyan politika
+kaydından çözülür; kayıt yoksa ilgili olumlu karar üretilmez.
 
 ## 10. Veri Modeli ve İzlenebilirlik
 
@@ -299,7 +302,7 @@ kişisel veri, müşteri sırrı, banka sırrı, secret, kaynak SQL veya stack t
 9. **Kritik kural başarısızlığı:** Kritik kapı nihai skor, kritik durum ve kullanım kararını politikaya göre ayrı üretir.
 10. **Bildirim:** Kalite, teknik ve yeterlilik olayları farklı türlerde, idempotent ve veri-minimum bildirim oluşturur.
 11. **Düzeltme görevi:** Issue kök neden, sorumlu, hedef ve kanıt gereksinimiyle açılır; ServiceNow gerekiyorsa dayanıklı outbound kullanır.
-12. **Eskalasyon:** Çözülmeyen olay politika süresi ve sahiplik kuralıyla eskale edilir; süre ve alıcı değerleri `TBD` olabilir.
+12. **Eskalasyon:** Çözülmeyen olay aktif politika süresi ve sahiplik kuralıyla eskale edilir; süre veya alıcı kaydı yoksa otomatik eskalasyon başlatılmaz ve konfigürasyon alarmı üretilir.
 13. **Yeniden ölçüm:** Eski sonucu değiştirmeyen yeni execution/score/qualification zinciri oluşturulur.
 14. **Kapanış ve kanıt:** Yalnız politika gerektirdiği doğrulama, kalıcılık ve yeterli yeniden ölçüm kanıtı tamamlanınca kapanış yapılır.
 15. **Değişiklik sonrası yeniden değerlendirme:** Kural, politika veya referans sürümü değişince tarihsel sonuçlar sessizce yazılmaz; etkilenen kapsam için yeniden değerlendirme ihtiyacı oluşturulur.
@@ -368,7 +371,7 @@ ikon ve metin kullanılır; grafiklerin erişilebilir tablo karşılığı bulun
 - Audit yazma veya kalıcı outbox kritik değişiklikte başarısızsa işlem fail-closed
   olur.
 - Kanıt, log, bildirim, rapor ve ServiceNow payloadı veri-minimumdur.
-- Saklama ve imha kayıt sınıfı politikasından gelir; süreler `TBD` olabilir.
+- Saklama ve imha `RET-*` kayıt sınıfı politikasından gelir; eşleme yoksa kalıcılaştırma veya imha kararı fail-closed reddedilir.
 - Break-glass veya ayrıcalıklı erişim olağan yeterlilik/onay kontrolünü sessizce
   aşamaz; ayrı gerekçe, süre ve audit gerektirir.
 - `OPEN-BNK` kayıtları teknik tasarımla otomatik kapanmaz.
@@ -393,7 +396,8 @@ türetilmez. `SyntheticGroundTruth`, aynı sürümlü politika ve yuvarlama
 sözleşmesini bağımsız oracle ile uygular; expected-versus-actual karşılaştırıcı
 kural sonucu, ham/nihai skor, önem ve olay sapmasını ölçer. Geçerli nadir/sınır
 değerler skoru düşürmemeli; teknik arıza kalite başarısızlığına çevrilmemelidir.
-Nicel skor toleransı `OPEN-024` sonuçlanana kadar `TBD`'dir. Ayrıntılar
+Nicel skor toleransı sentetik senaryo/politika kaydında zorunludur; eksikse
+karşılaştırma `BLOCKED` olur. Ayrıntılar
 [Sentetik Veri ve Gizlilik Stratejisi](Sentetik-Veri-ve-Gizlilik-Stratejisi.md)
 belgesindedir.
 
@@ -474,7 +478,7 @@ değerleri üretim için bağlayıcı değildir.
 | `00-Proje-Hafizasi/Sonraki-Adimlar.md` | Backlog | Proje hafızası | Küçük runtime dilimleri | Artımlı geçiş |
 | `00-Proje-Hafizasi/Bankacilik-Gecis-Durumu.md` | Geçiş boşluğu | Proje hafızası | Banka kararlarını açık koruma | Onay sınırı |
 | `00-Proje-Hafizasi/Proje-Ozeti.md` | Skorlama ilkesi | Proje hafızası | Kanonik kısa tanım | Terminoloji |
-| `01-SRS/15-Acik-Konular.md` | OPEN-022/023 | Açık karar | Migration ve yeterlilik değerleri | Değer uydurmayı engelleme |
+| `01-SRS/15-Acik-Konular.md` | OPEN-022/023 | Karar ve uygulama kapısı | Append-only migration ve politika zorunlu yeterlilik | Örtük varsayımı engelleme |
 | `README.md`, `01-SRS/SRS-INDEX.md`, `02-Mimari/MIMARI-INDEX.md`, `03-Backend/BACKEND-INDEX.md`, `04-Frontend/FRONTEND-INDEX.md` | Dizin bağlantıları | Referans | Kanonik belgeyi erişilebilir kılma | Doküman keşfi |
 
 ## 19. Açık Kararlar

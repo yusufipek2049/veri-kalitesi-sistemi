@@ -52,9 +52,16 @@ Ek kontroller:
 - Çıkış: İlk çıkış kalıcı `REVOKED`, tekrar çıkış idempotenttir; credential daha sonra kullanılamaz.
 - Hesap ayrımı: Normal kullanıcı session servisi servis hesabı ve ayrıcalıklı kullanıcıyı reddeder; break-glass/servis oturumu bu dilimde tahmin edilmez.
 - Audit: Oluşturma, doğrulama, timeout, çıkış ve ret olayları allowlist özetle kaydedilir; ham credential ve açık session ID audit özetine girmez.
-- Maker-checker etkisi: Bu dilimde politika değiştirme yüzeyi yoktur; üretim timeout/es zamanlı oturum politika onayı `OPEN-BNK-020` altında açıktır.
+- Maker-checker etkisi: Bu dilimde politika değiştirme yüzeyi yoktur. Üretim
+  oturum politikası sonradan `OPEN-BNK-020` kapsamında
+  `USER-DECLARATION-2026-07-22-OPEN-BNK-020` referansıyla banka onaylı duruma
+  gelmiştir; değişiklik onay akışının runtime uygulaması bu kanıtın kapsamında
+  değildir.
 - Geri alma: Session servisi LDAP başarısında zorunludur. Güvenli pasifleştirme yerine oturumlar `REVOKED` yapılıp önceki sürüme kontrollü dönülmelidir.
-- Kalan risk: HTTP cookie/token taşıması, CSRF, eş zamanlı oturum limiti, mutlak süre, üretim deposu/sifreleme ve saklama süresi banka kararı gerektirir.
+- Kalan risk: BFF, `__Host-session`, synchronizer-token CSRF, tek aktif oturum,
+  `PT1H` idle, `PT10H` mutlak süre, merkezi iptal, üretim deposu/şifreleme ve
+  `P90D` saklama karara bağlanmıştır; mevcut runtime ve üretim altyapısı bu
+  politikayı henüz uygulamamaktadır.
 
 ## Onaylar
 
@@ -63,5 +70,7 @@ Ek kontroller:
 - IAM: ComplianceReviewRequired
 - İç kontrol: ComplianceReviewRequired
 - Hukuk/uyum: ComplianceReviewRequired
+- `OPEN-BNK-020` politika onayı: ApprovedByBank
+- Onay referansı: `USER-DECLARATION-2026-07-22-OPEN-BNK-020`
 
 Bu kanıt teknik uygulama sonucudur; BDDK/KVKK uyumu veya banka onayı anlamına gelmez.

@@ -34,8 +34,9 @@ kanıtlar aranır:
 
 Skor modeli, eşik veya ağırlık sürümü değiştiğinde geçmiş skorlar sessizce
 güncellenmez. Sonuçların doğrudan karşılaştırılabilir olmadığı dönem sürüm
-sınırıyla işaretlenir. Üretim eşik/ağırlık/veto/güven/risk değerleri banka ve
-Veri Yönetişimi onayı olmadan belirlenmez; eksik değerler `TBD` kalır.
+sınırıyla işaretlenir. Üretim eşik/ağırlık/veto/güven/risk değerleri aktif,
+sürümlü ve gerekli onayı taşıyan politika kaydından çözülür; kayıt yoksa olumlu
+skor yeterliliği veya kullanım kararı verilmez.
 
 ## Skorlama Operasyon Sınırı
 
@@ -48,7 +49,8 @@ Veri Yönetişimi onayı olmadan belirlenmez; eksik değerler `TBD` kalır.
   güncel resmî sonuç gibi sunulmaz (`DQ-SCR-005`, `DQ-SCR-028`).
 - Yeterlilik değerlendirmesi kapsam, örneklem, güncellik, teknik başarı, sürüm,
   kritik kontrol ve kanıt koşullarını ayrı kapılarda çalıştırır. Üretim eşikleri,
-  `ValidUntil` süreleri ve kullanım yetkileri `OPEN-023` kapanmadan uydurulmaz.
+  `ValidUntil` süreleri ve kullanım yetkileri aktif sürümlü politikadan çözülür;
+  politika yoksa olumlu kullanım kararı verilmez.
 - Kritik kural, hızlı kötüleşme, veri yokluğu, kapsam/güven düşüşü ve yüksek
   istisna oranı kalite alarm politikasında; retry/timeout/platform olayı teknik
   alarm politikasında değerlendirilir. Tekrarlar korelasyon anahtarıyla
@@ -56,8 +58,10 @@ Veri Yönetişimi onayı olmadan belirlenmez; eksik değerler `TBD` kalır.
 - Replay, snapshot/partition veya doğrulama hash'i ve tüm model/politika/uygulama
   sürümleri olmadan başlatılmaz; orijinal sonuç değiştirilmez (`DQ-SCR-025`,
   `DQ-SCR-032`).
-- Skor, politika, istisna, override ve replay kayıtlarının RPO/RTO ile saklama
-  hedefleri bileşen/kayıt sınıfı politikasından gelir; kesin değerler `TBD`'dir.
+- Skor, politika, istisna, override ve replay kayıtlarının normal hedefi
+  `RPO=PT15M`, `RTO=PT4H`; kritik risk veya düzenleyici zincirdeki hedefi
+  `RPO=PT5M`, `RTO=PT1H`'dir. Saklama sınıfı resmî kayıt için
+  `RET-10Y-BANKING`, resmî olmayan test/provizyonel kayıt için `RET-1Y-OPS`'tur.
 
 ## Sentetik Veri Değişiklik Kapısı
 
@@ -73,10 +77,11 @@ değişikliğinde üretim öncesi şu kanıtlar aranır:
 - bildirim, ServiceNow ve SIEM için yalnız fake/sandbox hedef kanıtı,
 - risk bazlı maker-checker, veri-minimum audit ve güvenli pasifleştirme planı.
 
-Skor motorunun gerçekleşen sonucu ground truth olamaz. `OPEN-024/025`
-sonuçlanmadan nicel gizlilik/fayda/tolerans değeri veya üretim profili erişimi
-onaylanmış sayılmaz. Sentetik performans kanıtı `OPEN-014` nihai kabulinin yerine
-geçmez.
+Skor motorunun gerçekleşen sonucu ground truth olamaz. Nicel
+gizlilik/fayda/tolerans değerleri aktif sürümlü sentetik doğrulama politikasından
+çözülür; politika yoksa çalışma `BLOCKED` olur. Üretim profili erişimi varsayılan
+kapalıdır ve yalnız ayrı kurumsal onaylarla açılabilir. Sentetik performans kanıtı
+`OPEN-014` nihai kabulinin yerine geçmez.
 
 ## Yerel Secret Kontrolü
 

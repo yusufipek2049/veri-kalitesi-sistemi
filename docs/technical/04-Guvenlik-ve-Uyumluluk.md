@@ -20,7 +20,8 @@ iç kontrol, IAM ve mimari kararları açık kalır.
 - Kural ve skor konfigürasyonu için maker-checker vardır; maker checker olamaz.
 - Hedef modelde ölçüm yeterliliği, geçerlilik ve kullanım kararını gevşeten
   politika değişiklikleri de maker-checker ve fail-closed audit kapsamındadır;
-  `OPEN-023` rol/değerleri ve runtime karşılığı henüz açıktır.
+  rol/değerleri aktif sürümlü politikadan çözme ve fail-closed runtime karşılığı
+  henüz tamamlanmamıştır.
 - Veri sınıflandırması fail-closed `UNCLASSIFIED` davranır; profil çıktısı ham değer
   içermeyen allowlist agregatlara indirgenir.
 - Audit redactor, allowlist özet, değer digest'i, session digest'i, correlation ID ve
@@ -65,7 +66,7 @@ içindir; geçmiş commit, yüksek entropi ve kurumsal scanner kapsamı değildi
 | SQLite at-rest şifreleme yok | Yüksek | stdlib `sqlite3`, encryption config yok | Session/audit/issue metadata dosyadan okunabilir | Kurumsal DB/TDE, disk encryption, key management |
 | Çoklu instance güvenliği yok | Yüksek | Süreç içi `RLock`, SQLite breaker/queue | Duplicate claim, yarış ve tutarsız kota | Transactional DB locking/lease ve dağıtık state |
 | Retention/imha/legal hold yok | Yüksek | Tarihçe tablolarında delete/archive job yok | Gereksiz veri tutma ve hukuki yaşam döngüsü riski | Kayıt türü bazlı onaylı lifecycle motoru |
-| HTTP kontrolleri yok | Yüksek | Cookie/JWT/CORS/CSRF/security header kodu yok | API eklendiğinde session ve browser saldırıları | Threat model sonrası cookie/CSRF/CORS politikası |
+| HTTP kontrolleri uygulanmadı | Yüksek | `OPEN-BNK-020` banka onaylı; cookie/CORS/CSRF/security header kodu yok | API eklendiğinde session ve browser saldırıları | Onaylı BFF, `__Host-session`, synchronizer-token CSRF, Origin/Referer/Fetch Metadata ve CORS allowlist politikasını uygula |
 | Güvenlik tarama entegrasyonu eksik | Orta | Direct SBOM ile yerel SAST/bağımlılık bulgu kapıları var; gerçek scanner/SCA/DAST yok | Bilinen zafiyet ve kod kusuru otomatik bulunamaz | Lock, transitive SBOM, kurumsal SCA/SAST/DAST CI kapısı |
 | Legacy serbest aktör kullanımı | Orta | Bazı eski servislerde `actor_id` parametreleri | Caller sahte aktör verebilir | Tüm mutasyonları trusted `ActorContext` sınırına taşı |
 | Genel export/DLP kontrolü yok | Yüksek | Yalnız rapor önizleme var | Gelecek dosya export'unda toplu veri sızıntısı | Gerekçe, maker-checker, watermark, DLP, expiry |

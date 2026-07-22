@@ -118,7 +118,10 @@ flowchart TB
     DB --> BACKUP
 ```
 
-API stateless olabilir; session ve throttle state ortak DB/cache'te olmalıdır.
+API stateless olabilir; session ve throttle state ortak depoda olmalıdır. Normal
+kullanıcı session'ı için kurum onaylı yüksek erişilebilir merkezi depo, bu hizmet
+yoksa PostgreSQL kullanılır; süreç belleği üretimde yasaktır. Session ID özeti
+saklanır ve at-rest şifreleme kurum onaylı KMS/HSM ile yönetilir.
 Scheduler tek instance yerine lease/fencing ile çalışmalıdır. Worker'lar source ve
 HEAVY/LIGHT kotasını paylaşımlı state üzerinden uygulamalıdır.
 

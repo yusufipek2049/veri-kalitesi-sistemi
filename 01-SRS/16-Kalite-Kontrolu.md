@@ -17,8 +17,8 @@ Bu bölüm, SRS tamamlandıktan sonra yapılan yapısal ve içerik tutarlılığ
 | No | Kontrol | Sonuç | Açıklama |
 | --- | --- | --- | --- |
 | 1 | Tüm gereksinimlerin benzersiz ID'si var mı? | Evet | BR-001–008, FR-001–096, UC-001–017, RULE-001–017, NFR kategorileri ve AC-001–056 benzersizdir. |
-| 2 | Tüm fonksiyonel gereksinimler test edilebilir mi? | Evet | Her FR girdi, işlem, çıktı, hata ve kabul kriteri içerir; bazı kapasite hedefleri TBD/varsayım olarak ayrılmıştır. |
-| 3 | Belirsiz ve ölçülemeyen ifadeler var mı? | Kontrollü | Belirsiz değerler “TBD”, “Varsayım” veya “Önerilen başlangıç hedefi” olarak işaretlenmiştir. |
+| 2 | Tüm fonksiyonel gereksinimler test edilebilir mi? | Evet | Her FR girdi, işlem, çıktı, hata ve kabul kriteri içerir; değişken kapasite hedeflerinde aktif politika ve politika yokluğu testi zorunludur. |
+| 3 | Belirsiz ve ölçülemeyen ifadeler var mı? | Kontrollü | Ortama göre değişen değerlerin aktif sürümlü politikadan çözülmesi karara bağlanmıştır; kayıt yoksa fail-closed sonuç ölçülebilir kabul kriteridir. |
 | 4 | Tüm kullanım senaryoları en az bir gereksinime bağlı mı? | Evet | UC-001–017'nin her birinde ilgili FR listesi vardır. |
 | 5 | Tüm kritik gereksinimlerin kabul kriteri var mı? | Evet | Sistem seviyesi AC-001–056 ve FR düzeyi kabul kriterleri bulunmaktadır. |
 | 6 | Güvenlik gereksinimleri yeterli mi? | Evet, onaya tabi | RBAC, LDAP, TLS, secret manager, maskeleme, injection, XSS/CSRF, oturum, audit bütünlüğü ve testler kapsanmıştır. |
@@ -41,7 +41,7 @@ Bu bölüm, SRS tamamlandıktan sonra yapılan yapısal ve içerik tutarlılığ
 | Tek saklama süresi kaldırılmış; kayıt sınıfı bazlı matrisin kesin süreleri onay beklemektedir. | 7.3, RULE-014, 15 | Hukuk, KVKK, bilgi güvenliği ve iç denetim süre, gerekçe, çevrimiçi/arşiv ayrımı ve imha yöntemini onaylamalıdır. |
 | MFA, audit fail-closed davranışı ve acil durum hesabı kesinleşmemiştir. | 9.5, 15 | Bilgi güvenliği tehdit modeli ve işletim senaryosu üzerinden karar vermelidir. |
 | Yerel prototip üretim performansını tek başına kanıtlayamaz. | 2.4, 9.1, 12, 13 | Yerel testlere ek olarak kuruma benzer ağ/DB ortamında performans ve kaynak etki testi yapılmalıdır. |
-| Sentetik veri nicel fayda/gizlilik eşikleri ve üretim profili kullanım kararı olmadan anonimlik veya nihai performans kanıtı değildir. | FR-088–096, NFR-PERF-010, NFR-PRV-007, 15 | `OPEN-024/025` karara bağlanmalı; `OPEN-014` anonimleştirilmiş üretim örneği kabulü ayrıca yürütülmelidir. |
+| Sentetik veri aktif nicel fayda/gizlilik politikası ve üretim profili kullanım onayı olmadan anonimlik veya nihai performans kanıtı değildir. | FR-088–096, NFR-PERF-010, NFR-PRV-007, 15 | Eksik politika `BLOCKED`, üretim profili erişimi varsayılan kapalı olmalı; `OPEN-014` anonimleştirilmiş üretim örneği kabulü ayrıca yürütülmelidir. |
 
 ## 16.2 Otomatik Yapısal Kontrol Özeti
 

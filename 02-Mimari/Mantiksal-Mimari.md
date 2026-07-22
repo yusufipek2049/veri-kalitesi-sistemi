@@ -16,7 +16,7 @@ tags:
 | --- | --- |
 | Kullanıcı arayüzü | Dashboard, veri kaynağı, kural, çalıştırma, skor, sorun, rapor ve yönetim ekranlarını sağlar. |
 | API katmanı | Web arayüzü ve entegrasyonlar için versiyonlu REST API sunar. |
-| Kimlik doğrulama ve yetkilendirme | Kurumsal IdP/SSO beyanı, MFA kanıtı, oturum ve RBAC kararlarını uygular. |
+| Kimlik doğrulama ve yetkilendirme | Kurumsal IdP/SSO beyanı, MFA kanıtı ve RBAC kararlarını uygular; BFF üzerinde sunucu taraflı opak normal kullanıcı oturumunu, tek aktif oturum ve merkezi iptal politikasını yönetir. |
 | Veri kaynağı bağlantı katmanı | İlişkisel veritabanı, dosya/CSV ve API bağlayıcılarını ürün bağımsız ortak sözleşmeyle sunar. |
 | Politika katmanı | Normalizasyon, eşik, ağırlık, kritik kural, güven, istisna/override, kaynak kullanımı, kısmi skor, saklama, sınıflandırma ve kurtarma hedeflerini sürümlü ve risk bazlı onayla uygular. |
 | Entegrasyon katmanı | ServiceNow outbound kayıtlarını idempotent retry/dead-letter akışıyla yönetir. |
@@ -24,7 +24,7 @@ tags:
 | Kural çalıştırma motoru | Kural planlarını oluşturur, sorguları çalıştırır, hata türlerini sınıflandırır ve sonuçları üretir. |
 | Skorlama motoru | Kural → veri öğesi → boyut → dataset ham kalite skorunu ve kritik kontrol tavanlı nihai skoru sürümlü politikalarla hesaplar; kaynak/kurum portföy özetlerinde alt kırılımları korur. Teknik sağlık, dataset kritikliği, veri riski ve ölçüm yeterliliğini ham kalite skoruna katmaz. (`DQ-SCR-002`, `DQ-SCR-016`, `DQ-SCR-018`–`DQ-SCR-021`) |
 | Ölçüm yeterliliği kapısı | Kapsam, örneklem, güncellik, teknik başarı, sürüm, kritik kontrol ve kanıt koşullarını değerlendirir; kalite skorundan ayrı yeterlilik durumu ile kullanım kararını üretir. |
-| Risk değerlendirme ve remediation | Ayrı dataset kritiklik profili ile kalite problemini iş etkisi/kullanımla birleştirir; risk önceliği ve remediation hedefini üretir. Kesin risk formülü `TBD`'dir. |
+| Risk değerlendirme ve remediation | Ayrı dataset kritiklik profili ile kalite problemini iş etkisi/kullanımla birleştirir; risk önceliği ve remediation hedefini aktif sürümlü politikadan üretir. Politika yoksa risk sonucu üretilmez. |
 | Teknik sağlık | Bağlantı, timeout, worker, sorgu ve platform olaylarını veri kalitesi alarmından ayrı yönetir; son başarılı skor fallback'inin eskiliğini sağlar. |
 | Zamanlama servisi | Tek seferlik, periyodik ve cron tabanlı işleri kuyruğa alır. |
 | Bildirim servisi | Sistem içi bildirimleri oluşturur, tekrar ve susturma kurallarını uygular. |

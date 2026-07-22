@@ -24,7 +24,8 @@
 - Geçerli nadir/sınır değerleri kusurdan, teknik hatayı kalite başarısızlığından
   ayrı test et.
 - Karar verilmemiş gizlilik, benzerlik, kusur yoğunluğu veya skor toleransı
-  eşiklerini uydurma; `TBD`/açık karar durumunu koru.
+  eşiklerini uydurma; sürümlü politika gereken alanda aktif politika yokluğu ve
+  fail-closed davranışı test et.
 - Sentetik olay testlerini gerçek kullanıcı, üretim ServiceNow veya üretim SIEM
   hedeflerine gönderme; yalnız doğrulanmış fake/sandbox adaptör kullan.
 - Yeni sentetik veri davranışında `FR-088–FR-096`, `UC-017`, `RULE-016/017` ve

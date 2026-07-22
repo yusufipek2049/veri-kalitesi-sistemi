@@ -28,7 +28,7 @@
 - **Cache:** Yok.
 - **Kuyruk:** `rule_executions` ve `servicenow_retry_jobs` SQLite tabloları; broker yok.
 - **Zamanlama:** Özel `SchedulingService`; harici scheduler ve cron parser yok.
-- **Kimlik:** LDAP adapter protokolü, grup-rol/scope politikası, kalıcı session ve throttle.
+- **Kimlik:** LDAP adapter protokolü, grup-rol/scope politikası, kalıcı session ve throttle. Hedef web sınırı banka onaylı BFF, sunucu taraflı token ve opak `__Host-session` cookie modelidir.
 - **Dış entegrasyon:** Protocol sınırları; gerçek HTTP/LDAP/PostgreSQL client yok.
 - **Test:** pytest; gerçek dış servis yerine fake adapter.
 - **Kalite:** Ruff ve mypy komutları kullanılıyor; araçlar manifestte sabitlenmemiş.
