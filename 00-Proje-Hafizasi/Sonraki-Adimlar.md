@@ -97,6 +97,13 @@ Bu maddeler `ADR-016` hedef tasarımını küçük dikeylere böler.
 
 ## Önerilen Sonraki İterasyon
 
+Teknik inceleme `R-04` kapsamında yanlış `SOURCE` kritiklik ağırlıklandırması
+İterasyon 33B ile giderildi. `R-04`ün replay/backfill ve tam ayrık sonuç modeli
+alt kapsamları `OPEN-022/023` nedeniyle açık kalır. İncelemenin doğruluk ve veri
+bütünlüğü sırasındaki sonraki küçük, hazır aday **R-06 — SQLite foreign key
+enforcement ve orphan doğrulaması**dır; uygulamadan önce etkilenen repository
+connection'ları ve silme semantikleri tek tek doğrulanmalıdır.
+
 **İterasyon 30B — Sentetik dashboard çalışma iskeleti** `FR-054`, `FR-055`,
 `FR-058`, `UC-010` ve `NFR-USA-001/003–006` alt kapsamında tamamlandı. Çalışan
 frontend, sentetik KPI/trend/alarm görünümü, grafik/tablo alternatifi, Storybook

@@ -36,7 +36,11 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
 16. `RuleTestExecutor` için PostgreSQL/CSV kaynak adaptörleri, sorgu maliyet tahmini ve regex çalışma timeoutu henüz uygulanmadı; mevcut iterasyon güvenli domain sözleşmesini, şablon planlarını ve test geçmişini doğruluyor.
 17. Üretim iş kuyruğu/broker ürünü, çoklu worker claim stratejisi ve worker sayısı henüz seçilmedi; yerel prototip SQLite üzerinde süreç içi kilitle kalıcı kuyruk davranışını doğruluyor.
 18. Bağlantı, sorgu ve toplam timeout değerleri worker yürütücü sözleşmesinde ayrı taşınıyor ve iptal adaptörü tanımlandı; gerçek PostgreSQL/CSV adaptörlerinde sorgu iptali ile duvar saati zorlaması henüz uygulanmadı.
-21. Mevcut runtime dataset kritikliğini `SOURCE` kalite agregasyonuna katıyor; `DQ-SCR-018` ve `ADR-015` bu yaklaşımı hedef modelde `Superseded` yapmıştır. Kritiklik profilinin ayrı taşınacağı migration, replay ve trend sürüm sınırı uygulanmalıdır.
+21. Yeni `SOURCE_EQUAL_DATASET_QUALITY_V2` kaynak kalite agregasyonu dataset
+    kritikliğini kalite formülünden çıkardı ve ayrı profil kanıtı taşır. Tarihsel
+    `SOURCE_WEIGHTED_V1` kayıtlarının yeni modelle replay/backfill ilişkisi,
+    trend sürüm sınırı ve ayrı risk/güven/yeterlilik/kullanım sonuçları henüz
+    uygulanmamıştır.
 22. Kurum skorunda kaynaklar arası ham kalite agregasyon politikası onaylanmadı; mevcut `ENTERPRISE` formülü kaynakları eşit ağırlıklandırıyor. Yeni politika kritiklik ve veri riskini kalite skoruna karıştırmamalı, ayrı sürümlenmelidir.
 23. Eski SQLite `audit_records` için salt okunur envanter ve idempotent merkezi aktarım sözleşmesi sentetik verilerle teknik olarak doğrulandı. Gerçek ortam envanteri/koşusu, yedek ve geri dönüş planı, değişiklik penceresi ve operasyon onayı henüz tamamlanmadı.
 24. `DURABLE_BUFFER` sözleşmesi ve hata yolu test edildi; üretim kalıcı tampon teknolojisi, sahipliği, şifrelemesi, yeniden oynatma ve idempotency davranışı henüz uygulanmadı.

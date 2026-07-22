@@ -571,3 +571,9 @@ gelmez; kalan onay ve ürün ayrıntıları sonuç sütununda korunur.
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
 | --- | --- | --- | --- |
 | İlk çalışan frontend artımı yalnız sabit sentetik fixture ile kurulacak; üretim API'si, IdP/oturum veya banka verisine bağlanmayacaktır. Grafik ve erişilebilir tablo aynı view-model'i kullanacak, teknik hata ile provizyonel sonuç resmî trend çizgisinden dışlanacaktır. | Kullanıcıya çalışan bir frontend göstermek gerekirken geçiş kapısı ve 21B güvenli HTTP/API sınırı tamamlanmamıştır. Bu sınırlar tahmin edilirse UI sahte yetki ve üretim sözleşmesi iddiası üretir. | Frontend'i tamamen ertelemek; üretim API alanlarını tahmin etmek; statik ekran görüntüsünü çalışan ürün gibi sunmak; teknik hatayı sıfır skorla çizmek. | `04-Frontend/app/` React + TypeScript + Vite, MUI, ECharts, Storybook ve Playwright çalışma alanıdır. Ekran sentetik olduğunu görünür belirtir; gerçek bağlantılı dashboard 21B, `OPEN-BNK-020` ve geçiş kapısını bekler. |
+
+## 2026-07-22 — İterasyon 33B Teknik Kararı
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| Yeni kaynak kalite skoru dataset kritikliğini ağırlık olarak kullanmayacak; resmî dataset skorları `SOURCE_EQUAL_DATASET_QUALITY_V2` ile eşit kalite ağırlığında toplanacak ve kritiklik yalnız ayrı profil kanıtı olarak taşınacaktır. | `DQ-SCR-018` ve `AC/TS-030`, kritikliğin kalite skoruna katılmasını yasaklar. Eski `SOURCE_WEIGHTED_V1` davranışı aynı kalite ölçümünü metadata kritikliği değiştiğinde farklı sonuçlandırır. | Kritiklik katsayılarını nötr `1.0` tutarak eski formülü korumak; eski skorları yerinde V2 ile yeniden yazmak; onaysız risk katsayısı üretmek. | Yeni hesaplarda formül ve eşit ağırlık politikası sürümlü saklanır. Tarihsel V1 skorları değiştirilmez. Replay/backfill, trend sürüm sınırı ve ayrı risk/güven/yeterlilik/kullanım modelleri `OPEN-022/023` altında ayrı artımlar olarak kalır. |
