@@ -215,6 +215,15 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
     kaynağına bağlanması, ayrıntılı kusur alt türleri, diğer beş senaryonun
     gerçek PostgreSQL ölçümü ve `OPEN-014` kapsamındaki 20 milyon satırlık
     anonimleştirilmiş kabul testi açık kalır.
+72. Kanıta dayalı karar sistemi ikinci faz hedefi dokümante edilmiştir; runtime
+    uygulanmış değildir. Kullanım amacı profilleri ve etki modeli
+    `OPEN-026/027`, lineage ve veri kontratı kaynakları `OPEN-028/032`, öneri ve
+    adaptif tarama politikaları `OPEN-029/033`, kalite borcu modeli `OPEN-035`
+    kesinleşmeden bu sonuçlar resmî karar olarak üretilemez.
+73. Remediation, chaos, hassas kanıt ve kanıt paketi kapsamları
+    `OPEN-030/031/034/036` nedeniyle kurumsal inceleme gerektirir. Kararlar
+    tamamlanana kadar üretim remediation seviyesi `SuggestOnly`, kaynak erişimi
+    salt okunur ve üretim chaos çalıştırması kapalıdır.
 
 ## Bankacılık Geçiş Açık Konuları
 

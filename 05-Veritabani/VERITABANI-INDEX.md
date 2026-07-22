@@ -15,6 +15,7 @@ tags:
 - [Kaynak ve Metadata Varlıkları](../01-SRS/07-Veri-Modeli/Kaynak-ve-Metadata-Varliklari.md)
 - [Kural ve Çalıştırma Varlıkları](../01-SRS/07-Veri-Modeli/Kural-ve-Calistirma-Varliklari.md)
 - [Sorun, Bildirim ve Audit Varlıkları](../01-SRS/07-Veri-Modeli/Sorun-Bildirim-ve-Audit-Varliklari.md)
+- [Kanıt ve Karar Desteği Varlıkları](../01-SRS/07-Veri-Modeli/Kanit-ve-Karar-Destegi-Varliklari.md)
 
 ## Tasarım İlkeleri
 
@@ -25,6 +26,11 @@ tags:
 - `SourceUsagePolicy`, `DatasetPartialScorePolicy` ve `RecoveryObjectivePolicy` sürümlü ve audit bağlantılı tutulmalı.
 - Rapor dosyası, rapor metadatası, arşivlenmiş dosya ve imha kaydı ayrı yaşam döngülerinde saklanmalı.
 - Ham kişisel veri kalıcı depoya gereksiz yere kopyalanmamalı.
+- Kanıt içeriği kopyalanmamalı; `EvidenceItem/EvidenceLink` kaynak referansı ve
+  digest ile çoktan çoğa bağlanmalı, audit log teknik kanıt yerine geçmemeli.
+- Run, teşhis, öneri, remediation, chaos, timeline ve evidence package kayıtları
+  append-only olmalı; fiziksel şema `OPEN-036` ve kapasite testinden önce
+  varsayılmamalı.
 
 ## İterasyon 19E Şema Artımı
 

@@ -30,6 +30,28 @@ tags:
 | ADR-016 | Politika kontrollü, deterministik ve bağımsız ground truth'lu sentetik veri hedef mimarisi | KararAlındı; eksik eşik/tolerans doğrulamayı `BLOCKED` yapar |
 | ADR-017 | React + TypeScript + Vite, MUI, ECharts, Storybook ve Playwright frontend teknoloji yığını | Kabul edildi; paket kurulumu ve frontend uygulaması bekliyor |
 | ADR-018 | Değişken üretim değerlerinde sürümlü ve fail-closed politika çözümleme | KararAlındı; açık karar yerine uygulama/konfigürasyon kapısı |
+| ADR-019 | Kanıta dayalı, politika farkındalıklı karar desteği ve üretim verisini değiştirmeyen öneri/remediation sınırı | KararAlındı; ikinci faz hedef tasarımı, uygulama ve kurumsal incelemeler açık |
+
+## ADR-019 — Kanıta Dayalı ve Politika Farkındalıklı Karar Desteği
+
+**Bağlam:** Mevcut sistem açıklanabilir skor, ölçüm yeterliliği, issue ve
+sentetik ground truth temellerini taşır; ancak kullanım amacı bazlı uygunluk,
+etki/lineage/değişiklik simülasyonu, kaynaklı teşhis/öneri, kontrollü remediation,
+data contract, adaptif tarama, kalite borcu, chaos kontrol yeterliliği ve olay
+kanıt paketi için bütüncül hedef sözleşme yoktur.
+
+**Karar:** `FR-097–FR-111` ve
+[Kanıta Dayalı Karar Sistemi](Kanita-Dayali-Karar-Sistemi.md) hedef tasarımı
+bağlayıcıdır. Skor, ölçüm/teşhis/öneri güveni ve kanıt gücü ayrıdır. Kanıtsız
+öneri, kaynaksız etki, nedensellik gibi sunulan korelasyon ve manifestsiz
+yeniden üretilebilirlik kabul edilmez. Öneri/remediation akışı dry-run, etki,
+yetki/politika, maker-checker, canary, yeniden doğrulama ve rollback kapılarını
+izler. Hiçbir LLM veya başka mekanizma üretim kaynak verisini değiştiremez.
+
+**Sonuç:** Kapsam ikinci fazdır ve mevcut MVP'yi genişletmez. Ürün/sağlayıcı,
+eşik/formül, lineage otoritesi, otomasyon yetkisi, chaos sınırı, tokenizasyon ve
+saklama değerleri `OPEN-026–OPEN-036` altında kalır. Karar runtime uygulaması,
+banka onayı veya mevzuat uyumluluğu değildir.
 
 ## ADR-017 — Frontend Teknoloji Yığını
 

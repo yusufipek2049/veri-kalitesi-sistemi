@@ -1,6 +1,11 @@
 # Veri Kalitesi İzleme ve Skorlama Sistemi
 
-Bu vault, SRS dokümanını görev bazında küçük bağlam parçalarıyla kullanmak için hazırlanmıştır.
+Bu vault, bankacılık bağlamındaki kanıta dayalı ve politika farkındalıklı veri
+kalitesi karar sisteminin gereksinim, mimari, uygulama ve test kayıtlarını görev
+bazında küçük bağlam parçalarıyla kullanmak için hazırlanmıştır. Sistem mevcut
+fazda ölçüm/skorlama çekirdeğini; ikinci faz hedefinde kullanım amacı uygunluğu,
+kanıt/lineage, etki, kontrollü öneri ve yeniden üretilebilir karar desteğini
+tanımlar. Kaynak üretim verisini değiştirmez.
 
 ## Başlangıç
 
@@ -27,8 +32,15 @@ Bu vault, SRS dokümanını görev bazında küçük bağlam parçalarıyla kull
 - [Bağlayıcı Veri Kalitesi Skorlama Kararları](01-SRS/04-Fonksiyonel-Gereksinimler/04.06-Skorlama.md#bağlayıcı-skorlama-kararları)
 - [Skorlama ve Ölçüm Yeterliliği Tasarımı](02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md)
 - [Sentetik Veri ve Gizlilik Stratejisi](02-Mimari/Sentetik-Veri-ve-Gizlilik-Stratejisi.md)
+- [Kanıta Dayalı Karar Sistemi](02-Mimari/Kanita-Dayali-Karar-Sistemi.md)
+- [Kanıta Dayalı Karar Desteği Gereksinimleri](01-SRS/04-Fonksiyonel-Gereksinimler/04.14-Kanita-Dayali-Karar-Destegi.md)
 
 
 ## Güncel Geliştirme Baseline'ı
 
-İterasyon 1–16 ile bankacılık geçişindeki 17A–29C, 31A–31C ve 32A–32D teknik dikeyleri tamamlanmış, 913 birim testi geçmektedir. Repository için veri-minimum güvenli SDLC kontrolleri, deterministik teknik kanıt manifesti, byte düzeyinde drift kapısı ve altı kontrolü tek fail-closed komutta birleştiren yerel sürüm preflight'ı uygulanmıştır. Kabul edilen `DQ-SCR-001`–`DQ-SCR-033` skorlama modeli dokümantasyona işlenmiştir; runtime geçişi, kurumsal CI/CD, HTTP/frontend ve üretim entegrasyonları sıradaki ürün artımlarına ve banka kararlarına bağlıdır.
+İterasyon 1–16 ile bankacılık geçiş ve ürün artımları kapsamında 1029 test
+geçmekte, iki gerçek PostgreSQL entegrasyon testi opt-in çalışmaktadır. Tam mypy
+159 kaynak dosyada temizdir. Repository için veri-minimum güvenli SDLC
+kontrolleri ve yerel preflight uygulanmıştır. `DQ-SCR-001–033` skorlama modeli ile
+`FR-097–111` kanıta dayalı karar desteği hedefi dokümante edilmiştir; ikinci grup
+henüz runtime uygulaması değildir ve `OPEN-026–036` kararlarını bekler.

@@ -20,13 +20,13 @@ tags:
 
 ## Kapsam Durumu
 
-- 8 iş gereksinimi.
-- 96 fonksiyonel gereksinim.
-- 17 kullanım senaryosu.
-- 17 iş kuralı.
+- 11 iş gereksinimi.
+- 111 fonksiyonel gereksinim.
+- 21 kullanım senaryosu.
+- 23 iş kuralı.
 - Temel ve hedef veri varlığı sözlüğü.
 - 11 fonksiyonel olmayan gereksinim kategorisi.
-- 56 sistem kabul kriteri.
+- 71 sistem kabul kriteri.
 
 ## Uygulama Durumu
 
@@ -1377,6 +1377,26 @@ tags:
 - Gerçek kurumsal IdP/session assertion, `__Host-session`, CSRF, yüksek
   erişilebilir session store, PostgreSQL skor repository'si ve üretim CORS
   topolojisi uygulanmadı; üretim geçiş kapısı açık kalır.
+
+### 2026-07-22 — Kanıta dayalı karar sistemi ikinci faz hedef sözleşmesi
+
+- `BR-009–BR-011`, `FR-097–FR-111`, `UC-018–UC-021`, `RULE-018–RULE-023`,
+  `AC/TS-057–071` ve `ADR-019` ile kullanım amacına göre skor, değişmez kanıt,
+  yeniden üretim manifesti, kaynaklı etki, lineage, simülasyon, nedensellik
+  sınırı, kanıtlı öneri, kontrollü remediation, veri kontratı, adaptif tarama,
+  gizliliği koruyan inceleme, kalite borcu, chaos ve kanıt paketi hedefi tanımlandı.
+- Hedef mimari mevcut modüler monoliti ve varlıkları önce yeniden kullanır;
+  yalnız bağımsız yaşam döngüsü veya bütünlük gerektiren yeni mantıksal
+  varlıklar ayrıştırılmıştır. Kaynak sistemlere salt okunur erişim korunur.
+- API, frontend, IAM, veri modeli, operasyon ve test sözleşmeleri bağlandı;
+  formülsüz skor, kanıtsız öneri/teşhis, kaynak göstermeyen etki ve izsiz
+  otomasyon yasaklandı.
+- Bu çalışma yalnız ikinci faz dokümantasyon hedefidir. Runtime, migration,
+  altyapı, banka onayı veya üretim uygunluğu oluşturmaz; `OPEN-026–OPEN-036`
+  kararları kesinleşmeden ilgili otomasyon ve ürün yüzeyleri açılmaz.
+- 257 Markdown dosyasında göreli bağlantılar; BR/FR/UC/RULE/AC tanım
+  benzersizliği ve sürekliliği doğrulandı. 1029 pytest, 159 dosyalık mypy, Ruff
+  lint/format ve 464 dosyalık `28A-v1` secret taraması geçti.
 
 ## İlgili Notlar
 

@@ -34,6 +34,11 @@ tags:
 | Audit log altyapısı | Kritik kullanıcı ve sistem işlemlerini bütünlüğü korunmuş kayıtlarla izler. |
 | Sentetik veri orkestrasyonu | Sürümlü dataset politikasına göre şema/ilişki/dağılım/zaman temelini, kusur enjeksiyonunu, deterministik run kaydını ve yaşam döngüsünü koordine eder; üretim verisini kopyalamaz. |
 | Sentetik doğrulama ve gizlilik kapısı | Ground truth'u runtime kural/skor motorundan bağımsız tutar; yapı, istatistik, görev faydası, gizlilik ve teknik sonuçları değerlendirir; gerçek operasyon hedeflerini fail-closed engeller. |
+| Kanıt ve yeniden üretim | Run manifesti, metrik/hesaplama/örnek kanıtı, çoktan çoğa kanıt bağlantıları ve orijinali koruyan replay'i yönetir. |
+| Lineage, etki ve değişiklik simülasyonu | Otoriter kaynaklardan tablo/kolon/dönüşüm/deploy ilişkisini alır; eksikliği görünür tutarak blast radius ve kaynaklı etki dry-run'ı üretir. |
+| Teşhis, öneri ve remediation | Korelasyonu nedensellikten ayırır; öneriyi mekanizma/kanıt/güven/risk ile bağlar ve yalnız politika izin verirse dry-run/onay/canary/doğrulama/rollback akışını yürütür. Kaynak üretim verisini değiştirmez. |
+| Data contract ve kalite borcu | Kurumsal sistem-of-record referanslı sözleşme ihlallerini ve tekrar/istisna/etki kaynaklı kalite borcunu sürümlü izler. |
+| Chaos kontrol yeterliliği | Yalnız izole sentetik/yetkili test ortamında fault enjeksiyonu, detection coverage, false positive/negative ve rollback kanıtı üretir. |
 
 ### Mantıksal Mimari
 
@@ -59,6 +64,11 @@ flowchart TB
     OBS[Gözlemlenebilirlik]
     SYN[Sentetik Veri Orkestrasyonu]
     SYNVAL[Bağımsız Doğrulama ve Gizlilik Kapısı]
+    EVID[Kanıt ve Reproduction]
+    LINEAGE[Lineage / Etki / Simülasyon]
+    DECIDE[Teşhis / Öneri / Remediation]
+    CONTRACT[Data Contract / Kalite Borcu]
+    CHAOS[Chaos Kontrol Yeterliliği]
 
     UI --> API
     API --> AUTH
@@ -92,6 +102,17 @@ flowchart TB
     SYNVAL -. bağımsız karşılaştırma .-> RULE
     SYNVAL -. bağımsız karşılaştırma .-> SCORE
     SYNVAL --> AUDIT
+    RULE --> EVID
+    SCORE --> EVID
+    EVID --> HIST
+    LINEAGE --> EVID
+    EVID --> DECIDE
+    LINEAGE --> DECIDE
+    DECIDE --> ISSUE
+    CONTRACT --> DECIDE
+    CHAOS --> SYN
+    CHAOS --> EVID
+    DECIDE --> AUDIT
 ```
 
 Sentetik veri yetenekleri ayrı mikroservisler değildir. Orkestrasyon içinde şema
@@ -101,6 +122,12 @@ sınırında gizlilik değerlendiricisi ve expected-versus-actual karşılaştı
 bulunur. Ground truth üretimi kural veya skor motorunu çağırmaz. Ayrıntılı hedef
 sözleşme [Sentetik Veri ve Gizlilik Stratejisi](Sentetik-Veri-ve-Gizlilik-Stratejisi.md)
 belgesindedir.
+
+Kanıt, lineage, etki, öneri, remediation, contract, kalite borcu ve chaos
+bileşenleri de ayrı mikroservis varsayımı değildir. Modüler monolit içindeki
+açık domain sınırlarıdır; bağımsız ölçekleme ancak ölçülmüş ihtiyaçla
+değerlendirilir. Ayrıntılı hedef sözleşme
+[Kanıta Dayalı Karar Sistemi](Kanita-Dayali-Karar-Sistemi.md) belgesindedir.
 
 ### Önerilen Çözüm Seçenekleri
 

@@ -21,17 +21,20 @@ tags:
 - [Frontend Görsel Doğrulama Stratejisi](03-Uctan-Uca/Gorsel-Dogrulama-Stratejisi.md)
 - [Skorlama ve Ölçüm Yeterliliği Kanonik Tasarımı](../02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md)
 - [Sentetik Veri ve Gizlilik Stratejisi](../02-Mimari/Sentetik-Veri-ve-Gizlilik-Stratejisi.md)
+- [Kanıta Dayalı Karar Sistemi](../02-Mimari/Kanita-Dayali-Karar-Sistemi.md)
 
 ## Önerilen Test Katmanları
 
 1. Skor formülleri, RBAC, durum geçişleri ve idempotency için birim testleri.
 2. Ürün bağımsız bağlayıcı, kurumsal IdP/SSO-MFA, secret manager, katalog/DLP, kuyruk ve depolama sözleşme/entegrasyon testleri.
-3. UC-001–UC-017 uçtan uca senaryoları.
+3. UC-001–UC-021 uçtan uca senaryoları.
 4. Veri sahibi onaylı, anonimleştirme ve yeniden kimliklendirme risk değerlendirmesi bulunan 20 milyon satırlık üretim örneğiyle tekrarlanabilir profil ve kural testleri.
 5. Salt okunurluk, SQL injection, XSS/CSRF, secret ve audit bütünlüğü güvenlik testleri.
 6. Yedek geri yükleme ve felaket kurtarma tatbikatı.
 7. Storybook component durumları ve Playwright responsive/görsel regression testleri.
 8. WCAG 2.2 AA için otomatik kontrole ek manuel klavye ve ekran okuyucu testleri.
+9. Karar desteği için formül/kanıt bağlama, manifest ile yeniden üretim,
+   nedensellik sınırı, politika kontrollü remediation ve chaos izolasyon testleri.
 
 ## Kesinleşen Kararların Doğrulama Kapsamı
 
@@ -106,6 +109,23 @@ hata ayrımını `06-Testler/01-Birim/test_synthetic_temporal.py` içinde kanıt
 profil için doğrulanmıştır; üretim benzerliği, skor toleransı veya anonimlik
 sonucu değildir.
 
+## Kanıta Dayalı Karar Desteği Kabul Matrisi
+
+| Kabul/Test | Zorunlu test kapsamı |
+| --- | --- |
+| `AC/TS-057`–`AC/TS-059` | Kullanım amacı profili, formül/kanıt görünürlüğü, ayrı güven türleri ve manifest ile deterministik yeniden üretim |
+| `AC/TS-060`–`AC/TS-063` | Kaynaklı etki, değişiklik simülasyonu, lineage sürümü ve kanıtsız nedensellik iddiasının reddi |
+| `AC/TS-064`–`AC/TS-066` | Kanıtlı öneri, veri kontratı ve kapsam/maliyet/güven gerekçeli adaptif tarama |
+| `AC/TS-067`–`AC/TS-069` | Gizliliği koruyan kanıt, kalite borcu ve `SuggestOnly`/dry-run/canary/rollback kontrollü remediation |
+| `AC/TS-070` | İzole chaos deneyi, kapsam/stop koşulu, geri alma ve üretim etkisi negatifleri |
+| `AC/TS-071` | Zaman çizelgesi, değişmez kanıt paketi, bütünlük doğrulaması ve yetkili erişim |
+
+Negatif kapsam; kaynak gösterilmeyen finansal etkiyi, kanıtsız kök neden ve
+öneriyi, birleşik güven puanını, yetkisiz remediation/chaos çağrısını, ham hassas
+örnek sızıntısını, manifest sürüm uyuşmazlığını ve rollback kanıtı olmayan
+otomasyonu reddetmelidir. Bu matris ikinci faz hedefidir; mevcut otomasyon
+baseline'ında uygulanmış test sayılmaz.
+
 İterasyon 34F, [Sentetik PostgreSQL İlişkisel Dataset](02-Entegrasyon/Sentetik-PostgreSQL-Dataset.md)
 ile 17 kaynak tablo, kontrollü kusur, kayıt düzeyi ground truth, bağımsız SQL
 oracle'ı, güvenli reset ve gerçek PostgreSQL kalıcılığını doğrular. Bu çalışma
@@ -119,10 +139,10 @@ geçmez.
 
 ## Güncel Otomasyon Baseline'ı
 
-- 1009 test geçmektedir; iki gerçek PostgreSQL entegrasyon testi opt-in koşuda
+- 1029 test geçmektedir; iki gerçek PostgreSQL entegrasyon testi opt-in koşuda
   ayrıca geçmektedir.
 - Tam statik tip kontrolü `python3 -m mypy 03-Backend/src 06-Testler` komutuyla
-  150 kaynak dosyada sıfır hata vermektedir.
+  159 kaynak dosyada sıfır hata vermektedir.
 - `incident_response` hedef grubu, güvenlik olayı/ihlal ayrımı, 72 saat hedefi, veri işleyen kanıtı, maker-checker kararı, yetki/scope redleri, veri-minimum timeline görünümü, audit minimizasyonu ve rollback için 39 sentetik vaka içerir.
 - `secure_sdlc` hedef grubu; gerçek pozitif/yanlış pozitif, binary/büyük/dışlanan
   dosya, sembolik bağlantı, salt okunurluk, deterministik sıra, teknik hata ve
@@ -132,8 +152,8 @@ geçmez.
   kapıları, sızma testi bulgu yaşam döngüsü/tekrar test kanıtı ve teknik kanıt
   manifesti, byte düzeyinde drift kapısı ve altı kontrollü birleşik yerel preflight
   için toplam 204 sentetik vaka içerir.
-- İterasyon 30B frontend runtime, Storybook ve Playwright otomasyonunu kurdu.
-  Frontend için 4 Vitest birim testi ve 7 Playwright testi geçmektedir; Storybook
+- İterasyon 30B/30C frontend runtime, Storybook ve Playwright otomasyonunu kurdu.
+  Frontend için 13 Vitest birim testi ve 14 Playwright testi geçmektedir; Storybook
   normal, loading, empty, teknik hata, yetkisiz ve uzun içerik dashboard
   durumları ile altı semantik durum rozeti üretmektedir. Beş zorunlu masaüstü
   viewport'unda yatay taşma, grafik/tablo eşliği ve görünür klavye odağı

@@ -83,6 +83,25 @@ gizlilik/fayda/tolerans değerleri aktif sürümlü sentetik doğrulama politika
 kapalıdır ve yalnız ayrı kurumsal onaylarla açılabilir. Sentetik performans kanıtı
 `OPEN-014` nihai kabulinin yerine geçmez.
 
+## Kanıta Dayalı Karar Sistemi Değişiklik Kapısı
+
+`FR-097–FR-111`, `ADR-019` ve `RULE-018–RULE-023` kapsamındaki profil,
+formül, kanıt, manifest, etki, lineage, öneri, remediation, veri kontratı,
+adaptif tarama veya chaos değişikliğinde üretim öncesi şu kanıtlar aranır:
+
+- değişmez model, politika, manifest, kanıt ve ilişki sürümleri,
+- skor, etki, güven ve önerinin kaynak/formül bağlarının eksiksizliği,
+- güvenilir aktör, kapsam ve görevler ayrılığı negatif testleri,
+- secret ve ham hassas verinin çıktı, log, audit ve kanıt paketine sızmadığı doğrulaması,
+- dry-run, canary, stop koşulu, rollback ve yeniden ölçüm planı,
+- aynı manifest ve sürümlerle tekrar üretim veya açıklanmış sapma sonucu,
+- chaos deneyinde izinli ortam, fault sınırı ve kontrollü kapatma kanıtı.
+
+`OPEN-030` kararı kesinleşene kadar remediation üretimde `SuggestOnly` ve salt
+okunur kalır; otomatik kaynak değişikliği yapılamaz. `OPEN-031` kararı
+kesinleşene kadar chaos deneyi üretimde çalıştırılamaz. Eksik sağlayıcı, eşik,
+rol, süre veya saklama değeri varsayılarak sürüm kapısı geçilemez.
+
 ## Yerel Secret Kontrolü
 
 Üretim adayı hazırlanmadan önce yerel veri-minimum kontrol aşağıdaki komutla

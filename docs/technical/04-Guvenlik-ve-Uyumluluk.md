@@ -1,5 +1,14 @@
 # Güvenlik ve Uyumluluk
 
+## Kanıta Dayalı Karar Desteği Güvenlik Sınırı
+
+İkinci faz hedefi skor, formül, sorgu, maskeli/gerçek kayıt, lineage, öneri,
+remediation, reproduction, chaos ve kanıt paketi izinlerini ayrı değerlendirir.
+Öneren/onaylayan ayrımı, geçici yetki, gerekçe, hassas erişim auditi ve veri
+minimizasyonu zorunludur. LLM veya başka bir öneri mekanizması tek başına üretim
+verisini değiştiremez; `OPEN-030/031/034/036` kapanana kadar üretim otomasyonu ve
+chaos kapalıdır. Ayrıntı [kanonik mimaridedir](../../02-Mimari/Kanita-Dayali-Karar-Sistemi.md).
+
 ## Kapsam ve Sonuç Sınırı
 
 Bu bölüm kod üzerinden teknik kontrol değerlendirmesidir. BDDK/KVKK uyumluluğu,
@@ -50,7 +59,7 @@ iç kontrol, IAM ve mimari kararları açık kalır.
 - Birleşik yerel preflight altı mevcut kontrolü sabit sırada çalıştırır; eksik
   scanner/pentest raporunu temiz saymaz ve yalnız veri-minimum digest özeti üretir.
 
-Bu incelemede tarayıcı `28A-v1` politikasıyla 341 metin dosyasını taramış ve sıfır
+Bu incelemede tarayıcı `28A-v1` politikasıyla 464 metin dosyasını taramış ve sıfır
 bulgu üretmiştir. Bu sonuç yalnız desteklenen pattern'ler ve mevcut çalışma ağacı
 içindir; geçmiş commit, yüksek entropi ve kurumsal scanner kapsamı değildir.
 
@@ -58,15 +67,15 @@ içindir; geçmiş commit, yüksek entropi ve kurumsal scanner kapsamı değildi
 
 | Bulgu | Önem | Kanıt | Muhtemel etki | Önerilen çözüm |
 | --- | --- | --- | --- | --- |
-| HTTP güvenlik sınırı yok | Kritik | Route/app/composition root yok | Kimlik kontrolleri gerçek isteğe bağlanamaz | Trusted session middleware ve kapalı varsayılan API |
+| HTTP güvenlik sınırı kısmi | Yüksek | Dashboard/logout BFF cookie/CSRF sınırı var; diğer alan endpoint'leri yok | Kalan servislerde kimlik kontrolleri gerçek isteğe bağlı değil | Aynı fail-closed session/actor sınırını her API dikeyine uygula |
 | Gerçek LDAP/secret manager yok | Kritik | `LdapIdentityAdapter`, `SecretResolver` yalnız port | Üretim kimliği ve credential yönetimi doğrulanamaz | Kurumsal adaptör, TLS, rotasyon ve contract test |
 | CSV yolu sandbox edilmemiş | Yüksek | `CSVConnector` doğrudan `Path(file_path).open()` | Yetkili kullanıcı servis hesabının okuyabildiği ilgisiz dosyaya erişebilir | Canonical path + allowlist root + symlink politikası |
 | Salt-okunur SQL kontrolü sözdizimsel | Yüksek | `is_read_only_sql()` regex/keyword kontrolü | Yan etkili fonksiyonlar veya parser boşlukları | DB-level read-only role/transaction, AST/parser, statement allowlist |
 | Audit değiştirilemez depo değil | Yüksek | SQLite hash-chain | DB dosyasına yetkili saldırgan geçmişi yeniden yazıp zinciri yeniden hesaplayabilir | WORM/imza/HSM veya merkezi immutable log |
 | SQLite at-rest şifreleme yok | Yüksek | stdlib `sqlite3`, encryption config yok | Session/audit/issue metadata dosyadan okunabilir | Kurumsal DB/TDE, disk encryption, key management |
 | Çoklu instance güvenliği yok | Yüksek | Süreç içi `RLock`, SQLite breaker/queue | Duplicate claim, yarış ve tutarsız kota | Transactional DB locking/lease ve dağıtık state |
-| Retention/imha/legal hold yok | Yüksek | Tarihçe tablolarında delete/archive job yok | Gereksiz veri tutma ve hukuki yaşam döngüsü riski | Kayıt türü bazlı onaylı lifecycle motoru |
-| HTTP kontrolleri uygulanmadı | Yüksek | `OPEN-BNK-020` banka onaylı; cookie/CORS/CSRF/security header kodu yok | API eklendiğinde session ve browser saldırıları | Onaylı BFF, `__Host-session`, synchronizer-token CSRF, Origin/Referer/Fetch Metadata ve CORS allowlist politikasını uygula |
+| Retention/imha/legal hold kısmi | Yüksek | Sürümlü politika, legal hold, imha kanıtı ve arşiv geri çağırma sözleşmesi var; fiziksel adaptör yok | Hukuki yaşam döngüsü teknik kayda rağmen tamamlanamaz | Gerçek arşiv/imha adaptörü ve banka onaylı eşleme |
+| HTTP kontrolleri kısmen uygulandı | Yüksek | Dashboard/logout için banka onaylı BFF cookie/CSRF/CORS doğrulaması var | Gerçek IdP, HA store ve kalan API'lerde tutarsız sınır riski | Aynı sınırı üretim IdP/session altyapısı ve tüm endpoint'lere bağla |
 | Güvenlik tarama entegrasyonu eksik | Orta | Direct SBOM ile yerel SAST/bağımlılık bulgu kapıları var; gerçek scanner/SCA/DAST yok | Bilinen zafiyet ve kod kusuru otomatik bulunamaz | Lock, transitive SBOM, kurumsal SCA/SAST/DAST CI kapısı |
 | Legacy serbest aktör kullanımı | Orta | Bazı eski servislerde `actor_id` parametreleri | Caller sahte aktör verebilir | Tüm mutasyonları trusted `ActorContext` sınırına taşı |
 | Genel export/DLP kontrolü yok | Yüksek | Yalnız rapor önizleme var | Gelecek dosya export'unda toplu veri sızıntısı | Gerekçe, maker-checker, watermark, DLP, expiry |

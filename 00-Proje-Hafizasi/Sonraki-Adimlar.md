@@ -144,6 +144,24 @@ Bu maddeler `ADR-016` hedef tasarımını küçük dikeylere böler.
 
 ## Önerilen Sonraki İterasyon
 
+### Kanıta Dayalı Karar Sistemi İkinci Faz Backlogu
+
+Bu hedef, mevcut kullanıcı öncelikli frontend zincirini değiştirmez. Kararlar
+tamamlandığında küçük dikeyler şu bağımlılık sırasıyla ele alınacaktır:
+
+1. `FR-098/099`: değişmez kanıt öğesi/bağı ve yeniden üretim manifesti.
+2. `FR-097/100`: kullanım amacı profili ve kaynaklı etki değerlendirmesi.
+3. `FR-101/102`: değişiklik simülasyonu, lineage snapshot'ı ve değişiklik olayı.
+4. `FR-103/104`: kanıt sınırları içinde teşhis ve öneri.
+5. `FR-106–FR-109`: veri kontratı, adaptif tarama, gizliliği koruyan inceleme
+   ve kalite borcu.
+6. `FR-105`: yalnız onaylı politika ile dry-run/canary/rollback remediation.
+7. `FR-110/111`: izole chaos deneyi, zaman çizelgesi ve kanıt paketi.
+
+İlk dört adım için `OPEN-026–OPEN-029/032/033/035`; otomasyon ve hassas kanıt
+için `OPEN-030/031/034/036` kapanış koşuludur. Bu backlog runtime tamamlanmışlığı
+ifade etmez.
+
 Teknik inceleme `R-04` kapsamında yanlış `SOURCE` kritiklik ağırlıklandırması
 İterasyon 33B ile giderildi. `R-04`ün replay/backfill ve tam ayrık sonuç modeli
 alt kapsamlarında karar alınmıştır; runtime migration ve politika modelleri

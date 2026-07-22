@@ -31,3 +31,4 @@ Ana SRS başlığı: **4. Fonksiyonel Gereksinimler**.
 | Audit Log ve Denetim | FR-077–FR-079 | [Aç](04.11-Audit.md) |
 | API ve Entegrasyon | FR-080–FR-087 | [Aç](04.12-API-ve-Entegrasyon.md) |
 | Sentetik Veri Üretimi ve Doğrulaması | FR-088–FR-096 | [Aç](04.13-Sentetik-Veri.md) |
+| Kanıta Dayalı Karar Desteği | FR-097–FR-111 | [Aç](04.14-Kanita-Dayali-Karar-Destegi.md) |

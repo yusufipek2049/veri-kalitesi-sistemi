@@ -1,6 +1,6 @@
 # Teknik Mimari ve Sistem Analizi
 
-Bu belge seti, Veri Kalitesi İzleme ve Skorlama Sistemi'nin 20 Temmuz 2026
+Bu belge seti, Veri Kalitesi İzleme ve Skorlama Sistemi'nin 22 Temmuz 2026
 tarihindeki kod tabanını esas alan teknik incelemesidir. Gereksinim ve mimari
 belgeler hedef resmi açıklamak için kullanılmış; uygulanmışlık kararı kaynak kod,
 SQLite şemaları ve testlerle verilmiştir.
@@ -8,7 +8,9 @@ SQLite şemaları ve testlerle verilmiştir.
 Hedef skorlama ve ölçüm yeterliliği sözleşmesi için
 [kanonik mimari tasarım](../../02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md)
 ve [sentetik veri ve gizlilik hedef tasarımı](../../02-Mimari/Sentetik-Veri-ve-Gizlilik-Stratejisi.md)
-esas alınır; bu teknik analiz mevcut runtime farklarını ayrıca belirtir.
+ile [kanıta dayalı karar sistemi hedef tasarımı](../../02-Mimari/Kanita-Dayali-Karar-Sistemi.md)
+esas alınır; bu teknik analiz mevcut runtime farklarını ayrıca belirtir. Son hedef
+ikinci faz sözleşmesidir ve uygulanmış runtime olarak değerlendirilmez.
 
 ## Okuma Sırası
 
@@ -33,12 +35,14 @@ esas alınır; bu teknik analiz mevcut runtime farklarını ayrıca belirtir.
 
 ## İnceleme Sınırı
 
-- Analiz başlangıcındaki depo: 272 izlenen dosya; 97 Python ve 200 Markdown dosyası.
-- Üretim Python kodu yaklaşık 19.273, birim test kodu yaklaşık 12.644 satırdır.
-- Çalışan uygulama giriş noktası, REST endpoint'i, frontend uygulaması, container,
-  CI/CD, üretim veritabanı kurulumu ve gerçek dış sistem istemcisi bulunmamıştır.
-- Testler fake/protokol adaptörleri ve süreç içi SQLite ile çalışır; gerçek banka
-  verisi, LDAP, PostgreSQL veya ServiceNow ortamı kullanılmamıştır.
+- Satır ve dosya sayıları tarihsel inceleme anına bağlıdır; güncel doğrulama
+  baseline'ı 1029 test ve 159 kaynak dosyalık sıfır hatalı mypy sonucudur.
+- FastAPI dashboard özeti/logout sınırı ile React/Vite frontend uygulaması vardır;
+  kalan alan API'leri ve üretim IdP/session bağlantısı uygulanmamıştır.
+- Uygulama repository'leri çoğunlukla SQLite kullanır. 34F yalnız tamamen yapay
+  ilişkisel dataset için ayrı PostgreSQL entegrasyonunu doğrular; üretim veri
+  tabanı veya genel repository geçişi değildir.
+- Gerçek banka verisi, LDAP/IdP ve ServiceNow ağ istemcisi kullanılmamıştır.
 - Bu rapor teknik kanıttır; BDDK/KVKK uyumluluğu veya banka onayı sonucu üretmez.
 
 ## Birleştirilmiş Envanterler
@@ -82,21 +86,22 @@ esas alınır; bu teknik analiz mevcut runtime farklarını ayrıca belirtir.
 | Audit bütünlüğü | Kısmen uygulanmış | SQLite hash-chain ve outbox | WORM/imza, merkezi platform ve publisher worker |
 | Rapor önizleme | Kısmen uygulanmış | `ReportPreviewService` | PDF/XLSX/CSV üretimi ve kontrollü indirme |
 | Güvenli SDLC | Kısmen uygulanmış | Secret scanner, direct SBOM, SAST/doğrudan bağımlılık zafiyet kapıları, pentest bulgu takibi, teknik kanıt manifesti/drift kapısı ve birleşik preflight | Gerçek scanner/transitive SCA/DAST/pentest, CI zorlaması, imzalı kanıt deposu ve istisna akışı |
-| REST API | Planlanmış ancak uygulanmamış | Mimari belge | Endpoint, hata sözleşmesi, OpenAPI |
-| Frontend | Planlanmış ancak uygulanmamış | Yalnız `FRONTEND-INDEX.md` | Çalışan UI kodu ve build zinciri |
+| REST API | Kısmen uygulanmış | FastAPI dashboard özeti ve BFF logout; Problem Details | Kalan alan endpoint'leri, üretim resolver ve kapsamlı OpenAPI |
+| Frontend | Kısmen uygulanmış | React/Vite dashboard, tema, Storybook ve Playwright | Operasyonel KPI API'si ve alan ekranları |
+| Kanıta dayalı karar desteği | Planlanmış ancak uygulanmamış | `ADR-019`, `FR-097–FR-111`, kanonik hedef mimari | `OPEN-026–OPEN-036` kararları, runtime, migration ve entegrasyonlar |
 | Deployment/CI/CD/DR | Planlanmış ancak uygulanmamış | Operasyon belgeleri | Çalıştırılabilir altyapı ve kanıt |
 
 ### Kritik Riskler
 
 | Risk | Önem | Kanıt | Öneri |
 | --- | --- | --- | --- |
-| Çalışan uygulama/HTTP composition root yok | Kritik | Backend'de app entrypoint ve endpoint bulunmuyor | P0 API composition root ve kapalı varsayılan güven sınırı |
-| Üretim adaptörleri yok | Kritik | LDAP, PostgreSQL, ServiceNow yalnız protokol/fake | Kurumsal ürün kararları sonrası contract+integration test |
+| HTTP composition root'u yalnız dashboard/logout ile sınırlı | Kritik | Diğer alan endpoint'leri bulunmuyor | Güvenli API dikeylerini küçük artımlarla genişlet |
+| Üretim adaptörleri yok | Kritik | Yapay PostgreSQL dataset haricinde IdP, genel PostgreSQL repository ve ServiceNow ürün adaptörü yok | Kurumsal kararlar sonrası contract+integration test |
 | SQLite süreç içi prototip ölçeği | Kritik | Her repository kendi connection/lock yapısını açıyor | Üretim DB/broker seçimi, migration ve HA tasarımı |
 | Operasyon ve DR kanıtı yok | Kritik | Docker, CI/CD, health check, backup/restore yok | Dağıtım standardı, RTO/RPO ve restore tatbikatı |
 | Hassas dosya erişim sınırı eksik | Yüksek | `CSVConnector` doğrudan yapılandırılan yolu açıyor | Allowlist kök, canonical path kontrolü ve servis hesabı izni |
 | Audit yalnız uygulama içi hash-chain | Yüksek | `SQLiteAuditRepository` | WORM/imza veya kurumsal merkezi log platformu |
-| Type-check aracının CI kapısı olmaması | Orta | Yerel baseline 131 dosyada sıfır hata; CI zorlaması yok | Sıfır baseline'ı CI kapısına al |
+| Type-check aracının CI kapısı olmaması | Orta | Yerel baseline 159 dosyada sıfır hata; CI zorlaması yok | Sıfır baseline'ı CI kapısına al |
 
 ### Teknoloji Envanteri
 
@@ -110,13 +115,17 @@ esas alınır; bu teknik analiz mevcut runtime farklarını ayrıca belirtir.
 | Ruff | Manifestte sabitlenmemiş; ortam `0.15.13` | Lint/format | `pyproject.toml` |
 | mypy | Manifestte sabitlenmemiş; ortam `2.1.0` | Statik tip kontrolü | Komut/kanıt belgeleri; config yok |
 | Mermaid | Runtime bağımlılığı değil | Dokümantasyon diyagramları | `02-Mimari/`, bu rapor |
-| Web/API/frontend framework | Yok | Planlanan HTTP/UI | Kodda bulunmuyor |
+| FastAPI | `0.135.3` | Dashboard özeti ve BFF logout HTTP sınırı | `pyproject.toml`, `api/app.py` |
+| SQLAlchemy | `2.0.51` | Onaylı üretim veri erişimi bağımlılığı; genel repository geçişi tamamlanmadı | `pyproject.toml` |
+| Alembic | `1.18.4` | Sürümlü migration altyapısı | `pyproject.toml`, `alembic/` |
+| React/Vite | Manifestte sabitlenmiş | Dashboard, tema, Storybook ve görsel test | `04-Frontend/app/package.json` |
 
 ### API Envanteri
 
 | Metot | Endpoint | Yetki | Servis | Açıklama |
 | --- | --- | --- | --- | --- |
-| Yok | Yok | HTTP düzeyinde yok | Yok | REST taşıma katmanı uygulanmamıştır; domain servisleri doğrudan Python API'sidir. |
+| GET | `/api/v1/dashboard/summary` | Güvenilir session/actor resolver ve source scope | `DashboardQueryService` | Veri-minimum özet ve trend |
+| POST | `/api/v1/session/logout` | BFF session, CSRF, Origin/Referer/Fetch Metadata | `BffSessionBoundary` | Oturumu merkezi olarak iptal eder |
 
 Domain servis yüzeyleri [API ve Entegrasyonlar](03-API-ve-Entegrasyonlar.md)
 belgesinde ayrıca listelenmiştir.

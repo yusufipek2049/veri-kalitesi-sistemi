@@ -54,6 +54,16 @@ Bu bölüm, sistemin temel veri varlıklarını, veri sözlüğünü, saklama po
 | SyntheticGenerationRun | Üretici/konfigürasyon/şema/politika sürümü, random seed, hacim ve çıktı kimliğiyle tek üretim çalışması. |
 | SyntheticGroundTruth | Sentetik kayıt/senaryo için runtime motorundan bağımsız beklenen kural, skor, önem ve olay sonucu. |
 | SyntheticValidationResult | Yapısal, istatistiksel, görev faydası, gizlilik ve teknik doğrulamanın değişmez sonucu. |
+| UseCaseScoreProfile | Dataset ve kullanım amacı için ağırlık, eşik, kritik alan, bloke edici kural ve yeterlilik politika referansları. |
+| RunManifest | Snapshot/partition, sayaç, örnekleme/seed, kural/politika/model/motor sürümü ve hashlerle yeniden üretim kanıtı. |
+| EvidenceItem / EvidenceLink | Veri-minimum kanıt metadata'sı ve skor/run/teşhis/öneri/olay arasındaki çoktan çoğa ilişki. |
+| LineageSnapshot / ChangeEvent | Kaynaklı tablo/kolon/dönüşüm ilişkisi ve data/rule/policy/measurement/deploy değişiklik olayı. |
+| Diagnosis / Recommendation | Nedensellik sınıflı teşhis ve mekanizma/kanıt/güven/risk bağlı öneri. |
+| RemediationAction | Dry-run, onay, canary, yeniden doğrulama ve rollback olaylarının değişmez yaşam döngüsü. |
+| ImpactAssessment | Gözlenen/hesaplanan/tahmini/bilinmeyen etki bileşenleri ve kaynakları. |
+| DataContract / QualityDebtItem | Sürümlü üretici-tüketici sözleşmesi ile kaynaklı kalite borcu kaydı. |
+| ChaosExperiment | İzole fault enjeksiyonu, detection sonucu ve rollback kanıtı. |
+| IncidentTimelineEvent / EvidencePackage | Olay zaman çizelgesi ve referans/digest tabanlı kanıt paketi. |
 
 
 ## Veri Sözlüğü Grupları
@@ -62,6 +72,7 @@ Bu bölüm, sistemin temel veri varlıklarını, veri sözlüğünü, saklama po
 - [Kaynak ve Metadata Varlıkları](Kaynak-ve-Metadata-Varliklari.md)
 - [Kural ve Çalıştırma Varlıkları](Kural-ve-Calistirma-Varliklari.md)
 - [Sorun, Bildirim ve Audit Varlıkları](Sorun-Bildirim-ve-Audit-Varliklari.md)
+- [Kanıt ve Karar Desteği Varlıkları](Kanit-ve-Karar-Destegi-Varliklari.md)
 
 ## 7.3 Veri Saklama ve Arşivleme
 
@@ -83,6 +94,7 @@ Bu bölüm, sistemin temel veri varlıklarını, veri sözlüğünü, saklama po
 | Hata ve yeniden deneme kayıtları | `P90D` | KararAlındı | `RET-90D-TRANSIENT`; güvenli hata özetiyle sınırlıdır. |
 | Sentetik datasetler | Fiziksel çıktı `P30D`; geri döndürülemez anonim toplulaştırma amaç sürdükçe | KararAlındı; kullanım onayı ayrı | `RET-30D-EXPORT` veya yalnız anonimlik kanıtı varsa `RET-ANON`. |
 | Sentetik üretim, ground truth ve doğrulama kayıtları | Operasyonel test `P1Y`; resmî kabul kanıtı `P10Y` | KararAlındı | `RET-1Y-OPS` veya `RET-10Y-BANKING`; lineage korunur. |
+| Karar desteği kanıtı, manifest, lineage, teşhis, öneri, remediation, contract, borç, chaos ve kanıt paketi kayıtları | `TBD` | ComplianceReviewRequired | `OPEN-036` ve `OPEN-BNK-008` sonuçlanmadan süre uydurulmaz; etkin `RET-*` eşlemesi yoksa kalıcılaştırma fail-closed reddedilir. |
 
 Her `RetentionPolicy` kaydı en az kayıt sınıfı, saklama süresi, hukuki dayanak
 veya kurumsal gerekçe, çevrimiçi saklama süresi, arşiv süresi, imha yöntemi ve
@@ -168,7 +180,7 @@ başarısızlığı teknik hatadan ayrı tutulur.
 ## 7.4 Veri Modeli
 
 
-Temel ilişkiler şöyledir: Bir DataSource birden çok Dataset; bir Dataset birden çok DataField içerir. QualityRule mantıksal kimliği altında birden çok değişmez RuleVersion bulunur. RuleVersion bir veya daha çok Dataset/DataField ile ilişkilidir. Schedule bir kural veya kural grubunu tetikler ve RuleExecution oluşturur. RuleExecution, RuleResult üretir; RuleResult'tan değişmez ham ve kritik politika sonrası nihai QualityScore hesaplanır. ScoreMeasurementSummary kapsam/güveni, MeasurementQualificationResult ölçüm yeterliliğini, DatasetCriticalityProfile kritiklik profilini ve DataRiskScore ayrı risk sonucunu taşır. ScoringPolicy hesaplama ve yeterlilik davranışını sürümler; DataQualityException paydayı kontrollü etkileyebilir, ScoreAssessmentOverride ham/nihai skoru değiştirmez. SyntheticDatasetPolicy bir Datasetin sentetik üretim davranışını sürümler; SyntheticScenario birden çok SyntheticGenerationRun üretir; her run SyntheticGroundTruth ve SyntheticValidationResult ile ilişkilidir. Sentetik ground truth ile RuleResult/QualityScore yalnız karşılaştırma aşamasında eşlenir, birbirinin kaynağı değildir. Skor veya çalışma olayı Notification ve DataQualityIssue oluşturabilir. Issue birden çok IssueComment ve ServiceNow referansı taşıyabilir. User, Role ve Permission ilişkileri RBAC'ı kurar. Kritik değişiklikler AuditLog ile izlenir. (`DQ-SCR-002`, `DQ-SCR-018`–`DQ-SCR-025`, `DQ-SCR-032`, RULE-016, RULE-017)
+Temel ilişkiler şöyledir: Bir DataSource birden çok Dataset; bir Dataset birden çok DataField içerir. QualityRule mantıksal kimliği altında birden çok değişmez RuleVersion bulunur. RuleVersion bir veya daha çok Dataset/DataField ile ilişkilidir. Schedule bir kural veya kural grubunu tetikler ve RuleExecution oluşturur. RuleExecution, RuleResult üretir; RuleResult'tan değişmez ham ve kritik politika sonrası nihai QualityScore hesaplanır. ScoreMeasurementSummary kapsam/güveni, MeasurementQualificationResult ölçüm yeterliliğini, DatasetCriticalityProfile kritiklik profilini ve DataRiskScore ayrı risk sonucunu taşır. ScoringPolicy hesaplama ve yeterlilik davranışını sürümler; DataQualityException paydayı kontrollü etkileyebilir, ScoreAssessmentOverride ham/nihai skoru değiştirmez. SyntheticDatasetPolicy bir Datasetin sentetik üretim davranışını sürümler; SyntheticScenario birden çok SyntheticGenerationRun üretir; her run SyntheticGroundTruth ve SyntheticValidationResult ile ilişkilidir. Sentetik ground truth ile RuleResult/QualityScore yalnız karşılaştırma aşamasında eşlenir, birbirinin kaynağı değildir. UseCaseScoreProfile kullanım kararını, RunManifest yeniden üretimi, EvidenceItem/Link kanıt zincirini, LineageSnapshot/ChangeEvent yayılımı, Diagnosis/Recommendation/RemediationAction kontrollü iyileştirmeyi ve EvidencePackage olay kanıtını ilişkilendirir; ayrıntı ayrı varlık grubu belgesindedir. Skor veya çalışma olayı Notification ve DataQualityIssue oluşturabilir. Issue birden çok IssueComment ve ServiceNow referansı taşıyabilir. User, Role ve Permission ilişkileri RBAC'ı kurar. Kritik değişiklikler AuditLog ile izlenir. (`DQ-SCR-002`, `DQ-SCR-018`–`DQ-SCR-025`, `DQ-SCR-032`, RULE-016–RULE-023)
 
 ```mermaid
 erDiagram
