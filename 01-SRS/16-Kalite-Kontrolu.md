@@ -42,7 +42,7 @@ Bu bölüm, SRS tamamlandıktan sonra yapılan yapısal ve içerik tutarlılığ
 | SSO/MFA, hibrit audit ve kontrollü break-glass yönleri karara bağlanmıştır; gerçek IdP, audit altyapısı, rol eşlemesi ve operasyon kanıtı tamamlanmamıştır. | 9.5, 15, ADR-007/009 | Kurumsal adaptörler, negatif entegrasyon testleri ve banka onaylı işletim kanıtları tamamlanmalıdır. |
 | Yerel prototip üretim performansını tek başına kanıtlayamaz. | 2.4, 9.1, 12, 13 | Yerel testlere ek olarak kuruma benzer ağ/DB ortamında performans ve kaynak etki testi yapılmalıdır. |
 | Sentetik veri aktif nicel fayda/gizlilik politikası ve üretim profili kullanım onayı olmadan anonimlik veya nihai performans kanıtı değildir. | FR-088–096, NFR-PERF-010, NFR-PRV-007, 15 | Eksik politika `BLOCKED`, üretim profili erişimi varsayılan kapalı olmalı; `OPEN-014` anonimleştirilmiş üretim örneği kabulü ayrıca yürütülmelidir. |
-| Kanıta dayalı karar desteği ikinci faz hedefidir; açık politika ve kaynak kararları olmadan resmî teşhis, öneri, remediation veya chaos sonucu üretilemez. | FR-097–111, ADR-019, OPEN-026–036 | Kanonik mimari, IAM, veri modeli, UI, operasyon ve test bağlantıları korunmalı; eksik kararlar güvenli varsayılanla özelliği kapatmalıdır. |
+| Kanıta dayalı karar desteği ikinci faz hedefidir; teknik yönler kesinleşmiş olsa da etkin politika ve kurumsal kaynak bağlantısı olmadan resmî teşhis, öneri, remediation veya chaos sonucu üretilemez. | FR-097–111, ADR-019, OPEN-026–036 karar kaydı | Kanonik mimari, IAM, veri modeli, UI, operasyon ve test bağlantıları korunmalı; eksik runtime politikası güvenli varsayılanla özelliği kapatmalıdır. |
 
 ## 16.2 Otomatik Yapısal Kontrol Özeti
 

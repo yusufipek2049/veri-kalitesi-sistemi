@@ -1391,9 +1391,16 @@ tags:
 - API, frontend, IAM, veri modeli, operasyon ve test sözleşmeleri bağlandı;
   formülsüz skor, kanıtsız öneri/teşhis, kaynak göstermeyen etki ve izsiz
   otomasyon yasaklandı.
-- Bu çalışma yalnız ikinci faz dokümantasyon hedefidir. Runtime, migration,
-  altyapı, banka onayı veya üretim uygunluğu oluşturmaz; `OPEN-026–OPEN-036`
-  kararları kesinleşmeden ilgili otomasyon ve ürün yüzeyleri açılmaz.
+- Bu çalışma yalnız ikinci faz dokümantasyon hedefidir. `OPEN-026–OPEN-036`
+  teknik yönleri kurumsal katalog/OpenLineage, deterministik öneri/tarama,
+  üretim verisini değiştirmeyen remediation, sentetik chaos, güvenli kayıt
+  inceleme, kalite borcu ve kanonik kanıt paketi olarak kesinleşmiştir. Runtime,
+  migration, altyapı, banka onayı veya üretim uygunluğu henüz oluşmamıştır.
+- Kararların asıl gereksinim, iş kuralı, veri modeli, mimari, operasyon,
+  frontend sözleşmesi ve teknik özet yansımaları güncellenmiştir. 217 izlenen
+  Markdown dosyasında göreli bağlantılar; 11 BR, 111 FR, 21 UC, 23 RULE ve 71 AC
+  tanımı tekillik/süreklilik kontrolünden geçmiştir. 1029 pytest, 159 dosyalık
+  mypy, Ruff lint/format ve 464 dosyalık `28A-v1` secret taraması temizdir.
 - 257 Markdown dosyasında göreli bağlantılar; BR/FR/UC/RULE/AC tanım
   benzersizliği ve sürekliliği doğrulandı. 1029 pytest, 159 dosyalık mypy, Ruff
   lint/format ve 464 dosyalık `28A-v1` secret taraması geçti.

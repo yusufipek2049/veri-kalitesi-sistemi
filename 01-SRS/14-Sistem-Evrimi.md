@@ -17,8 +17,8 @@ Bu bölüm, MVP sonrasında sistemin kontrollü biçimde genişletilebileceği y
 | Gelişim alanı | Açıklama |
 | --- | --- |
 | Makine öğrenmesiyle anomali tespiti | Tarihsel dağılım ve zaman serilerinden olağandışı değişimleri belirleme. Model çıktısı deterministik kurallardan ayrı etiketlenmeli ve açıklanabilir olmalıdır. |
-| Kanıtlı öneri ve remediation | `FR-104/105`; mekanizma, dayanak, güven ve risk bağlı öneri. `OPEN-030` kapanmadan yalnız `SuggestOnly`; kaynak üretim verisi değiştirilemez. |
-| Veri lineage ve değişiklik etkisi | `FR-101–FR-103`; kaynaklı tablo/kolon/dönüşüm ilişkileri, ayrı drift türleri ve dry-run blast radius. Sistem-of-record `OPEN-028` kapsamındadır. |
+| Kanıtlı öneri ve remediation | `FR-104/105`; deterministik ilk faz mekanizması, dayanak, karşı kanıt, güven ve risk bağlı öneri. `SuggestOnly` varsayılandır; kaynak üretim verisi değiştirilemez. |
+| Veri lineage ve değişiklik etkisi | `FR-101–FR-103`; kurumsal veri kataloğu kaynaklı, OpenLineage uyumlu tablo/kolon/dönüşüm ilişkileri, ayrı drift türleri ve dry-run blast radius. |
 | Bulut veri platformu bağlantıları | Kurumsal stratejiye göre Snowflake, BigQuery, Redshift, Databricks veya bulut nesne depoları için yeni bağlayıcılar. |
 | Gerçek zamanlı kalite kontrolü | Olay bazlı veya düşük gecikmeli kontroller; batch skorlarından ayrı SLA ve pencere semantiği. |
 | Streaming veri desteği | Kafka veya kurumun streaming altyapısında pencere, watermark, geç gelen veri ve tekrar semantiği. |

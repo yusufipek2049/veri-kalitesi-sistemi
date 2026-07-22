@@ -45,7 +45,7 @@ Kanonik hedef tasarım
 [Kanıta Dayalı Karar Sistemi](../02-Mimari/Kanita-Dayali-Karar-Sistemi.md),
 mimari karar `ADR-019`, gereksinim kaynağı
 [04.14-Kanıta Dayalı Karar Desteği](04-Fonksiyonel-Gereksinimler/04.14-Kanita-Dayali-Karar-Destegi.md)
-ve açık kararlar `OPEN-026–OPEN-036`'dır.
+ve kesinleşmiş teknik yönler `OPEN-026–OPEN-036` karar kayıtlarıdır.
 
 | Gereksinim | Mimari / veri modeli | API / UI | IAM / güvenlik | Test / operasyon |
 | --- | --- | --- | --- | --- |

@@ -43,4 +43,5 @@ geçmekte, iki gerçek PostgreSQL entegrasyon testi opt-in çalışmaktadır. Ta
 159 kaynak dosyada temizdir. Repository için veri-minimum güvenli SDLC
 kontrolleri ve yerel preflight uygulanmıştır. `DQ-SCR-001–033` skorlama modeli ile
 `FR-097–111` kanıta dayalı karar desteği hedefi dokümante edilmiştir; ikinci grup
-henüz runtime uygulaması değildir ve `OPEN-026–036` kararlarını bekler.
+henüz runtime uygulaması değildir. `OPEN-026–036` teknik yönleri kesinleşmiş,
+kurumsal adaptörler ve sürümlü politika kayıtları uygulama backlogunda kalmıştır.

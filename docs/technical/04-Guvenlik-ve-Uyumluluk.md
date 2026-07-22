@@ -6,8 +6,10 @@
 remediation, reproduction, chaos ve kanıt paketi izinlerini ayrı değerlendirir.
 Öneren/onaylayan ayrımı, geçici yetki, gerekçe, hassas erişim auditi ve veri
 minimizasyonu zorunludur. LLM veya başka bir öneri mekanizması tek başına üretim
-verisini değiştiremez; `OPEN-030/031/034/036` kapanana kadar üretim otomasyonu ve
-chaos kapalıdır. Ayrıntı [kanonik mimaridedir](../../02-Mimari/Kanita-Dayali-Karar-Sistemi.md).
+verisini değiştiremez. `SuggestOnly` varsayılandır; `AutoFixLowRisk` üretim
+dışıdır, chaos yalnız izole üretim dışı ortam ve sentetik veriyle çalışır,
+hassas erişim ve kanıt dışa aktarma altyapısı yoksa fail-closed uygulanır.
+Ayrıntı [kanonik mimaridedir](../../02-Mimari/Kanita-Dayali-Karar-Sistemi.md).
 
 ## Kapsam ve Sonuç Sınırı
 

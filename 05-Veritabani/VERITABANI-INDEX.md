@@ -29,8 +29,8 @@ tags:
 - Kanıt içeriği kopyalanmamalı; `EvidenceItem/EvidenceLink` kaynak referansı ve
   digest ile çoktan çoğa bağlanmalı, audit log teknik kanıt yerine geçmemeli.
 - Run, teşhis, öneri, remediation, chaos, timeline ve evidence package kayıtları
-  append-only olmalı; fiziksel şema `OPEN-036` ve kapasite testinden önce
-  varsayılmamalı.
+  append-only olmalı; fiziksel şema kayıt sınıfı eşlemesi ve kapasite testinden
+  önce varsayılmamalı.
 
 ## İterasyon 19E Şema Artımı
 

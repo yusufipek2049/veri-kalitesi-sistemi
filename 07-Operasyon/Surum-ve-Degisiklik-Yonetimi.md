@@ -97,10 +97,12 @@ adaptif tarama veya chaos değişikliğinde üretim öncesi şu kanıtlar aranı
 - aynı manifest ve sürümlerle tekrar üretim veya açıklanmış sapma sonucu,
 - chaos deneyinde izinli ortam, fault sınırı ve kontrollü kapatma kanıtı.
 
-`OPEN-030` kararı kesinleşene kadar remediation üretimde `SuggestOnly` ve salt
-okunur kalır; otomatik kaynak değişikliği yapılamaz. `OPEN-031` kararı
-kesinleşene kadar chaos deneyi üretimde çalıştırılamaz. Eksik sağlayıcı, eşik,
-rol, süre veya saklama değeri varsayılarak sürüm kapısı geçilemez.
+Remediation için `SuggestOnly` varsayılandır ve kaynak üretim verisi hiçbir
+seviyede değiştirilemez. `AutoFixLowRisk` ilk fazda üretim dışıdır; diğer izinli
+sistem eylemleri sürümlü politika, dry-run, onay, canary, yeniden doğrulama,
+rollback ve audit kapılarından geçer. Chaos yalnız izole üretim dışı ortamda
+sentetik veriyle çalışır. Eksik sağlayıcı, eşik, rol, süre veya saklama değeri
+varsayılarak sürüm kapısı geçilemez.
 
 ## Yerel Secret Kontrolü
 

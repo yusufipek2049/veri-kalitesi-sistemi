@@ -65,7 +65,7 @@ Bu bölüm, kullanıcı ekranlarını, harici yazılım entegrasyonlarını ve i
 | Dosya depolama servisi | CSV/Excel girdi ve rapor/kanıt dosyaları için kurum içi güvenli depolama. |
 | Kurumsal veri kataloğu/DLP | Hassas sınıflandırma, maskeleme, görüntüleme, raporlama ve loglama kısıtlarının kaynak sistemi. |
 | Sentetik veri yönetim API'si | Hedef iç API; `SyntheticDatasetPolicy`, senaryo, run, doğrulama ve katalog kayıtlarını sürümlü ve yetki kapsamlı sunar. Ground truth iş verisinden ayrı döner; gizlilik kapısı geçmeyen dataset kullanıma açılamaz. Üretim bildirimi/ServiceNow/SIEM hedefi bu API üzerinden seçilemez. Güvenilir HTTP/API sözleşmesi uygulanmadan yetenek dış erişime açılmaz. |
-| Kanıt, lineage ve karar kaynakları | İkinci faz hedef iç API; kurumsal lineage/değişiklik kaynaklarından yalnız otoriter referansları alır, kanıt/manifest/teşhis/öneri/etki/contract/chaos kayıtlarını yetki ve sınıflandırma kapsamında sunar. Sağlayıcı veya ürün `OPEN-028/029/032` kapanmadan varsayılmaz. |
+| Kanıt, lineage ve karar kaynakları | İkinci faz hedef iç API; kurumsal veri kataloğundan OpenLineage uyumlu otoriter lineage/değişiklik referanslarını alır, kanıt/manifest/teşhis/öneri/etki/contract/chaos kayıtlarını yetki ve sınıflandırma kapsamında sunar. Ürün adı uydurulmaz; öneride ilk üretim allowlist'i deterministik kural, olay benzerliği ve auditli uzman girdisidir. |
 
 ## 8.3 İletişim Arayüzleri
 
