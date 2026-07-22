@@ -74,13 +74,16 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
 44. `28B` doğrudan bağımlılık envanteri ve sürüm bağlı CycloneDX 1.5 SBOM'u teknik olarak doğrulandı. Transitive bağımlılık/lock, artifact hash'i, lisans, zafiyet veritabanı, harici scanner/SBOM ürünü, CI/CD zorlaması ve banka eşik/istisna onayı açık kalır.
 45. `28C-v1` veri-minimum SAST bulgu zarfı, tamamlanmamış tarama teknik hata yolu ve kritik bulguda fail-closed sürüm kapısı teknik olarak doğrulandı. Gerçek SAST scanner/repository taraması, CI/CD zorlaması, kritik olmayan banka eşikleri, istisna/risk kabulü, release maker-checker, DAST ve pentest açık kalır.
 46. Frontend görsel tasarım tabanı ile React, TypeScript, Vite, MUI, ECharts,
-    Storybook ve Playwright paketleri kuruldu; sentetik dashboard çalışma artımı
-    teknik olarak doğrulandı. Kurumsal font, koyu tema teslim kapsamı, onaylı
-    görsel baseline/diff eşiği, route/vendor code splitting, performans bütçesi
-    ve banka marka onayı açık kalır. 21B yerel/test API bağlantısını eklemiştir;
-    üretim dashboard bağlantısı gerçek IdP/oturum, `__Host-session`/CSRF,
-    yüksek erişilebilir session store, PostgreSQL skor repository'si ve
-    bankacılık geçiş kapısına bağlıdır.
+    Storybook ve Playwright paketleri kuruldu; sentetik dashboard, açık/koyu
+    tema, tema tercihi, referansla uyumlu navigasyon grupları ve hizalı Lucide
+    ikonları teknik olarak doğrulandı. `FE-DEC-001`–`FE-DEC-004` ile ikon,
+    routing, tema tercihi ve dashboard KPI zaman/snapshot kararları kesinleşti.
+    Kurumsal font, onaylı görsel
+    baseline/diff eşiği, performans bütçesi ve banka marka onayı henüz
+    tamamlanmamıştır. 21B yerel/test API bağlantısını eklemiştir; üretim dashboard
+    ve alan ekranları 20E BFF oturum/CSRF sınırı, ilgili güvenli API'ler, yüksek
+    erişilebilir session store, PostgreSQL repository bağlantıları ve bankacılık
+    geçiş kapısına bağlıdır.
 47. `28D-v1` doğrudan bağımlılık zafiyet bulgu zarfı, tamamlanmamış tarama teknik
     hata yolu, tam envanter eşleşmesi ve kritik bulguda fail-closed sürüm kapısı
     teknik olarak doğrulandı. Gerçek zafiyet veritabanı/ağ scanner'ı, transitive

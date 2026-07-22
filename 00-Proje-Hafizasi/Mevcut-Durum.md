@@ -1308,6 +1308,25 @@ tags:
   Üretim API'si, gerçek IdP/oturum, banka verisi, dışa aktarma ve yetkili
   drill-down uygulanmadı; 21B/geçiş kapısı bağımlılığı korunur.
 
+### 2026-07-22 — İterasyon 30C: Uygulama kabuğu görsel uyumu ve tema
+
+- `FR-054`, `UC-010` ve `NFR-USA-001/004–006` kapsamında navigasyon
+  `ANALİZ`/`OPERASYON` gruplarına ayrıldı; yedi menü öğesi sabit kutularda
+  hizalanan Lucide ikonlarıyla gösterildi.
+- Açık ve koyu semantik token kümeleri ile MUI tema üreticisi eklendi. İlk
+  açılış açık temadır; kullanıcı tercihi yerel depoda yalnız `light`/`dark`
+  olarak tutulur ve depolama hatası uygulama render'ını engellemez.
+- ECharts renkleri etkin temadan çözülür. Storybook tema aracı ve koyu dashboard
+  durumu eklendi; beş zorunlu viewport iki temada doğrulandı.
+- 13 frontend birim testi ve 14 Playwright testi geçti. İlk görsel turda bulunan
+  koyu tema gövde metni kalıtımı düzeltildi; ikinci tur tüm temalarda ve
+  viewport'larda geçti.
+- Frontend type-check, üretim ve Storybook build'leri, `npm audit`, 1015 Python
+  testi, 157 dosyalık mypy, Ruff, `compileall`, diff ve 451 kaynak dosyalık
+  `28A-v1` secret taraması geçti. Vite'ın 500 kB chunk uyarısı sürmektedir.
+- Tema tercihi hassas veri taşımaz. Menü öğeleri henüz route veya yetki kararı
+  üretmez; alan sayfaları 35A–35F, gerçek BFF/CSRF sınırı 20E kapsamındadır.
+
 ### 2026-07-22 — İterasyon 33B: Kritiklikten ayrılmış kaynak kalite skoru
 
 - `R-04`, `FR-050`, `FR-052`, `UC-009`, `DQ-SCR-018`, `DQ-SCR-025` ve
@@ -1433,7 +1452,7 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20D, Iterasyon 21A–21B, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1, İterasyon 30A–30B, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A–33B ve İterasyon 34A–34F çıktıları korunacaktır.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20D, Iterasyon 21A–21B, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1, İterasyon 30A–30C, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A–33B ve İterasyon 34A–34F çıktıları korunacaktır.
 - `pytest` ile 1015 testin geçtiği, iki gerçek PostgreSQL entegrasyon testinin
   opt-in koşuda ayrıca geçtiği doğrulanmıştır.
 - Tam mypy kontrolü 157 kaynak dosyada sıfır hata vermektedir.

@@ -105,8 +105,10 @@ Koyu tema aynı semantik token sözleşmesini kullanır. Başlangıç yüzey rol
 | `color.text.muted` | `#B5BDC9` |
 | `color.border` | `#353D49` |
 
-Semantik renkler tema bazında kontrast testinden geçmeden aynen kopyalanmaz. Koyu
-tema uygulaması ayrı backlog maddesidir; bu belge uygulanmış tema iddiası oluşturmaz.
+Semantik renkler tema bazında kontrast testinden geçmeden aynen kopyalanmaz.
+İterasyon 30C ile bu başlangıç token'ları, tema seçimi ve zorunlu masaüstü
+viewport doğrulamaları uygulanmıştır. Bu teknik doğrulama banka marka onayı veya
+onaylı pixel-diff baseline'ı anlamına gelmez.
 
 ## Tipografi
 

@@ -20,10 +20,10 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Typography,
+  useTheme,
 } from "@mui/material";
 import type { EChartsCoreOption } from "echarts/core";
 import type { TrendObservation } from "../dashboard/model";
-import { designTokens } from "../theme/tokens";
 import { StatusBadge } from "./StatusBadge";
 
 echarts.use([LineChart, GridComponent, LegendComponent, MarkLineComponent, TooltipComponent, CanvasRenderer]);
@@ -40,6 +40,7 @@ function formatScore(value: number | null): string {
 }
 
 export function TrendPanel({ observations, description = "Son 30 UTC gün · yalnız resmî skorlar" }: TrendPanelProps) {
+  const theme = useTheme();
   const [view, setView] = useState<TrendView>("chart");
   const chartElementRef = useRef<HTMLDivElement>(null);
   const officialObservations = useMemo(() => observations.filter((item) => item.official), [observations]);
@@ -53,12 +54,12 @@ export function TrendPanel({ observations, description = "Son 30 UTC gün · yal
     const chart = echarts.init(chartElementRef.current, undefined, { renderer: "canvas" });
     const option: EChartsCoreOption = {
       animation: false,
-      color: [designTokens.color.status.info, designTokens.color.status.technical],
+      color: [theme.status.info, theme.status.technical],
       grid: { left: 48, right: 88, top: 36, bottom: 44 },
       legend: {
         bottom: 0,
         data: hasTechnicalObservation ? ["Resmî nihai skor", "Teknik hata"] : ["Resmî nihai skor"],
-        textStyle: { color: designTokens.color.text.muted },
+        textStyle: { color: theme.palette.text.secondary },
       },
       tooltip: {
         trigger: "axis",
@@ -79,15 +80,15 @@ export function TrendPanel({ observations, description = "Son 30 UTC gün · yal
         type: "category",
         boundaryGap: false,
         data: observations.map((item) => item.displayDate),
-        axisLine: { lineStyle: { color: designTokens.color.border } },
-        axisLabel: { color: designTokens.color.text.muted },
+        axisLine: { lineStyle: { color: theme.palette.divider } },
+        axisLabel: { color: theme.palette.text.secondary },
       },
       yAxis: {
         type: "value",
         min: 60,
         max: 100,
-        axisLabel: { color: designTokens.color.text.muted },
-        splitLine: { lineStyle: { color: designTokens.color.border } },
+        axisLabel: { color: theme.palette.text.secondary },
+        splitLine: { lineStyle: { color: theme.palette.divider } },
       },
       series: [
         {
@@ -96,13 +97,13 @@ export function TrendPanel({ observations, description = "Son 30 UTC gün · yal
           connectNulls: false,
           symbol: "circle",
           symbolSize: 7,
-          lineStyle: { width: 3, color: designTokens.color.status.info },
-          itemStyle: { color: designTokens.color.surface, borderColor: designTokens.color.status.info, borderWidth: 2 },
+          lineStyle: { width: 3, color: theme.status.info },
+          itemStyle: { color: theme.palette.background.paper, borderColor: theme.status.info, borderWidth: 2 },
           data: observations.map((item) => (item.official ? item.finalScore : null)),
           markLine: {
             symbol: "none",
-            label: { formatter: "Kritik eşik 70", color: designTokens.color.status.critical, position: "insideEndTop" },
-            lineStyle: { color: designTokens.color.status.critical, type: "dashed" },
+            label: { formatter: "Kritik eşik 70", color: theme.status.critical, position: "insideEndTop" },
+            lineStyle: { color: theme.status.critical, type: "dashed" },
             data: [{ yAxis: 70 }],
           },
         },
@@ -113,7 +114,7 @@ export function TrendPanel({ observations, description = "Son 30 UTC gün · yal
           symbol: "diamond",
           symbolSize: 11,
           lineStyle: { opacity: 0 },
-          itemStyle: { color: designTokens.color.status.technical },
+          itemStyle: { color: theme.status.technical },
           data: observations.map((item) => (item.technicalStatus === "Teknik Hata" ? 68 : null)),
         },
       ],
@@ -126,7 +127,7 @@ export function TrendPanel({ observations, description = "Son 30 UTC gün · yal
       resizeObserver.disconnect();
       chart.dispose();
     };
-  }, [hasTechnicalObservation, observations, view]);
+  }, [hasTechnicalObservation, observations, theme, view]);
 
   return (
     <Paper component="section" variant="outlined" aria-labelledby="trend-title" sx={{ borderRadius: 1.5, overflow: "hidden" }}>

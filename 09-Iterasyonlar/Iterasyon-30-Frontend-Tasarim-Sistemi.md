@@ -90,14 +90,59 @@ Durum: **TechnicallyVerified**
 | Dilim | Değer | Ön koşul |
 | --- | --- | --- |
 | 30B | Sentetik çalışma iskeleti, açık tema, KPI/status/alarm/trend ve test altyapısı | `TechnicallyVerified` |
-| 30C | Sentetik veri alanı karşılaştırması ve kalite boyutu matrisi | 30B |
-| 30D | Ortak sayfalı data table standardı | 30B, API sayfalama sözleşmesi |
-| 30E | Üretim bağlantılı kurumsal dashboard | 21B güvenli API, geçiş kapısı |
-| 30F | Onaylı görsel baseline ve diff eşiği | Banka marka/onay kararı |
-| 30G | Koyu tema ve grafik erişilebilirliği | 30B–30F |
+| 30C | Referansla uyumlu navigasyon grupları, gerçek/hizalı ikonlar ve açık-koyu tema | `TechnicallyVerified` |
+| 30D | Sentetik veri alanı karşılaştırması, kalite boyutu matrisi ve 21C hazırsa operasyonel KPI bağlantısı | 30C; gerçek KPI için 21C |
+| 30E | Ortak sayfalı data table standardı | 30B, API sayfalama sözleşmesi |
+| 30F | Üretim bağlantılı kurumsal dashboard | 20E, 21B/21C güvenli API, geçiş kapısı |
+| 30G | Onaylı görsel baseline ve diff eşiği | Banka marka/onay kararı |
+| 30H | Grafik erişilebilirliği genişletmesi | 30D–30G |
 
-Her dilim tek çalışabilir artım olarak ele alınır; bu belge uygulama dilimlerini
-tamamlanmış saymaz.
+Her dilim tek çalışabilir artım olarak ele alınır; yalnız durum sütununda
+`TechnicallyVerified` yazan dilimler tamamlanmış teknik artımdır.
+
+## 30C — Uygulama Kabuğu Görsel Uyumu ve Tema
+
+Durum: **TechnicallyVerified**
+
+### Kapsam ve Değer
+
+- Navigasyon referansla uyumlu `ANALİZ` ve `OPERASYON` gruplarına ayrıldı.
+- Yedi menü öğesindeki geçici karakterler eşit boyutlu kutularda hizalanan
+  `lucide-react` ikonlarıyla değiştirildi.
+- Açık ve koyu semantik token kümeleri ile kullanıcı tema seçimi uygulandı.
+  İlk açılış açık temadır; yalnız `light` veya `dark` değeri yerel tarayıcı
+  depolamasında tutulur. Depolama erişimi başarısız olduğunda ekran açık tema
+  ile çalışmaya devam eder.
+- Grafik ekseni, metni, ızgarası ve durum renkleri etkin temadan çözülür.
+- Storybook tema aracı ve koyu tema dashboard durumu eklendi.
+
+### Gereksinim Bağlantıları
+
+- `FR-054`
+- `UC-010`
+- `NFR-USA-001`, `NFR-USA-004`–`NFR-USA-006`
+
+### Doğrulama
+
+- Vitest: 13 test; navigasyon grupları, yedi sabit ikon kutusu, açık tema
+  varsayılanı, tema geçişi, tercih kalıcılığı ve depolama hata yolları dahil.
+- Playwright: 14 test; beş zorunlu viewport'un açık ve koyu tema görüntüleri,
+  ikon merkez hizası, tema kalıcılığı, grafik/tablo eşliği, yetkisiz yüzey ve
+  klavye odağı dahil.
+- Birinci görsel turda grup/hizalama doğrulanırken koyu temada sayfa başlığının
+  gövde rengini devralmadığı görüldü. İkinci turda gövde ve uygulama kökü
+  semantik metin rengine bağlandı; tüm viewport ve temalar yeniden geçti.
+- Frontend type-check, birim testleri, üretim ve Storybook build'leri ile
+  `npm audit`; ayrıca tam Python test, mypy, Ruff, `compileall`, diff ve secret
+  taraması geçti.
+
+### Güvenlik ve Kapsam Sınırı
+
+- Tema tercihi kimlik, rol, scope, token veya kişisel veri içermez.
+- Menü öğeleri bu dilimde route veya yetki kararı üretmez. Veri Kaynakları,
+  Kurallar, Çalıştırmalar, Sorunlar, Raporlar ve Denetim sayfaları 35A–35F
+  kapsamında kalır.
+- Üretim bağlantısı, banka marka onayı ve onaylı görsel diff eşiği uygulanmadı.
 
 ## Kapsam Dışı
 
@@ -108,9 +153,8 @@ tamamlanmış saymaz.
 
 ## Sonraki İş
 
-30B sentetik çalışma artımı tamamlandı. Aynı güvenlik sınırını koruyan sıradaki
-hazır frontend artımı 30C sentetik veri alanı karşılaştırması ve kalite boyutu
-matrisidir. Üretim bağlantılı 30E, 21B güvenli HTTP/API sınırı ve
-`OPEN-BNK-020` banka onaylıdır; onaylı BFF/session/CSRF politikasının üretim
-HTTP katmanında uygulanması ve geçiş kapısındaki diğer bağımlılıklar tamamlanana
-kadar uygulanmaz.
+30C uygulama kabuğu ve tema artımı tamamlandı. Kullanıcı öncelikli zincirde
+sıradaki güvenlik ön koşulu 20E BFF/session/CSRF HTTP sınırıdır. Ardından 21C
+operasyonel gösterge API'si ve 30D dashboard referans içerik tamamlaması ayrı
+artımlar olarak uygulanır. Üretim bağlantılı 30F, 20E ile 21B/21C güvenli API
+sınırları tamamlanana kadar uygulanmaz.
