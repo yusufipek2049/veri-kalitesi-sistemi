@@ -38,6 +38,7 @@
 - [İterasyon 20A - LDAP RBAC Sözleşme Kanıtı](Erisim/Iterasyon-20A-LDAP-RBAC-Sozlesme-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 20B - Başarısız Giriş Sınırlandırma Kanıtı](Erisim/Iterasyon-20B-Basarisiz-Giris-Sinirlandirma-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 20C - Güvenli Oturum Yaşam Döngüsü Kanıtı](Erisim/Iterasyon-20C-Guvenli-Oturum-Yasam-Dongusu-Kaniti.md) - `TechnicallyVerified`
+- [İterasyon 20E - BFF Oturum ve CSRF HTTP Kanıtı](Erisim/Iterasyon-20E-BFF-Oturum-CSRF-HTTP-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 21A - Yetki Filtreli Dashboard Trend Kanıtı](Erisim/Iterasyon-21A-Yetki-Filtreli-Dashboard-Trend-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 22A - Sistem İçi Bildirim Kanıtı](Bildirim/Iterasyon-22A-Sistem-Ici-Bildirim-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 22B - Temel Issue State Machine Kanıtı](Sorun-Yonetimi/Iterasyon-22B-Temel-Issue-State-Machine-Kaniti.md) - `TechnicallyVerified`

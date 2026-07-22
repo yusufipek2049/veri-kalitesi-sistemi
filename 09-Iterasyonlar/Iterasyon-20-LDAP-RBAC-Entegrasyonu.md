@@ -104,3 +104,30 @@ kullanıcı pasifleştirme/rol değişimi/güvenlik olayı/IdP kaynaklı merkezi
 adaptörlerini, yüksek erişilebilir üretim session store'unu, at-rest
 şifreleme/KMS-HSM bağlantısını veya `P90D` fiziksel saklama/imha kanıtını
 uygulamaz. Bu kapsamlar birbirinden bağımsız sonraki ürün artımlarıdır.
+
+## Dilim 20E Kapanışı
+
+`TechnicallyVerified` kapsam:
+
+- `SessionGrant`, session credential'dan ayrı yüksek entropili CSRF token üretir;
+  SQLite prototipinde yalnız SHA-256 özeti saklanır. Eski şemalar nullable
+  `csrf_token_digest` alanıyla geriye uyumlu genişletilir.
+- `__Host-session` taşıması `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/` ve
+  domainsiz cookie olarak uygulanır. CSRF token cookie'ye konmaz; güvenilir IdP
+  callback adaptörünün kullanacağı no-store response header'ıyla döndürülür.
+- Dashboard resolver'ı aktör/rol/scope header'ı kabul etmeden cookie credential'ı
+  mevcut `SessionService` üzerinden güvenilir `ActorContext`e dönüştürür. Okuma
+  isteği `BACKGROUND` olarak idle süresini uzatmaz.
+- Durum değiştiren isteklerde custom CSRF header, Origin, Referer, Fetch Metadata
+  ve CORS allowlist kontrolleri fail-closed uygulanır. `POST /api/v1/session/logout`
+  doğru kanıtla oturumu iptal eder ve cookie'yi siler; `GET` logout yapamaz.
+- Eksik/değiştirilmiş cookie veya CSRF, güvenilmeyen request metadata ve session
+  store arızası güvenli 401/403/503 Problem Details yanıtlarına ayrılır.
+- 14 yeni testle tam depoda 1029 test geçti; iki gerçek PostgreSQL testi opt-in
+  kaldı. Mypy 159 dosyada, Ruff, format, `compileall`, frontend type-check/test/build
+  ve secret taraması geçti.
+
+Bu dilim gerçek OIDC/SAML callback ve state/nonce doğrulamasını, banka grup-rol
+değerlerini, ayrıcalıklı/servis oturumunu, diğer merkezi iptal tetiklerini,
+yüksek erişilebilir üretim store'unu, at-rest şifreleme/KMS-HSM bağlantısını veya
+`P90D` fiziksel saklama/imha kanıtını uygulamaz.

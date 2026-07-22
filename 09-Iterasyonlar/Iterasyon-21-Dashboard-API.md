@@ -38,12 +38,13 @@ completed_at: 2026-07-22
 - **Teknik durum:** `TechnicallyVerified`
 - **Banka onayı:** API teknik seçimleri `KararAlındı`; üretim kimlik ve altyapı
   uygulaması `ComplianceReviewRequired`.
-- **Kalan risk:** Gerçek OIDC/SAML assertion, `__Host-session`, CSRF, yüksek
-  erişilebilir session store, PostgreSQL skor repository'si, üretim CORS
-  topolojisi ve ölçüm yeterliliği/alarm API alanları uygulanmadı. Vite ilk bundle
-  boyutu 500 kB uyarısı verir.
+- **Kalan risk:** 20E ile `__Host-session`, CSRF ve BFF resolver sınırı teknik
+  olarak doğrulandı. Gerçek OIDC/SAML assertion, yüksek erişilebilir session
+  store, PostgreSQL skor repository'si, üretim CORS topolojisi ve ölçüm
+  yeterliliği/alarm API alanları uygulanmadı. Vite ilk bundle boyutu 500 kB
+  uyarısı verir.
 - **Geri alma yaklaşımı:** Frontend API çağrısı pasifleştirilip sentetik Storybook
   fixture'ı korunabilir; FastAPI route uygulama fabrikasından çıkarılabilir.
   Üretim resolver bağlı olmadığı için mevcut sürüm zaten varsayılan olarak
   erişimi reddeder.
-- **Sonraki iterasyon:** 20E — BFF oturum ve CSRF HTTP sınırı.
+- **Sonraki iterasyon:** 21C — dashboard operasyonel gösterge API'si.

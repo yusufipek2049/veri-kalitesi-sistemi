@@ -1446,16 +1446,36 @@ tags:
   KMS/HSM bağlantısı ve `P90D` fiziksel saklama/imha kanıtı açık uygulama
   kapsamıdır.
 
+### 2026-07-22 — İterasyon 20E: BFF oturum ve CSRF HTTP sınırı
+
+- `FR-005`, `FR-081`, `UC-001`, `NFR-SEC-007/009` ve `AC-001` HTTP alt
+  kapsamında banka onaylı `__Host-session` cookie ve synchronizer-token CSRF
+  taşıması uygulandı.
+- CSRF token session credential'dan ayrı üretilir; session deposunda yalnız
+  özeti tutulur ve logout/timeout/iptal geçişlerinde credential özetiyle birlikte
+  silinir. Eski SQLite şeması geriye uyumlu genişletilir.
+- BFF resolver dashboard context'ini yalnız cookie credential ve mevcut session
+  servisinden üretir; istek aktör/rol/scope header'ları yetki kanıtı değildir.
+- `POST /api/v1/session/logout`; CSRF custom header, Origin, Referer, Fetch
+  Metadata ve CORS allowlist'i birlikte doğrulandıktan sonra çalışır. `GET`
+  logout yapmaz; session/CSRF değerleri hata veya audit çıktısına girmez.
+- 14 yeni testle tam depoda 1029 test geçti, iki PostgreSQL testi kontrollü
+  atlandı. Mypy 159 dosyada, Ruff, format, `compileall`, frontend kontrolleri ve
+  455 dosyalık secret taraması geçti.
+- Gerçek OIDC/SAML callback, state/nonce, banka grup-rol eşlemesi, HA üretim
+  store'u, KMS/HSM, diğer merkezi iptal tetikleri ve fiziksel `P90D` kanıtı açık
+  kalır. Bu teknik artım üretime hazırlık veya mevzuat uyumluluğu sonucu değildir.
+
 - [Alınan Kararlar](Alinan-Kararlar.md)
 - [Açık Konular](Acik-Konular.md)
 - [Sonraki Adımlar](Sonraki-Adimlar.md)
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20D, Iterasyon 21A–21B, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1, İterasyon 30A–30C, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A–33B ve İterasyon 34A–34F çıktıları korunacaktır.
-- `pytest` ile 1015 testin geçtiği, iki gerçek PostgreSQL entegrasyon testinin
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20E, Iterasyon 21A–21B, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1, İterasyon 30A–30C, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A–33B ve İterasyon 34A–34F çıktıları korunacaktır.
+- `pytest` ile 1029 testin geçtiği, iki gerçek PostgreSQL entegrasyon testinin
   opt-in koşuda ayrıca geçtiği doğrulanmıştır.
-- Tam mypy kontrolü 157 kaynak dosyada sıfır hata vermektedir.
-- Kısmi politika maker-checker onay/ret, geri çekme ve atomik audit akışı 32D ile tamamlandı. Süre aşımı açık kalır; güvenilir `PartialExecutionFacts` üretimi kapsama ve eksik kayıt oranı formüllerini beklemektedir. 31D hız sınırı sayaç/pencere semantiğini; CPU/IO sınırları güvenilir kaynak ölçüm adaptörünü beklemektedir. 27B restore tatbikat kanıtı `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını bekler; gerçek arşiv/fiziksel imha adaptörü, 29D, 21B'nin üretim BFF/session bağlantısı, hassas dışa aktarma ve gerçek SIEM de banka/altyapı kararlarına bağlıdır.
+- Tam mypy kontrolü 159 kaynak dosyada sıfır hata vermektedir.
+- Kısmi politika maker-checker onay/ret, geri çekme ve atomik audit akışı 32D ile tamamlandı. Süre aşımı açık kalır; güvenilir `PartialExecutionFacts` üretimi kapsama ve eksik kayıt oranı formüllerini beklemektedir. 31D hız sınırı sayaç/pencere semantiğini; CPU/IO sınırları güvenilir kaynak ölçüm adaptörünü beklemektedir. 27B restore tatbikat kanıtı `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını bekler; gerçek arşiv/fiziksel imha adaptörü, 29D, 21B/20E'nin gerçek IdP ve üretim session store bağlantısı, hassas dışa aktarma ve gerçek SIEM de banka/altyapı kararlarına bağlıdır.
 - Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.
