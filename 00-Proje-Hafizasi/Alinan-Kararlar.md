@@ -736,3 +736,9 @@ uygulanır.
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
 | --- | --- | --- | --- |
 | Dashboard operasyonel DTO'su aktif yeterlilik politikası yoksa `QUALIFIED` üretmeyecek; mevcut ölçümü `VALIDATION_REQUIRED`, son teknik sonucu `TECHNICAL_FAILURE`, veri yokluğunu `NO_DATA` gösterecektir. Kritik kural sonuç kaynağı bulunmadığında sayılar sıfır yerine `null/NOT_AVAILABLE` kalacaktır. | Sıfır kritik ihlal veya olumlu yeterlilik, veri/politika yokluğunu başarı gibi gösterir. Teknik hata da kalite düşüşü değildir. | Mevcut skordan yeterlilik tahmin etmek; kalite seviyesi `CRITICAL` olan skorları kritik kural saymak; eksik sayıları sıfır döndürmek; tüm alanları DTO dışında bırakmak. | 21C güvenli ve geriye uyumlu gösterge zarfını sunar. Tam yeterlilik, kritik kural ve alarm runtime'ı ayrı artımlardır; 30D yalnız mevcut alanları UI'a bağlar. |
+
+## 2026-07-22 — İterasyon 30D Teknik Kararı
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| Veri alanı karşılaştırması ve kalite boyutu matrisi yalnız API `data_origin=synthetic-development` bildirdiğinde sentetik fixture ile gösterilecek; diğer kökenlerde eksik veri uydurulmayacaktır. 21C zarfındaki bilinmeyen durumlar ve negatif sayaçlar geçersiz yanıt sayılacaktır. | Referans ekranı gösterilebilir kılarken sentetik içeriği üretim verisi gibi sunmamak ve beklenmeyen API değerlerini semantik olarak yanlış eşlememek gerekir. | Sentetik panelleri tüm ortamlarda göstermek; eksik kritik kontrolü sıfır kabul etmek; bilinmeyen durumları genel başarıya eşlemek; alt panelleri ertelemek. | 30D referans içeriği güvenli köken ayrımıyla tamamlandı. Gerçek karşılaştırma/matris API'si, kritik kontrol runtime'ı ve alarm akışı ayrı artımlarda kalır. |

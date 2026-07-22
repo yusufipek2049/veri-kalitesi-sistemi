@@ -91,7 +91,7 @@ Durum: **TechnicallyVerified**
 | --- | --- | --- |
 | 30B | Sentetik çalışma iskeleti, açık tema, KPI/status/alarm/trend ve test altyapısı | `TechnicallyVerified` |
 | 30C | Referansla uyumlu navigasyon grupları, gerçek/hizalı ikonlar ve açık-koyu tema | `TechnicallyVerified` |
-| 30D | Sentetik veri alanı karşılaştırması, kalite boyutu matrisi ve 21C hazırsa operasyonel KPI bağlantısı | 30C; gerçek KPI için 21C |
+| 30D | Sentetik veri alanı karşılaştırması, kalite boyutu matrisi ve 21C operasyonel KPI bağlantısı | `TechnicallyVerified` |
 | 30E | Ortak sayfalı data table standardı | 30B, API sayfalama sözleşmesi |
 | 30F | Üretim bağlantılı kurumsal dashboard | 20E `TechnicallyVerified`; 21B/21C güvenli API ve geçiş kapısı |
 | 30G | Onaylı görsel baseline ve diff eşiği | Banka marka/onay kararı |
@@ -144,6 +144,56 @@ Durum: **TechnicallyVerified**
   kapsamında kalır.
 - Üretim bağlantısı, banka marka onayı ve onaylı görsel diff eşiği uygulanmadı.
 
+## 30D — Dashboard Referans İçerik Tamamlaması
+
+Durum: **TechnicallyVerified**
+
+### Kapsam ve Değer
+
+- 21C `operational_indicators` zarfı frontend API doğrulamasına ve KPI
+  view-model'ine bağlandı. Ölçüm yeterliliği, kritik kontrol kullanılabilirliği
+  ve teknik hata özeti artık “sağlanmıyor” yer tutucusu yerine gerçek API
+  durumlarını gösterir.
+- Bilinmeyen operasyonel durum, negatif sayaç veya eksik gösterge zarfı güvenli
+  `invalid-response` yoluna düşer. Teknik başarısızlık sıfır kalite skoruna,
+  kritik kontrol veri yokluğu sıfır ihlale çevrilmez.
+- Referanstaki veri alanı karşılaştırması ve kalite boyutu matrisi yalnız
+  `synthetic-development` kökeninde sabit sentetik view-model ile eklendi.
+  Üretim kökeninde bu alanlar uydurulmaz ve bölüm bazlı veri yok durumu gösterir.
+- Karşılaştırma renk yanında sayısal değer ve erişilebilir progressbar adı;
+  matris ise her hücrede sayı/durum ve ekran okuyucu tablosu taşır.
+
+### Gereksinim Bağlantıları
+
+- `FR-054`, `FR-056`, `FR-058`
+- `UC-010`, `RULE-009`
+- `AC/TS-030`, `AC/TS-043`, `AC/TS-045`
+- `NFR-USA-003`–`NFR-USA-006`
+
+### Doğrulama ve Görsel Turlar
+
+- 19 Vitest ve 15 Playwright testi geçti. Beş zorunlu viewport açık/koyu temada
+  taşmasız doğrulandı; 21C KPI'ları, beş karşılaştırma satırı, yedi boyutlu
+  erişilebilir matris ve hesaplanmadı durumu test edildi.
+- Birinci turda 1440 görünümündeki alt paneller referanstan farklı olarak alt
+  alta kalıyor ve uzun yeterlilik badge'i kelime ortasından kırılıyordu; grid
+  breakpoint'i ve güvenli wrap davranışı düzeltildi.
+- İkinci turda matrisin son kolonu kart içi kaydırmaya düşüyordu; sabit kolon
+  düzeni ve caption yoğunluğu uygulandı. Son incelemede 1280 koyu temadaki başlık
+  kırılması ilk sütun genişliği ve tek satır başlık davranışıyla giderildi.
+- Frontend type-check, üretim/Storybook build ve `npm audit --omit=dev`; tam Python pytest,
+  mypy, Ruff ve `compileall` kontrolleri geçti. Üretilmiş build çıktıları
+  temizlendikten sonra secret taraması 469 dosyada sıfır bulgu verdi. Vite 500
+  kB chunk uyarısı sürer.
+
+### Güvenlik ve Kapsam Sınırı
+
+- Fixture ve görsel artifact'lar yalnız sentetik veri içerir; gerçek banka veya
+  müşteri verisi, secret, SQL ve stack trace içermez.
+- UI rol/scope üretmez. Kritik kontrol sonucu, kapsam, kullanım kararı ve alarm
+  runtime'ı bulunmadığında başarılı değer uydurmaz.
+- Yeni route, dependency, veritabanı migration'ı veya üretim altyapısı yoktur.
+
 ## Kapsam Dışı
 
 - Gerçek banka verisiyle ekran veya görsel artifact.
@@ -153,8 +203,7 @@ Durum: **TechnicallyVerified**
 
 ## Sonraki İş
 
-30C uygulama kabuğu ve tema artımı ile 20E BFF/session/CSRF HTTP sınırı
-tamamlandı. Kullanıcı öncelikli zincirde sıradaki artım 21C operasyonel gösterge
-API'sidir; 30D dashboard referans içerik tamamlaması ayrı artım olarak uygulanır.
-Üretim bağlantılı 30F, 21C güvenli API sınırı ve geçiş kapısı tamamlanana kadar
-uygulanmaz.
+30D dashboard referans içerik tamamlaması ve 21C KPI bağlantısı tamamlandı.
+Kullanıcı öncelikli zincirde sıradaki hazır artım 35A salt okunur Veri Kaynakları
+ekranı ve istemci route kabuğudur. Üretim bağlantılı 30F gerçek IdP, yüksek
+erişilebilir session store, PostgreSQL repository ve geçiş kapısını bekler.

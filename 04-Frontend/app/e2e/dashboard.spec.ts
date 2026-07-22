@@ -78,6 +78,21 @@ test("grafik ve erişilebilir tablo aynı gözlemleri kullanır", async ({ page 
   await expect(table.getByRole("cell", { name: "Resmî", exact: true })).toHaveCount(7);
 });
 
+test("21C operasyonel göstergeleri ve sentetik karşılaştırmalar ayrı sunulur", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.getByText("Doğrulama Gerekli")).toBeVisible();
+  await expect(page.getByText("Kritik kural sonuç kaynağı henüz bağlı değil")).toBeVisible();
+  await expect(page.getByLabel("Durum: Teknik Hata Yok")).toBeVisible();
+  await expect(page.getByRole("progressbar")).toHaveCount(5);
+  const matrix = page.getByRole("table", { name: "Sentetik kalite boyutu matrisi" });
+  await expect(matrix).toBeVisible();
+  await expect(matrix.getByRole("row")).toHaveCount(6);
+  await expect(matrix.getByLabel("Operasyon, Güncellik: Hesaplanmadı, Hesaplanmadı")).toHaveText("—");
+  const matrixOverflow = await matrix.evaluate((element) => element.scrollWidth - element.clientWidth);
+  expect(matrixOverflow).toBeLessThanOrEqual(1);
+});
+
 function dashboardApiFixture() {
   const start = new Date("2026-06-23T00:00:00Z");
   const scores = new Map<number, number>([
@@ -116,6 +131,27 @@ function dashboardApiFixture() {
     as_of: "2026-07-22T12:00:00Z",
     has_data: true,
     periods,
+    operational_indicators: {
+      measurement_qualification: {
+        status: "VALIDATION_REQUIRED",
+        evaluated_scope_count: 1,
+        reason_codes: ["QUALIFICATION_POLICY_UNAVAILABLE"],
+        policy_version: null,
+      },
+      critical_controls: {
+        status: "NOT_AVAILABLE",
+        reason_code: "CRITICAL_RULE_RESULT_NOT_AVAILABLE",
+        passed_count: null,
+        failed_count: null,
+        not_evaluated_count: null,
+      },
+      technical_errors: {
+        observation_count: 0,
+        execution_count: 0,
+        affected_source_count: 0,
+        last_occurred_at: null,
+      },
+    },
   };
 }
 

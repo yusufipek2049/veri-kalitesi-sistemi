@@ -1395,6 +1395,23 @@ tags:
   build ve 465 dosyalık secret taraması temizdir. Vite bundle boyutu uyarısı
   sürmektedir.
 
+### 2026-07-22 — İterasyon 30D: Dashboard referans içerik tamamlaması
+
+- `FR-054`, `FR-056`, `FR-058`, `UC-010`, `AC/TS-030/043/045` kapsamında 21C
+  operasyonel gösterge zarfı frontend KPI modeline bağlandı. Eksik, bilinmeyen
+  veya negatif sayaçlı zarf güvenli geçersiz yanıt olur.
+- Ölçüm yeterliliği, kritik kontrol kullanılabilirliği ve teknik hata ayrı
+  gösterilir. Teknik başarısızlık sıfır kaliteye, kritik kontrol veri yokluğu
+  sıfır ihlale çevrilmez.
+- Yalnız `synthetic-development` kökeni için veri alanı karşılaştırması ve yedi
+  boyutlu erişilebilir kalite matrisi eklendi. Üretim kökeninde eksik alanlar
+  uydurulmaz.
+- 19 Vitest ve 15 Playwright testi geçti; açık/koyu temada beş viewport,
+  Storybook/üretim build, type-check ve `npm audit` temizdir. Tam depoda 1031
+  pytest geçti, iki opt-in PostgreSQL testi atlandı; 159 dosyalık mypy, Ruff ve
+  compileall ile 469 dosyalık secret taraması temizdir. Vite 500 kB chunk
+  uyarısı sürmektedir.
+
 ### 2026-07-22 — Kanıta dayalı karar sistemi ikinci faz hedef sözleşmesi
 
 - `BR-009–BR-011`, `FR-097–FR-111`, `UC-018–UC-021`, `RULE-018–RULE-023`,
@@ -1516,8 +1533,8 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20E, Iterasyon 21A–21B, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1, İterasyon 30A–30C, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A–33B ve İterasyon 34A–34F çıktıları korunacaktır.
-- `pytest` ile 1029 testin geçtiği, iki gerçek PostgreSQL entegrasyon testinin
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20E, Iterasyon 21A–21C, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1, İterasyon 30A–30D, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A–33B ve İterasyon 34A–34F çıktıları korunacaktır.
+- `pytest` ile 1031 testin geçtiği, iki gerçek PostgreSQL entegrasyon testinin
   opt-in koşuda ayrıca geçtiği doğrulanmıştır.
 - Tam mypy kontrolü 159 kaynak dosyada sıfır hata vermektedir.
 - Kısmi politika maker-checker onay/ret, geri çekme ve atomik audit akışı 32D ile tamamlandı. Süre aşımı açık kalır; güvenilir `PartialExecutionFacts` üretimi kapsama ve eksik kayıt oranı formüllerini beklemektedir. 31D hız sınırı sayaç/pencere semantiğini; CPU/IO sınırları güvenilir kaynak ölçüm adaptörünü beklemektedir. 27B restore tatbikat kanıtı `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını bekler; gerçek arşiv/fiziksel imha adaptörü, 29D, 21B/20E'nin gerçek IdP ve üretim session store bağlantısı, hassas dışa aktarma ve gerçek SIEM de banka/altyapı kararlarına bağlıdır.

@@ -46,6 +46,43 @@ describe("dashboard API istemcisi", () => {
       message: "Dashboard API request failed.",
     });
   });
+
+  it("FR-056 operasyonel gösterge zarfı eksik yanıtı reddeder", async () => {
+    const payload = validPayload();
+    const { operational_indicators: _, ...incompletePayload } = payload;
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(incompletePayload), {
+      status: 200,
+      headers: { "Content-Type": "application/json", "X-Correlation-ID": "correlation-invalid" },
+    })));
+
+    await expect(fetchDashboardSummary()).rejects.toMatchObject({
+      kind: "invalid-response",
+      correlationId: "correlation-invalid",
+    });
+  });
+
+  it("FR-056 bilinmeyen durum ve negatif sayaçları reddeder", async () => {
+    const payload = validPayload();
+    const invalidPayload = {
+      ...payload,
+      operational_indicators: {
+        ...payload.operational_indicators,
+        technical_errors: {
+          ...payload.operational_indicators.technical_errors,
+          observation_count: -1,
+        },
+      },
+    };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(invalidPayload), {
+      status: 200,
+      headers: { "Content-Type": "application/json", "X-Correlation-ID": "correlation-invalid-count" },
+    })));
+
+    await expect(fetchDashboardSummary()).rejects.toMatchObject({
+      kind: "invalid-response",
+      correlationId: "correlation-invalid-count",
+    });
+  });
 });
 
 function validPayload() {
@@ -56,5 +93,26 @@ function validPayload() {
     as_of: "2026-07-22T12:00:00Z",
     has_data: false,
     periods: [],
+    operational_indicators: {
+      measurement_qualification: {
+        status: "NO_DATA",
+        evaluated_scope_count: 0,
+        reason_codes: ["NO_AUTHORIZED_MEASUREMENT"],
+        policy_version: null,
+      },
+      critical_controls: {
+        status: "NOT_AVAILABLE",
+        reason_code: "CRITICAL_RULE_RESULT_NOT_AVAILABLE",
+        passed_count: null,
+        failed_count: null,
+        not_evaluated_count: null,
+      },
+      technical_errors: {
+        observation_count: 0,
+        execution_count: 0,
+        affected_source_count: 0,
+        last_occurred_at: null,
+      },
+    },
   };
 }

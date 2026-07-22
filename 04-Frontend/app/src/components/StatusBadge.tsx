@@ -37,6 +37,7 @@ export function StatusBadge({ label, tone }: StatusBadgeProps) {
         display: "inline-flex",
         fontSize: theme.typography.caption.fontSize,
         fontWeight: 700,
+        flexShrink: 0,
         gap: 1,
         lineHeight: 1,
         maxWidth: "100%",
@@ -47,7 +48,7 @@ export function StatusBadge({ label, tone }: StatusBadgeProps) {
       <Box component="span" aria-hidden="true" sx={{ fontWeight: 800 }}>
         {toneGlyph[tone]}
       </Box>
-      <Box component="span" sx={{ overflowWrap: "anywhere" }}>
+      <Box component="span" sx={{ whiteSpace: "nowrap" }}>
         {label}
       </Box>
     </Box>

@@ -33,7 +33,7 @@ export function KpiCard({ item }: KpiCardProps) {
       <Typography id={`${item.id}-label`} color="text.secondary" sx={{ fontWeight: 700 }} variant="body2">
         {item.label}
       </Typography>
-      <Box sx={{ alignItems: "center", display: "flex", gap: 3, justifyContent: "space-between", minWidth: 0 }}>
+      <Box sx={{ alignItems: "center", display: "flex", flexWrap: "wrap", gap: 3, justifyContent: "space-between", minWidth: 0 }}>
         <Typography
           component="p"
           sx={{ fontSize: 28, fontVariantNumeric: "tabular-nums", fontWeight: 800, lineHeight: 1 }}
