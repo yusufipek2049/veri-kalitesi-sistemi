@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 import json
 from threading import RLock
@@ -23,6 +23,7 @@ from veri_kalitesi.synthetic_data.models import (
     SyntheticRunCompletion,
     SyntheticRunStatus,
     SyntheticScenario,
+    SyntheticTemporalProfile,
     SyntheticValidationResult,
     SyntheticValidationStatus,
 )
@@ -99,6 +100,19 @@ class SQLiteSyntheticDataRepository:
                     status TEXT NOT NULL,
                     output_reference TEXT,
                     validation_reference TEXT,
+                    created_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS synthetic_temporal_profiles (
+                    profile_version TEXT PRIMARY KEY,
+                    base_time TEXT NOT NULL,
+                    period_count INTEGER NOT NULL,
+                    period_duration_seconds INTEGER NOT NULL,
+                    source_created_delay_seconds INTEGER NOT NULL,
+                    source_updated_delay_seconds INTEGER NOT NULL,
+                    ingestion_delay_seconds INTEGER NOT NULL,
+                    processing_delay_seconds INTEGER NOT NULL,
+                    quality_check_delay_seconds INTEGER NOT NULL,
                     created_at TEXT NOT NULL
                 );
 
@@ -212,6 +226,18 @@ class SQLiteSyntheticDataRepository:
                     SELECT RAISE(ABORT, 'synthetic run history is append-only');
                 END;
 
+                CREATE TRIGGER IF NOT EXISTS synthetic_temporal_profiles_no_update
+                BEFORE UPDATE ON synthetic_temporal_profiles
+                BEGIN
+                    SELECT RAISE(ABORT, 'synthetic temporal profile is append-only');
+                END;
+
+                CREATE TRIGGER IF NOT EXISTS synthetic_temporal_profiles_no_delete
+                BEFORE DELETE ON synthetic_temporal_profiles
+                BEGIN
+                    SELECT RAISE(ABORT, 'synthetic temporal profile is append-only');
+                END;
+
                 CREATE TRIGGER IF NOT EXISTS synthetic_ground_truth_no_update
                 BEFORE UPDATE ON synthetic_ground_truth
                 BEGIN
@@ -306,6 +332,54 @@ class SQLiteSyntheticDataRepository:
         except sqlite3.DatabaseError as exc:
             raise SyntheticDataTechnicalError("Synthetic scenario could not be persisted.") from exc
         return scenario
+
+    def add_temporal_profile(
+        self,
+        profile: SyntheticTemporalProfile,
+    ) -> SyntheticTemporalProfile:
+        _validate_temporal_profile(profile)
+        try:
+            with self._lock, self.connection:
+                self.connection.execute(
+                    """
+                    INSERT INTO synthetic_temporal_profiles (
+                        profile_version, base_time, period_count,
+                        period_duration_seconds, source_created_delay_seconds,
+                        source_updated_delay_seconds, ingestion_delay_seconds,
+                        processing_delay_seconds, quality_check_delay_seconds,
+                        created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    _temporal_profile_values(profile),
+                )
+        except sqlite3.IntegrityError as exc:
+            raise SyntheticDataConflictError(
+                "Synthetic temporal profile version conflicts."
+            ) from exc
+        except sqlite3.DatabaseError as exc:
+            raise SyntheticDataTechnicalError(
+                "Synthetic temporal profile could not be persisted."
+            ) from exc
+        return profile
+
+    def get_temporal_profile(self, profile_version: str) -> SyntheticTemporalProfile:
+        if not profile_version.strip():
+            raise SyntheticDataValidationError("Temporal profile version is required.")
+        try:
+            row = self.connection.execute(
+                """
+                SELECT * FROM synthetic_temporal_profiles
+                WHERE profile_version = ?
+                """,
+                (profile_version,),
+            ).fetchone()
+        except sqlite3.DatabaseError as exc:
+            raise SyntheticDataTechnicalError(
+                "Synthetic temporal profile could not be read."
+            ) from exc
+        if row is None:
+            raise SyntheticDataValidationError("Synthetic temporal profile was not found.")
+        return _row_to_temporal_profile(row)
 
     def resolve_effective_policy(
         self,
@@ -756,6 +830,39 @@ def _validate_scenario(scenario: SyntheticScenario) -> None:
     _validate_aware_time(scenario.created_at, "Scenario creation time")
 
 
+def _validate_temporal_profile(profile: SyntheticTemporalProfile) -> None:
+    _validate_ids((profile.profile_version,), "Synthetic temporal profile version")
+    _validate_aware_time(profile.base_time, "Temporal profile base time")
+    _validate_aware_time(profile.created_at, "Temporal profile creation time")
+    if profile.base_time.utcoffset() != timedelta(0):
+        raise SyntheticDataValidationError("Temporal profile base time must be UTC.")
+    if (
+        isinstance(profile.period_count, bool)
+        or not isinstance(profile.period_count, int)
+        or profile.period_count < 2
+    ):
+        raise SyntheticDataValidationError("Temporal profile requires multiple periods.")
+    if (
+        isinstance(profile.period_duration_seconds, bool)
+        or not isinstance(profile.period_duration_seconds, int)
+        or profile.period_duration_seconds <= 0
+    ):
+        raise SyntheticDataValidationError("Temporal period duration must be positive.")
+    delays = (
+        profile.source_created_delay_seconds,
+        profile.source_updated_delay_seconds,
+        profile.ingestion_delay_seconds,
+        profile.processing_delay_seconds,
+        profile.quality_check_delay_seconds,
+    )
+    if any(isinstance(value, bool) or not isinstance(value, int) for value in delays):
+        raise SyntheticDataValidationError("Temporal profile delays must be integers.")
+    if delays[0] < 0 or any(current < previous for previous, current in zip(delays, delays[1:])):
+        raise SyntheticDataValidationError(
+            "Temporal profile delays must preserve event processing order."
+        )
+
+
 def _validate_run(run: SyntheticGenerationRun) -> None:
     _validate_ids(
         (
@@ -988,6 +1095,21 @@ def _scenario_values(scenario: SyntheticScenario) -> tuple[object, ...]:
     )
 
 
+def _temporal_profile_values(profile: SyntheticTemporalProfile) -> tuple[object, ...]:
+    return (
+        profile.profile_version,
+        profile.base_time.isoformat(),
+        profile.period_count,
+        profile.period_duration_seconds,
+        profile.source_created_delay_seconds,
+        profile.source_updated_delay_seconds,
+        profile.ingestion_delay_seconds,
+        profile.processing_delay_seconds,
+        profile.quality_check_delay_seconds,
+        profile.created_at.isoformat(),
+    )
+
+
 def _run_values(run: SyntheticGenerationRun) -> tuple[object, ...]:
     return (
         run.generation_run_id,
@@ -1125,6 +1247,21 @@ def _row_to_scenario(row: sqlite3.Row) -> SyntheticScenario:
         missingness_profile=row["missingness_profile"],
         defect_injection_profile=row["defect_injection_profile"],
         privacy_profile=row["privacy_profile"],
+        created_at=datetime.fromisoformat(row["created_at"]),
+    )
+
+
+def _row_to_temporal_profile(row: sqlite3.Row) -> SyntheticTemporalProfile:
+    return SyntheticTemporalProfile(
+        profile_version=row["profile_version"],
+        base_time=datetime.fromisoformat(row["base_time"]),
+        period_count=row["period_count"],
+        period_duration_seconds=row["period_duration_seconds"],
+        source_created_delay_seconds=row["source_created_delay_seconds"],
+        source_updated_delay_seconds=row["source_updated_delay_seconds"],
+        ingestion_delay_seconds=row["ingestion_delay_seconds"],
+        processing_delay_seconds=row["processing_delay_seconds"],
+        quality_check_delay_seconds=row["quality_check_delay_seconds"],
         created_at=datetime.fromisoformat(row["created_at"]),
     )
 
