@@ -489,3 +489,16 @@ değerleri üretim için bağlayıcı değildir.
 - düzenleyici raporlama/risk zinciri kapsamı.
 
 Bu konular `OPEN-019`–`OPEN-023` ve ilişkili `OPEN-BNK` kayıtlarıyla yönetilir.
+
+## 20. Runtime Geçiş Durumu
+
+`SOURCE_EQUAL_DATASET_QUALITY_V2`, yeni kaynak kalite skorlarında yalnız resmî
+dataset kalite skorlarını eşit kalite ağırlığıyla toplar. Dataset kritikliği
+hesaplama girdisi değildir; bileşen açıklamasında ayrı profil olarak ve
+`used_in_quality_score=false` kanıtıyla taşınır. Formül ve ağırlık politikası
+sonuç kaydında sürümlüdür.
+
+Tarihsel `SOURCE_WEIGHTED_V1` kayıtları yerinde korunur ve sessizce yeniden
+yazılmaz. Yeni modelle replay/backfill, orijinal skor ilişkisi, trend sürüm
+sınırı, ayrı risk/güven/yeterlilik ve kullanım kararı alanları henüz runtime'a
+taşınmamıştır; bunlar `OPEN-022/023` kapsamında kalır.

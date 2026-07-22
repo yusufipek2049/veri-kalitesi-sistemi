@@ -48,7 +48,7 @@ from veri_kalitesi.scoring.repository import SQLiteScoreRepository
 FORMULA_VERSION = "RULE_SCORE_V2_EVALUATED_DENOMINATOR"
 DATASET_FORMULA_VERSION = "DATASET_WEIGHTED_V1"
 DIMENSION_FORMULA_VERSION = "DIMENSION_WEIGHTED_V1"
-SOURCE_FORMULA_VERSION = "SOURCE_WEIGHTED_V1"
+SOURCE_FORMULA_VERSION = "SOURCE_EQUAL_DATASET_QUALITY_V2"
 ENTERPRISE_FORMULA_VERSION = "ENTERPRISE_EQUAL_WEIGHT_V1"
 _TWO_PLACES = Decimal("0.01")
 
@@ -578,6 +578,8 @@ class ScoringService:
             "formula_version": SOURCE_FORMULA_VERSION,
             "configuration_version": configuration.version,
             "threshold_version": configuration.threshold_set.version,
+            "weight_policy": "EQUAL_DATASET_QUALITY_WEIGHT",
+            "criticality_usage": "SEPARATE_PROFILE_NOT_IN_QUALITY_SCORE",
             "excluded_components": [
                 {
                     "quality_score_id": score.quality_score_id,
@@ -593,36 +595,28 @@ class ScoringService:
         if included:
             value = calculate_weighted_score(
                 tuple(
-                    (
-                        score.score_value,
-                        configuration.criticality_weights[dataset.criticality],
-                    )
-                    for score, dataset in included
+                    (score.score_value, Decimal(1))
+                    for score, _ in included
                     if score.score_value is not None
                 )
             )
             level = classify_score(value, configuration.threshold_set)
             status = _aggregate_included_status(tuple(score for score, _ in included))
-            details["formula"] = "sum(dataset_score * criticality_weight) / sum(weight)"
+            details["formula"] = "sum(dataset_score) / dataset_count"
             details["included_components"] = [
                 {
                     "quality_score_id": score.quality_score_id,
                     "dataset_id": dataset.dataset_id,
                     "score": str(score.score_value),
-                    "criticality": dataset.criticality.value,
-                    "weight": str(configuration.criticality_weights[dataset.criticality]),
+                    "quality_weight": "1",
+                    "criticality_profile": {
+                        "level": dataset.criticality.value,
+                        "used_in_quality_score": False,
+                    },
                 }
                 for score, dataset in included
             ]
-            details["weight_sum"] = str(
-                sum(
-                    (
-                        configuration.criticality_weights[dataset.criticality]
-                        for _, dataset in included
-                    ),
-                    Decimal(0),
-                )
-            )
+            details["weight_sum"] = str(len(included))
         else:
             status = _aggregate_empty_status(tuple(score for score, _ in candidates))
             details["included_components"] = []

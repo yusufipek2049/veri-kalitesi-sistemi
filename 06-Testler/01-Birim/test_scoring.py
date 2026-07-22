@@ -1329,7 +1329,7 @@ def test_fr_050_dimension_without_rule_score_is_rejected_without_record() -> Non
     )
 
 
-def test_fr_050_uc_009_source_score_uses_dataset_criticality_weights() -> None:
+def test_fr_050_dq_scr_018_source_quality_excludes_dataset_criticality() -> None:
     (
         service,
         score_repository,
@@ -1338,7 +1338,7 @@ def test_fr_050_uc_009_source_score_uses_dataset_criticality_weights() -> None:
         _,
     ) = _source_service()
     criticality_weights = default_criticality_weights()
-    criticality_weights[Criticality.HIGH] = Decimal("2")
+    criticality_weights[Criticality.HIGH] = Decimal("9")
     _create_and_approve_configuration(
         _configuration_service(score_repository),
         version="SOURCE_SCORING_V1",
@@ -1362,14 +1362,22 @@ def test_fr_050_uc_009_source_score_uses_dataset_criticality_weights() -> None:
 
     assert score.scope_type is ScoreScopeType.SOURCE
     assert score.scope_id == "source-main"
-    assert score.score_value == Decimal("86.67")
-    assert score.level is ScoreLevel.ACCEPTABLE
+    assert score.score_value == Decimal("90.00")
+    assert score.level is ScoreLevel.GOOD
     assert score.calculation_details["formula_version"] == SOURCE_FORMULA_VERSION
     assert score.calculation_details["configuration_version"] == "SOURCE_SCORING_V1"
-    assert score.calculation_details["weight_sum"] == "3.0"
+    assert score.calculation_details["weight_policy"] == "EQUAL_DATASET_QUALITY_WEIGHT"
+    assert score.calculation_details["criticality_usage"] == (
+        "SEPARATE_PROFILE_NOT_IN_QUALITY_SCORE"
+    )
+    assert score.calculation_details["weight_sum"] == "2"
     included = score.calculation_details["included_components"]
     assert [item["dataset_id"] for item in included] == ["dataset-high", "dataset-low"]
-    assert [item["weight"] for item in included] == ["2", "1.0"]
+    assert [item["quality_weight"] for item in included] == ["1", "1"]
+    assert [item["criticality_profile"] for item in included] == [
+        {"level": "HIGH", "used_in_quality_score": False},
+        {"level": "LOW", "used_in_quality_score": False},
+    ]
     assert score.calculation_details["excluded_components"] == ()
     assert repeated == score
 
@@ -1390,11 +1398,46 @@ def test_fr_050_rule_004_source_score_excludes_no_data_dataset() -> None:
     score = service.calculate_source_score(execution.execution_id, "source-main")
 
     assert score.score_value == Decimal("100.00")
-    assert score.calculation_details["weight_sum"] == "1.0"
+    assert score.calculation_details["weight_sum"] == "1"
     excluded = score.calculation_details["excluded_components"]
     assert len(excluded) == 1
     assert excluded[0]["dataset_id"] == "dataset-high"
     assert excluded[0]["status"] == "NO_DATA"
+
+
+def test_dq_scr_025_source_v2_does_not_rewrite_historical_v1_score() -> None:
+    service, score_repository, execution_repository, versions, _ = _source_service()
+    execution = _source_execution(versions)
+    execution_repository.create_or_get(execution)
+    execution_repository.complete_success(
+        execution.execution_id,
+        (
+            _version_result(execution, versions[0], checked=10, passed=8, failed=2),
+            _version_result(execution, versions[1], checked=10, passed=10, failed=0),
+        ),
+        datetime(2026, 7, 16, 12, 5, tzinfo=timezone.utc),
+    )
+    historical = QualityScore(
+        execution_id=execution.execution_id,
+        rule_version_id=None,
+        scope_type=ScoreScopeType.SOURCE,
+        scope_id="source-main",
+        score_value=Decimal("86.67"),
+        score_status=ScoreStatus.CALCULATED,
+        level=ScoreLevel.ACCEPTABLE,
+        calculation_details={
+            "formula_version": "SOURCE_WEIGHTED_V1",
+            "formula": "sum(dataset_score * criticality_weight) / sum(weight)",
+            "included_in_official_aggregation": True,
+        },
+    )
+    score_repository.add_or_get(historical)
+
+    returned = service.calculate_source_score(execution.execution_id, "source-main")
+
+    assert returned.quality_score_id == historical.quality_score_id
+    assert returned.score_value == Decimal("86.67")
+    assert returned.calculation_details["formula_version"] == "SOURCE_WEIGHTED_V1"
 
 
 def test_fr_050_rule_004_technical_datasets_produce_no_numeric_source_score() -> None:
