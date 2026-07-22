@@ -1301,6 +1301,17 @@ tags:
 
 ## İlgili Notlar
 
+### 2026-07-22 — Açık karar kayıtlarının ayrıştırılması
+
+- `OPEN-001`–`OPEN-018` kesinleşmiş kararları SRS açık konu tablosundan
+  çıkarıldı; karar belgesindeki kanonik tablo korunmuştur.
+- `OPEN-BNK-003/004/005/006/007/010/012/014/015/016/017/020` teknik yönleri
+  `ProvisionalDecision`, `OPEN-BNK-021` ise `KararAlındı` durumuyla bankacılık
+  geçiş teknik yön kararları tablosuna taşındı. Bu işlem banka onayı üretmez.
+- Bankacılık açık tablosunda yalnız `OPEN-BNK-001/002/008/009/011/013/018/019`
+  kaldı. Cron, şema değişikliği ve `QualityDimension` için alınmış kararların
+  bekleyen uygulama işleri `Sonraki-Adimlar.md` içinde korunmuştur.
+
 ### OPEN-001–OPEN-018 Dokümantasyon Uyumlaştırması
 
 - Kapasite, kaynak kullanım politikası, kurumsal secret manager, IdP/SSO/MFA, kayıt sınıfı bazlı saklama, bileşen bazlı RPO/RTO, ServiceNow ara entegrasyonu, katalog/DLP sınıflandırması, katmanlı rapor saklama, risk bazlı maker-checker, bağlayıcı sırası, anonimleştirilmiş performans verisi, WCAG 2.2 AA, hibrit dağıtım, hibrit audit ve dataset kontrollü kısmi skor kararları SRS, veri modeli, mimari, operasyon ve test belgelerine işlendi.

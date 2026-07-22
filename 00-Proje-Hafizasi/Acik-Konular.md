@@ -2,7 +2,7 @@
 type: project-memory
 status: open
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-last_updated: 2026-07-21
+last_updated: 2026-07-22
 tags:
   - proje
   - acik-konu
@@ -13,36 +13,41 @@ tags:
 
 Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../01-SRS/15-Acik-Konular.md).
 
-## Geliştirmeyi En Çok Etkileyen Kararlar
+`KararAlındı` ve `ProvisionalDecision` durumundaki teknik yönler
+[Alınan Kararlar](Alinan-Kararlar.md) belgesindedir. Bu dosya yalnız `Açık`,
+`DecisionRequired` veya kurumsal/banka incelemesi gerektiren belirsizlikleri ve
+kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
 
-1. Bağlayıcı geliştirme sırası kesinleşti; ilk ve ikinci ilişkisel veritabanı ürünleri, gerçek sürücü paketleri ve canlı entegrasyon ortamı TBD'dir.
-2. Kaynak kullanım politika modeli, sürümlü SQLite deposu, global/kaynak override çözümlemesi, claim sırasında worker/sorgu kotası ve çalışma/yasaklı pencere koruması ile sorgu timeout/retry yürütmesi teknik olarak uygulandı. Üretim worker/kota/pencere/CPU/IO/timeout/rate değerleri ile CPU/IO ve hız sınırı çalışma zamanı uygulaması TBD'dir.
-3. Kurumsal secret manager ve servis/workload identity yönü kesinleşti; ürün ve erişim eşlemesi TBD'dir.
-4. Kurumsal IdP/SSO, OIDC veya SAML ve tüm kullanıcılar için MFA kesinleşti; ürün, grup-rol eşleme değerleri ve break-glass ayrıntıları TBD'dir.
-5. 20 milyon satırlık testin onaylı anonimleştirilmiş üretim örneğiyle yapılması kesinleşti; veri sahibi onayı, dataset ve test ortamı henüz hazırlanmadı.
-6. ServiceNow ara entegrasyon modeli kesinleşti; gerçek tablo/alan/durum eşleme, servis hesabı, endpoint/TLS ve veri aktarım kararı açık.
-7. Kayıt sınıfı bazlı saklama ve bileşen bazlı RPO/RTO kesinleşti; süreler iş etki analizi ve kurum onaylarına kadar TBD'dir.
-8. Hibrit dağıtım yönü kesinleşti; kurumsal konteyner platformu, yüksek erişilebilirlik veritabanı, broker ve kalıcı dosya depolama ürünleri TBD'dir.
-9. Audit olay sınıfı davranışı kesinleşti; üretim outbox/kuyruk, alarm ve kapasite değerleri TBD'dir.
-10. Kısmi resmî skor dataset politika koşullarına bağlandı; kurumsal eşik değerleri ve onaylı politika kayıtları TBD'dir.
+## Geliştirmeyi En Çok Etkileyen Açık Konular
+
+1. İlk ve ikinci ilişkisel veritabanı ürünlerinin kurum standardı, canlı sürücü paketleri ve entegrasyon ortamı onayı TBD'dir.
+2. Üretim worker/kota/pencere/CPU/IO/timeout/rate değerleri ile CPU/IO ve hız sınırı çalışma zamanı ölçüm modeli TBD'dir.
+3. Kurumsal secret manager ürünü ve servis/workload identity erişim eşlemesi TBD'dir.
+4. Kurumsal IdP ürünü, grup-rol-scope eşleme değerleri ve break-glass ürün/rol ayrıntıları TBD'dir.
+5. `AC-008` için veri sahibi onayı, anonimleştirilmiş üretim örneği, yeniden kimliklendirme risk değerlendirmesi ve test ortamı henüz hazırlanmamıştır.
+6. ServiceNow gerçek tablo/alan/durum eşlemesi, servis hesabı, endpoint/TLS ve veri aktarım onayı açıktır.
+7. Kayıt sınıfı saklama süreleri ile bileşen RPO/RTO hedefleri iş etki analizi ve kurum onaylarına kadar TBD'dir.
+8. Kurumsal konteyner platformu, yüksek erişilebilirlik veritabanı, broker ve kalıcı dosya depolama ürünleri TBD'dir.
+9. Üretim outbox/kuyruk ürünü, alarm eşikleri ve kapasite değerleri TBD'dir.
+10. Kısmi resmî skor için kurumsal eşik değerleri ve banka onaylı politika kayıtları TBD'dir.
 11. Dashboard güvenilir `ActorContext` ve `AuthorizationService` sınırına taşındı; diğer servislerdeki serbest `actor_id` kullanımı ile context issuer'ın gerçek LDAP/session adaptörüne bağlanması İterasyon 20 ve sonraki modül geçişlerini gerektirir.
-13. PostgreSQL için üretim sürücüsü, bağlantı havuzu yaklaşımı ve canlı entegrasyon test veritabanı henüz seçilmedi.
-14. Şema değişikliğinde aktif kuralları “inceleme gerekli” durumuna alma davranışı, kural yönetimi modülü uygulanınca metadata değişim bayrağına bağlanmalıdır.
+13. Kurum içi kalıcı PostgreSQL entegrasyon veritabanı erişimi ve seçilen sürücü/havuz yaklaşımının kurum standardı onayı beklenmektedir.
 15. `AC-008` için veri sahibi onaylı, anonimleştirilmiş üretim örneği, yeniden kimliklendirme risk değerlendirmesi ve donanım gözlemli performans testi henüz hazırlanmadı; birim testleri yalnız SAMPLE sözleşmesini doğruluyor.
 16. `RuleTestExecutor` için PostgreSQL/CSV kaynak adaptörleri, sorgu maliyet tahmini ve regex çalışma timeoutu henüz uygulanmadı; mevcut iterasyon güvenli domain sözleşmesini, şablon planlarını ve test geçmişini doğruluyor.
 17. Üretim iş kuyruğu/broker ürünü, çoklu worker claim stratejisi ve worker sayısı henüz seçilmedi; yerel prototip SQLite üzerinde süreç içi kilitle kalıcı kuyruk davranışını doğruluyor.
 18. Bağlantı, sorgu ve toplam timeout değerleri worker yürütücü sözleşmesinde ayrı taşınıyor ve iptal adaptörü tanımlandı; gerçek PostgreSQL/CSV adaptörlerinde sorgu iptali ile duvar saati zorlaması henüz uygulanmadı.
-19. Genel cron ifadesi desteği için kullanılacak doğrulanmış parser/kütüphane ve kabul edilen cron grameri henüz seçilmedi; mevcut zamanlama yalnız ONCE/DAILY/WEEKLY/MONTHLY türlerini destekliyor.
-20. QualityDimension için ayrı kalıcı UUID varlığı henüz uygulanmadı; boyut skoru kapsam kimliği geçici olarak değişmez enum kodunu (`COMPLETENESS` vb.) kullanıyor.
 21. Mevcut runtime dataset kritikliğini `SOURCE` kalite agregasyonuna katıyor; `DQ-SCR-018` ve `ADR-015` bu yaklaşımı hedef modelde `Superseded` yapmıştır. Kritiklik profilinin ayrı taşınacağı migration, replay ve trend sürüm sınırı uygulanmalıdır.
 22. Kurum skorunda kaynaklar arası ham kalite agregasyon politikası onaylanmadı; mevcut `ENTERPRISE` formülü kaynakları eşit ağırlıklandırıyor. Yeni politika kritiklik ve veri riskini kalite skoruna karıştırmamalı, ayrı sürümlenmelidir.
 23. Eski SQLite `audit_records` için salt okunur envanter ve idempotent merkezi aktarım sözleşmesi sentetik verilerle teknik olarak doğrulandı. Gerçek ortam envanteri/koşusu, yedek ve geri dönüş planı, değişiklik penceresi ve operasyon onayı henüz tamamlanmadı.
 24. `DURABLE_BUFFER` sözleşmesi ve hata yolu test edildi; üretim kalıcı tampon teknolojisi, sahipliği, şifrelemesi, yeniden oynatma ve idempotency davranışı henüz uygulanmadı.
 25. SQLite outbox için üretim publisher worker'ı, claim/eşzamanlılık, retry/backoff, alarm metrikleri, kapasite sınırı ve saklama/temizleme politikası henüz uygulanmadı.
 26. `CLASSIFICATION_POLICY_V1`, fail-closed profil politikası, sürümlü `BFR-DATA-004` işleme envanteri ve kişisel/özel nitelikli kişisel alanlar için salt okunur tamlık kontrolü uygulandı. Teknik kodların banka sözlüğüyle eşlemesi ve referansların kurumsal kayıtlarla doğrulanması açık kalır.
-27. Kritik kural aktivasyonu için 19A, skor konfigürasyonu için 19B, kural onay isteği geri çekme için 19C, 3/10 iş günlük kural süre aşımı için 19D, veri kaynağı aktivasyonu için 19E, kaynak onay geri çekme/süre aşımı için 19F, bağlantı revizyonu/onay geçersizleştirme için 19G ve kontrollü kaynak pasifleştirme için 19H uygulandı. Gerçek banka iş günü/tatil kaynağı, worker işletimi, hazırlayanı bilinmeyen legacy kritik sürümlerin geçiş prosedürü, kaynak kritiklik sözlüğü, üretim migration/çoklu instance eşzamanlılığı, çalışan işin tamamlanması/iptali politikası, operasyon bildirimi ve banka onaylı maker/checker/deactivator/worker rol kodları açık kalır.
+27. Gerçek banka iş günü/tatil kaynağı, onay süre aşımı worker işletimi,
+    hazırlayanı bilinmeyen legacy kritik sürümlerin geçiş prosedürü, kaynak
+    kritiklik sözlüğü, üretim migration/çoklu instance eşzamanlılığı, çalışan
+    işin tamamlanması/iptali politikası, operasyon bildirimi ve banka onaylı
+    maker/checker/deactivator/worker rol kodları açık kalır.
 28. Başarısız giriş sınırlandırması opak kullanıcı/istemci anahtarlarıyla teknik olarak uygulandı. Üretim anahtar türetme/rotasyon yöntemi, secret manager bağlantısı, güvenilir istemci referansının proxy/ağ sınırı, paylaşımlı depo ürünü ve LDAP ile uyumlu nihai eşik/pencere/süre onayı açık kalır.
-29. Normal kullanıcı oturumu kalıcı ve iptal edilebilir olarak uygulandı. Eş zamanlı oturum limiti, banka onaylı mutlak süre, HTTP cookie veya eşdeğer token taşıma/CSRF modeli, üretim deposu ve at-rest şifreleme, bir yıllık session geçmişi saklama/imha onayı açık kalır.
 30. Dashboard trendi güvenilir scope ile sabit son 30 UTC gün için uygulandı. Serbest tarih aralığı/periyot seçimi, operasyon listeleri, grafik/tablo sunumu ve HTTP taşıma katmanı açık kalır; 21B `OPEN-BNK-020` ve geçiş kapısına bağlıdır.
 31. Sistem içi bildirim domain yaşam döngüsü sabit veri-minimum şablon ve güvenilir resolver protokolüyle uygulandı. Gerçek sahiplik/fallback grup kaynağı, şablon yönetimi, susturma/eskalasyon politikası, asenkron retry/DLQ, saklama-imha ve HTTP/UI yüzeyi açık kalır.
 32. Otomatik issue oluşturma, atama/inceleme, korunan çözüm, başarısız/teknik doğrulama, farklı aktörle başarılı `VERIFIED`, doğrulama bağlı `CLOSED`, aynı başarısızlıkla yeniden açma ve yeni kalite başarısızlığını append-only ilişkilendirme uygulandı. Gerçek assignment/kullanıcı dizini, çözüm koruma, doğrulama ve ilişki resolver adaptörleri; banka onaylı çözen/doğrulayan rol eşlemesi, bildirim retry/DLQ, saklama-imha ve ServiceNow açık kalır.
@@ -196,25 +201,15 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
 | --- | --- | --- | --- |
 | OPEN-BNK-001 | BDDK bilgi sistemleri düzenlemelerinin bu uygulamaya uygulanabilir maddelerinin banka uyum/hukuk tarafından teyidi | Uyum / Hukuk / Bilgi Güvenliği | ComplianceReviewRequired |
 | OPEN-BNK-002 | IdP grup-rol-scope eşleme tablosunun değerleri ve joiner/mover/leaver kaynağı | IAM / İnsan Kaynakları / Bilgi Güvenliği | Açık |
-| OPEN-BNK-003 | Tüm kullanıcılar için IdP MFA kesinleşti; PAM ve kontrollü/süreli/auditli break-glass ürün ve rol ayrıntıları | Bilgi Güvenliği / IAM | ProvisionalDecision |
-| OPEN-BNK-004 | Kritik işlem listesi ve maker-checker onay rolleri | Veri Yönetişimi / İç Kontrol | ProvisionalDecision |
-| OPEN-BNK-005 | Kritik işlem fail-closed, rutin olay durable outbox olarak kesinleşti; üretim kuyruk/outbox, kapasite ve alarm ayrıntıları | Bilgi Güvenliği / Mimari / Operasyon | ProvisionalDecision |
-| OPEN-BNK-006 | Audit bütünlüğü için WORM, hash-chain, imza veya kurumsal log platformu kararı | Bilgi Güvenliği / İç Denetim | Açık |
-| OPEN-BNK-007 | Kurumsal katalog/DLP sınıflandırma kaynağı kesinleşti; ürün ve müşteri/banka sırrı etiket eşlemesi | Veri Yönetişimi / Hukuk / Bilgi Güvenliği | ProvisionalDecision |
-| OPEN-BNK-008 | Kayıt türü bazlı politika taslağı, imha aralığı, append-only legal hold, idempotent imha kanıtı ve yetkili arşiv geri çağırma talep/kararı teknik olarak uygulandı; banka politika/rol/gerekçe onayı, gerçek resolver/adaptörler, fiziksel imha, yedek re-delete, erişim süresi ve geri çağrılan kopyanın yeniden imhası bekleniyor | Hukuk / KVKK Komitesi / İç Denetim | ProvisionalDecision |
+| OPEN-BNK-008 | Kayıt türü bazlı süre, gerekçe ve imha periyodu için hukuk/KVKK/bilgi güvenliği/iç denetim onayı; banka rol/gerekçe eşlemesi ve gerçek imha/arşiv adaptörleri | Hukuk / KVKK Komitesi / İç Denetim | ComplianceReviewRequired |
 | OPEN-BNK-009 | ServiceNow kurulum yeri, veri işleyen/alt işleyen durumu ve yurt dışı aktarım etkisi | Hukuk / Tedarik / Bilgi Güvenliği | Açık |
-| OPEN-BNK-010 | SIEM ürün, olay sözlüğü, alarm seviyesi ve SOC eskalasyon akışı | SOC / Bilgi Güvenliği | Açık |
-| OPEN-BNK-011 | Bileşen bazlı RTO/RPO modeli kesinleşti; iş etki analizi, hedef değerler, yedek şifreleme ve geri yükleme sıklığı | İş Sürekliliği / Operasyon | ComplianceReviewRequired |
-| OPEN-BNK-012 | Hibrit dağıtım ve kurumsal secret manager yönü kesinleşti; ürünler, deployment/attestation sağlayıcısı, konfigürasyon imzası ve ortam bazlı ağ/IAM ayrımı bekleniyor | Mimari Kurul / Operasyon / Bilgi Güvenliği | ProvisionalDecision |
+| OPEN-BNK-011 | İş etki analizi, bileşen RPO/RTO hedef değerleri, yedek şifreleme ve geri yükleme test sıklığı | İş Sürekliliği / Operasyon | ComplianceReviewRequired |
 | OPEN-BNK-013 | Sistem risk verisi veya düzenleyici raporlama üretim zincirine girecek mi; BCBS 239 kapsamı | Risk Yönetimi / Veri Yönetişimi | Açık |
-| OPEN-BNK-014 | Hassas rapor dışa aktarma için gerekçe, onay, DLP ve watermark politikası | Bilgi Güvenliği / Veri Sahibi | Açık |
-| OPEN-BNK-015 | `ActorContext` kurumsal IdP/session adaptöründen üretilecek; issuer sahipliği ve OIDC/SAML session assertion doğrulaması henüz kesinleşmedi. | IAM / Bilgi Güvenliği / Mimari | ProvisionalDecision |
-| OPEN-BNK-016 | Üretim audit durable-buffer teknolojisi, şifreleme, sahiplik, yeniden oynatma ve başarısız tampon davranışı | Mimari / Operasyon / Bilgi Güvenliği | Açık |
-| OPEN-BNK-017 | Onay hedefi 3 iş günü ve otomatik sona erme 10 iş günü olarak teknik politikaya alındı; gerçek banka iş günü/tatil kaynağı, worker zamanlaması ve banka onaylı rol sahibi bekleniyor | Veri Yönetişimi / İç Kontrol / Mimari | ProvisionalDecision |
 | OPEN-BNK-018 | Gerçek kurumsal IdP endpoint/protokol yapılandırması, LDAP arka uç topolojisi, TLS güveni, timeout ve teknik hata sahipliği | IAM / Altyapı / Bilgi Güvenliği | Açık |
 | OPEN-BNK-019 | Başarısız giriş için banka/LDAP uyumlu eşik, pencere, süre ve politika değişikliği onay/görevler ayrılığı; opak anahtar üretimi/rotasyonu, güvenilir istemci referansı ve paylaşımlı üretim deposu | IAM / Bilgi Güvenliği / Mimari / Altyapı / İç Kontrol | ComplianceReviewRequired |
-| OPEN-BNK-020 | Normal kullanıcı oturumunda eş zamanlı limit, mutlak süre, HTTP cookie/token ve CSRF modeli, üretim deposu/şifreleme, saklama-imha süresi ve politika değişikliği onayı | IAM / Bilgi Güvenliği / Mimari / Hukuk / İç Kontrol | ComplianceReviewRequired |
 
 ## Kullanım
 
-Bir teknik karar kesinleştiğinde ilgili `OPEN-xxx` maddesini güncelle ve sonucu [Alınan Kararlar](Alinan-Kararlar.md) notuna taşı.
+Bir teknik yön seçildiğinde ilgili kaydı, durumunu yükseltmeden
+[Alınan Kararlar](Alinan-Kararlar.md) notuna taşı; bu dosyada yalnız gerçek açık
+ve kurumsal inceleme kayıtlarını bırak.

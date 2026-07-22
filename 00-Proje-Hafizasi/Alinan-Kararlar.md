@@ -412,31 +412,40 @@ Bu sınıflandırma şu kuralları birlikte uygular:
 
 > Bu tablo teknik politika taslağıdır. `RET-10Y-BANKING` kapsamına hangi uygulama kayıtlarının kesin olarak girdiği ve BDDK düzenlemelerinin uygulamaya madde bazında uygulanabilirliği banka hukuk/uyum ve bilgi güvenliği tarafından teyit edilmelidir.
 
+## Bankacılık Geçiş Teknik Yön Kararları
+
+Bu kayıtların teknik yönü seçilmiştir. `ProvisionalDecision` durumu banka kurulu,
+hukuk, uyum, IAM, bilgi güvenliği veya iç kontrol onayının tamamlandığı anlamına
+gelmez; kalan onay ve ürün ayrıntıları sonuç sütununda korunur.
+
+| ID | Alınan karar | Durum | Kalan onay veya uygulama bağımlılığı |
+| --- | --- | --- | --- |
+| OPEN-BNK-003 | Tüm kullanıcılar için IdP MFA; PAM, süreli ayrıcalık ve çift onaylı break-glass modeli | `ProvisionalDecision` | Ürün ve banka rol eşlemeleri |
+| OPEN-BNK-004 | Risk bazlı maker-checker kapsamı ve görevler ayrılığı | `ProvisionalDecision` | Banka onaylı maker/checker rol kodları ve tam kritik işlem matrisi |
+| OPEN-BNK-005 | Kritik işlemde fail-closed, düşük riskli işlemde durable-buffer | `ProvisionalDecision` | Üretim kuyruk/outbox, kapasite ve alarm ayrıntıları |
+| OPEN-BNK-006 | Kurumsal WORM/imza/hash doğrulamalı audit deposu | `ProvisionalDecision` | Kurumsal ürün ve iç denetim onayı |
+| OPEN-BNK-007 | Eşlenmeyen sınıflandırmada fail-closed davranış | `ProvisionalDecision` | Banka sözlüğü ve müşteri/banka sırrı kod eşlemesi |
+| OPEN-BNK-010 | SIEM entegrasyonu ve 72 saatlik ihlal değerlendirme akışı | `ProvisionalDecision` | Ürün, olay sözlüğü, alarm seviyesi ve SOC eskalasyon eşlemesi |
+| OPEN-BNK-012 | Pilot VM; üretimde kurumsal konteyner platformu, yüksek erişilebilir PostgreSQL, broker ve secret manager yönü | `ProvisionalDecision` | Kurumsal ürün adları ve altyapı kurul onayı |
+| OPEN-BNK-014 | Asenkron dışa aktarma, gerekçe, maker-checker, DLP, watermark ve süreli indirme modeli | `ProvisionalDecision` | Banka veri sahibi ve bilgi güvenliği onayı |
+| OPEN-BNK-015 | `ActorContext` yalnız güvenilir identity/session adaptöründen üretilecek | `ProvisionalDecision` | Issuer sahipliği ve session assertion doğrulaması |
+| OPEN-BNK-016 | PostgreSQL transactional outbox ve ayrı publisher worker | `ProvisionalDecision` | Şifreleme, sahiplik, replay ve operasyon prosedürü |
+| OPEN-BNK-017 | Onay hedefi 3 iş günü, otomatik sona erme 10 iş günü | `ProvisionalDecision` | Banka iş takvimi ve rol sahibi onayı |
+| OPEN-BNK-020 | Opak server-side session; 1 saat hareketsizlik, 10 saat mutlak süre, tek aktif oturum, cookie/CSRF ve bir yıllık geçmiş | `ProvisionalDecision` | Banka onayı, üretim deposu ve şifreleme |
+| OPEN-BNK-021 | Kısmi çalışma yalnız onaylı dataset politikasındaki tüm koşulları sağlarsa resmî skora girebilir; aksi halde `PROVISIONAL` olur ve resmî skor/SLA/trend/raporlamadan dışlanır | `KararAlındı` | Üretim eşikleri ve banka onaylı politika kayıtları ayrı açık bağımlılıktır |
+
 ## Bankacılık Geçiş Açık Konuları
 
 | ID | Konu | Karar sahibi | Durum |
 | --- | --- | --- | --- |
 | OPEN-BNK-001 | BDDK bilgi sistemleri düzenlemelerinin bu uygulamaya uygulanabilir maddelerinin banka uyum/hukuk tarafından teyidi | Uyum / Hukuk / Bilgi Güvenliği | `ComplianceReviewRequired` |
 | OPEN-BNK-002 | LDAP grup-rol-scope eşleme tablosu ve joiner/mover/leaver kaynağı | IAM / İnsan Kaynakları / Bilgi Güvenliği | `Açık` |
-| OPEN-BNK-003 | IdP MFA, PAM, süreli ayrıcalık ve çift onaylı break-glass modelinin ürün ve rol eşlemeleri | Bilgi Güvenliği / IAM | `ProvisionalDecision` |
-| OPEN-BNK-004 | Maker-checker kapsamı seçildi; banka onaylı maker/checker rol kodları ve görevler ayrılığı matrisi | Veri Yönetişimi / İç Kontrol | `ProvisionalDecision` |
-| OPEN-BNK-005 | Kritik işlemde fail-closed, düşük riskli işlemde durable-buffer politikası | Bilgi Güvenliği / Mimari / Operasyon | `ProvisionalDecision` |
-| OPEN-BNK-006 | Kurumsal WORM/imza/hash doğrulamalı audit deposu ürünü | Bilgi Güvenliği / İç Denetim | `ProvisionalDecision` |
-| OPEN-BNK-007 | Eşlenmeyen sınıflandırmada fail-closed seçildi; banka sözlüğü ve müşteri/banka sırrı kod eşlemesi bekleniyor | Veri Yönetişimi / Hukuk / Bilgi Güvenliği | `ProvisionalDecision` |
-| OPEN-BNK-008 | Kayıt türü bazlı saklama/imha matrisi seçildi; tüm süreler, gerekçeler ve imha periyotları hukuk/KVKK/bilgi güvenliği/iç denetim onayına kadar TBD | Hukuk / KVKK Komitesi / İç Denetim | `ComplianceReviewRequired` |
-| OPEN-BNK-009 | Asenkron ServiceNow modeli seçildi; kurulum yeri, veri işleyen/alt işleyen ve yurt dışı aktarım etkisi | Hukuk / Tedarik / Bilgi Güvenliği | `Açık` |
-| OPEN-BNK-010 | SIEM entegrasyonu ve 72 saat akışı seçildi; ürün, olay sözlüğü, alarm seviyesi ve SOC eskalasyon eşlemesi | SOC / Bilgi Güvenliği | `ProvisionalDecision` |
-| OPEN-BNK-011 | Bileşen bazlı RTO/RPO matrisi seçildi; kesin hedefler iş etki analizi ve banka onayına kadar TBD | İş Sürekliliği / Operasyon | `ComplianceReviewRequired` |
-| OPEN-BNK-012 | Pilot VM, üretim konteyner platformu, yönetilen PostgreSQL, kurumsal broker ve secret manager yönü seçildi; ürün adları bekleniyor | Mimari Kurul / Operasyon | `ProvisionalDecision` |
+| OPEN-BNK-008 | Kayıt türü bazlı süre, gerekçe ve imha periyodu için hukuk/KVKK/bilgi güvenliği/iç denetim onayı | Hukuk / KVKK Komitesi / İç Denetim | `ComplianceReviewRequired` |
+| OPEN-BNK-009 | ServiceNow kurulum yeri, veri işleyen/alt işleyen durumu ve yurt dışı aktarım etkisi | Hukuk / Tedarik / Bilgi Güvenliği | `Açık` |
+| OPEN-BNK-011 | Bileşen RPO/RTO hedefleri için iş etki analizi ve banka onayı | İş Sürekliliği / Operasyon | `ComplianceReviewRequired` |
 | OPEN-BNK-013 | Sistem risk verisi veya düzenleyici raporlama üretim zincirine girecek mi; BCBS 239 kapsamı | Risk Yönetimi / Veri Yönetişimi | `Açık` |
-| OPEN-BNK-014 | Asenkron dışa aktarma, gerekçe, maker-checker, DLP, watermark ve süreli indirme modeli | Bilgi Güvenliği / Veri Sahibi | `ProvisionalDecision` |
-| OPEN-BNK-015 | `ActorContext` yalnız güvenilir identity/session adaptöründen üretilecek; issuer sahipliği ve session assertion doğrulaması | IAM / Bilgi Güvenliği / Mimari | `ProvisionalDecision` |
-| OPEN-BNK-016 | PostgreSQL transactional outbox seçildi; şifreleme, sahiplik, replay ve operasyon prosedürü | Mimari / Operasyon / Bilgi Güvenliği | `ProvisionalDecision` |
-| OPEN-BNK-017 | Onay hedefi 3 iş günü, otomatik sona erme 10 iş günü; banka iş takvimi ve rol sahibi onayı | Veri Yönetişimi / İç Kontrol / Mimari | `ProvisionalDecision` |
 | OPEN-BNK-018 | Gerçek LDAP endpoint/topolojisi, TLS sertifika güveni, timeout ve teknik hata sahipliği | IAM / Altyapı / Bilgi Güvenliği | `Açık` |
-| OPEN-BNK-019 | Kullanıcı kilitleme IdP/LDAP’ta; uygulama istemci/endpoint rate limit uygular. Nihai eşik/pencere ve paylaşımlı depo bekleniyor | IAM / Bilgi Güvenliği / Mimari / Altyapı / İç Kontrol | `ComplianceReviewRequired` |
-| OPEN-BNK-020 | Opak server-side session; 1 saat inactivity, 10 saat absolute, tek aktif oturum, cookie/CSRF ve bir yıllık geçmiş | IAM / Bilgi Güvenliği / Mimari / Hukuk / İç Kontrol | `ProvisionalDecision` |
-| OPEN-BNK-021 | Kısmi çalışma yalnız onaylı dataset politikasındaki tüm koşulları sağlarsa resmî skora girebilir; aksi halde `PROVISIONAL` olur ve resmî skor/SLA/trend/raporlamadan dışlanır | Veri Yönetişimi / İş Birimi | `KararAlındı` |
+| OPEN-BNK-019 | Nihai giriş/rate-limit eşik ve pencereleri, opak anahtar rotasyonu, güvenilir istemci referansı ve paylaşımlı depo onayı | IAM / Bilgi Güvenliği / Mimari / Altyapı / İç Kontrol | `ComplianceReviewRequired` |
 
 ## OPEN-001–OPEN-018 Kesinleşmiş Kararları
 
