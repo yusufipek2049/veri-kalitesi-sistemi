@@ -2,7 +2,7 @@
 type: project-memory
 status: active-transition
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-last_updated: 2026-07-21
+last_updated: 2026-07-22
 tags:
   - proje
   - banka
@@ -17,8 +17,8 @@ tags:
 
 Yüklenen mevcut vault ve kod üzerinden doğrulanan durum:
 
-- İterasyon 1–16, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Iterasyon 31A–31C, Iterasyon 32A–32D, İterasyon 33A ve İterasyon 34A–34C teknik dikeyleri tamamlanmış ve proje hafızasına kaydedilmiştir.
-- `pytest` sonucu: **958 test geçti**; tam mypy kontrolü 141 kaynak dosyada
+- İterasyon 1–16, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Iterasyon 31A–31C, Iterasyon 32A–32D, İterasyon 33A ve İterasyon 34A–34D teknik dikeyleri tamamlanmış ve proje hafızasına kaydedilmiştir.
+- `pytest` sonucu: **970 test geçti**; tam mypy kontrolü 144 kaynak dosyada
   sıfır hata vermektedir.
 - Mevcut çalışan domain paketleri:
   - `data_sources`
@@ -52,8 +52,9 @@ Yüklenen mevcut vault ve kod üzerinden doğrulanan durum:
 - Sentetik veri ve gizlilik hedef tasarımı `ADR-016`, `FR-088–FR-096` ve
   `AC/TS-048–056` ile belgelendi. Politika, senaryo ve run kayıt çekirdeği 34A,
   tamamen yapay deterministik Golden ilişkisel üretici 34B, değişmez Golden
-  yapısal ground truth ve bağımsız karşılaştırıcı 34C ile runtime'a taşındı;
-  kalıcı çıktı/run tamamlama, kayıt düzeyi ve sayısal ground truth, runtime
+  yapısal ground truth ve bağımsız karşılaştırıcı 34C, kanonik çıktı/doğrulama
+  referanslı append-only terminal run kanıtı 34D ile runtime'a taşındı;
+  fiziksel çıktı/artifact deposu, kayıt düzeyi ve sayısal ground truth, runtime
   kural/skor/olay karşılaştırması ve gizlilik kapısı uygulanmadı. Sentetik çıktı anonimlik
   veya banka onayı sayılmaz, gerçek operasyon hedeflerini tetikleyemez ve
   `OPEN-014` kapsamındaki nihai anonimleştirilmiş üretim örneği kabulinin yerine
@@ -72,7 +73,7 @@ Aşağıdaki davranışlar geriye dönük bozulmamalıdır:
 5. RuleVersion ve scoring configuration geçmişinin değişmez kalması.
 6. İdempotent execution ve scheduler tetikleme.
 7. Yetkisiz SOURCE drill-down'ın repository çağrısından önce reddedilmesi.
-8. 958 mevcut birim testinin ve sıfır hatalı tam mypy baseline'ının geriye dönük korunması.
+8. 970 mevcut birim testinin ve sıfır hatalı tam mypy baseline'ının geriye dönük korunması.
 9. Sınıflandırılmamış veya hassas alanların ham profil değerlerinin kalıcılaştırılmaması.
 
 ## En Kritik Kontrol Boşlukları
@@ -107,7 +108,7 @@ Aşağıdaki maddeler tamamlanmadan yeni HTTP yüzeyi, hassas dışa aktarma vey
 
 ## Kontrol Durumu
 
-- Teknik geçiş: **Devam ediyor; İterasyon 17A–17E, 18A–18C, 19A–19H, 20A–20C, 21A, 22A–22I, 23A–23D, 24A–24B, 25A–25D, 26A–26B, 27A, 28A–28E, 29A–29C, 31A–31C, 32A–32D, 33A ve 34A–34C TechnicallyVerified**
+- Teknik geçiş: **Devam ediyor; İterasyon 17A–17E, 18A–18C, 19A–19H, 20A–20C, 21A, 22A–22I, 23A–23D, 24A–24B, 25A–25D, 26A–26B, 27A, 28A–28E, 29A–29C, 31A–31C, 32A–32D, 33A ve 34A–34D TechnicallyVerified**
 - BDDK/KVKK teknik kontrol eşlemesi: **Proposed**
 - Banka bilgi güvenliği onayı: **ComplianceReviewRequired**
 - Banka hukuk/uyum onayı: **ComplianceReviewRequired**

@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 import hashlib
-import json
 
+from veri_kalitesi.synthetic_data.canonical import build_golden_canonical_payload
 from veri_kalitesi.synthetic_data.errors import (
     SyntheticDataTechnicalError,
     SyntheticDataValidationError,
@@ -92,7 +92,12 @@ class GoldenRelationalGenerator:
         subject_tuple = tuple(subjects)
         observation_tuple = tuple(observations)
         validation = _validate_output(run, subject_tuple, observation_tuple)
-        payload = _canonical_payload(run, scenario, subject_tuple, observation_tuple)
+        payload = build_golden_canonical_payload(
+            run,
+            scenario,
+            subject_tuple,
+            observation_tuple,
+        )
         digest = hashlib.sha256(payload).hexdigest()
         return GoldenRelationalDataset(
             generation_run_id=run.generation_run_id,
@@ -209,57 +214,6 @@ def _validate_output(
         temporal_order_valid=temporal_order_valid,
         passed=True,
     )
-
-
-def _canonical_payload(
-    run: SyntheticGenerationRun,
-    scenario: SyntheticScenario,
-    subjects: tuple[GoldenSubjectRecord, ...],
-    observations: tuple[GoldenObservationRecord, ...],
-) -> bytes:
-    document = {
-        "lineage": {
-            "configuration_version": run.configuration_version,
-            "dataset_id": run.dataset_id,
-            "generator_version": run.generator_version,
-            "policy_version": run.policy_version,
-            "random_seed": run.random_seed,
-            "requested_record_count": run.requested_record_count,
-            "scenario_id": scenario.scenario_id,
-            "scenario_version": scenario.scenario_version,
-            "schema_version": run.schema_version,
-            "synthetic_origin": True,
-        },
-        "observations": [
-            {
-                "amount": format(record.amount, ".2f"),
-                "currency_code": record.currency_code,
-                "event_time": record.event_time.isoformat(),
-                "observation_id": record.observation_id,
-                "source_created_at": record.source_created_at.isoformat(),
-                "source_updated_at": record.source_updated_at.isoformat(),
-                "subject_id": record.subject_id,
-            }
-            for record in observations
-        ],
-        "subjects": [
-            {
-                "current_status": record.current_status,
-                "effective_date": record.effective_date.isoformat(),
-                "previous_status": record.previous_status,
-                "segment_code": record.segment_code,
-                "source_system_code": record.source_system_code,
-                "subject_id": record.subject_id,
-            }
-            for record in subjects
-        ],
-    }
-    return json.dumps(
-        document,
-        ensure_ascii=True,
-        separators=(",", ":"),
-        sort_keys=True,
-    ).encode("utf-8")
 
 
 def _entropy(seed: int, label: str, index: int) -> int:

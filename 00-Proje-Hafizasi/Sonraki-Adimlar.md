@@ -87,25 +87,26 @@ Bu maddeler `ADR-016` hedef tasarımını küçük dikeylere böler.
 | ID | Ürün artımı | Gereksinim | Çıkış kriteri | Durum |
 | --- | --- | --- | --- | --- |
 | SYN-001 | Sentetik dataset politika, senaryo ve run kayıt çekirdeği | FR-088, FR-093; AC/TS-049 | Fail-closed politika çözümleme, değişmez sürüm/seed/run kaydı ve veri-minimum audit | 34A `TechnicallyVerified` |
-| SYN-002 | Deterministik Golden ilişkisel üretici | FR-089, FR-090; AC/TS-048/049 | Şema, anahtar, referans, durum ve temel dağılım ilişkileri aynı seed ile tekrar üretilebilir | 34B `TechnicallyVerified`; yalnız tamamen yapay teknik V1 profil |
+| SYN-002 | Deterministik Golden ilişkisel üretici | FR-089, FR-090; AC/TS-048/049 | Şema, anahtar, referans, durum ve temel dağılım ilişkileri aynı seed ile tekrar üretilebilir | 34B üretici ve 34D kalıcı terminal referansları `TechnicallyVerified`; yalnız tamamen yapay teknik V1 profil |
 | SYN-003 | Kusur enjeksiyonu, ground truth ve bağımsız karşılaştırıcı | FR-091, FR-092; AC/TS-050–052 | Geçerli uç/kusur ayrımı, boyut-kural bağı ve runtime'dan bağımsız beklenen sonuç | 34C Golden yapısal alt kapsam `TechnicallyVerified`; kayıt düzeyi kusur, skor ve olay karşılaştırması `OPEN-024` nedeniyle kısmen engelli |
 | SYN-004 | Zaman, eksiklik, drift ve hacim profilleri | FR-090, FR-094; AC/TS-054/056 | Zaman alanı anlamları, eksiklik mekanizmaları, drift ve kaynak bütçeli hacim replay'i | Planlı; üretim performans kabulü `OPEN-014` ile ayrı |
 | SYN-005 | Gizlilik kapısı, yaşam döngüsü ve izole olay testi | FR-095, FR-096; AC/TS-053/055/056 | Gizlilik sonucu, retention yaşam döngüsü ve üretim hedefi fail-closed negatifleri | `OPEN-024/025` ve banka politikalarıyla engelli |
 
 ## Önerilen Sonraki İterasyon
 
-**İterasyon 34C — Değişmez Golden ground truth ve yapısal bağımsız
-karşılaştırıcı** `FR-092`, `UC-017`, `RULE-016` ve `AC/TS-050–052`nin sıfır
-kusurlu yapısal alt kapsamında tamamlandı. Ground truth runtime skorlayıcısından
-ve üreticinin kendi doğrulamasından bağımsızdır; sapmalar ayrı ve değişmez
-sonuçta saklanır.
+**İterasyon 34D — Kalıcı çıktı referansı ve append-only run tamamlama**
+`FR-093`, `UC-017`, `RULE-016` ve `AC/TS-049`un çıktı/doğrulama referansı alt
+kapsamında tamamlandı. Özgün run talebi değişmez; doğrulanmış kanonik digest,
+opak referanslar ve terminal durum ayrı append-only kanıtta saklanır. Fiziksel
+payload/artifact deposu bu artımın kapsamında değildir.
 
 Skorlama zincirinin sıradaki normalizasyon, agregasyon/kritik davranış ve ölçüm
 yeterliliği dilimleri `OPEN-019`, `OPEN-022/023` ve ilişkili banka kararlarını
-beklemektedir. Sentetik zincirde sıradaki dar artım, sayısal kusur yoğunluğu veya
-skor toleransı uydurmadan kalıcı çıktı referansı ile run tamamlama yaşam
-döngüsünün hazır oluşunu değerlendirmelidir. Kayıt düzeyi kusur, skor ve olay
-karşılaştırması `OPEN-024` kapanmadan genişletilmemelidir.
+beklemektedir. Sentetik zincirde sıradaki hazır dar artım `SYN-004A` olarak,
+sayısal dağılım veya drift eşiği uydurmadan olay, kaynak, ingestion, processing
+ve kalite kontrol zamanlarını deterministik çok dönemli veri üzerinde
+üretmelidir. Kayıt düzeyi kusur, skor ve olay karşılaştırması `OPEN-024`
+kapanmadan genişletilmemelidir.
 
 Sonraki dilimler sırasıyla ayrı kapsamda planlanmalıdır: sürümlü normalizasyon ve
 model kanıtı; kural → boyut → dataset agregasyonu ve kritik davranış;

@@ -36,6 +36,9 @@ class SyntheticProfile(str, Enum):
 
 class SyntheticRunStatus(str, Enum):
     REQUESTED = "REQUESTED"
+    COMPLETED = "COMPLETED"
+    BLOCKED = "BLOCKED"
+    TECHNICAL_ERROR = "TECHNICAL_ERROR"
 
 
 class SyntheticValidationStatus(str, Enum):
@@ -217,4 +220,21 @@ class SyntheticValidationResult:
     actual_output_reference: str
     audit_reference: str
     validation_result_id: str = field(default_factory=lambda: str(uuid4()))
+    created_at: datetime = field(default_factory=utc_now)
+
+
+@dataclass(frozen=True)
+class SyntheticRunCompletion:
+    generation_run_id: str
+    status: SyntheticRunStatus
+    output_reference: str
+    canonical_sha256: str
+    payload_byte_count: int
+    subject_count: int
+    observation_count: int
+    validation_result_id: str
+    validation_status: SyntheticValidationStatus
+    retention_policy_id: str
+    audit_reference: str
+    completion_id: str = field(default_factory=lambda: str(uuid4()))
     created_at: datetime = field(default_factory=utc_now)

@@ -410,5 +410,21 @@ def build_default_redaction_policy() -> AuditRedactionPolicy:
                     "access_policy_version",
                 }
             ),
+            "SYNTHETIC_RUN_FINALIZED": frozenset(
+                {
+                    "dataset_id",
+                    "generation_run_id",
+                    "status",
+                    "validation_status",
+                    "subject_count",
+                    "observation_count",
+                    "payload_byte_count",
+                    "output_digest_present",
+                    "validation_reference_present",
+                    "retention_policy_id",
+                    "synthetic_origin",
+                    "access_policy_version",
+                }
+            ),
         },
     )

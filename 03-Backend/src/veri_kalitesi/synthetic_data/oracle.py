@@ -8,11 +8,12 @@ from decimal import Decimal, InvalidOperation
 from typing import Callable
 
 from veri_kalitesi.audit import AuditEventInput, AuditResult, SQLiteTransactionalAudit
-from veri_kalitesi.identity import ActorContext, is_trusted_actor_context
-from veri_kalitesi.synthetic_data.errors import (
-    SyntheticDataAuthorizationError,
-    SyntheticDataValidationError,
+from veri_kalitesi.identity import ActorContext
+from veri_kalitesi.synthetic_data.authorization import (
+    authorize_synthetic_actor,
+    validate_synthetic_access_policy,
 )
+from veri_kalitesi.synthetic_data.errors import SyntheticDataValidationError
 from veri_kalitesi.synthetic_data.models import (
     GoldenRelationalDataset,
     SyntheticGroundTruth,
@@ -54,6 +55,7 @@ class GoldenStructuralOracle:
         self.transactional_audit = transactional_audit
         self.access_policy = access_policy
         self.clock = clock
+        validate_synthetic_access_policy(access_policy)
 
     def validate_and_record(
         self,
@@ -63,9 +65,21 @@ class GoldenStructuralOracle:
     ) -> tuple[SyntheticGroundTruth, SyntheticValidationResult]:
         now = self.clock()
         _validate_aware_time(now)
-        context = self._authorize(actor_context, dataset_id=output.dataset_id, now=now)
+        context = authorize_synthetic_actor(
+            actor_context,
+            dataset_id=output.dataset_id,
+            at=now,
+            access_policy=self.access_policy,
+            operation="validation",
+        )
         run = self.repository.get_run(output.generation_run_id)
-        context = self._authorize(context, dataset_id=run.dataset_id, now=now)
+        context = authorize_synthetic_actor(
+            context,
+            dataset_id=run.dataset_id,
+            at=now,
+            access_policy=self.access_policy,
+            operation="validation",
+        )
         scenario = self.repository.get_scenario(run.scenario_id, run.scenario_version)
         _validate_oracle_contract(run, scenario)
 
@@ -131,36 +145,6 @@ class GoldenStructuralOracle:
         )
         self.transactional_audit.publish_pending()
         return stored
-
-    def _authorize(
-        self,
-        context: ActorContext | None,
-        *,
-        dataset_id: str,
-        now: datetime,
-    ) -> ActorContext:
-        if not is_trusted_actor_context(context):
-            raise SyntheticDataAuthorizationError("Trusted actor context is required.")
-        assert context is not None
-        if context.issued_at > now or context.expires_at <= now:
-            raise SyntheticDataAuthorizationError("Actor context is not currently valid.")
-        if context.policy_version != self.access_policy.actor_policy_version:
-            raise SyntheticDataAuthorizationError("Actor context policy version is not accepted.")
-        if context.actor_type not in self.access_policy.allowed_actor_types:
-            raise SyntheticDataAuthorizationError(
-                "Actor type is not allowed for synthetic validation."
-            )
-        if context.privileged:
-            raise SyntheticDataAuthorizationError(
-                "Privileged context is not allowed for synthetic validation."
-            )
-        if context.roles.isdisjoint(self.access_policy.requester_roles):
-            raise SyntheticDataAuthorizationError(
-                "Actor does not have the required synthetic data role."
-            )
-        if not context.can_view_enterprise and dataset_id not in context.permitted_dataset_ids:
-            raise SyntheticDataAuthorizationError("Actor does not have the required dataset scope.")
-        return context
 
 
 def _validate_oracle_contract(run: object, scenario: object) -> None:

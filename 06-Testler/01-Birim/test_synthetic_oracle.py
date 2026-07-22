@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
+import hashlib
 import sqlite3
 from typing import Any
 
@@ -16,6 +17,7 @@ from veri_kalitesi.audit import (
     build_default_redaction_policy,
 )
 from veri_kalitesi.identity import ActorContext, ActorContextIssuer, ActorType
+from veri_kalitesi.synthetic_data.canonical import build_golden_canonical_payload
 from veri_kalitesi.synthetic_data import (
     FULLY_ARTIFICIAL_PRIVACY_PROFILE,
     GOLDEN_CONFIGURATION_VERSION,
@@ -29,11 +31,14 @@ from veri_kalitesi.synthetic_data import (
     SyntheticDataAuthorizationError,
     SyntheticDataConflictError,
     SyntheticDataTechnicalError,
+    SyntheticDataValidationError,
     SyntheticDatasetPolicy,
     SyntheticGenerationRegistryService,
     SyntheticPolicyStatus,
     SyntheticProfile,
     SyntheticRunAccessPolicy,
+    SyntheticRunFinalizationService,
+    SyntheticRunStatus,
     SyntheticScenario,
     SyntheticValidationStatus,
 )
@@ -189,6 +194,196 @@ def test_fr_092_repository_outage_is_technical_not_validation_failure() -> None:
         oracle.validate_and_record(actor_context=context, output=output)
 
 
+def test_fr_093_ac_049_validated_output_finalizes_run_with_data_minimum_evidence() -> None:
+    oracle, repository, audit_repository, context, output = _setup()
+    _, validation = oracle.validate_and_record(actor_context=context, output=output)
+    finalizer = _finalizer(repository, audit_repository)
+
+    completion = finalizer.finalize(
+        actor_context=context,
+        output=output,
+        validation_result_id=validation.validation_result_id,
+    )
+
+    assert completion.status is SyntheticRunStatus.COMPLETED
+    assert completion.output_reference == output.output_reference
+    assert completion.validation_result_id == validation.validation_result_id
+    assert completion.payload_byte_count == len(output.canonical_payload)
+    assert completion.retention_policy_id == "retention-synthetic-v1"
+    snapshot = repository.get_run_snapshot(output.generation_run_id)
+    assert snapshot.status is SyntheticRunStatus.COMPLETED
+    assert snapshot.output_reference == output.output_reference
+    assert snapshot.validation_reference == validation.validation_result_id
+    columns = {
+        row[1]
+        for row in repository.connection.execute(
+            "PRAGMA table_info(synthetic_run_completions)"
+        ).fetchall()
+    }
+    assert "canonical_payload" not in columns
+    events = audit_repository.list_events()
+    assert len(events) == 3
+    assert events[-1].action == "SYNTHETIC_RUN_FINALIZED"
+    assert events[-1].new_value_summary["output_digest_present"] is True
+    assert output.canonical_sha256 not in repr(events[-1])
+    assert "random_seed" not in repr(events[-1])
+
+    with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+        repository.connection.execute("UPDATE synthetic_run_completions SET status = 'BLOCKED'")
+
+
+def test_fr_093_repeated_finalization_is_idempotent_without_duplicate_audit() -> None:
+    oracle, repository, audit_repository, context, output = _setup()
+    _, validation = oracle.validate_and_record(actor_context=context, output=output)
+    finalizer = _finalizer(repository, audit_repository)
+
+    first = finalizer.finalize(
+        actor_context=context,
+        output=output,
+        validation_result_id=validation.validation_result_id,
+    )
+    second = finalizer.finalize(
+        actor_context=context,
+        output=output,
+        validation_result_id=validation.validation_result_id,
+    )
+
+    assert second == first
+    assert _table_count(repository, "synthetic_run_completions") == 1
+    assert len(audit_repository.list_events()) == 3
+
+
+def test_fr_093_blocked_validation_creates_blocked_terminal_run_evidence() -> None:
+    oracle, repository, audit_repository, context, output = _setup(record_count=3)
+    run = repository.get_run(output.generation_run_id)
+    scenario = repository.get_scenario(run.scenario_id, run.scenario_version)
+    subjects = (output.subjects[0], output.subjects[0], output.subjects[2])
+    payload = build_golden_canonical_payload(run, scenario, subjects, output.observations)
+    digest = hashlib.sha256(payload).hexdigest()
+    blocked_output = replace(
+        output,
+        subjects=subjects,
+        canonical_payload=payload,
+        canonical_sha256=digest,
+        output_reference=f"sha256:{digest}",
+    )
+    _, validation = oracle.validate_and_record(
+        actor_context=context,
+        output=blocked_output,
+    )
+
+    completion = _finalizer(repository, audit_repository).finalize(
+        actor_context=context,
+        output=blocked_output,
+        validation_result_id=validation.validation_result_id,
+    )
+
+    assert completion.status is SyntheticRunStatus.BLOCKED
+    assert repository.get_run_snapshot(run.generation_run_id).status is SyntheticRunStatus.BLOCKED
+
+
+@pytest.mark.parametrize(
+    "output_change",
+    [
+        {"canonical_payload": b"{}"},
+        {"canonical_sha256": "0" * 64},
+        {"output_reference": f"sha256:{'0' * 64}"},
+    ],
+)
+def test_fr_093_canonical_payload_or_digest_tampering_is_rejected_before_completion(
+    output_change: dict[str, Any],
+) -> None:
+    oracle, repository, audit_repository, context, output = _setup()
+    _, validation = oracle.validate_and_record(actor_context=context, output=output)
+
+    with pytest.raises(SyntheticDataValidationError, match="canonical|digest"):
+        _finalizer(repository, audit_repository).finalize(
+            actor_context=context,
+            output=replace(output, **output_change),
+            validation_result_id=validation.validation_result_id,
+        )
+
+    assert _table_count(repository, "synthetic_run_completions") == 0
+    assert len(audit_repository.list_events()) == 2
+
+
+@pytest.mark.parametrize("context_case", ["missing", "wrong-role", "wrong-scope"])
+def test_fr_093_unauthorized_finalization_writes_no_completion(context_case: str) -> None:
+    oracle, repository, audit_repository, context, output = _setup()
+    _, validation = oracle.validate_and_record(actor_context=context, output=output)
+    contexts = {
+        "missing": None,
+        "wrong-role": _context(roles={"VIEWER"}),
+        "wrong-scope": _context(dataset_ids=frozenset()),
+    }
+
+    with pytest.raises(SyntheticDataAuthorizationError):
+        _finalizer(repository, audit_repository).finalize(
+            actor_context=contexts[context_case],
+            output=output,
+            validation_result_id=validation.validation_result_id,
+        )
+
+    assert _table_count(repository, "synthetic_run_completions") == 0
+    assert len(audit_repository.list_events()) == 2
+
+
+def test_fr_093_run_scope_cannot_be_forged_during_finalization() -> None:
+    oracle, repository, audit_repository, context, output = _setup()
+    _, validation = oracle.validate_and_record(actor_context=context, output=output)
+    forged_context = _context(dataset_ids=frozenset({"dataset-forged"}))
+
+    with pytest.raises(SyntheticDataAuthorizationError, match="dataset scope"):
+        _finalizer(repository, audit_repository).finalize(
+            actor_context=forged_context,
+            output=replace(output, dataset_id="dataset-forged"),
+            validation_result_id=validation.validation_result_id,
+        )
+
+    assert _table_count(repository, "synthetic_run_completions") == 0
+
+
+def test_fr_093_finalization_audit_failure_rolls_back_completion() -> None:
+    oracle, repository, audit_repository, context, output = _setup()
+    _, validation = oracle.validate_and_record(actor_context=context, output=output)
+    failing_audit = FailingSyntheticAudit(
+        repository.connection,
+        AuditRedactor(build_default_redaction_policy()),
+        audit_repository,
+        policy_version="SYNTHETIC_AUDIT_OUTBOX_V1",
+    )
+    finalizer = SyntheticRunFinalizationService(
+        repository,
+        transactional_audit=failing_audit,
+        access_policy=_access_policy(),
+        clock=lambda: NOW,
+    )
+
+    with pytest.raises(SyntheticDataTechnicalError, match="completion and audit"):
+        finalizer.finalize(
+            actor_context=context,
+            output=output,
+            validation_result_id=validation.validation_result_id,
+        )
+
+    assert _table_count(repository, "synthetic_run_completions") == 0
+    assert len(audit_repository.list_events()) == 2
+
+
+def test_fr_093_finalization_repository_outage_is_technical() -> None:
+    oracle, repository, audit_repository, context, output = _setup()
+    _, validation = oracle.validate_and_record(actor_context=context, output=output)
+    finalizer = _finalizer(repository, audit_repository)
+    repository.connection.close()
+
+    with pytest.raises(SyntheticDataTechnicalError, match="run could not be read"):
+        finalizer.finalize(
+            actor_context=context,
+            output=output,
+            validation_result_id=validation.validation_result_id,
+        )
+
+
 def _setup(
     *,
     record_count: int = 4,
@@ -261,6 +456,24 @@ def _policy() -> SyntheticDatasetPolicy:
         approval_status=SyntheticPolicyStatus.APPROVED,
         audit_reference="audit-policy-approved",
         created_at=NOW - timedelta(days=2),
+    )
+
+
+def _finalizer(
+    repository: SQLiteSyntheticDataRepository,
+    audit_repository: SQLiteAuditRepository,
+) -> SyntheticRunFinalizationService:
+    audit = SQLiteTransactionalAudit(
+        repository.connection,
+        AuditRedactor(build_default_redaction_policy()),
+        audit_repository,
+        policy_version="SYNTHETIC_AUDIT_OUTBOX_V1",
+    )
+    return SyntheticRunFinalizationService(
+        repository,
+        transactional_audit=audit,
+        access_policy=_access_policy(),
+        clock=lambda: NOW,
     )
 
 
