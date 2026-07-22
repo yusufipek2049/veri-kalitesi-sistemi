@@ -2,7 +2,7 @@
 type: frontend-design-system
 status: design-baseline
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-last_updated: 2026-07-20
+last_updated: 2026-07-22
 tags:
   - frontend
   - design-system
@@ -24,6 +24,10 @@ uygulamasının tamamlandığı anlamına gelmez. Dashboard'a özgü yerleşim i
 test süreci için
 [Görsel Doğrulama Stratejisi](../06-Testler/03-Uctan-Uca/Gorsel-Dogrulama-Stratejisi.md)
 esas alınır.
+
+Onaylı frontend teknoloji yığını React + TypeScript + Vite, MUI ve ECharts'tır;
+Storybook ve Playwright doğrulama araçlarıdır. Bu seçim uygulamanın veya paket
+kurulumunun tamamlandığı anlamına gelmez.
 
 İlk görsel yoğunluk ve hiyerarşi referansı:
 [reference-dashboard.png](references/reference-dashboard.png). Görsel yalnız

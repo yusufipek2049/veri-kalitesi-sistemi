@@ -2,7 +2,7 @@
 type: architecture-decision-log
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
 status: seed
-last_updated: 2026-07-21
+last_updated: 2026-07-22
 tags:
   - architecture
   - adr
@@ -24,10 +24,27 @@ tags:
 | ADR-010 | Kişisel veri işleme envanterinin DataField'e bağlı değişmez sürümler ve redakte transactional audit ile tutulması | Teknik olarak doğrulandı; banka referans sözlükleri TBD |
 | ADR-011 | Kritik kural aktivasyonunun sürümlü politika, güvenilir ActorContext ve RuleVersion'a bağlı atomik maker-checker kararıyla yapılması | 19A teknik olarak doğrulandı; scoring ve banka rol eşlemesi TBD |
 | ADR-012 | Token tabanlı kurumsal görsel dil; marka rengi ile semantik durum renklerinin ayrılması | Tasarım baseline'ı kabul edildi; frontend uygulaması bekliyor |
-| ADR-013 | Storybook component doğrulaması ve Playwright görsel regression süreci | Önerilen; toolchain/dependency onayı ve frontend uygulaması bekliyor |
+| ADR-013 | Storybook component doğrulaması ve Playwright görsel regression süreci | Kabul edildi; frontend uygulaması bekliyor |
 | ADR-014 | OPEN-001–OPEN-018 karar paketinin kapasite, politika, güvenlik, yaşam döngüsü ve hibrit dağıtım sınırı | Kabul edildi; sayısal ve ürün bazlı TBD değerler korunuyor |
 | ADR-015 | Açıklanabilir, sürümlü ve riskten ayrılmış veri kalitesi skorlama mimarisi (`DQ-SCR-001`–`DQ-SCR-033`) | Kabul edildi; mevcut uygulama farkları ve kurumsal değerler TBD |
 | ADR-016 | Politika kontrollü, deterministik ve bağımsız ground truth'lu sentetik veri hedef mimarisi | Kabul edildi hedef tasarım; runtime uygulaması ve nicel eşikler TBD |
+| ADR-017 | React + TypeScript + Vite, MUI, ECharts, Storybook ve Playwright frontend teknoloji yığını | Kabul edildi; paket kurulumu ve frontend uygulaması bekliyor |
+
+## ADR-017 — Frontend Teknoloji Yığını
+
+**Bağlam:** Frontend tasarım sistemi ve dashboard backlogu framework, component,
+grafik ve görsel test araçlarının seçimini uygulama bağımlılığı olarak tutuyordu.
+Teknik seçim `Alınan Kararlar` kaydında kesinleştirildi.
+
+**Karar:** Frontend React ve TypeScript ile Vite üzerinde geliştirilecektir. Ortak
+component altyapısı MUI, grafik katmanı ECharts kullanacaktır. İzole component
+durumları Storybook, ekran/akış ve görsel regression kontrolleri Playwright ile
+doğrulanacaktır.
+
+**Sonuç:** Bu araçlar için yeniden teknoloji veya dependency onayı beklenmez.
+Paket sürümleri ve lock dosyası kurulum iterasyonunda mevcut güvenli SDLC
+kurallarına göre oluşturulur. Karar paketlerin kurulduğu, frontend'in uygulandığı
+veya banka marka/uyum onayının alındığı anlamına gelmez.
 
 ## ADR-014 — Bağlayıcı Karar Paketi
 
@@ -122,8 +139,8 @@ görünümleri de korunur. Referans karşılaştırmasında en az iki belgeli iy
 turu yapılır.
 
 **Sonuç:** Frontend Definition of Done görsel ve erişilebilirlik kanıtı gerektirir.
-Paket seçimi ve kurulumu ayrı onaylı frontend artımında yapılacaktır; bu ADR yeni
-dependency eklemez. Ayrıntılar
+Storybook ve Playwright seçimi kabul edilmiştir; kurulum 30F artımında yapılır.
+Ayrıntılar
 [Görsel Doğrulama Stratejisi](../06-Testler/03-Uctan-Uca/Gorsel-Dogrulama-Stratejisi.md)
 içindedir.
 

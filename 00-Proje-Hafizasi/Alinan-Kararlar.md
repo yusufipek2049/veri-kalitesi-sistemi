@@ -328,7 +328,7 @@ tags:
 32. **Issue ana kayıt kaynağı:** Uygulama ana kayıt sistemi olacaktır. Yalnız `HIGH/CRITICAL` veya SLA ihlali oluşturan issue’lar ServiceNow’a aktarılacaktır. `ProvisionalDecision`
 33. **Bildirim ve atama çözümlemesi:** Veri sahibi → yedek sorumlu grup → Veri Yönetişimi operasyon grubu fallback zinciri uygulanacaktır. `ProvisionalDecision`
 34. **SIEM/SOC ve kişisel veri ihlali:** Güvenlik olayları SIEM’e aktarılacak, banka olay sözlüğüyle seviyelendirilecek, 72 saat hedefi farkındalık anından başlayacak ve dış bildirim farklı yetkili aktörün insan kararını gerektirecektir. `ProvisionalDecision`
-35. **Frontend ve dashboard:** React + TypeScript + MUI + ECharts, Vite, Storybook ve Playwright kullanılacaktır. Banka ana rengi `#fdb813` design-token olarak tanımlanacak; 7/30/90 gün ve özel tarih aralığı desteklenecektir. `ProvisionalDecision`
+35. **Frontend ve dashboard:** React + TypeScript + MUI + ECharts, Vite, Storybook ve Playwright kullanılacaktır. Banka ana rengi `#fdb813` design-token olarak tanımlanacak; 7/30/90 gün ve özel tarih aralığı desteklenecektir. `KararAlındı`
 36. **Kod kalitesi ve güvenli SDLC:** Kullanıcı beyanına göre tamamlanmıştır. Ayrıntılı scanner, CI/CD, mypy, SAST, secret, SCA/SBOM, DAST, pentest ve kanıt kayıtları proje deposundaki teknik kanıtlarda tutulacaktır. `Tamamlandı`
 
 ## Dataset Kritiklik Ağırlığı Politika Modeli

@@ -45,11 +45,11 @@ Durum: **Dokümantasyon tamamlandı; uygulama başlamadı**
 
 | Dilim | Değer | Ön koşul |
 | --- | --- | --- |
-| 30B | Kurumsal design token altyapısı ve açık tema | Frontend stack/dependency onayı, geçiş kapısı |
+| 30B | Kurumsal design token altyapısı ve açık tema | Geçiş kapısı |
 | 30C | Ortak KPI, status badge ve alarm componentleri | 30B |
-| 30D | Ortak chart wrapper ve data table standardı | 30B, chart kütüphanesi onayı |
+| 30D | Ortak chart wrapper ve data table standardı | 30B |
 | 30E | Kurumsal dashboard referans ekranı | 21B güvenli API, 30C–30D |
-| 30F | Storybook ve Playwright görsel regression altyapısı | Toolchain onayı, 30B |
+| 30F | Storybook ve Playwright görsel regression altyapısı | 30B |
 | 30G | Koyu tema ve grafik erişilebilirliği | 30B–30F |
 
 Her dilim tek çalışabilir artım olarak ele alınır; bu belge uygulama dilimlerini
@@ -57,7 +57,7 @@ tamamlanmış saymaz.
 
 ## Kapsam Dışı
 
-- Frontend framework/component/chart kütüphanesi seçimi veya kurulumu.
+- 30A sırasında frontend framework/component/chart kütüphanesi seçimi veya kurulumu.
 - Runtime, API, Storybook veya Playwright yapılandırması.
 - Gerçek banka verisiyle ekran veya görsel artifact.
 - Mobil yönetim deneyimi.
@@ -65,5 +65,6 @@ tamamlanmış saymaz.
 
 ## Sonraki İş
 
-Frontend 30B geçiş kapısı, `OPEN-BNK-020` ve dependency kararı tamamlanana kadar
+React + TypeScript + Vite, MUI, ECharts, Storybook ve Playwright teknik seçimleri
+kesinleşmiştir. Frontend 30B geçiş kapısı ve `OPEN-BNK-020` tamamlanana kadar
 uygulamaya alınmaz. Hazır ve engellenmemiş yeni geçiş artımı bulunmamaktadır.

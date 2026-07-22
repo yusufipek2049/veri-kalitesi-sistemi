@@ -693,10 +693,12 @@ tags:
 - `04-Frontend/references/reference-dashboard.png` 1440×900 sentetik dashboard
   referansı olarak oluşturuldu. İki görsel iyileştirme turunda KPI yerleşimi ve alarm
   satırı taşması giderildi; görsel gerçek banka veya müşteri verisi içermez.
-- Storybook component durumları ve Playwright ekran görüntüsü süreci frontend
-  Definition of Done'a eklendi; araçlar proje bağımlılığı olarak henüz kurulmadı.
+- React, TypeScript, Vite, MUI ve ECharts frontend stack'i; Storybook component
+  doğrulaması ve Playwright ekran/görsel doğrulaması teknik karar olarak
+  kesinleştirildi. Araçlar proje bağımlılığı olarak henüz kurulmadı.
 - İlk uygulanacak görsel ekran kurumsal dashboard olarak belirlendi. Uygulama 21B
-  güvenli HTTP/API sınırı, bankacılık geçiş kapısı ve frontend toolchain onayına bağlıdır.
+  güvenli HTTP/API sınırı ve bankacılık geçiş kapısına bağlıdır; frontend stack
+  veya toolchain seçimi için yeniden onay beklenmez.
 - Kaynak kodu, frontend componenti, dependency ve build yapılandırması değişmedi;
   556 birim test baseline'ı ve sıradaki hazır İterasyon 28D korunmuştur.
 
