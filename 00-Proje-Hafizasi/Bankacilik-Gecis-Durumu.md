@@ -92,7 +92,7 @@ Aşağıdaki davranışlar geriye dönük bozulmamalıdır:
 | 5 | Kurumsal IdP/SSO-MFA ve RBAC üretim entegrasyonu tamamlanmadı | 20A context'i dashboard authorization'a bağlar; 20B giriş sınırı, 20C temel normal session, 20D onaylı süre/tek aktif oturum, 20E BFF cookie/CSRF ve 21B HTTP okumayı uygular; gerçek IdP endpoint/callback/state/nonce, banka eşlemesi, ayrıcalıklı/servis oturumu ve üretim altyapısı açık | Gerçek IdP ve üretim altyapısı |
 | 6 | Operasyon ve kanıt katmanı kısmi | Ortam başlangıç kapısı, audit/rapor erişimi, güvenlik olayı, ihlal şüphesi, timeline, retention dry-run/legal hold/imha kanıtı ve arşiv geri çağırma yetkilendirmesi uygulanmıştır; gerçek ortam sağlayıcısı, DR, fiziksel/arşiv adaptörleri ve SIEM/SOC eksiktir | Altyapı kurulumu ve operasyon kanıtı |
 | 7 | Kabul edilen skorlama ve ölçüm yeterliliği hedef modeli kısmen runtime'a taşındı | 33A kanonik sayaçları, 33B kritiklikten ayrılmış kaynak kalite skorunu uygular; ham/nihai skor, yeterlilik/geçerlilik kapısı, kullanım kararı, kapsam/güven, ayrı risk ve override modeli yoktur | Sonraki skorlama uygulama dilimleri |
-| 8 | Kanıta dayalı karar sistemi yalnız ikinci faz hedef sözleşmesidir | Kullanım amacı, etki, lineage, öneri, remediation, chaos ve kanıt paketi runtime'da yoktur; `OPEN-026–OPEN-036` açıktır | Kararların tamamlanması ve küçük ikinci faz dilimleri |
+| 8 | Kanıta dayalı karar sistemi yalnız ikinci faz hedef sözleşmesidir | `OPEN-026–OPEN-036` teknik yönleri kesinleşmiştir; kullanım amacı, etki, lineage, öneri, remediation, chaos ve kanıt paketi runtime'da yoktur | Kurumsal adaptör/politika hazırlığı ve küçük ikinci faz dilimleri |
 
 ## Geçiş Kapısı
 

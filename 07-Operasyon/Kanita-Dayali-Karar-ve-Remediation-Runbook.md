@@ -18,8 +18,10 @@ değildir.
 5. Öneriyi mekanizma/sürüm, dayanak, güven, risk ve onay ihtiyacıyla oluştur.
 6. Remediation öncesi dry-run, etki, yetki/politika, maker-checker ve rollback
    kanıtını doğrula.
-7. `OPEN-030` kapanana kadar yalnız `SuggestOnly` uygula.
-8. İzinli gelecekteki akışta canary sonrası yeniden ölç; başarısızlıkta rollback
+7. `SuggestOnly` varsayılanını uygula. Üretimde yalnız sistem nesneleri için
+   onaylı `ApprovalRequired`, idempotent `AutoRerun` veya sistem çıktısını
+   durduran `AutoQuarantine` akışına izin ver; `AutoFixLowRisk` üretim dışıdır.
+8. Canary sonrası yeniden ölç; başarısızlıkta rollback
    ve güvenli duruma geç.
 9. Kapanışta doğrulama sonucu, kalıcılık koşulu, kanıt paketi ve audit referansını
    ilişkilendir.
@@ -44,11 +46,23 @@ değildir.
 
 ## Chaos Deneyi
 
-1. `OPEN-031` ile izinli ortam/fault kapsamını doğrula.
-2. Sentetik köken, ground truth, onay, izolasyon ve rollback kanıtını kontrol et.
+1. Ortamın izole ve üretim dışı, verinin sentetik ve fault profilinin sürümlü
+   olduğunu doğrula.
+2. Sentetik köken, ground truth, Data Owner ile Bilgi Güvenliği/Operasyon onayı,
+   izolasyon ve rollback kanıtını kontrol et.
 3. Kusuru enjekte et; tespit, kaçırılan hata, false positive ve süreyi ayrı ölç.
-4. Geri al ve veri/ortam durumunu doğrula.
-5. Teknik hata ile kontrolün kaçırdığı kalite kusurunu ayrı kapat.
+4. Kapsam/ortam uyuşmazlığı, gerçek veri, audit/telemetri kaybı, rollback
+   yokluğu, beklenmeyen downstream etkisi veya bütçe aşımında derhal durdur.
+5. Geri al ve veri/ortam durumunu doğrula.
+6. Teknik hata ile kontrolün kaçırdığı kalite kusurunu ayrı kapat.
+
+## Kanıt Paketi
+
+- Otoriter çıktı RFC 8785 kanonik JSON manifest ve referanslı artefaktlardır.
+- SHA-256 digest doğrulanır; üretimde kurum onaylı KMS/HSM imzası aranır.
+- Paket ham hassas veriyi kopyalamaz; eksik kanıt başarılı gibi gösterilmez.
+- Dışa aktarma asenkron, DLP ve gerektiğinde maker-checker kontrollüdür.
+- Saklama, legal hold ve imha kanıtı etkin kayıt sınıfı politikasından çözülür.
 
 ## Metrikler ve Alarmlar
 

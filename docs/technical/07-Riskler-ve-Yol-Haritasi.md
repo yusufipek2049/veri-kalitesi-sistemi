@@ -5,8 +5,9 @@
 `ADR-019` hedefi mevcut frontend ve skorlama artımlarından sonra şu bağımlılık
 sırasını izler: kanıt/manifest; kullanım amacı/etki; lineage/simülasyon;
 teşhis/öneri; kontrat/adaptif tarama/gizlilik/kalite borcu; kontrollü remediation;
-izole chaos ve kanıt paketi. `OPEN-026–OPEN-036` kapanmadan ürün, eşik,
-finansal katsayı, saklama, yetki, sağlayıcı veya otomasyon düzeyi varsayılmaz.
+izole chaos ve kanıt paketi. `OPEN-026–OPEN-036` teknik yönleri kesinleşmiştir;
+ürün adı, sayısal üretim eşiği, saklama süresi veya runtime otomasyon yetkisi
+etkin politika ve kurumsal adaptör kanıtı olmadan varsayılmaz.
 
 ## Risk Değerlendirme Yöntemi
 

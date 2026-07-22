@@ -88,7 +88,7 @@ ikinci faz sözleşmesidir ve uygulanmış runtime olarak değerlendirilmez.
 | Güvenli SDLC | Kısmen uygulanmış | Secret scanner, direct SBOM, SAST/doğrudan bağımlılık zafiyet kapıları, pentest bulgu takibi, teknik kanıt manifesti/drift kapısı ve birleşik preflight | Gerçek scanner/transitive SCA/DAST/pentest, CI zorlaması, imzalı kanıt deposu ve istisna akışı |
 | REST API | Kısmen uygulanmış | FastAPI dashboard özeti ve BFF logout; Problem Details | Kalan alan endpoint'leri, üretim resolver ve kapsamlı OpenAPI |
 | Frontend | Kısmen uygulanmış | React/Vite dashboard, tema, Storybook ve Playwright | Operasyonel KPI API'si ve alan ekranları |
-| Kanıta dayalı karar desteği | Planlanmış ancak uygulanmamış | `ADR-019`, `FR-097–FR-111`, kanonik hedef mimari | `OPEN-026–OPEN-036` kararları, runtime, migration ve entegrasyonlar |
+| Kanıta dayalı karar desteği | Planlanmış ancak uygulanmamış | `ADR-019`, `FR-097–FR-111`, `OPEN-026–OPEN-036` teknik yön kararları, kanonik hedef mimari | Runtime, migration, kurumsal politika ve entegrasyonlar |
 | Deployment/CI/CD/DR | Planlanmış ancak uygulanmamış | Operasyon belgeleri | Çalıştırılabilir altyapı ve kanıt |
 
 ### Kritik Riskler

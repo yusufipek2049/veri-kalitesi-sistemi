@@ -72,5 +72,6 @@ MVP; uçtan uca “kaynağı tanımla → profille → kuralı oluştur/test et 
 **Gerekçe:** Bu özellikler daha fazla metadata/lineage olgunluğu, kanıt kaynağı,
 entegrasyon izni, yönetişim politikası ve işletim kapasitesi gerektirir. Önce
 MVP'deki deterministik ölçüm ve tarihsel veri tabanı kurulmalıdır. Ayrıntılı hedef
-`FR-097–FR-111` ve `ADR-019`'dur; `OPEN-026–OPEN-036` kapanmadan eşik, sağlayıcı
-veya otomasyon yetkisi varsayılmaz.
+`FR-097–FR-111` ve `ADR-019`'dur. `OPEN-026–OPEN-036` teknik yönleri kesinleşmiş
+olsa da etkin politika, kurumsal sağlayıcı bağlantısı veya otomasyon yetkisi
+runtime kanıtı olmadan varsayılmaz.

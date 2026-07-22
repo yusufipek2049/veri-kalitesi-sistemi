@@ -43,7 +43,10 @@ kalır. Secret, ham sorgu parametresi veya gereksiz müşteri verisi saklanmaz.
 | approval_status / approval_reference | Evet | Risk bazlı onay bağlantısı |
 | audit_reference | Evet | Veri-minimum audit/outbox referansı |
 
-Profil yoksa veya onaylı değilse olumlu `UsageDecision` üretilmez.
+Profil kataloğunun şema, sözlük ve yaşam döngüsü merkezi; dataset profilinin
+sahibi Data Owner'dır. Data Governance sözlüğü, Risk Yönetimi düzenleyici/risk
+kullanımını yönetir. Profil yoksa veya onaylı değilse olumlu `UsageDecision`
+üretilmez.
 
 ## RunManifest
 
@@ -106,9 +109,11 @@ Kanıt çoktan çoğa bağlanır; içerik başka varlıklara kopyalanmaz.
 
 ## LineageSnapshot, ChangeEvent ve Diagnosis
 
-`LineageSnapshot`; source/dataset/table/column, transformation, pipeline/job,
+`LineageSnapshot`; kurumsal veri kataloğunu sistem-of-record kabul eder ve
+OpenLineage uyumlu source/dataset/table/column, transformation, pipeline/job,
 downstream dataset/data product/report/model, owner, repository/file/commit/deploy
-referansları ile source/version/captured_at/completeness alanlarını taşır.
+referansları ile source/version/captured_at/freshness/completeness alanlarını
+taşır. İç eşleme W3C PROV `Entity/Activity/Agent` anlamlarını koruyabilir.
 
 `ChangeEvent`; DATA/RULE/POLICY/MEASUREMENT/SCHEMA/REFERENCE_DATA/PIPELINE/
 DEPLOYMENT/SOURCE_OUTAGE türü, etkilenen kapsam, önceki/yeni sürüm referansı,
@@ -121,14 +126,16 @@ bağlarını taşır. Yeni değerlendirme önceki kaydı güncellemez.
 ## Recommendation ve RemediationAction
 
 `Recommendation`; type, source mechanism, mechanism/version reference,
-confidence, validation status, application risk, required approval, status,
-created_at ve `EvidenceLink` ilişkilerini taşır. Serbest metin hassas veri
-içeremez.
+confidence, counterevidence, validation status, application risk, required
+approval, status, created_at ve `EvidenceLink` ilişkilerini taşır. İlk üretim
+allowlist'i `DeterministicRule`, `IncidentSimilarity` ve auditli `ExpertInput`
+türleridir. `LLMAssisted` üretimde kapalıdır. Serbest metin hassas veri içeremez.
 
 `RemediationAction`; recommendation/issue, policy level, action type, target
 reference, idempotency digest, dry-run/impact/approval/canary/validation ve
 rollback referansları, güvenilir kullanıcı/servis aktörü, status ve audit
 alanlarını taşır. Kaynak üretim verisine yazan action type modele alınmaz.
+`SuggestOnly` varsayılandır; `AutoFixLowRisk` ilk fazda üretim dışıdır.
 
 ## ImpactAssessment ve QualityDebtItem
 
@@ -140,20 +147,30 @@ formula/policy version, confidence ve evidence bağlarını taşır.
 `QualityDebtItem`; source issue, first_detected_at, age snapshot, affected system
 referansları, recurrence/exception counts, operational cost/risk increase
 değerlendirmeleri, owner, target date, status ve evidence bağlarını taşır.
+`QualityDebtScoreV1 = 100 * (0.20 * age_ratio + 0.20 * recurrence_ratio +
+0.20 * exception_ratio + 0.20 * impact_ratio + 0.20 * control_gap_ratio)`
+formülünü, `evidence_coverage` değerini ve kullanılan politika sürümlerini ayrı
+saklar. Oranlar `0–1` aralığına onaylı politikayla normalize edilir. Gerekli
+bileşen eksikse skor `Unknown` olur; eksik değer sıfır sayılmaz.
 
 ## DataContract
 
-`DataContract`; producer/consumer owner, dataset/schema version, required field/
+`DataContract`; kurumsal veri kataloğu referansı, producer/consumer owner,
+dataset/schema version, required field/
 type constraints, quality/freshness/completeness/uniqueness/availability policy
 referansları, breaking change/notification/exception/violation policy sürümleri,
 effective dates, approval ve audit alanlarını taşır. Metadata kataloğunu yeniden
-geliştirmez; kurumsal sistem-of-record'a referans verir.
+geliştirmez; kurumsal sistem-of-record'a referans verir. Breaking change için
+etki simülasyonu, Data Owner onayı ve tüketici bildirimi; istisna için kapsam,
+süre sonu ve maker-checker referansı zorunludur.
 
 ## ChaosExperiment, InjectedFault ve DetectionResult
 
 `ChaosExperiment`; dataset/scenario/run, environment attestation, fault policy,
 authorization/approval, rollback plan, status, started/completed_at ve manifest
-referansını taşır. `InjectedFault`; fault type, target scope, injection evidence,
+referansını taşır. İlk fazda ortam üretim dışı ve veri sentetik olmalıdır.
+Fault policy kaynak/dataset/partition/zaman/hacim bütçesi ile durdurma nedenlerini
+taşır. `InjectedFault`; fault type, target scope, injection evidence,
 ground truth ve rollback reference taşır. `DetectionResult`; detected/missed/
 false-positive sonucu, detection time, rule/dimension/critical-field coverage,
 technical status ve evidence bağlarını taşır.
@@ -164,11 +181,12 @@ technical status ve evidence bağlarını taşır.
 reference, actor type/reference, correlation, evidence links ve classification
 alanlarını taşır.
 
-`EvidencePackage`; scope, status, manifest version/digest, included/missing
-evidence references, evidence strength, generated_by/at, retention policy,
-export/DLP decision ve audit alanlarını taşır. Kanıt içeriğini kopyalamak yerine
-referans ve digest kullanır; paket saklama ve imha süresi `OPEN-036` ile
-kesinleşir.
+`EvidencePackage`; scope, status, RFC 8785 canonicalization version, manifest
+version/digest, SHA-256 algorithm reference, signature/key reference,
+included/missing evidence references, evidence strength, generated_by/at,
+retention policy, export/DLP decision ve audit alanlarını taşır. Kanıt içeriğini
+kopyalamak yerine referans ve digest kullanır. İmza üretimde kurum onaylı
+KMS/HSM'den, saklama ve imha davranışı kayıt sınıfı politikasından çözülür.
 
 ## İlişkiler
 
@@ -194,8 +212,8 @@ erDiagram
 ## Saklama, İndeks ve Migration Etkisi
 
 - Yeni kayıt sınıfları mevcut `RetentionPolicy` kataloğuna açık eşleme olmadan
-  kalıcılaştırılmaz; süreler `OPEN-036` ve `OPEN-BNK-008` sonuçlanmadan
-  uydurulmaz.
+  kalıcılaştırılmaz; süreler `OPEN-BNK-008` incelemesi ve etkin kayıt sınıfı
+  politikası olmadan uydurulmaz.
 - Run, kanıt, teşhis, öneri, karar, remediation ve timeline kayıtları append-only
   tasarlanır; fiziksel silme legal hold ve imha prosedürüne uyar.
 - Sık sorgulanan subject type/id, source reference, status, occurred_at,

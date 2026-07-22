@@ -94,7 +94,7 @@ Bu bölüm, sistemin temel veri varlıklarını, veri sözlüğünü, saklama po
 | Hata ve yeniden deneme kayıtları | `P90D` | KararAlındı | `RET-90D-TRANSIENT`; güvenli hata özetiyle sınırlıdır. |
 | Sentetik datasetler | Fiziksel çıktı `P30D`; geri döndürülemez anonim toplulaştırma amaç sürdükçe | KararAlındı; kullanım onayı ayrı | `RET-30D-EXPORT` veya yalnız anonimlik kanıtı varsa `RET-ANON`. |
 | Sentetik üretim, ground truth ve doğrulama kayıtları | Operasyonel test `P1Y`; resmî kabul kanıtı `P10Y` | KararAlındı | `RET-1Y-OPS` veya `RET-10Y-BANKING`; lineage korunur. |
-| Karar desteği kanıtı, manifest, lineage, teşhis, öneri, remediation, contract, borç, chaos ve kanıt paketi kayıtları | `TBD` | ComplianceReviewRequired | `OPEN-036` ve `OPEN-BNK-008` sonuçlanmadan süre uydurulmaz; etkin `RET-*` eşlemesi yoksa kalıcılaştırma fail-closed reddedilir. |
+| Karar desteği kanıtı, manifest, lineage, teşhis, öneri, remediation, contract, borç, chaos ve kanıt paketi kayıtları | `TBD` | ComplianceReviewRequired | `OPEN-036` paket yönü kesinleşmiştir; `OPEN-BNK-008` incelemesi ve etkin `RET-*` eşlemesi olmadan süre uydurulmaz, kalıcılaştırma fail-closed reddedilir. |
 
 Her `RetentionPolicy` kaydı en az kayıt sınıfı, saklama süresi, hukuki dayanak
 veya kurumsal gerekçe, çevrimiçi saklama süresi, arşiv süresi, imha yöntemi ve

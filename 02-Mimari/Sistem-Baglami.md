@@ -36,5 +36,7 @@ flowchart LR
     DQ -->|Kanıt paketi / karar görünümü| GOV[Veri Yönetişimi / Risk / Denetim]
 ```
 
-Kurumsal lineage kaynağı, recommendation/LLM sağlayıcısı veya otomasyon hedefi
-bu diyagramla seçilmiş değildir; `OPEN-026–OPEN-036` geçerlidir.
+Lineage ve sahiplik otoritesi kurumsal veri kataloğudur; aktarım OpenLineage
+uyumlu sözleşmeyle yapılır. İlk üretim önerileri deterministik mekanizmalarla
+sınırlıdır ve `LLMAssisted` kapalıdır. Belirli ürün/sağlayıcı ile runtime
+otomasyon hedefi bu diyagramla seçilmiş değildir.

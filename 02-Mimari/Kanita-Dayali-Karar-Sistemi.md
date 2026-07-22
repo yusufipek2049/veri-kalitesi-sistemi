@@ -49,9 +49,10 @@ kuralları ve gerekli kanıt/yeterlilik kapılarını referanslar. Profil değer
 aktif, sürümlü ve gerekli onayı taşıyan politikadan çözülür; profil veya politika
 yoksa olumlu kullanım kararı üretilmez.
 
-İlk kullanım amacı kataloğu, ağırlıklar, eşikler ve bloke edici kural setleri
-`OPEN-026` kapsamındadır. Örnek kullanım amaçları gereksinim sözlüğünü açıklar;
-kurumda etkin profil oldukları anlamına gelmez.
+Profil kataloğu hibrit yönetişimlidir: şema, kurumsal kullanım sözlüğü ve yaşam
+döngüsü merkezi; dataset profili Data Owner sahipliğindedir. Data Governance
+sözlüğü, Risk Yönetimi düzenleyici/risk kullanımını yönetir. Örnek kullanım
+amaçları etkin profil değildir; değerler onaylı profil kaydıyla açılır.
 
 ### Ayrı Skor ve Güven Kavramları
 
@@ -73,8 +74,10 @@ Değerlerin formülü ve sınıflandırma eşikleri aktif sürümlü politikadan
 etkisini; veri kritikliğini ve çözüm maliyetini kaynaklarıyla birlikte taşır.
 Her değer `Observed`, `Calculated`, `Estimated` veya `Unknown` olarak
 etiketlenir. Formül, girdiler, kaynak referansları, model/politika sürümü ve güven
-düzeyi gösterilir. Kaynaksız parasal değer üretilmez. Formüller ve veri
-kaynakları `OPEN-027` kapsamındadır.
+düzeyi gösterilir. Gözlenen değer hesaplanan ve tahmini değerden önce gelir.
+Parasal değer yalnız otoriter Finans/Risk referansı veya onaylı formülle
+üretilir; desteklenmeyen bileşenler `Unknown` kalır ve kanıtsız tek toplam
+etki sayısında birleştirilmez.
 
 ## Kanıt Zinciri ve Yeniden Üretilebilirlik
 
@@ -115,11 +118,12 @@ log bir işlemin izidir; teknik kanıtın kendisi değildir.
 
 ## Lineage, Drift ve Kök Neden
 
-Lineage tablo ve kolon düzeyinde kaynak, dönüşüm, pipeline/job, dataset, rapor,
-model ve veri ürünü ilişkilerini; mümkünse repository, dosya, commit ve deploy
-referanslarını kapsar. Sistem lineage üreticisini uydurmaz; kaynak sistem ve
-otorite `OPEN-028` kapsamında belirlenir. Eksik lineage `Unknown` olarak görünür
-ve etki kapsamı olduğundan dar gösterilmez.
+Lineage ve sahiplik için kurumsal veri kataloğu sistem-of-record'dur. Sistem
+OpenLineage uyumlu sürümlü olay sözleşmesiyle run/job/dataset ve kolon düzeyi
+ilişkileri alır; iç kanıt modelinde W3C PROV `Entity`, `Activity` ve `Agent`
+anlamlarına eşleyebilir. Rakip bir ana katalog oluşturmaz; değişmez snapshot,
+digest, kaynak sürümü, güncellik ve kapsama durumunu saklar. Eksik veya eski
+lineage `Unknown` olarak görünür ve etki kapsamı olduğundan dar gösterilmez.
 
 Değişiklikler şu sınıflarda ayrılır:
 
@@ -147,10 +151,12 @@ hesaplanır; eksik lineage veya politika sonucu `Incomplete` yapar. Simülasyon
 ## Kanıtlı Öneri ve Remediation
 
 Her `Recommendation`; öneri türü, üreten mekanizma, dayanak metrik/olaylar,
-benzer geçmiş olaylar, lineage bulguları, güven, doğrulama durumu, uygulama riski
-ve gerekli onayı taşır. Mekanizma türü `DeterministicRule`, `StatisticalModel`,
-`IncidentSimilarity`, `ExpertInput`, `LLMAssisted` veya `Hybrid` olabilir.
-Sağlayıcı, model ve kabul eşikleri `OPEN-029` kapsamında kalır.
+benzer geçmiş olaylar, lineage bulguları, karşı kanıt, güven, doğrulama durumu,
+uygulama riski ve gerekli onayı taşır. İlk üretim sürümünde yalnız
+`DeterministicRule`, `IncidentSimilarity` ve auditli `ExpertInput` etkindir.
+`StatisticalModel` bağımsız doğrulama ve kalibrasyon sonrasında açılabilir.
+`LLMAssisted` üretimde kapalıdır; ileride açılsa bile yalnız `SuggestOnly`
+düzeyinde çalışır ve karar/onay/eylem kaynağı olamaz.
 
 Politika seviyeleri:
 
@@ -164,35 +170,47 @@ Politika seviyeleri:
 | `NeverModifyProductionData` | Kaynak üretim verisine yazmayı her koşulda yasaklar |
 
 Akış: teşhis → öneri → dry-run → etki analizi → yetki/politika → onay →
-canary → yeniden doğrulama → tam uygulama veya rollback/kapanış. İzinli otomasyon
-eylemleri, ortamlar ve karar sahipleri `OPEN-030` sonuçlanmadan yalnız
-`SuggestOnly` uygulanabilir.
+canary → yeniden doğrulama → tam uygulama veya rollback/kapanış. `SuggestOnly`
+varsayılandır. `ApprovalRequired` yalnız sistemin sahip olduğu nesne ve iş
+akışlarında; `AutoRerun` aynı değişmez girdide idempotent; `AutoQuarantine`
+yalnız sistem çıktısının yayımını durduracak biçimde kullanılabilir.
+`AutoFixLowRisk` ilk fazda üretim dışıyla sınırlıdır. Kritik audit/outbox
+yazılamıyorsa eylem fail-closed sonuçlanır.
 
 ## Data Contract, Adaptif Tarama ve Kalite Borcu
 
 `DataContract`; şema/zorunluluk/tip, kalite eşikleri, freshness/completeness/
 uniqueness/availability, üretici-tüketici sahipleri, breaking change bildirimi,
-istisna/onay ve ihlal davranışını sürümler. Kurumsal sistem-of-record ve bildirim
-kuralları `OPEN-032` kapsamındadır.
+istisna/onay ve ihlal davranışını sürümler. Kurumsal veri kataloğu
+sistem-of-record'dur; bu sistem değişmez sözleşme sürümü ve değerlendirme
+kanıtını saklar. Üretici taslak oluşturur, Data Owner onaylar, tüketici sahipleri
+breaking change için bilgilendirilir. Etki simülasyonu ve onay olmadan breaking
+change etkinleşmez; istisna kapsamlı, süreli, maker-checker onaylı ve auditlidir.
 
-Adaptif tarama; dataset kritikliğini, hacmi, olay/kalite borcu ve hata geçmişini,
-kullanım amacını, değişiklik geçmişini, maliyeti ve örnekleme güvenini girdi
-olarak kullanabilir. Tam, partition, adaptif veya risk bazlı örnekleme kararı
-gerekçesiyle kaydedilir. Eşik ve maliyet politikaları `OPEN-033` olmadan
-otomatik strateji değişikliği yapılamaz.
+Adaptif tarama ilk fazda deterministik politika motorudur; makine öğrenmesiyle
+strateji seçilmez. Kritik veya bloke edici kontrollerde mümkünse tam tarama,
+sonra partition uygulanır. Örnekleme yalnız kullanım ve kaynak politikası izin
+verip kapsama/güven koşulları sağlandığında seçilir. Her karar gerekçe, tahmini
+maliyet, kapsam, güven ve seed taşır. Politika yoksa otomatik strateji değişmez
+veya yeni çalışma fail-closed reddedilir.
 
 `QualityDebtItem`; ilk tespit, yaş, etkilenen sistem, tekrar/istisna sayıları,
 operasyonel maliyet, risk artışı, çözüm sahibi, hedef tarih ve durum taşır.
-Borç formülü ve hedefleri `OPEN-035` kapsamındadır; kaynaksız maliyet üretilmez.
+`QualityDebtScoreV1`, gerekli politikalarla normalize edilmiş yaş, tekrar,
+istisna, etki ve kontrol açığı oranlarının eşit ağırlıklı ortalamasını `0–100`
+aralığına taşır. Kanıt kapsaması ayrı gösterilir; gerekli bileşen veya politika
+yoksa skor üretilmez ve bileşen `Unknown` kalır. Operasyonel maliyet ile finansal
+etki bu skora uydurulmaz; ayrı kaynaklı değerlerdir.
 
 ## Gizlilik Korumalı İnceleme
 
-Varsayılan görünüm maskeli alan, kayıt fingerprint'i ve güvenli referans kullanır.
-Deterministik tokenizasyon, gerçek kayıt görünümü veya geçici yetki yükseltme;
-ayrı izin, gerekçe, süre, sınıflandırma, audit ve saklama politikasına bağlıdır.
-İndirme ve kopyalama kısıtları kurumsal katalog/DLP kararından uygulanır.
-Mekanizma ve süreler `OPEN-034` kapsamında belirlenir. Sentetik örnek gerçek
-kaydın yerine tercih edilir; sentetik köken açıkça gösterilir.
+Varsayılan görünüm toplulaştırılmış/maskeli alan, kayıt fingerprint'i ve güvenli
+referans kullanır. Hassas değer için düz veya tuzsuz hash kullanılmaz;
+deterministik token kurumun kriptografik/tokenizasyon servisi ve KMS/HSM anahtarı
+ile üretilir. Gerçek kayıt görünümü istisnai, kapsamlı, gerekçeli, süreli ve
+auditlidir; yüksek hassasiyette maker-checker gerekir. İndirme ve kopyalama
+varsayılan kapalıdır. Katalog/DLP kesintisi daha düşük korumaya düşmez. Sentetik
+örnek gerçek kaydın yerine tercih edilir ve kökeni açıkça gösterilir.
 
 ## Chaos ile Kontrol Yeterliliği
 
@@ -202,10 +220,13 @@ veri ve hassas veri sızıntısı sınıflarını izole sentetik veya yetkili te
 ortamında enjekte edebilir. Üretim veya gerçek müşteri verisi varsayılan olarak
 yasaktır.
 
-Deney; enjekte/tespit/kaçırılan hata, false positive, tespit süresi, kural,
-boyut ve kritik alan kapsamasını ölçer. Yetki, ortam izolasyonu, geri alma ve
-kanıt manifesti zorunludur. İzinli ortam ve hata sınırları `OPEN-031` sonucunu
-bekler.
+Deney ilk fazda yalnız izole üretim dışı ortam ve sentetik veriyle yürütülür.
+Sürümlü fault profili kaynak/dataset/partition/zaman/hacim sınırlarını taşır;
+Data Owner ile Bilgi Güvenliği veya Operasyon onayı ve önceden doğrulanmış
+rollback zorunludur. Kapsam/ortam kanıtı uyuşmazlığı, gerçek veri veya üretim
+hedefi, audit/telemetri kaybı, rollback yokluğu, beklenmeyen downstream etkisi
+ya da politika bütçesi aşımı deneyi derhal durdurur. Enjekte/tespit/kaçırılan
+hata, false positive, tespit süresi ve kontrol kapsaması ayrı ölçülür.
 
 ## API, UI ve Yetki Sınırı
 
@@ -253,10 +274,27 @@ Ayrıntılı alanlar
 [Kanıt ve Karar Desteği Varlıkları](../01-SRS/07-Veri-Modeli/Kanit-ve-Karar-Destegi-Varliklari.md)
 belgesindedir.
 
-## Açık Kararlar ve Güvenli Varsayılanlar
+## Kanıt Paketi ve Güvenli Varsayılanlar
 
-`OPEN-026–OPEN-036` sonuçlanmadan ürün, sağlayıcı, eşik, katsayı, SLA/SLO,
-saklama süresi veya otomasyon yetkisi varsayılmaz. Eksik politika olumlu kullanım,
-doğrulanmış teşhis, yayımlanmış öneri, otomatik remediation veya chaos çalışması
-üretmez. Yalnız salt okunur inceleme ve eksikliği açıkça gösteren sonuç
-sunulabilir.
+Kanıt paketinin otoriter çıktısı RFC 8785 kanonik JSON manifestidir. Manifest ve
+referanslı artefaktlar mevcut SHA-256 özetiyle doğrulanır; üretimde kurum onaylı
+KMS/HSM ile imzalanıp değişmez/WORM uyumlu depoda tutulur. İnsan okunur özet
+ikincildir. Paket ham hassas veriyi kopyalamaz. Dışa aktarma asenkron, DLP ve
+gerektiğinde maker-checker kontrollü; şifreli, süreli ve politika gerektiriyorsa
+watermark'lıdır. Saklama, legal hold ve imha kanıtı kayıt sınıfı politikasından
+çözülür.
+
+Ürün adı, sayısal üretim eşiği, fault büyüklüğü, SLA/SLO veya saklama süresi
+uydurulmaz. Eksik politika olumlu kullanım, doğrulanmış teşhis, yayımlanmış öneri,
+otomatik remediation, chaos çalışması veya başarılı kanıt paketi üretmez.
+
+## Standart Dayanakları
+
+- OpenLineage run/job/dataset ve kolon düzeyi lineage için birlikte çalışabilir
+  olay sözleşmesi dayanağıdır: <https://openlineage.io/docs/spec/facets/>.
+- W3C PROV-O kanıt kökenini `Entity`, `Activity` ve `Agent` ilişkileriyle
+  eşlemek için semantik dayanak sağlar: <https://www.w3.org/TR/prov-o/>.
+- NIST AI RMF insan gözetimi, rol ayrımı ve risk yönetimi sınırının dayanağıdır:
+  <https://airc.nist.gov/airmf-resources/airmf/5-sec-core/>.
+- RFC 8785 imzalanabilir manifest için deterministik JSON kanonikleştirme
+  yöntemidir: <https://www.rfc-editor.org/rfc/rfc8785>.
