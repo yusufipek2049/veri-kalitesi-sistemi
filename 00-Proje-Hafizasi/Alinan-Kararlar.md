@@ -556,3 +556,9 @@ Bu sınıflandırma şu kuralları birlikte uygular:
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
 | --- | --- | --- | --- |
 | Çok dönemli sentetik zaman üretimi mevcut Golden V1'i değiştirmeyen ayrı generator/şema/konfigürasyon sürümüyle çalışacak; temporal profil append-only saklanacak ve altı zaman anlamı bağımsız validator ile UTC, sıra ve dönem ataması açısından doğrulanacaktır. | Golden V1 payload'ını genişletmek mevcut replay digest'ini değiştirir. Zaman alanlarını tek damgaya indirgemek event, kaynak, ingestion, processing ve kalite kontrol anlamlarını karıştırır. | Golden V1'i yerinde değiştirmek; sistem saatini kullanmak; yalnız alan sırasını generator içinde kontrol etmek; gecikme değerlerini üretim SLA'sı saymak. | `TEMPORAL_MULTI_PERIOD_GENERATOR_V1` yalnız tamamen yapay teknik profildir. Profil değerleri test girdisidir; banka SLA'sı, üretim dağılımı veya drift eşiği değildir. Eksiklik, geç/sırasız akış, drift ve hacim ayrı artımlarda kalır. |
+
+## 2026-07-22 — İterasyon 30B Teknik Kararı
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| İlk çalışan frontend artımı yalnız sabit sentetik fixture ile kurulacak; üretim API'si, IdP/oturum veya banka verisine bağlanmayacaktır. Grafik ve erişilebilir tablo aynı view-model'i kullanacak, teknik hata ile provizyonel sonuç resmî trend çizgisinden dışlanacaktır. | Kullanıcıya çalışan bir frontend göstermek gerekirken geçiş kapısı ve 21B güvenli HTTP/API sınırı tamamlanmamıştır. Bu sınırlar tahmin edilirse UI sahte yetki ve üretim sözleşmesi iddiası üretir. | Frontend'i tamamen ertelemek; üretim API alanlarını tahmin etmek; statik ekran görüntüsünü çalışan ürün gibi sunmak; teknik hatayı sıfır skorla çizmek. | `04-Frontend/app/` React + TypeScript + Vite, MUI, ECharts, Storybook ve Playwright çalışma alanıdır. Ekran sentetik olduğunu görünür belirtir; gerçek bağlantılı dashboard 21B, `OPEN-BNK-020` ve geçiş kapısını bekler. |

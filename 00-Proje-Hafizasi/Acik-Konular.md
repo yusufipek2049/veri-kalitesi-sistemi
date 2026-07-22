@@ -57,12 +57,14 @@ Ayrıntılı ve bağlayıcı liste: [SRS — Açık Konular ve Varsayımlar](../
 43. Yerel `28A-v1` secret taraması teknik olarak doğrulandı. Kurumsal scanner/CI-CD ürünü, secret bulgu eşiği, istisna ve risk kabulü, geçmiş commit taraması, pipeline zorlaması ve banka bilgi güvenliği onayı açık kalır.
 44. `28B` doğrudan bağımlılık envanteri ve sürüm bağlı CycloneDX 1.5 SBOM'u teknik olarak doğrulandı. Transitive bağımlılık/lock, artifact hash'i, lisans, zafiyet veritabanı, harici scanner/SBOM ürünü, CI/CD zorlaması ve banka eşik/istisna onayı açık kalır.
 45. `28C-v1` veri-minimum SAST bulgu zarfı, tamamlanmamış tarama teknik hata yolu ve kritik bulguda fail-closed sürüm kapısı teknik olarak doğrulandı. Gerçek SAST scanner/repository taraması, CI/CD zorlaması, kritik olmayan banka eşikleri, istisna/risk kabulü, release maker-checker, DAST ve pentest açık kalır.
-46. Frontend görsel tasarım ve dashboard dokümantasyon tabanı oluşturuldu. React,
-    TypeScript, Vite, MUI, ECharts, Storybook ve Playwright seçimleri
-    `KararAlındı` durumundadır; yeniden dependency seçimi/onayı beklenmez. Paket
-    kurulumu uygulama backlogudur. Kurumsal font, koyu tema teslim kapsamı, visual
-    diff eşiği ve banka marka onayı açık kalır. Dashboard uygulaması ayrıca 21B
-    güvenli HTTP/API sınırı ile bankacılık geçiş kapısına bağlıdır.
+46. Frontend görsel tasarım tabanı ile React, TypeScript, Vite, MUI, ECharts,
+    Storybook ve Playwright paketleri kuruldu; sentetik dashboard çalışma artımı
+    teknik olarak doğrulandı. Kurumsal font, koyu tema teslim kapsamı, onaylı
+    görsel baseline/diff eşiği, route/vendor code splitting, performans bütçesi
+    ve banka marka onayı açık kalır. Üretim
+    dashboard bağlantısı 21B güvenli HTTP/API sınırı, gerçek IdP/oturum ve
+    bankacılık geçiş kapısına bağlıdır; 30B bu bağımlılıkların tamamlandığı
+    iddiasını taşımaz.
 47. `28D-v1` doğrudan bağımlılık zafiyet bulgu zarfı, tamamlanmamış tarama teknik
     hata yolu, tam envanter eşleşmesi ve kritik bulguda fail-closed sürüm kapısı
     teknik olarak doğrulandı. Gerçek zafiyet veritabanı/ağ scanner'ı, transitive

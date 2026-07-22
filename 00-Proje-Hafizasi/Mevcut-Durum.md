@@ -1271,6 +1271,34 @@ tags:
   `03-Backend/src/veri_kalitesi/__init__.py` biçim farkı sürer; `28A-v1`
   taraması 398 dosyada secret bulgusu üretmedi.
 
+### 2026-07-22 — İterasyon 30B: Sentetik dashboard çalışma iskeleti
+
+- `FR-054`, `FR-055`, `FR-058`, `UC-010` ve `NFR-USA-001/003–006` için
+  üretim bağlantısı olmayan ilk gösterilebilir frontend artımı
+  `04-Frontend/app/` altında kuruldu.
+- React + TypeScript + Vite, MUI ve ECharts runtime'ı; Storybook ve Playwright
+  doğrulama araçları tam sürüm pinleriyle kuruldu. `npm audit` 312 pakette
+  bilinen zafiyet bildirmedi.
+- Semantik token kaynağı, açık tema, responsive uygulama kabuğu, KPI kartı,
+  durum rozeti, alarm akışı, resmî skor trendi ve aynı view-model'i kullanan
+  erişilebilir tablo uygulandı. Teknik hata mor, kritik kalite ihlali kırmızı,
+  operasyonel uyarı turuncudur; veri yok ve hesaplanmayan skor sıfır yapılmaz.
+- Normal, loading, empty, teknik hata, yetkisiz ve uzun içerik Storybook
+  durumları üretildi. 4 Vitest ve 7 Playwright testi geçti; beş zorunlu
+  viewport'ta yatay taşma, grafik/tablo eşliği, provizyonel trend dışlama,
+  görünür klavye odağı ve yetkisiz veri ifşa etmeme doğrulandı.
+- İki görsel iyileştirme turunda 1200px üzeri yoğun grid, grafik eşik etiketi,
+  alarm satırı hizası, teknik hata semantiği ve MUI focus halkası düzeltildi.
+- Frontend type-check, üretim build'i, Storybook build'i ve `npm audit` geçti;
+  `npm audit` sıfır bilinen zafiyet bildirdi. Mevcut 987 Python testi, 146
+  dosyalık mypy ve Ruff kontrolleri de korundu; `28A-v1` 429 kaynak dosyada
+  secret bulgusu üretmedi. Vite üretim build'i ilk bundle için 500 kB uyarısı
+  vermektedir; route/vendor code splitting ve performans bütçesi açık teknik
+  iyileştirmedir.
+- Ekran yalnız sentetik fixture kullanır ve bunu görünür biçimde belirtir.
+  Üretim API'si, gerçek IdP/oturum, banka verisi, dışa aktarma ve yetkili
+  drill-down uygulanmadı; 21B/geçiş kapısı bağımlılığı korunur.
+
 ## İlgili Notlar
 
 ### OPEN-001–OPEN-018 Dokümantasyon Uyumlaştırması
@@ -1286,7 +1314,7 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A ve İterasyon 34A–34E çıktıları korunacaktır.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1, İterasyon 30A–30B, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A ve İterasyon 34A–34E çıktıları korunacaktır.
 - `pytest` ile 987 testin geçtiği doğrulanmıştır.
 - Tam mypy kontrolü 146 kaynak dosyada sıfır hata vermektedir.
 - Kısmi politika maker-checker onay/ret, geri çekme ve atomik audit akışı 32D ile tamamlandı. Süre aşımı açık kalır; güvenilir `PartialExecutionFacts` üretimi kapsama ve eksik kayıt oranı formüllerini beklemektedir. 31D hız sınırı sayaç/pencere semantiğini; CPU/IO sınırları güvenilir kaynak ölçüm adaptörünü beklemektedir. 27B restore tatbikat kanıtı `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını bekler; gerçek arşiv/fiziksel imha adaptörü, 29D, 21B/frontend, hassas dışa aktarma ve gerçek SIEM de banka/altyapı kararlarına bağlıdır.

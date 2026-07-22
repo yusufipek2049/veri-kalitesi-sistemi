@@ -61,23 +61,24 @@ sonraki değişiklikler bu baseline'ı korumalıdır.
 
 ## Frontend Tasarım Backlogu
 
-Bu kimlikler teslimat backlog kimlikleridir; yeni SRS gereksinimi değildir. Tüm
-uygulama maddeleri geçiş kapısı ve ilgili güvenli API sözleşmesine bağlıdır.
+Bu kimlikler teslimat backlog kimlikleridir; yeni SRS gereksinimi değildir.
+30B yalnız sentetik ve bağlantısız çalışma artımıdır. Üretim verisi, eylem ve
+drill-down maddeleri geçiş kapısı ile ilgili güvenli API sözleşmesine bağlıdır.
 
 | ID | Ürün artımı | Öncelik | Bağımlılık | Durum |
 | --- | --- | --- | --- | --- |
-| FE-DS-001 | Kurumsal design token sistemi | Must | Bankacılık geçiş kapısı | Planlı / geçiş kapısına bağlı |
+| FE-DS-001 | Kurumsal design token sistemi | Must | — | 30B `TechnicallyVerified` |
 | FE-DS-002 | Açık ve koyu tema tanımları | Should | FE-DS-001, koyu tema kapsam kararı | Planlı / engelli |
-| FE-DS-003 | Ortak KPI kartı | Must | FE-DS-001 | Planlı / engelli |
-| FE-DS-004 | Ortak status badge ve status mapper | Must | FE-DS-001 | Planlı / engelli |
-| FE-DS-005 | Ortak alarm bileşeni | Must | FE-DS-004 | Planlı / engelli |
-| FE-DS-006 | Ortak chart wrapper ve formatter | Must | FE-DS-001 | Planlı / geçiş kapısına bağlı |
+| FE-DS-003 | Ortak KPI kartı | Must | FE-DS-001 | 30B sentetik alt kapsam `TechnicallyVerified` |
+| FE-DS-004 | Ortak status badge ve status mapper | Must | FE-DS-001 | 30B `TechnicallyVerified` |
+| FE-DS-005 | Ortak alarm bileşeni | Must | FE-DS-004 | 30B sentetik alt kapsam `TechnicallyVerified` |
+| FE-DS-006 | Ortak chart wrapper ve formatter | Must | FE-DS-001 | 30B trend alt kapsam `TechnicallyVerified`; bar/heatmap açık |
 | FE-DS-007 | Ortak data table standardı | Must | FE-DS-001, API sayfalama sözleşmesi | Planlı / engelli |
-| FE-DS-008 | Kurumsal dashboard referans ekranı | Must | 21B, FE-DS-003–007 | Planlı / engelli |
-| FE-DS-009 | Storybook story altyapısı | Must | FE-DS-001 | Planlı / geçiş kapısına bağlı |
-| FE-DS-010 | Playwright görsel regression altyapısı | Must | Çalışan frontend | Planlı / geçiş kapısına bağlı |
-| FE-DS-011 | Grafik erişilebilirlik kontrolleri | Must | FE-DS-006, FE-DS-010 | Planlı / engelli |
-| FE-DS-012 | Teknik hata ve kalite ihlali görsel ayrım testleri | Must | FE-DS-004, FE-DS-009/010 | Planlı / engelli |
+| FE-DS-008 | Kurumsal dashboard referans ekranı | Must | 21B, FE-DS-003–007 | 30B sentetik/bağlantısız alt kapsam `TechnicallyVerified`; üretim bağlantısı engelli |
+| FE-DS-009 | Storybook story altyapısı | Must | FE-DS-001 | 30B `TechnicallyVerified` |
+| FE-DS-010 | Playwright görsel regression altyapısı | Must | Çalışan frontend | 30B viewport/screenshot altyapısı `TechnicallyVerified`; onaylı diff eşiği açık |
+| FE-DS-011 | Grafik erişilebilirlik kontrolleri | Must | FE-DS-006, FE-DS-010 | 30B trend tablo alternatifi ve klavye alt kapsamı `TechnicallyVerified` |
+| FE-DS-012 | Teknik hata ve kalite ihlali görsel ayrım testleri | Must | FE-DS-004, FE-DS-009/010 | 30B `TechnicallyVerified` |
 | FE-DS-013 | Marka rengi token kullanım lint/review kapısı | Should | FE-DS-001, lint yaklaşımı kararı | Planlı / engelli |
 
 ## Sentetik Veri Backlogu
@@ -94,10 +95,22 @@ Bu maddeler `ADR-016` hedef tasarımını küçük dikeylere böler.
 
 ## Önerilen Sonraki İterasyon
 
-**İterasyon 34E — Deterministik çok dönemli zaman semantiği** `FR-090`,
+**İterasyon 30B — Sentetik dashboard çalışma iskeleti** `FR-054`, `FR-055`,
+`FR-058`, `UC-010` ve `NFR-USA-001/003–006` alt kapsamında tamamlandı. Çalışan
+frontend, sentetik KPI/trend/alarm görünümü, grafik/tablo alternatifi, Storybook
+durumları ve beş viewport Playwright doğrulaması sunar; üretim API'si veya banka
+verisi kullanmaz.
+
+Kullanıcıya gösterilebilir frontend zincirindeki sıradaki hazır küçük artım
+**İterasyon 30C — Sentetik veri alanı karşılaştırması ve kalite boyutu matrisi**
+olmalıdır. ECharts horizontal bar ve heatmap aynı normalize edilmiş sentetik
+view-model'den erişilebilir tablo karşılığıyla üretilmeli; yeni API alanı veya
+üretim yetki davranışı tahmin edilmemelidir.
+
+**İterasyon 34E — Deterministik çok dönemli zaman semantiği** de `FR-090`,
 `FR-094`, `UC-017`, `RULE-016` ve `AC/TS-054`ün zaman anlamı alt kapsamında
-tamamlandı. Altı zaman alanı UTC, dönem ataması ve işlem sırası açısından
-bağımsız doğrulanır; aynı profil/seed kanonik eşdeğer çıktı üretir.
+tamamlanmış olarak korunur. Altı zaman alanı UTC, dönem ataması ve işlem sırası
+açısından bağımsız doğrulanır; aynı profil/seed kanonik eşdeğer çıktı üretir.
 
 Skorlama zincirinin sıradaki normalizasyon, agregasyon/kritik davranış ve ölçüm
 yeterliliği dilimleri `OPEN-019`, `OPEN-022/023` ve ilişkili banka kararlarını

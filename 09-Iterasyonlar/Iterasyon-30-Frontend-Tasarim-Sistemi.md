@@ -1,15 +1,16 @@
 ---
 iteration: 30
-status: planned
+status: in-progress
 completed_at: TBD
 ---
 
 # İterasyon 30 — Frontend Tasarım Sistemi ve Kurumsal Dashboard
 
-Bu iterasyon geçiş kapısından sonraki frontend uygulama programıdır. 30A
-dokümantasyon tabanı önceden hazırlanabilir; 30B ve sonrası yeni kullanıcı yüzeyi
-açtığından `Bankacilik-Gecis-Durumu.md` geçiş kapısı ve 21B güvenli HTTP/API sınırına
-bağlıdır.
+Bu iterasyon frontend uygulama programıdır. 30A dokümantasyon tabanını, 30B ise
+kullanıcının açık önceliklendirmesiyle yalnız sentetik ve bağlantısız çalışma
+artımını üretir. Üretim API'si, gerçek kimlik/oturum ve banka verisi kullanan
+yüzeyler `Bankacilik-Gecis-Durumu.md` geçiş kapısı ile 21B güvenli HTTP/API
+sınırına bağlı kalır.
 
 ## 30A — Görsel Tasarım Dokümantasyon Tabanı
 
@@ -41,15 +42,58 @@ Durum: **Dokümantasyon tamamlandı; uygulama başlamadı**
 - `556` mevcut birim test baseline'ı korunur; doküman değişikliği yeni ürün
   davranışı veya banka onayı sayılmaz.
 
-## Planlanan Uygulama Dilimleri
+## 30B — Sentetik Dashboard Çalışma İskeleti
+
+Durum: **TechnicallyVerified**
+
+### Kapsam ve Değer
+
+- React, TypeScript, Vite, MUI ve ECharts runtime'ı ile Storybook ve Playwright
+  doğrulama araçları kuruldu.
+- Semantik token kaynağı, açık tema, sabit uygulama kabuğu, KPI kartı, status
+  badge, alarm akışı ve resmî skor trendi uygulandı.
+- Grafik ve erişilebilir tablo aynı sentetik view-model'i kullanır; teknik hata ve
+  provizyonel sonuç resmî trend çizgisine katılmaz.
+- Ekran üretim API'sine, kullanıcı oturumuna veya banka verisine bağlı olmadığını
+  açıkça gösterir. Query parametresi yalnız Storybook/E2E durum yüzeylerini
+  deterministik olarak üretir ve yetki kanıtı değildir.
+
+### Gereksinim Bağlantıları
+
+- `FR-054`, `FR-055`, `FR-058`
+- `UC-010`
+- `NFR-USA-001`, `NFR-USA-003`–`NFR-USA-006`
+
+### Doğrulama
+
+- Vitest: 4 test; teknik hata/kalite ayrımı, erişilebilir durum adı, resmî trend
+  dışlama ve teknik hatada null skor.
+- Storybook build: normal, loading, empty, teknik hata, yetkisiz ve uzun içerik
+  dashboard durumları; altı semantik status badge durumu.
+- Playwright: 7 test; beş zorunlu viewport, yatay taşma, grafik/tablo ortak veri,
+  provizyonel dışlama, klavye odağı ve yetkisiz yüzeyde veri ifşa etmeme.
+- Birinci görsel turda `1200px` üzeri dört KPI ve trend/alarm iki kolon düzeni ile
+  kesilen eşik etiketi düzeltildi.
+- İkinci görsel turda alarm badge esnemesi, teknik hata mor semantiği ve MUI
+  `ButtonBase` görünür focus halkası düzeltildi.
+
+### Güvenlik Sınırı
+
+- Fixture'lar sentetiktir; secret, ham kayıt, SQL, stack trace, müşteri veya banka
+  verisi içermez.
+- UI rol/scope üretmez ve üretim yetkilendirmesi iddiası taşımaz.
+- Gerçek API, IdP/SSO-MFA, session assertion, dışa aktarma ve drill-down kapsam
+  dışıdır.
+
+## Uygulama Dilimleri
 
 | Dilim | Değer | Ön koşul |
 | --- | --- | --- |
-| 30B | Kurumsal design token altyapısı ve açık tema | Geçiş kapısı |
-| 30C | Ortak KPI, status badge ve alarm componentleri | 30B |
-| 30D | Ortak chart wrapper ve data table standardı | 30B |
-| 30E | Kurumsal dashboard referans ekranı | 21B güvenli API, 30C–30D |
-| 30F | Storybook ve Playwright görsel regression altyapısı | 30B |
+| 30B | Sentetik çalışma iskeleti, açık tema, KPI/status/alarm/trend ve test altyapısı | `TechnicallyVerified` |
+| 30C | Sentetik veri alanı karşılaştırması ve kalite boyutu matrisi | 30B |
+| 30D | Ortak sayfalı data table standardı | 30B, API sayfalama sözleşmesi |
+| 30E | Üretim bağlantılı kurumsal dashboard | 21B güvenli API, geçiş kapısı |
+| 30F | Onaylı görsel baseline ve diff eşiği | Banka marka/onay kararı |
 | 30G | Koyu tema ve grafik erişilebilirliği | 30B–30F |
 
 Her dilim tek çalışabilir artım olarak ele alınır; bu belge uygulama dilimlerini
@@ -57,14 +101,14 @@ tamamlanmış saymaz.
 
 ## Kapsam Dışı
 
-- 30A sırasında frontend framework/component/chart kütüphanesi seçimi veya kurulumu.
-- Runtime, API, Storybook veya Playwright yapılandırması.
 - Gerçek banka verisiyle ekran veya görsel artifact.
+- Üretim API'si, IdP/SSO-MFA veya oturum bağlantısı.
 - Mobil yönetim deneyimi.
 - Banka marka/uyum onayı.
 
 ## Sonraki İş
 
-React + TypeScript + Vite, MUI, ECharts, Storybook ve Playwright teknik seçimleri
-kesinleşmiştir. Frontend 30B geçiş kapısı ve `OPEN-BNK-020` tamamlanana kadar
-uygulamaya alınmaz. Hazır ve engellenmemiş yeni geçiş artımı bulunmamaktadır.
+30B sentetik çalışma artımı tamamlandı. Aynı güvenlik sınırını koruyan sıradaki
+hazır frontend artımı 30C sentetik veri alanı karşılaştırması ve kalite boyutu
+matrisidir. Üretim bağlantılı 30E, 21B güvenli HTTP/API sınırı ve
+`OPEN-BNK-020` tamamlanana kadar uygulanmaz.
