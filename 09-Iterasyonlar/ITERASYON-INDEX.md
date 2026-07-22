@@ -2,11 +2,11 @@
 
 ## Gerçek başlangıç noktası
 
-- 16 iterasyon, İterasyon 17A–17E, İterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20D, Iterasyon 21A, İterasyon 22A–22İ, İterasyon 23A–23D, İterasyon 24A–24B, İterasyon 25A–25D, İterasyon 26A–26B, İterasyon 27A, İterasyon 28A–28E, İterasyon 29A–29C, İterasyon 30A–30B, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A–33B ve İterasyon 34A–34F teknik dikeyleri tamamlandı.
-- Tam depoda 1009 test geçiyor; iki gerçek PostgreSQL entegrasyon testi opt-in
-  koşuda ayrıca geçiyor. Tam mypy kontrolü 150 dosyada sıfır hata veriyor.
-- Son ürün artımı 17 ilişkisel tabloda kontrollü kusur, kayıt düzeyi ground truth
-  ve bağımsız SQL oracle'ını gerçek PostgreSQL üzerinde doğrular.
+- 16 iterasyon, İterasyon 17A–17E, İterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20D, Iterasyon 21A–21B, İterasyon 22A–22İ, İterasyon 23A–23D, İterasyon 24A–24B, İterasyon 25A–25D, İterasyon 26A–26B, İterasyon 27A, İterasyon 28A–28E, İterasyon 29A–29C, İterasyon 30A–30B, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A–33B ve İterasyon 34A–34F teknik dikeyleri tamamlandı.
+- Tam depoda 1015 test geçiyor; iki gerçek PostgreSQL entegrasyon testi opt-in
+  koşuda ayrıca geçiyor. Tam mypy kontrolü 157 dosyada sıfır hata veriyor.
+- Son ürün artımı yerel/test dashboard trendini fail-closed FastAPI sınırı ve
+  bağlı frontend üzerinden gösterir; üretim session/CSRF bağlantısını tamamlamaz.
 - İterasyon 27A `TechnicallyVerified` durumundadır. Restore/DR dilimleri `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını bekler.
 
 ## Sıra
@@ -27,5 +27,6 @@
 14. [Iterasyon-32-Kismi-Skor-Politikasi](Iterasyon-32-Kismi-Skor-Politikasi.md) - 32A–32D `TechnicallyVerified`; süre aşımı ve güvenilir olgu üretimi açık
 15. [Iterasyon-33-Kanonik-Kural-Skoru](Iterasyon-33-Kanonik-Kural-Skoru.md) - 33A `TechnicallyVerified`; tarihsel backfill ve yeterlilik dilimleri açık
 16. [Iterasyon-34-Sentetik-Veri-Kayit-Cekirdegi](Iterasyon-34-Sentetik-Veri-Kayit-Cekirdegi.md) - 34A–34F `TechnicallyVerified`; PostgreSQL kusur dataseti hazır, uygulama profil/kural entegrasyonu ve gizlilik kapısı açık
+17. [Iterasyon-21-Dashboard-API](Iterasyon-21-Dashboard-API.md) - 21B yerel/test dashboard özet API ve bağlı frontend `TechnicallyVerified`; gerçek BFF session/CSRF ve üretim altyapısı açık
 
 Her iterasyon [Iterasyon-Kapanis-Sablonu](Iterasyon-Kapanis-Sablonu.md) ile kapatılır.

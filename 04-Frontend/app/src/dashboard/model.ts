@@ -39,6 +39,40 @@ export interface AlertViewModel {
   nextAction: string;
 }
 
+export interface DashboardViewModel {
+  kpis: KpiViewModel[];
+  trendObservations: TrendObservation[];
+  alerts: AlertViewModel[];
+  dataNotice: string;
+  trendDescription: string;
+  measurementNote: string;
+}
+
+export interface DashboardApiObservation {
+  quality_score_id: string;
+  scope_type: "ENTERPRISE" | "SOURCE";
+  scope_id: string | null;
+  score_value: string | number | null;
+  score_status: string;
+  level: string | null;
+  calculated_at: string;
+}
+
+export interface DashboardApiPeriod {
+  period_start: string;
+  period_end: string;
+  observations: DashboardApiObservation[];
+}
+
+export interface DashboardSummaryApiResponse {
+  api_version: "v1";
+  data_origin: string;
+  correlation_id: string;
+  as_of: string;
+  has_data: boolean;
+  periods: DashboardApiPeriod[];
+}
+
 export const kpis: KpiViewModel[] = [
   {
     id: "quality-score",
@@ -124,3 +158,122 @@ export const alerts: AlertViewModel[] = [
     nextAction: "Koşulları gör",
   },
 ];
+
+export const syntheticDashboardViewModel: DashboardViewModel = {
+  kpis,
+  trendObservations,
+  alerts,
+  dataNotice: "Bu ekran yalnız sentetik gösterim verisi kullanır; üretim API'si, kullanıcı oturumu veya banka verisi bağlı değildir.",
+  trendDescription: "Son 30 UTC gün · yalnız resmî skorlar",
+  measurementNote: "Son sonuç sınırlı kapsama rağmen onaylı sentetik politika koşullarını karşılıyor. Provizyonel 13 Temmuz sonucu resmî trend ve SLA hesabına katılmadı; önceki resmî skor geçersiz kılınmadı.",
+};
+
+export function dashboardViewModelFromApi(
+  response: DashboardSummaryApiResponse,
+): DashboardViewModel {
+  const scopeKey = selectScopeKey(response.periods);
+  const observations = response.periods.map((period) => {
+    const observation = period.observations.find((item) => observationScopeKey(item) === scopeKey);
+    const score = parseScore(observation?.score_value ?? null);
+    const isTechnical = observation?.score_status === "NOT_CALCULATED_TECHNICAL_ERROR";
+    const isOfficial = observation?.score_status === "CALCULATED" || observation?.score_status === "PARTIAL";
+    return {
+      date: period.period_start.slice(0, 10),
+      displayDate: formatUtcDate(period.period_start),
+      rawScore: null,
+      finalScore: score,
+      qualification: "Bu API diliminde sağlanmıyor",
+      usageDecision: "Bu API diliminde sağlanmıyor",
+      coverageRate: null,
+      technicalStatus: isTechnical ? "Teknik Hata" as const : observation ? "Başarılı" as const : "Hesaplanmadı" as const,
+      official: isOfficial && score !== null,
+    };
+  });
+  const latest = [...response.periods]
+    .reverse()
+    .flatMap((period) => period.observations)
+    .find((item) => observationScopeKey(item) === scopeKey);
+  const latestScore = parseScore(latest?.score_value ?? null);
+  const latestTone = scoreTone(latest?.score_status);
+  const scopeLabel = scopeKey === "ENTERPRISE:" ? "Kurum kapsamı" : `Kaynak kapsamı: ${scopeKey.split(":", 2)[1] ?? "—"}`;
+
+  return {
+    kpis: [
+      {
+        id: "quality-score",
+        label: "Nihai Kalite Skoru",
+        value: formatScore(latestScore),
+        detail: latest ? `${scopeLabel} · ${formatUtcDateTime(latest.calculated_at)}` : "Yetkili kapsamda resmî skor bulunamadı",
+        tone: latestTone,
+        statusLabel: scoreStatusLabel(latest?.score_status),
+      },
+      unavailableKpi("qualification", "Ölçüm Yeterliliği"),
+      unavailableKpi("critical-rules", "Kritik Kontroller"),
+      unavailableKpi("technical-errors", "Teknik Hatalar"),
+    ],
+    trendObservations: observations,
+    alerts: [],
+    dataNotice: response.data_origin === "synthetic-development"
+      ? "Yerel dashboard API'si sentetik geliştirme skorlarıyla bağlıdır; üretim oturumu veya banka verisi kullanılmaz."
+      : "Dashboard verisi yetkili API kapsamından yüklenmiştir.",
+    trendDescription: `Son 30 UTC gün · ${scopeLabel} · yalnız resmî skorlar`,
+    measurementNote: "Bu ilk API dilimi yalnız mevcut resmî skor ve trend alanlarını taşır. Ölçüm yeterliliği, kapsam, kullanım kararı ve alarm akışı sonraki sözleşmeler tamamlanmadan üretilmez.",
+  };
+}
+
+function selectScopeKey(periods: DashboardApiPeriod[]): string {
+  const keys = periods.flatMap((period) => period.observations.map(observationScopeKey));
+  return keys.includes("ENTERPRISE:") ? "ENTERPRISE:" : [...keys].sort()[0] ?? "ENTERPRISE:";
+}
+
+function observationScopeKey(observation: DashboardApiObservation): string {
+  return `${observation.scope_type}:${observation.scope_id ?? ""}`;
+}
+
+function parseScore(value: string | number | null): number | null {
+  if (value === null) return null;
+  const score = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(score) ? score : null;
+}
+
+function formatScore(value: number | null): string {
+  return value === null ? "—" : value.toLocaleString("tr-TR", { maximumFractionDigits: 2 });
+}
+
+function formatUtcDate(value: string): string {
+  return new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(value));
+}
+
+function formatUtcDateTime(value: string): string {
+  return new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(value));
+}
+
+function unavailableKpi(id: string, label: string): KpiViewModel {
+  return {
+    id,
+    label,
+    value: "—",
+    detail: "Bu API diliminde sağlanmıyor",
+    tone: "unknown",
+    statusLabel: "Veri Yok",
+  };
+}
+
+function scoreTone(status: string | undefined): StatusTone {
+  if (status === "NOT_CALCULATED_TECHNICAL_ERROR") return "technical";
+  if (status === "CALCULATED") return "success";
+  if (status === "PARTIAL") return "warning";
+  return "unknown";
+}
+
+function scoreStatusLabel(status: string | undefined): string {
+  const labels: Record<string, string> = {
+    CALCULATED: "Hesaplandı",
+    PARTIAL: "Kısmi",
+    NO_DATA: "Veri Yok",
+    NOT_CALCULATED: "Hesaplanmadı",
+    NOT_CALCULATED_TECHNICAL_ERROR: "Teknik Hata",
+    CONFIG_ERROR: "Yapılandırma Hatası",
+  };
+  return status ? labels[status] ?? "Bilinmiyor" : "Veri Yok";
+}

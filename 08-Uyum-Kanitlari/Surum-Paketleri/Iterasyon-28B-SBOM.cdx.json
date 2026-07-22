@@ -3,6 +3,22 @@
   "bomFormat": "CycloneDX",
   "components": [
     {
+      "bom-ref": "pkg:pypi/alembic@1.18.4",
+      "name": "alembic",
+      "purl": "pkg:pypi/alembic@1.18.4",
+      "scope": "required",
+      "type": "library",
+      "version": "1.18.4"
+    },
+    {
+      "bom-ref": "pkg:pypi/fastapi@0.135.3",
+      "name": "fastapi",
+      "purl": "pkg:pypi/fastapi@0.135.3",
+      "scope": "required",
+      "type": "library",
+      "version": "0.135.3"
+    },
+    {
       "bom-ref": "pkg:pypi/packaging@26.0",
       "name": "packaging",
       "purl": "pkg:pypi/packaging@26.0",
@@ -46,6 +62,8 @@
   "dependencies": [
     {
       "dependsOn": [
+        "pkg:pypi/alembic@1.18.4",
+        "pkg:pypi/fastapi@0.135.3",
         "pkg:pypi/packaging@26.0",
         "pkg:pypi/psycopg@3.3.4",
         "pkg:pypi/psycopg-binary@3.3.4",
@@ -53,6 +71,14 @@
         "pkg:pypi/tomli@2.4.1"
       ],
       "ref": "pkg:generic/veri-kalitesi-sistemi@0.1.0"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/alembic@1.18.4"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:pypi/fastapi@0.135.3"
     },
     {
       "dependsOn": [],

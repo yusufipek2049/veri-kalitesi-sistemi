@@ -477,6 +477,36 @@ gelmez; kalan onay ve ürün ayrıntıları sonuç sütununda korunur.
 | OPEN-017 | Kritik işlem audit/outbox hatasında fail-closed; rutin olaylarda kayıpsız dayanıklı kuyruk veya transactional outbox uygulanacak. |
 | OPEN-018 | Kısmi sonuç yalnız dataset politikasındaki tüm koşulları sağlarsa resmîdir; aksi halde provizyonel olup resmî skor, SLA, trend ve raporlamadan dışlanır. |
 
+## 2026-07-22 — API-001–API-015 Teknik Kararları
+
+Karar referansı: `USER-DECLARATION-2026-07-22-API-001-015`. Bu kararlar teknik
+yönü kesinleştirir; üretim altyapısının veya bankacılık geçiş kapısının
+tamamlandığı anlamına gelmez.
+
+| ID | Karar | Durum |
+| --- | --- | --- |
+| API-001 | HTTP framework olarak FastAPI kullanılacaktır. | KararAlındı |
+| API-002 | İlk BFF sınırı mevcut backend içinde modüler tutulacak; bağımsız servis ayrımı ihtiyaç ve ölçek kanıtıyla değerlendirilecektir. | KararAlındı |
+| API-003 | Dış HTTP sözleşmesi REST ve OpenAPI olacaktır. | KararAlındı |
+| API-004 | İlk bağlı dikey dilim dashboard özeti olacaktır. | KararAlındı |
+| API-005 | Kalıcılık repository sınırı arkasında SQLAlchemy 2 ve Alembic ile yönetilecektir. | KararAlındı |
+| API-006 | Gerçek IdP bağlanana kadar yalnız local/test ortamında sunucu taraflı geliştirme aktörü kullanılabilir; üretim varsayılanı fail-closed olacaktır. | KararAlındı |
+| API-007 | Üretim kimlik akışı OIDC/SAML kullanan BFF üzerinden yürütülecek; access ve refresh token tarayıcıya açılmayacaktır. | KararAlındı |
+| API-008 | İlk frontend istemcisi tipli `fetch` kullanacak; ek sorgu kütüphanesi yalnız kanıtlanmış ihtiyaçla değerlendirilecektir. | KararAlındı |
+| API-009 | API hata zarfı RFC 9457 Problem Details ve güvenli correlation ID kullanacaktır. | KararAlındı |
+| API-010 | URL tabanlı `/api/v1` sürümleme uygulanacaktır. | KararAlındı |
+| API-011 | Yerel geliştirme portları frontend `5173`, API `8000`, PostgreSQL `5433` olacaktır. | KararAlındı |
+| API-012 | Yerel CORS yalnız onaylı frontend origin allowlist'ine izin verecek; üretimde aynı origin hedeflenecektir. | KararAlındı |
+| API-013 | Özet okumaları senkron, kural çalıştırma ve raporlama gibi uzun işlemler kalıcı kuyruk üzerinden yürütülecektir. | KararAlındı |
+| API-014 | HTTP yanıtları domain modellerini doğrudan açmak yerine veri-minimum response DTO kullanacaktır. | KararAlındı |
+| API-015 | API ve worker aynı kod tabanında bağımsız süreçler olarak ölçeklenebilecektir. | KararAlındı |
+
+İterasyon 21B, `API-001/003/004/006/008–012/014` kararlarının dashboard okuma
+alt kapsamını uygulamıştır. Alembic bağımlılığı envantere alınmış, ancak bu
+iterasyonda şema değişikliği olmadığı için migration üretilmemiştir. Üretim
+OIDC/SAML BFF, cookie/CSRF ve kalıcı PostgreSQL skor deposu sonraki ayrı
+artımlardır.
+
 ## 2026-07-21 — İterasyon 31A Teknik Kararı
 
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |

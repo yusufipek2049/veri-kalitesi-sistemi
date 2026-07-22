@@ -12,29 +12,31 @@ import { AppShell } from "../components/AppShell";
 import { KpiCard } from "../components/KpiCard";
 import { TrendPanel } from "../components/TrendPanel";
 import {
-  alerts,
-  kpis,
   longContentKpis,
-  trendObservations,
+  syntheticDashboardViewModel,
+  type DashboardViewModel,
   type DashboardState,
 } from "./model";
 
 interface DashboardPageProps {
   state?: DashboardState;
+  data?: DashboardViewModel;
+  correlationId?: string;
+  onRefresh?: () => void;
 }
 
-function LoadingDashboard() {
+function LoadingDashboard({ data }: { data: DashboardViewModel }) {
   return (
     <Box aria-label="Dashboard yükleniyor" aria-busy="true">
       <Box sx={{ display: "grid", gap: 4, gridTemplateColumns: { md: "repeat(2, minmax(0, 1fr))", lg: "repeat(4, minmax(0, 1fr))" } }}>
-        {kpis.map((item) => <Skeleton key={item.id} height={132} variant="rounded" />)}
+        {data.kpis.map((item) => <Skeleton key={item.id} height={132} variant="rounded" />)}
       </Box>
       <Skeleton height={360} sx={{ mt: 5 }} variant="rounded" />
     </Box>
   );
 }
 
-function StateMessage({ state }: { state: "empty" | "error" | "unauthorized" }) {
+function StateMessage({ state, correlationId }: { state: "empty" | "error" | "unauthorized"; correlationId?: string }) {
   const content = {
     empty: {
       severity: "info" as const,
@@ -45,7 +47,7 @@ function StateMessage({ state }: { state: "empty" | "error" | "unauthorized" }) 
     error: {
       severity: "error" as const,
       title: "Dashboard yüklenemedi",
-      body: "Teknik bir sorun oluştu. Tarih aralığını daraltıp yeniden deneyin. İzleme kodu: SYN-7F21.",
+      body: `Teknik bir sorun oluştu. Tarih aralığını daraltıp yeniden deneyin. İzleme kodu: ${correlationId ?? "bulunamadı"}.`,
       action: "Yeniden dene",
     },
     unauthorized: {
@@ -79,8 +81,13 @@ function StateMessage({ state }: { state: "empty" | "error" | "unauthorized" }) 
   );
 }
 
-export function DashboardPage({ state = "normal" }: DashboardPageProps) {
-  const visibleKpis = state === "long-content" ? longContentKpis : kpis;
+export function DashboardPage({
+  state = "normal",
+  data = syntheticDashboardViewModel,
+  correlationId,
+  onRefresh,
+}: DashboardPageProps) {
+  const visibleKpis = state === "long-content" ? longContentKpis : data.kpis;
 
   return (
     <AppShell>
@@ -102,16 +109,16 @@ export function DashboardPage({ state = "normal" }: DashboardPageProps) {
           <Stack direction="row" sx={{ flexWrap: "wrap", gap: 2 }}>
             <Button variant="outlined">Tüm veri alanları</Button>
             <Button variant="outlined">Son 30 gün</Button>
-            <Button variant="contained">Yenile</Button>
+            <Button onClick={onRefresh} variant="contained">Yenile</Button>
           </Stack>
         </Box>
 
         <Alert severity="info" sx={{ py: 1 }}>
-          Bu ekran yalnız sentetik gösterim verisi kullanır; üretim API'si, kullanıcı oturumu veya banka verisi bağlı değildir.
+          {data.dataNotice}
         </Alert>
 
-        {state === "loading" ? <LoadingDashboard /> : null}
-        {state === "empty" || state === "error" || state === "unauthorized" ? <StateMessage state={state} /> : null}
+        {state === "loading" ? <LoadingDashboard data={data} /> : null}
+        {state === "empty" || state === "error" || state === "unauthorized" ? <StateMessage correlationId={correlationId} state={state} /> : null}
 
         {state === "normal" || state === "long-content" ? (
           <>
@@ -119,13 +126,13 @@ export function DashboardPage({ state = "normal" }: DashboardPageProps) {
               {visibleKpis.map((item) => <KpiCard item={item} key={item.id} />)}
             </Box>
             <Box sx={{ display: "grid", gap: 4, gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(0, 2fr) minmax(320px, 1fr)" } }}>
-              <TrendPanel observations={trendObservations} />
-              <AlertFeed items={alerts} />
+              <TrendPanel description={data.trendDescription} observations={data.trendObservations} />
+              <AlertFeed items={data.alerts} subtitle="Yetkili kapsam · veri-minimum görünüm" />
             </Box>
             <Paper component="section" variant="outlined" sx={{ borderRadius: 1.5, p: 4 }}>
               <Typography component="h2" variant="h3">Ölçüm Notu</Typography>
               <Typography color="text.secondary" sx={{ mt: 2 }} variant="body2">
-                Son sonuç sınırlı kapsama rağmen onaylı sentetik politika koşullarını karşılıyor. Provizyonel 13 Temmuz sonucu resmî trend ve SLA hesabına katılmadı; önceki resmî skor geçersiz kılınmadı.
+                {data.measurementNote}
               </Typography>
             </Paper>
           </>

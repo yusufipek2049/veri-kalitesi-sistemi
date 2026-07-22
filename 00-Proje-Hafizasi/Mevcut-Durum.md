@@ -1338,6 +1338,27 @@ tags:
 - Bu dataset uygulama kural motoru, anonimlik, banka onayı veya 20 milyon
   satırlık nihai performans kabulü değildir.
 
+### 2026-07-22 — İterasyon 21B: Güvenli dashboard özet API dikey dilimi
+
+- `FR-054`, `FR-055`, `FR-080`–`FR-082`, `UC-010`, `NFR-USA-003/004/006`
+  kapsamında FastAPI tabanlı `GET /api/v1/dashboard/summary` eklendi.
+- API, mevcut `DashboardQueryService` ve repository sınırını kullanır; aktör,
+  rol veya source scope'u HTTP girdisinden almaz. Correlation ID sunucuda
+  üretilir; production session resolver bağlı değilse sorgudan önce 401 ile
+  fail-closed davranır.
+- RFC 9457 Problem Details, veri-minimum DTO, `no-store`, açık CORS allowlist'i
+  ve 401/403/400/503 güvenli hata yolları uygulandı. Yerel geliştirme aktörü
+  yalnız açık `development` yapılandırmasında güvenilir issuer üzerinden
+  üretilebilir.
+- React dashboard varsayılan çalışma yolunda API'ye bağlandı. Backend'in henüz
+  sağlamadığı yeterlilik, kapsam, kritik kontrol ve alarm verileri uydurulmaz;
+  `—` ve açık kapsam notuyla gösterilir. Storybook sentetik durumları korunur.
+- FastAPI ve Alembic doğrudan bağımlılık envanterine eklendi; CycloneDX SBOM
+  byte düzeyinde yeniden doğrulandı. Bu iterasyonda veritabanı şeması değişmedi.
+- Gerçek kurumsal IdP/session assertion, `__Host-session`, CSRF, yüksek
+  erişilebilir session store, PostgreSQL skor repository'si ve üretim CORS
+  topolojisi uygulanmadı; üretim geçiş kapısı açık kalır.
+
 ## İlgili Notlar
 
 ### 2026-07-22 — Açık karar kayıtlarının ayrıştırılması
@@ -1412,10 +1433,10 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20D, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1, İterasyon 30A–30B, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A–33B ve İterasyon 34A–34F çıktıları korunacaktır.
-- `pytest` ile 1009 testin geçtiği, iki gerçek PostgreSQL entegrasyon testinin
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20D, Iterasyon 21A–21B, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1, İterasyon 30A–30B, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A–33B ve İterasyon 34A–34F çıktıları korunacaktır.
+- `pytest` ile 1015 testin geçtiği, iki gerçek PostgreSQL entegrasyon testinin
   opt-in koşuda ayrıca geçtiği doğrulanmıştır.
-- Tam mypy kontrolü 150 kaynak dosyada sıfır hata vermektedir.
-- Kısmi politika maker-checker onay/ret, geri çekme ve atomik audit akışı 32D ile tamamlandı. Süre aşımı açık kalır; güvenilir `PartialExecutionFacts` üretimi kapsama ve eksik kayıt oranı formüllerini beklemektedir. 31D hız sınırı sayaç/pencere semantiğini; CPU/IO sınırları güvenilir kaynak ölçüm adaptörünü beklemektedir. 27B restore tatbikat kanıtı `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını bekler; gerçek arşiv/fiziksel imha adaptörü, 29D, 21B/frontend, hassas dışa aktarma ve gerçek SIEM de banka/altyapı kararlarına bağlıdır.
+- Tam mypy kontrolü 157 kaynak dosyada sıfır hata vermektedir.
+- Kısmi politika maker-checker onay/ret, geri çekme ve atomik audit akışı 32D ile tamamlandı. Süre aşımı açık kalır; güvenilir `PartialExecutionFacts` üretimi kapsama ve eksik kayıt oranı formüllerini beklemektedir. 31D hız sınırı sayaç/pencere semantiğini; CPU/IO sınırları güvenilir kaynak ölçüm adaptörünü beklemektedir. 27B restore tatbikat kanıtı `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını bekler; gerçek arşiv/fiziksel imha adaptörü, 29D, 21B'nin üretim BFF/session bağlantısı, hassas dışa aktarma ve gerçek SIEM de banka/altyapı kararlarına bağlıdır.
 - Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
 - Bu kayıt bir mevzuat uyumluluğu onayı değildir.

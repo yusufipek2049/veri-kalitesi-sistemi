@@ -30,6 +30,7 @@ echarts.use([LineChart, GridComponent, LegendComponent, MarkLineComponent, Toolt
 
 interface TrendPanelProps {
   observations: TrendObservation[];
+  description?: string;
 }
 
 type TrendView = "chart" | "table";
@@ -38,10 +39,11 @@ function formatScore(value: number | null): string {
   return value === null ? "—" : value.toLocaleString("tr-TR", { maximumFractionDigits: 1 });
 }
 
-export function TrendPanel({ observations }: TrendPanelProps) {
+export function TrendPanel({ observations, description = "Son 30 UTC gün · yalnız resmî skorlar" }: TrendPanelProps) {
   const [view, setView] = useState<TrendView>("chart");
   const chartElementRef = useRef<HTMLDivElement>(null);
   const officialObservations = useMemo(() => observations.filter((item) => item.official), [observations]);
+  const hasTechnicalObservation = observations.some((item) => item.technicalStatus === "Teknik Hata");
 
   useEffect(() => {
     if (view !== "chart" || !chartElementRef.current) {
@@ -55,7 +57,7 @@ export function TrendPanel({ observations }: TrendPanelProps) {
       grid: { left: 48, right: 88, top: 36, bottom: 44 },
       legend: {
         bottom: 0,
-        data: ["Resmî nihai skor", "Teknik hata"],
+        data: hasTechnicalObservation ? ["Resmî nihai skor", "Teknik hata"] : ["Resmî nihai skor"],
         textStyle: { color: designTokens.color.text.muted },
       },
       tooltip: {
@@ -124,14 +126,14 @@ export function TrendPanel({ observations }: TrendPanelProps) {
       resizeObserver.disconnect();
       chart.dispose();
     };
-  }, [observations, view]);
+  }, [hasTechnicalObservation, observations, view]);
 
   return (
     <Paper component="section" variant="outlined" aria-labelledby="trend-title" sx={{ borderRadius: 1.5, overflow: "hidden" }}>
       <Box sx={{ alignItems: "flex-start", display: "flex", flexWrap: "wrap", gap: 3, justifyContent: "space-between", px: 4, pt: 3 }}>
         <Box>
           <Typography id="trend-title" component="h2" variant="h3">Veri Kalitesi Trendi</Typography>
-          <Typography color="text.secondary" variant="caption">Son 30 UTC gün · yalnız resmî skorlar</Typography>
+          <Typography color="text.secondary" variant="caption">{description}</Typography>
         </Box>
         <ToggleButtonGroup
           exclusive
@@ -155,7 +157,7 @@ export function TrendPanel({ observations }: TrendPanelProps) {
       ) : (
         <TableContainer sx={(theme) => ({ maxHeight: theme.appLayout.tableMaxHeight, mt: 2 })}>
           <Table stickyHeader size="small" aria-label="Veri kalitesi trend tablosu">
-            <caption>Grafikle aynı sentetik trend gözlemleri; provizyonel sonuçlar resmî trende katılmaz.</caption>
+            <caption>Grafikle aynı trend gözlemleri; resmî olmayan sonuçlar trende katılmaz.</caption>
             <TableHead>
               <TableRow>
                 <TableCell>Dönem</TableCell>
