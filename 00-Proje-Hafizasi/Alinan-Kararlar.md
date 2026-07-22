@@ -630,3 +630,9 @@ Onay referansı: `USER-DECLARATION-2026-07-22-OPEN-BNK-020`
 Üretim session store teknolojisinin kurulması, şifreleme ve anahtar yönetimi,
 `P90D` fiziksel saklama/imha uygulaması ve uygulanabilir düzenleme kanıtı karar
 değil uygulama ve uygunluk kanıtı olarak izlenir.
+
+## 2026-07-22 — İterasyon 20D Teknik Kararı
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| Normal kullanıcı oturumu servisi somut SQLite sınıfına değil `SessionRepository` protokolüne bağlanacaktır. Tek aktif oturum kuralı, önceki aktif credential özetlerinin silinmesi ve yeni kaydın açılması depo seviyesinde tek transaction olarak yürütülecektir. Arka plan ve token yenileme doğrulamaları idle aktivitesi sayılmayacaktır. | Servis katmanında ayrı iptal ve oluşturma çağrıları yarış durumunda iki aktif oturum bırakabilir. Terminal credential özetini saklamak yeniden kullanım yüzeyini gereksiz artırır. Her doğrulamayı aktivite saymak otomatik polling ile idle timeout'u etkisizleştirir. | Yalnız süreç içi kilit kullanmak; önceki kaydı ayrı transaction'da iptal etmek; terminal credential özetini `P90D` boyunca tutmak; bütün doğrulamaları kullanıcı aktivitesi saymak. | SQLite prototipi atomik değiştirme ve eski şema uyumluluk geçişini uygular. Yüksek erişilebilir üretim deposu aynı protokolün atomiklik sözleşmesini sağlamalıdır. HTTP katmanı güvenilir `SessionActivity` sınıflandırmasını üretmekle sorumludur. |

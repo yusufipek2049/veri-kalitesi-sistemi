@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from threading import RLock
-from typing import Callable, NoReturn
+from typing import Callable, NoReturn, Protocol
 
 from veri_kalitesi.audit import AuditEventInput, AuditResult, AuditSink
 from veri_kalitesi.identity.errors import (
@@ -30,6 +30,12 @@ class SessionStatus(str, Enum):
     REVOKED = "REVOKED"
 
 
+class SessionActivity(str, Enum):
+    USER_INTERACTION = "USER_INTERACTION"
+    BACKGROUND = "BACKGROUND"
+    TOKEN_REFRESH = "TOKEN_REFRESH"
+
+
 @dataclass(frozen=True)
 class SessionPolicy:
     version: str
@@ -39,14 +45,16 @@ class SessionPolicy:
     def __post_init__(self) -> None:
         if not self.version.strip():
             raise ActorContextValidationError("Session policy version is required.")
-        if not timedelta(0) < self.idle_timeout <= timedelta(minutes=30):
+        if not timedelta(0) < self.idle_timeout <= timedelta(minutes=60):
             raise ActorContextValidationError(
-                "Session idle timeout must be positive and at most thirty minutes."
+                "Session idle timeout must be positive and at most sixty minutes."
             )
         if self.absolute_timeout <= self.idle_timeout:
             raise ActorContextValidationError(
                 "Session absolute timeout must exceed the idle timeout."
             )
+        if self.absolute_timeout > timedelta(hours=10):
+            raise ActorContextValidationError("Session absolute timeout must be at most ten hours.")
 
 
 @dataclass(frozen=True)
@@ -58,7 +66,7 @@ class SessionGrant:
 @dataclass(frozen=True)
 class SessionRecord:
     session_id: str
-    credential_digest: str
+    credential_digest: str | None
     actor_id: str
     actor_type: ActorType
     authentication_source: str
@@ -77,6 +85,27 @@ class SessionRecord:
     revocation_reason: str | None = None
 
 
+class SessionRepository(Protocol):
+    def replace_active(
+        self,
+        record: SessionRecord,
+        occurred_at: datetime,
+        reason: str,
+    ) -> tuple[SessionRecord, ...]: ...
+
+    def find_by_credential_digest(self, credential_digest: str) -> SessionRecord | None: ...
+
+    def touch(self, session_id: str, occurred_at: datetime) -> SessionRecord: ...
+
+    def transition(
+        self,
+        session_id: str,
+        status: SessionStatus,
+        occurred_at: datetime,
+        reason: str,
+    ) -> SessionRecord: ...
+
+
 class SQLiteSessionRepository:
     def __init__(self, database: str = ":memory:") -> None:
         self.connection = sqlite3.connect(database, check_same_thread=False)
@@ -85,11 +114,59 @@ class SQLiteSessionRepository:
         self._create_schema()
 
     def _create_schema(self) -> None:
+        with self._lock, self.connection:
+            self.connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS identity_sessions (
+                    session_id TEXT PRIMARY KEY,
+                    credential_digest TEXT UNIQUE,
+                    actor_id TEXT NOT NULL,
+                    actor_type TEXT NOT NULL,
+                    authentication_source TEXT NOT NULL,
+                    roles TEXT NOT NULL,
+                    permitted_source_ids TEXT NOT NULL,
+                    permitted_dataset_ids TEXT NOT NULL,
+                    can_view_enterprise INTEGER NOT NULL,
+                    privileged INTEGER NOT NULL,
+                    issued_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL,
+                    last_activity_at TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    mapping_policy_version TEXT NOT NULL,
+                    session_policy_version TEXT NOT NULL,
+                    revoked_at TEXT,
+                    revocation_reason TEXT
+                )
+                """
+            )
+            self._migrate_credential_digest_nullable()
+            self.connection.executescript(
+                """
+                CREATE INDEX IF NOT EXISTS idx_identity_sessions_actor_status
+                ON identity_sessions(actor_id, status);
+
+                CREATE INDEX IF NOT EXISTS idx_identity_sessions_expiry
+                ON identity_sessions(status, expires_at, last_activity_at);
+                """
+            )
+
+    def _migrate_credential_digest_nullable(self) -> None:
+        columns = self.connection.execute("PRAGMA table_info(identity_sessions)").fetchall()
+        credential_column = next(
+            (column for column in columns if column["name"] == "credential_digest"),
+            None,
+        )
+        if credential_column is None or not credential_column["notnull"]:
+            return
         self.connection.executescript(
             """
-            CREATE TABLE IF NOT EXISTS identity_sessions (
+            BEGIN IMMEDIATE;
+
+            ALTER TABLE identity_sessions RENAME TO identity_sessions_legacy;
+
+            CREATE TABLE identity_sessions (
                 session_id TEXT PRIMARY KEY,
-                credential_digest TEXT NOT NULL UNIQUE,
+                credential_digest TEXT UNIQUE,
                 actor_id TEXT NOT NULL,
                 actor_type TEXT NOT NULL,
                 authentication_source TEXT NOT NULL,
@@ -108,18 +185,61 @@ class SQLiteSessionRepository:
                 revocation_reason TEXT
             );
 
-            CREATE INDEX IF NOT EXISTS idx_identity_sessions_actor_status
-            ON identity_sessions(actor_id, status);
+            INSERT INTO identity_sessions (
+                session_id, credential_digest, actor_id, actor_type,
+                authentication_source, roles, permitted_source_ids,
+                permitted_dataset_ids, can_view_enterprise, privileged,
+                issued_at, expires_at, last_activity_at, status,
+                mapping_policy_version, session_policy_version,
+                revoked_at, revocation_reason
+            )
+            SELECT
+                session_id,
+                CASE WHEN status = 'ACTIVE' THEN credential_digest ELSE NULL END,
+                actor_id, actor_type, authentication_source, roles,
+                permitted_source_ids, permitted_dataset_ids,
+                can_view_enterprise, privileged, issued_at, expires_at,
+                last_activity_at, status, mapping_policy_version,
+                session_policy_version, revoked_at, revocation_reason
+            FROM identity_sessions_legacy;
 
-            CREATE INDEX IF NOT EXISTS idx_identity_sessions_expiry
-            ON identity_sessions(status, expires_at, last_activity_at);
+            DROP TABLE identity_sessions_legacy;
+
+            COMMIT;
             """
         )
-        self.connection.commit()
 
-    def create(self, record: SessionRecord) -> None:
+    def replace_active(
+        self,
+        record: SessionRecord,
+        occurred_at: datetime,
+        reason: str,
+    ) -> tuple[SessionRecord, ...]:
         try:
             with self._lock, self.connection:
+                active_rows = self.connection.execute(
+                    """
+                    SELECT session_id FROM identity_sessions
+                    WHERE actor_id = ? AND actor_type = ? AND status = ?
+                    """,
+                    (record.actor_id, record.actor_type.value, SessionStatus.ACTIVE.value),
+                ).fetchall()
+                self.connection.execute(
+                    """
+                    UPDATE identity_sessions
+                    SET credential_digest = NULL, status = ?, revoked_at = ?,
+                        revocation_reason = ?
+                    WHERE actor_id = ? AND actor_type = ? AND status = ?
+                    """,
+                    (
+                        SessionStatus.REVOKED.value,
+                        occurred_at.isoformat(),
+                        reason,
+                        record.actor_id,
+                        record.actor_type.value,
+                        SessionStatus.ACTIVE.value,
+                    ),
+                )
                 self.connection.execute(
                     """
                     INSERT INTO identity_sessions (
@@ -133,6 +253,16 @@ class SQLiteSessionRepository:
                     """,
                     _record_values(record),
                 )
+                revoked = tuple(
+                    _row_to_record(
+                        self.connection.execute(
+                            "SELECT * FROM identity_sessions WHERE session_id = ?",
+                            (row["session_id"],),
+                        ).fetchone()
+                    )
+                    for row in active_rows
+                )
+            return revoked
         except sqlite3.Error as exc:
             raise SessionTechnicalError() from exc
 
@@ -179,7 +309,8 @@ class SQLiteSessionRepository:
                 self.connection.execute(
                     """
                     UPDATE identity_sessions
-                    SET status = ?, revoked_at = ?, revocation_reason = ?
+                    SET credential_digest = NULL, status = ?, revoked_at = ?,
+                        revocation_reason = ?
                     WHERE session_id = ? AND status = ?
                     """,
                     (
@@ -203,7 +334,7 @@ class SQLiteSessionRepository:
 class SessionService:
     def __init__(
         self,
-        repository: SQLiteSessionRepository,
+        repository: SessionRepository,
         policy: SessionPolicy,
         audit_sink: AuditSink,
         *,
@@ -263,8 +394,16 @@ class SessionService:
             correlation_id=correlation_id,
         )
         record = _context_to_record(context, credential, self.policy.version, now)
-        self._create(record, correlation_id, now)
+        revoked_records = self._replace_active(record, correlation_id, now)
         try:
+            for revoked_record in revoked_records:
+                self._record(
+                    revoked_record,
+                    correlation_id,
+                    AuditResult.SUCCESS,
+                    "SESSION_REVOKED_NEW_LOGIN",
+                    now,
+                )
             self._record(record, correlation_id, AuditResult.SUCCESS, "SESSION_CREATED", now)
         except SessionUnavailableError:
             self._transition(
@@ -277,9 +416,17 @@ class SessionService:
             raise
         return SessionGrant(context=context, credential=credential)
 
-    def validate(self, credential: bytes, correlation_id: str) -> ActorContext:
+    def validate(
+        self,
+        credential: bytes,
+        correlation_id: str,
+        *,
+        activity: SessionActivity = SessionActivity.USER_INTERACTION,
+    ) -> ActorContext:
         now = self._now()
         self._validate_request(credential, correlation_id)
+        if not isinstance(activity, SessionActivity):
+            raise ActorContextValidationError("Trusted session activity type is required.")
         record = self._find(credential, correlation_id, now)
         if record is None:
             self._deny(None, correlation_id, "SESSION_NOT_FOUND", now)
@@ -303,10 +450,11 @@ class SessionService:
                 correlation_id,
             )
             self._deny(record, correlation_id, "SESSION_IDLE_TIMEOUT", now)
-        try:
-            record = self.repository.touch(record.session_id, now)
-        except SessionTechnicalError:
-            self._unavailable(correlation_id, now)
+        if activity is SessionActivity.USER_INTERACTION:
+            try:
+                record = self.repository.touch(record.session_id, now)
+            except SessionTechnicalError:
+                self._unavailable(correlation_id, now)
         context = self._issue_context(record, correlation_id)
         self._record(record, correlation_id, AuditResult.SUCCESS, "SESSION_VALIDATED", now)
         return context
@@ -316,7 +464,14 @@ class SessionService:
         self._validate_request(credential, correlation_id)
         record = self._find(credential, correlation_id, now)
         if record is None:
-            self._deny(None, correlation_id, "SESSION_NOT_FOUND", now)
+            self._record(
+                None,
+                correlation_id,
+                AuditResult.SUCCESS,
+                "SESSION_ALREADY_INACTIVE",
+                now,
+            )
+            return
         if record.status is SessionStatus.ACTIVE:
             record = self._transition(
                 record.session_id,
@@ -392,9 +547,14 @@ class SessionService:
         if not isinstance(credential, bytes) or not credential or not correlation_id.strip():
             raise ActorContextValidationError("Session credential and correlation ID are required.")
 
-    def _create(self, record: SessionRecord, correlation_id: str, now: datetime) -> None:
+    def _replace_active(
+        self,
+        record: SessionRecord,
+        correlation_id: str,
+        now: datetime,
+    ) -> tuple[SessionRecord, ...]:
         try:
-            self.repository.create(record)
+            return self.repository.replace_active(record, now, "NEW_SUCCESSFUL_LOGIN")
         except SessionTechnicalError:
             self._unavailable(correlation_id, now)
 

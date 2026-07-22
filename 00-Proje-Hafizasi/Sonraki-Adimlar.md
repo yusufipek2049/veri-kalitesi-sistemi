@@ -14,7 +14,7 @@ tags:
 
 ## Geçiş Önceliği
 
-Mevcut 16 iterasyonun, Iterasyon 17A–17E audit, Iterasyon 18A–18C veri koruma, Iterasyon 19A–19H maker-checker, Iterasyon 20A–20C LDAP/oturum güvenliği ve Iterasyon 25A–25D saklama/legal hold/imha/arşiv yetkilendirme dikeylerinin çekirdeği korunur. Banka kararları tamamlanmadan yeni HTTP yüzeyi açılmaz.
+Mevcut 16 iterasyonun, Iterasyon 17A–17E audit, Iterasyon 18A–18C veri koruma, Iterasyon 19A–19H maker-checker, Iterasyon 20A–20D LDAP/oturum güvenliği ve Iterasyon 25A–25D saklama/legal hold/imha/arşiv yetkilendirme dikeylerinin çekirdeği korunur. Banka kararları tamamlanmadan yeni HTTP yüzeyi açılmaz.
 
 Bakım İterasyonu 29C.1 ile tam mypy baseline'ı sıfır hataya indirilmiştir;
 sonraki değişiklikler bu baseline'ı korumalıdır.
@@ -23,9 +23,10 @@ sonraki değişiklikler bu baseline'ı korumalıdır.
 2. İterasyon 19H — Kontrollü kaynak pasifleştirme ve yeni iş kabulünü engelleme; `TechnicallyVerified`.
 3. İterasyon 21A — Yetki güven sınırına bağlı dashboard trend domain sorgusu; `TechnicallyVerified`.
 4. İterasyon 21B — HTTP okuma yüzeyi; `OPEN-BNK-020` `ApprovedByBank` olarak
-   kapanmıştır. BFF, `__Host-session`, CSRF ve merkezi iptal politikasının üretim
-   HTTP/session adaptöründe uygulanması ile geçiş kapısındaki diğer bağımlılıklar
-   tamamlandığında hazırdır.
+   kapanmıştır. 20D süre, tek aktif oturum, yeni giriş iptali ve terminal
+   credential silme alt kapsamını uygular. BFF, `__Host-session`, CSRF ve diğer
+   merkezi iptal tetiklerinin üretim HTTP/session adaptöründe uygulanması ile
+   geçiş kapısındaki diğer bağımlılıklar tamamlandığında hazırdır.
 5. İterasyon 22 — 22A–22I bildirim ve denetlenebilir issue yaşam döngüsü `TechnicallyVerified`.
 6. İterasyon 23 — ServiceNow veri-minimizasyonlu adaptör; 23A–23D `TechnicallyVerified`.
 7. İterasyon 24 — 24A audit inceleme ve 24B maskeli rapor önizleme `TechnicallyVerified`; hassas dışa aktarma `OPEN-BNK-014` nedeniyle engelli.
@@ -42,7 +43,7 @@ sonraki değişiklikler bu baseline'ı korumalıdır.
 | 17 | Merkezi audit bütünlüğü | `BR-007`, `FR-077`–`FR-079`, `BFR-AUD-001`–`BFR-AUD-004` | Ortak olay zarfı, redaksiyon, correlation ve bütünlük doğrulaması | 17A–17E `TechnicallyVerified`; üretim operasyonlaştırması açık |
 | 18 | Veri sınıflandırma ve maskeleme | `RULE-009`, `RULE-010`, `NFR-PRV-*`, `BFR-DATA-001`–`BFR-DATA-004` | Onaylı sınıf sözlüğü ve deny-by-default görüntüleme/örnek politikası | 18A–18C `TechnicallyVerified`; banka eşlemesi/onayları açık |
 | 19 | Maker-checker | `RULE-001`, `RULE-005`, `RULE-007`, `BFR-SOD-001`–`BFR-SOD-004` | Hazırlayan kendi kritik değişikliğini aktive edemez | 19A–19H `TechnicallyVerified`; banka rol eşlemesi, gerçek takvim/worker, diğer kritik işlem sınıfları ve çalışan iş politikası açık |
-| 20 | LDAP/RBAC adaptörü | `FR-001`–`FR-006`, `UC-001`, `BFR-IAM-001`–`BFR-IAM-006` | LDAP grubu güvenilir role/scope'a dönüşür; giriş ve oturum başarısızlığı fail-closed | 20A adaptör/eşleme, 20B giriş sınırı ve 20C session `TechnicallyVerified`; üretim kararları açık |
+| 20 | LDAP/RBAC adaptörü | `FR-001`–`FR-006`, `UC-001`, `BFR-IAM-001`–`BFR-IAM-006` | LDAP grubu güvenilir role/scope'a dönüşür; giriş ve oturum başarısızlığı fail-closed | 20A adaptör/eşleme, 20B giriş sınırı, 20C temel session ve 20D onaylı süre/tek oturum runtime alt kapsamı `TechnicallyVerified`; HTTP/BFF ve üretim altyapısı açık |
 | 21 | Dashboard trend ve HTTP okuma | `FR-054`–`FR-057`, `UC-010`, `NFR-PERF-001`, `NFR-PERF-002` | Son 30 gün trendi boş dönemleri sıfırlaştırmadan ve güvenilir scope ile döner | 21A `TechnicallyVerified`; 21B HTTP geçiş kapısına bağlı |
 | 22 | Bildirim ve issue | `FR-059`, `FR-060`, `FR-064`–`FR-070`, `BFR-DATA-003` | Hassas veri içermeyen sistem içi bildirim ve denetlenebilir issue state machine | 22A–22I `TechnicallyVerified`; gerçek adaptörler ve operasyon politikaları açık |
 | 23 | ServiceNow adaptörü | `FR-070`, `FR-087`, `BFR-EXT-001`–`BFR-EXT-003` | Alan whitelist'i, idempotency ve ham veri çıkışının engellenmesi | 23A–23D `TechnicallyVerified`; gerçek ağ/dağıtık state ve banka kararları açık |
@@ -164,6 +165,14 @@ uygulama yapılmamalıdır.
 `OPEN-BNK-008`, hassas dışa aktarma `OPEN-BNK-014` ve gerçek SIEM/SOC
 `OPEN-BNK-010` kararlarını beklemektedir. 21B/frontend için `OPEN-BNK-020`
 kararı banka onaylıdır; kalan iş kararın HTTP/session katmanında uygulanmasıdır.
+
+Kimlik zincirindeki sıradaki küçük uygulama artımı **İterasyon 20E — BFF oturum
+ve CSRF HTTP sınırı**dır. `__Host-session` cookie üretimi/döndürülmesi,
+synchronizer token, Origin/Referer/Fetch Metadata ve CORS allowlist kontrolleri
+ile state-changing `GET` reddi birlikte uygulanmalıdır. HTTP framework bağımlılığı
+mevcut mimari karara göre doğrulanmadan bu artım başlatılmamalıdır. Yüksek
+erişilebilir session store, at-rest şifreleme/KMS-HSM ve fiziksel `P90D`
+saklama/imha kanıtı ayrı üretim altyapısı artımlarıdır.
 
 ## Başlangıç İçin Okunacak Notlar
 

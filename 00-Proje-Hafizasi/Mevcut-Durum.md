@@ -1357,17 +1357,40 @@ tags:
   `ApprovedByBank` durumuna alındı. BFF, tek aktif oturum, `PT1H` idle,
   `PT10H` mutlak süre, `__Host-session`, synchronizer-token CSRF, merkezi iptal
   ve `P90D` güvenlik metadatası gereksinim ve mimari sözleşmelerine işlendi.
-- Mevcut runtime 30 dakikalık idle tabanını kullanmaya devam etmektedir. Banka
-  onaylı politika sürümünün HTTP/session katmanında uygulanması, yüksek
+- Bu dokümantasyon kaydı sırasında runtime 30 dakikalık idle tabanını
+  kullanmaktaydı; süre ve tek aktif oturum alt kapsamı daha sonra 20D ile
+  uygulandı. Onaylı politikanın HTTP/BFF katmanında uygulanması, yüksek
   erişilebilir üretim deposu, at-rest şifreleme/KMS-HSM ve fiziksel saklama/imha
   kanıtı açık uygulama işleridir.
 - 988 Python testi, 146 dosyalık mypy, Ruff lint, `compileall`, 4 frontend birim
   testi, frontend type-check ve üretim build'i geçti. 429 dosyalık `28A-v1`
   secret taraması temizdir; yerel Markdown bağlantıları ve karar işareti taraması
   hatasızdır. Frontend build'inde mevcut 500 kB chunk uyarısı sürmektedir.
-- Tam `ruff format --check`, bu dokümantasyon değişikliğinin dışında kalan
+- Bu kayıtta tam `ruff format --check`, dokümantasyon değişikliğinin dışında kalan
   `03-Backend/src/veri_kalitesi/__init__.py` dosyasında mevcut tek biçim farkını
-  raporlamaktadır; bu iterasyonda Python kaynak kodu değiştirilmemiştir.
+  raporlamıştı; biçim farkı 20D kapsamında giderildi.
+
+### 2026-07-22 — İterasyon 20D: Banka onaylı oturum runtime politikası
+
+- `OPEN-BNK-020` banka onayının domain/runtime alt kapsamı uygulandı: sürümlü
+  oturum politikası en fazla `PT1H` hareketsizlik ve `PT10H` mutlak süreyi
+  zorunlu kılar; daha sıkı değerler desteklenir.
+- Kullanıcı başına tek aktif normal oturum depo transaction'ında uygulanır. Yeni
+  başarılı giriş aynı kullanıcıya ait önceki aktif oturumu `NEW_SUCCESSFUL_LOGIN`
+  nedeniyle iptal eder ve yeni oturumu atomik olarak kaydeder.
+- Oturum sona erdiğinde credential özeti terminal güvenlik metadatasından
+  ayrılarak silinir. Eski SQLite şeması nullable credential alanına açılışta
+  taşınır; uygulama servisi somut SQLite sınıfı yerine `SessionRepository`
+  protokolüne bağlıdır.
+- Arka plan istekleri ve token yenileme doğrulaması boşta kalma zamanını
+  uzatmaz; yalnız güvenilir kullanıcı etkileşimi aktivite zamanını yeniler.
+- Kimlik hedefinde 47, tam depoda 993 test geçti. 146 dosyalık Ruff format,
+  Ruff lint ve tam mypy, `compileall` ve `git diff --check`
+  kontrolleri hatasızdır. `28A-v1` 430 dosyada secret bulgusu üretmedi.
+- HTTP/BFF cookie ve CSRF adaptörü, kullanıcı/rol/olay kaynaklı merkezi iptal
+  girişleri, yüksek erişilebilir üretim session store'u, at-rest şifreleme ile
+  KMS/HSM bağlantısı ve `P90D` fiziksel saklama/imha kanıtı açık uygulama
+  kapsamıdır.
 
 - [Alınan Kararlar](Alinan-Kararlar.md)
 - [Açık Konular](Acik-Konular.md)
@@ -1375,8 +1398,8 @@ tags:
 
 ## Bankacılık Geçiş Baseline'ı
 
-- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20C, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1, İterasyon 30A–30B, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A–33B ve İterasyon 34A–34E çıktıları korunacaktır.
-- `pytest` ile 988 testin geçtiği doğrulanmıştır.
+- Mevcut 16 iterasyon, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20D, Iterasyon 21A, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Bakım İterasyonu 29C.1, İterasyon 30A–30B, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A–33B ve İterasyon 34A–34E çıktıları korunacaktır.
+- `pytest` ile 993 testin geçtiği doğrulanmıştır.
 - Tam mypy kontrolü 146 kaynak dosyada sıfır hata vermektedir.
 - Kısmi politika maker-checker onay/ret, geri çekme ve atomik audit akışı 32D ile tamamlandı. Süre aşımı açık kalır; güvenilir `PartialExecutionFacts` üretimi kapsama ve eksik kayıt oranı formüllerini beklemektedir. 31D hız sınırı sayaç/pencere semantiğini; CPU/IO sınırları güvenilir kaynak ölçüm adaptörünü beklemektedir. 27B restore tatbikat kanıtı `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını bekler; gerçek arşiv/fiziksel imha adaptörü, 29D, 21B/frontend, hassas dışa aktarma ve gerçek SIEM de banka/altyapı kararlarına bağlıdır.
 - Geçiş ayrıntıları için [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md) esas alınır.
