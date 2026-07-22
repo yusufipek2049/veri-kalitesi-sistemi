@@ -20,6 +20,8 @@ from veri_kalitesi.api.models import (
     DashboardSummaryResponse,
     DataSourceListItemResponse,
     DataSourceListResponse,
+    RuleListItemResponse,
+    RuleListResponse,
 )
 from veri_kalitesi.data_sources import (
     DataSourceQueryAuthorizationError,
@@ -32,6 +34,11 @@ from veri_kalitesi.dashboard import (
     DashboardQueryService,
     DashboardValidationError,
 )
+from veri_kalitesi.rules import (
+    RuleQueryAuthorizationError,
+    RuleQueryService,
+    RuleQueryTechnicalError,
+)
 
 
 def create_dashboard_api(
@@ -42,6 +49,7 @@ def create_dashboard_api(
     allowed_origins: Sequence[str] = (),
     data_origin: str = "runtime",
     data_source_query_service: DataSourceQueryService | None = None,
+    rule_query_service: RuleQueryService | None = None,
 ) -> FastAPI:
     """Bağımlılıkları dışarıdan verilen, varsayılanı fail-closed API üretir."""
 
@@ -156,6 +164,30 @@ def create_dashboard_api(
             correlation_id=error.correlation_id,
         )
 
+    @app.exception_handler(RuleQueryAuthorizationError)
+    async def handle_rule_authorization_error(
+        request: Request, error: RuleQueryAuthorizationError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=403,
+            title="Access denied",
+            detail="The requested rule scope is not available.",
+            correlation_id=error.correlation_id,
+        )
+
+    @app.exception_handler(RuleQueryTechnicalError)
+    async def handle_rule_query_error(
+        request: Request, error: RuleQueryTechnicalError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=503,
+            title="Rules temporarily unavailable",
+            detail="The rule query could not be completed.",
+            correlation_id=error.correlation_id,
+        )
+
     @app.exception_handler(ApiSessionUnavailableError)
     async def handle_session_unavailable_error(
         request: Request, error: ApiSessionUnavailableError
@@ -224,6 +256,25 @@ def create_dashboard_api(
             data_origin=data_origin,
             correlation_id=request.state.correlation_id,
             items=tuple(DataSourceListItemResponse.from_domain(source) for source in sources),
+        )
+
+    @app.get(
+        "/api/v1/rules",
+        response_model=RuleListResponse,
+        tags=["rules"],
+    )
+    async def get_rules(request: Request, response: Response) -> RuleListResponse:
+        if rule_query_service is None:
+            raise RuleQueryTechnicalError(
+                "Rule service is unavailable.", request.state.correlation_id
+            )
+        actor_context = resolver.resolve(request)
+        rules = rule_query_service.list_for_actor(actor_context)
+        response.headers["Cache-Control"] = "no-store"
+        return RuleListResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            items=tuple(RuleListItemResponse.from_domain(rule, version) for rule, version in rules),
         )
 
     @app.post("/api/v1/session/logout", status_code=204, tags=["session"])

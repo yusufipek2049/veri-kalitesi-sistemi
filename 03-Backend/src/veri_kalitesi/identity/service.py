@@ -124,6 +124,7 @@ class PolicyAuthorizationService:
         self._record(context, "ALLOW", "POLICY_MATCH", now)
         return DashboardAuthorizationDecision(
             permitted_source_ids=context.permitted_source_ids,
+            permitted_dataset_ids=context.permitted_dataset_ids,
             can_view_enterprise=context.can_view_enterprise,
             policy_version=self.policy.version,
         )

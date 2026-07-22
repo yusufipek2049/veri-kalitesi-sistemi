@@ -37,6 +37,7 @@ class ActorContext:
 @dataclass(frozen=True)
 class DashboardAuthorizationDecision:
     permitted_source_ids: frozenset[str]
+    permitted_dataset_ids: frozenset[str]
     can_view_enterprise: bool
     policy_version: str
 

@@ -17,9 +17,9 @@ tags:
 
 Yüklenen mevcut vault ve kod üzerinden doğrulanan durum:
 
-- İterasyon 1–16, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20E, Iterasyon 21A–21C, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Iterasyon 30B–30D, Iterasyon 31A–31C, Iterasyon 32A–32D, İterasyon 33A–33B, İterasyon 34A–34F ve İterasyon 35A teknik dikeyleri tamamlanmış ve proje hafızasına kaydedilmiştir.
-- `pytest` sonucu: **1036 test geçti**; iki gerçek PostgreSQL entegrasyon testi
-  opt-in koşuda ayrıca geçti. Tam mypy kontrolü 161 kaynak dosyada
+- İterasyon 1–16, Iterasyon 17A–17E, Iterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20E, Iterasyon 21A–21C, Iterasyon 22A–22I, Iterasyon 23A–23D, Iterasyon 24A–24B, Iterasyon 25A–25D, Iterasyon 26A–26B, Iterasyon 27A, Iterasyon 28A–28E, Iterasyon 29A–29C, Iterasyon 30B–30D, Iterasyon 31A–31C, Iterasyon 32A–32D, İterasyon 33A–33B, İterasyon 34A–34F ve İterasyon 35A–35B teknik dikeyleri tamamlanmış ve proje hafızasına kaydedilmiştir.
+- `pytest` sonucu: **1041 test geçti**; iki gerçek PostgreSQL entegrasyon testi
+  opt-in koşuda ayrıca geçti. Tam mypy kontrolü 162 kaynak dosyada
   sıfır hata vermektedir.
 - Mevcut çalışan domain paketleri:
   - `data_sources`
@@ -44,7 +44,7 @@ Yüklenen mevcut vault ve kod üzerinden doğrulanan durum:
 - LDAP tabanlı fake adaptör/eşleme, kalıcı kullanıcı/istemci giriş sınırı ve güvenli normal kullanıcı oturumu doğrulanmıştır. Hedef kimlik sınırı LDAP destekli kurumsal IdP/SSO, OIDC veya SAML ve zorunlu MFA olarak kesinleşmiştir. `OPEN-BNK-020` BFF, tek aktif oturum, `PT1H`/`PT10H`, `__Host-session`, synchronizer-token CSRF, merkezi iptal ve `P90D` güvenlik metadatasıyla `ApprovedByBank` durumundadır. 20D süre/tek oturumu, 20E cookie/CSRF HTTP sınırını runtime'a taşımıştır; gerçek IdP/RBAC callback/state/nonce, diğer merkezi iptal tetikleri, üretim session store/şifreleme, issue resolver bağlantıları, raporlama ve gerçek ServiceNow ağ adaptörü henüz uygulanmamıştır.
 - Merkezi audit zarfı authorization, veri kaynağı, kural, schedule oluşturma ve skor konfigürasyonu aktivasyonunda kullanılmaktadır; auditli kalıcı domain yazımları transactional outbox kullanır. Aktif legacy audit API kullanımı kalmamıştır. Tarihsel `audit_records` için salt okunur, redaksiyonlu ve idempotent aktarım sözleşmesi sentetik verilerle doğrulanmıştır; gerçek üretim koşusu yapılmamıştır.
 - Kural, skor konfigürasyonu ve veri kaynağı aktivasyon onay işlemleri güvenilir `ActorContext` kullanır; diğer bazı servis işlemlerinde `actor_id` çağıran tarafından serbest metin olarak verilebilmektedir.
-- Public dashboard sorguları scope kabul etmez; güvenilir context'i scope'a çeviren authorization servisini kullanır. Skor ağacı ve sabit son 30 günlük trend domain sorgusu yetki filtrelidir. 21B yerel/test FastAPI özetini ve bağlı frontend'i, 21C aynı yetki sınırında veri-minimum operasyonel göstergeleri eklemiştir. 35A aynı güvenilir kapsamdan veri-minimum veri kaynağı listesini ve salt okunur frontend rotasını üretir; üretim resolver varsayılan olarak erişimi reddeder. Internal/deprecated geçiş adaptörü henüz kaldırılmamıştır.
+- Public dashboard sorguları scope kabul etmez; güvenilir context'i scope'a çeviren authorization servisini kullanır. Skor ağacı ve sabit son 30 günlük trend domain sorgusu yetki filtrelidir. 21B yerel/test FastAPI özetini ve bağlı frontend'i, 21C aynı yetki sınırında veri-minimum operasyonel göstergeleri eklemiştir. 35A izinli kaynaklardan veri-minimum veri kaynağı listesini, 35B izinli datasetlerden veri-minimum son sürüm kural özetini ve salt okunur frontend rotalarını üretir; üretim resolver varsayılan olarak erişimi reddeder. Internal/deprecated geçiş adaptörü henüz kaldırılmamıştır.
 - Metadata sınıflandırması sürümlü teknik sözlük kullanır; sınıfsız alanlar fail-closed `UNCLASSIFIED` olur ve profil kalıcılığı ham örnek/top-value/desen payloadlarını çıkarır. Kişisel ve özel nitelikli kişisel alanlar sürümlü işleme envanteriyle ilişkilendirilebilir ve salt okunur tamlık raporuyla denetlenir; banka sözlük eşlemesi henüz tamamlanmamıştır.
 - Yerel güvenli SDLC paketi secret taraması, doğrudan bağımlılık SBOM'u, veri-minimum SAST/bağımlılık zafiyet kapıları, sızma testi bulgu takibi, deterministik teknik kanıt manifesti, drift kapısı ve bunları birleştiren yerel preflight komutunu içerir. Gerçek scanner/pentest, transitive lock, CI/CD zorlaması, imzalı kurumsal kanıt deposu, banka eşik/istisna ve release onayı uygulanmamıştır.
 - Sürümlü saklama politikası kataloğu, append-only legal hold, idempotent imha kanıtı ve audit/kalite skoru arşivleri için farklı aktör kararlı geri çağırma talep sözleşmesi uygulanmıştır. Tüm retention yazımları veri-minimum ve atomik auditlidir; fiziksel imha/anonimleştirme/arşivleme ile gerçek arşiv getirme adaptörleri uygulanmamıştır.
@@ -114,7 +114,7 @@ Aşağıdaki maddeler tamamlanmadan üretim HTTP yüzeyi, hassas dışa aktarma 
 
 ## Kontrol Durumu
 
-- Teknik geçiş: **Devam ediyor; İterasyon 17A–17E, 18A–18C, 19A–19H, 20A–20E, 21A–21C, 22A–22I, 23A–23D, 24A–24B, 25A–25D, 26A–26B, 27A, 28A–28E, 29A–29C, 30B–30D, 31A–31C, 32A–32D, 33A–33B, 34A–34F ve 35A TechnicallyVerified**
+- Teknik geçiş: **Devam ediyor; İterasyon 17A–17E, 18A–18C, 19A–19H, 20A–20E, 21A–21C, 22A–22I, 23A–23D, 24A–24B, 25A–25D, 26A–26B, 27A, 28A–28E, 29A–29C, 30B–30D, 31A–31C, 32A–32D, 33A–33B, 34A–34F ve 35A–35B TechnicallyVerified**
 - BDDK/KVKK teknik kontrol eşlemesi: **Proposed**
 - Banka bilgi güvenliği onayı: **ComplianceReviewRequired**
 - Banka hukuk/uyum onayı: **ComplianceReviewRequired**

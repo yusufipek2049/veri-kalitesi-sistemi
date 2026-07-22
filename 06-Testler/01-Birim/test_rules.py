@@ -1192,6 +1192,45 @@ def test_fr_077_bfr_aud_004_rule_version_is_durably_buffered_on_outage() -> None
     assert pending[0].correlation_id == "correlation-buffered-version"
 
 
+def test_repository_lists_only_allowed_dataset_rules_with_latest_version() -> None:
+    repository = SQLiteRuleRepository()
+    service = _rule_service(
+        repository,
+        FakeMetadataCatalog(),
+        FakeRuleExecutor(RuleTestComputation(5, 5, 0)),
+    )
+    main_rule, _ = _create_required_rule(service)
+    latest = service.create_version(
+        actor_id="user-2",
+        quality_rule_id=main_rule.quality_rule_id,
+        parameters={"field_id": FIELD_ID},
+        threshold=97,
+        weight=2,
+        criticality="HIGH",
+    )
+    service.create_rule(
+        actor_id="user-1",
+        code="dq_reference_required",
+        name="Referans alanı zorunlu",
+        dataset_id=REFERENCE_DATASET_ID,
+        rule_type="REQUIRED",
+        parameters={"field_id": REFERENCE_FIELD_ID},
+        primary_dimension="COMPLETENESS",
+        threshold=90,
+        weight=1,
+        criticality="LOW",
+        owner_user_id="owner-2",
+    )
+
+    listed = repository.list_rules_with_latest_version(frozenset({DATASET_ID}))
+
+    assert [(rule.code, version.version_no) for rule, version in listed] == [
+        ("DQ_CUSTOMER_EMAIL_REQUIRED", 2)
+    ]
+    assert listed[0][1].rule_version_id == latest.rule_version_id
+    assert repository.list_rules_with_latest_version(frozenset()) == []
+
+
 def _create_required_rule(
     service: RuleService,
     *,
