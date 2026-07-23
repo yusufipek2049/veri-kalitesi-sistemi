@@ -6,7 +6,8 @@ import json
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Protocol
+from collections.abc import Mapping, Sequence
+from typing import Any, Protocol, cast
 
 from veri_kalitesi.audit.models import AuditEvent, AuditEventInput, AuditResult, PreparedAuditEvent
 from veri_kalitesi.audit.redaction import AuditRedactor
@@ -72,7 +73,7 @@ class SQLiteTransactionalAudit:
             """,
             (
                 prepared.event_id,
-                _serialize(prepared),
+                prepared_audit_to_json(prepared),
                 self.policy_version,
                 datetime.now(timezone.utc).isoformat(),
             ),
@@ -93,7 +94,7 @@ class SQLiteTransactionalAudit:
         failed = 0
         for row in rows:
             try:
-                self.repository.append(_deserialize(row["prepared_event"]))
+                self.repository.append(prepared_audit_from_json(row["prepared_event"]))
             except Exception:
                 failed += 1
                 with self.connection:
@@ -131,11 +132,11 @@ class SQLiteTransactionalAudit:
             ORDER BY created_at, event_id
             """
         ).fetchall()
-        return [_deserialize(row["prepared_event"]) for row in rows]
+        return [prepared_audit_from_json(row["prepared_event"]) for row in rows]
 
 
-def _serialize(prepared: PreparedAuditEvent) -> str:
-    payload = {
+def prepared_audit_to_document(prepared: PreparedAuditEvent) -> dict[str, object]:
+    return {
         "event_id": prepared.event_id,
         "event_version": prepared.event_version,
         "occurred_at": prepared.occurred_at.isoformat(),
@@ -155,28 +156,46 @@ def _serialize(prepared: PreparedAuditEvent) -> str:
         "redacted_fields": list(prepared.redacted_fields),
         "redaction_policy_version": prepared.redaction_policy_version,
     }
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
-def _deserialize(payload: str) -> PreparedAuditEvent:
-    value = json.loads(payload)
-    return PreparedAuditEvent(
-        event_id=value["event_id"],
-        event_version=value["event_version"],
-        occurred_at=datetime.fromisoformat(value["occurred_at"]),
-        actor_id=value["actor_id"],
-        actor_type=value["actor_type"],
-        session_id_digest=value["session_id_digest"],
-        correlation_id=value["correlation_id"],
-        action=value["action"],
-        object_type=value["object_type"],
-        object_id=value["object_id"],
-        result=AuditResult(value["result"]),
-        reason_code=value["reason_code"],
-        old_value_summary=value["old_value_summary"],
-        new_value_summary=value["new_value_summary"],
-        old_value_digest=value["old_value_digest"],
-        new_value_digest=value["new_value_digest"],
-        redacted_fields=tuple(value["redacted_fields"]),
-        redaction_policy_version=value["redaction_policy_version"],
+def prepared_audit_to_json(prepared: PreparedAuditEvent) -> str:
+    return json.dumps(
+        prepared_audit_to_document(prepared),
+        sort_keys=True,
+        separators=(",", ":"),
     )
+
+
+def prepared_audit_from_json(payload: str) -> PreparedAuditEvent:
+    return prepared_audit_from_document(json.loads(payload))
+
+
+def prepared_audit_from_document(value: dict[str, object]) -> PreparedAuditEvent:
+    return PreparedAuditEvent(
+        event_id=str(value["event_id"]),
+        event_version=str(value["event_version"]),
+        occurred_at=datetime.fromisoformat(str(value["occurred_at"])),
+        actor_id=str(value["actor_id"]),
+        actor_type=_optional_str(value["actor_type"]),
+        session_id_digest=(
+            str(value["session_id_digest"]) if value["session_id_digest"] is not None else None
+        ),
+        correlation_id=str(value["correlation_id"]),
+        action=str(value["action"]),
+        object_type=str(value["object_type"]),
+        object_id=str(value["object_id"]) if value["object_id"] is not None else None,
+        result=AuditResult(str(value["result"])),
+        reason_code=str(value["reason_code"]),
+        old_value_summary=dict(cast(Mapping[str, Any], value["old_value_summary"])),
+        new_value_summary=dict(cast(Mapping[str, Any], value["new_value_summary"])),
+        old_value_digest=str(value["old_value_digest"]),
+        new_value_digest=str(value["new_value_digest"]),
+        redacted_fields=tuple(
+            str(item) for item in cast(Sequence[object], value["redacted_fields"])
+        ),
+        redaction_policy_version=str(value["redaction_policy_version"]),
+    )
+
+
+def _optional_str(value: object) -> str | None:
+    return str(value) if value is not None else None

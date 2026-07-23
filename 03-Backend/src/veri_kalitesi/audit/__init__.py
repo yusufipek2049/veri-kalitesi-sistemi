@@ -29,6 +29,7 @@ from veri_kalitesi.audit.models import (
     PreparedAuditEvent,
 )
 from veri_kalitesi.audit.outbox import AuditOutboxStatus, SQLiteTransactionalAudit
+from veri_kalitesi.audit.postgresql_outbox import PostgreSQLTransactionalAudit
 from veri_kalitesi.audit.policies import build_default_redaction_policy
 from veri_kalitesi.audit.redaction import AuditRedactor
 from veri_kalitesi.audit.repository import GENESIS_HASH, SQLiteAuditRepository
@@ -70,6 +71,7 @@ __all__ = [
     "LegacyAuditMigrationReport",
     "LegacyAuditMigrator",
     "PreparedAuditEvent",
+    "PostgreSQLTransactionalAudit",
     "SQLiteAuditRepository",
     "SQLiteTransactionalAudit",
 ]

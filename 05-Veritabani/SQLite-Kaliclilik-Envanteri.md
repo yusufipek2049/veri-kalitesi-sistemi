@@ -28,7 +28,7 @@ gelmez.
 | Kural yönetimi | `rules/repository.py` | Bekliyor |
 | Çalıştırma ve zamanlama | `executions/repository.py`, `executions/scheduling.py`, `executions/source_usage_policies.py` | Bekliyor |
 | Skorlama | `scoring/repository.py`, `scoring/partial_score_policies.py` | Bekliyor |
-| Sorun yönetimi | `issues/repository.py` | PostgreSQL şema ve salt okunur envanter `36A1`; mutasyon/geçmiş `36A2` |
+| Sorun yönetimi | `issues/repository.py` | PostgreSQL şema/okuma `36A1`, mutasyon/geçmiş/audit outbox `36A2a`; seçici aktarım ve SQLite kaldırma `36A2b` |
 | Bildirim | `notifications/repository.py` | Bekliyor |
 | ServiceNow | `servicenow/repository.py` | Bekliyor |
 | Saklama ve arşiv | `retention/repository.py`, `retention/disposal_repository.py`, `retention/archive_recall_repository.py` | Bekliyor |
@@ -58,3 +58,18 @@ gelmez.
   dış transaction geri alınır.
 - Migration test şeması test sonunda `CASCADE` ile kaldırılır. Bu davranış
   yalnız izole test şeması içindir; üretim rollback yöntemi değildir.
+
+## 36A2a Sonucu
+
+- Issue oluşturma/tekrar, durum, atama, çözüm, doğrulama, geçmiş ve ilişki
+  repository metotları PostgreSQL'e taşındı.
+- Aynı deduplication özeti PostgreSQL advisory transaction lock ile
+  serileştirilir.
+- Issue mutasyonu, geçmiş ve redakte audit outbox aynı transaction içinde
+  commit veya rollback olur.
+- Ayrı `data-quality-postgres` konteynerinde benzersiz geçici şemalarla üç
+  entegrasyon testi çalıştı. Secret ve bağlantı URL'si kalıcı dosyaya veya test
+  çıktısına yazılmadı.
+- `issues/repository.py` hâlâ eski SQLite kayıtlarının aktarımı ve mevcut
+  testlerin compatibility yolu olarak bulunmaktadır. `36A2b` seçici/idempotent
+  aktarımı doğruladıktan sonra bu dosyayı ve package export'unu kaldıracaktır.
