@@ -181,13 +181,13 @@ foreign key enforcement ve orphan doğrulaması iptal edilmiştir**.
    `TechnicallyVerified`. Issue oluşturma/tekrar, durum, atama, çözüm,
    doğrulama, geçmiş ve ilişki yazımları redakte audit outbox ile aynı
    PostgreSQL transaction'ına taşındı.
-3. **36A2b — Seçici issue aktarımı ve SQLite kaldırma:** Sıradaki hazır ürün
-   artımıdır. Otoriter issue/geçmiş/çözüm/doğrulama/ilişki ve bekleyen audit
-   outbox kayıtları salt okunur, idempotent taşınır; sayaç/hash/foreign key
-   doğrulamasından sonra SQLite issue repository'si ve compatibility export'u
-   kaldırılır.
-4. **36B — Yazılabilir Sorunlar:** atama, incelemeye alma, çözüm, farklı aktörle
-   doğrulama, kapatma ve yeniden açma.
+3. **36A2b — Seçici issue aktarımı ve SQLite kaldırma:**
+   `TechnicallyVerified`. Otoriter issue/geçmiş/çözüm/doğrulama/ilişki ve
+   bekleyen issue audit outbox kayıtları salt okunur, idempotent taşındı;
+   sayaç/hash/foreign key doğrulamasından sonra SQLite issue runtime
+   repository'si ve package export'u kaldırıldı.
+4. **36B — Yazılabilir Sorunlar:** Sıradaki hazır ürün artımıdır. Atama,
+   incelemeye alma, çözüm, farklı aktörle doğrulama, kapatma ve yeniden açma.
 5. **36C — Yazılabilir Kurallar:** taslak oluşturma/düzenleme, test, onaya
    gönderme/geri çekme ve maker-checker kontrollü aktivasyon/pasifleştirme.
 6. **36D — Yazılabilir Veri Kaynakları:** tanım, değişmez bağlantı revizyonu,
@@ -198,7 +198,7 @@ foreign key enforcement ve orphan doğrulaması iptal edilmiştir**.
    indirme. DLP/watermark/maker-checker hazır değilse hassas dışa aktarma
    fail-closed kalır; audit kayıtlarına yazma/düzeltme özelliği eklenmez.
 
-Sıradaki hazır ürün artımı **36A2b**'dir. Hiçbir dilimde geçici SQLite mutation
+Sıradaki hazır ürün artımı **36B**'dir. Hiçbir dilimde geçici SQLite mutation
 API'si veya SQLite fallback oluşturulmayacaktır. Birim testleri fake domain
 double kullanabilir; kalıcı entegrasyon testleri yalnız PostgreSQL üzerinde
 çalışacaktır. `PG-MIG-001–005` ve `UI-WRITE-001–007` uygulama kararları

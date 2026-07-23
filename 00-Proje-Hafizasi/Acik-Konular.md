@@ -22,9 +22,9 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
 
 1. PostgreSQL-only uygulama kalıcılığı, `psycopg 3`, SQLAlchemy 2 ve Alembic
    karara bağlanmıştır. 36A1 ortak transaction/Alembic temelini, 36A2a issue
-   mutasyon/geçmiş ve atomik audit outbox kalıcılığını tamamladı. Seçici issue
-   veri aktarımı, SQLite issue kodunun kaldırılması ve diğer repository'lerin
-   bağımlılık sıralı migration'ı henüz tamamlanmamıştır.
+   mutasyon/geçmiş ve atomik audit outbox kalıcılığını, 36A2b seçici issue
+   aktarımı ile SQLite issue runtime yolunun kaldırılmasını tamamladı. Diğer
+   repository'lerin bağımlılık sıralı migration'ı henüz tamamlanmamıştır.
 2. Worker/kota/pencere/CPU/IO/timeout/rate değerleri aktif sürümlü kaynak politikasından çözülecektir; kapasite testinden üretilmiş üretim politika kaydı ve CPU/IO/rate ölçüm adaptörü henüz yoktur.
 3. Kurumsal secret manager/PAM kullanımı karara bağlanmıştır; seçilen kurumsal hizmetin servis/workload identity eşlemesi ve gerçek adaptörü beklenmektedir.
 4. Kurumsal IdP üzerinden OIDC veya SAML, MFA, PAM ve çift onaylı break-glass karara bağlanmıştır; endpoint, grup-rol-scope değerleri ve üretim rol eşlemeleri beklenmektedir.
@@ -253,7 +253,8 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
     repository envanteri, issue tablo/constraint baseline'ı, `data_quality.dq`
     şeması ve PostgreSQL test izolasyon sözleşmesi uygulanmıştır. 36A2a issue
     mutasyon/geçmiş ve audit outbox transaction'ını gerçek PostgreSQL üzerinde
-    doğrulamıştır. 36A2b seçici aktarım ve SQLite runtime yolunu kaldırmalıdır.
+    doğrulamıştır. 36A2b salt okunur/idempotent seçici aktarımı, sayaç/hash/FK
+    doğrulamasını ve SQLite issue runtime yolunun kaldırılmasını tamamlamıştır.
     36B–36F mutasyonları gerçek IdP, güvenilir aktör, BFF/CSRF, rol/kapsam,
     maker-checker ve audit önkoşullarını sağlamadan açılmaz. Denetim kayıtları
     değişmezdir; kaynak sistemlere yazma kapsam dışıdır.

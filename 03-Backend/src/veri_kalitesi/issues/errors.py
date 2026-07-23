@@ -37,6 +37,10 @@ class IssueTechnicalError(IssueError):
         self.correlation_id = correlation_id
 
 
+class IssueMigrationError(IssueError):
+    """Legacy issue aktarımı bütünlük doğrulamasını geçemedi."""
+
+
 class IssueNotificationError(IssueError):
     """The issue persisted but its notification could not be completed."""
 

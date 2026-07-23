@@ -30,6 +30,31 @@ tags:
 
 ## Uygulama Durumu
 
+### 2026-07-23 — İterasyon 36A2b: Seçici issue aktarımı ve SQLite kaldırma
+
+- Otoriter issue, geçmiş, çözüm, doğrulama, ilişki ve yalnız bekleyen
+  `DATA_QUALITY_ISSUE` audit outbox kayıtları legacy SQLite dosyasından
+  PostgreSQL'e salt okunur ve idempotent aktarılır.
+- Legacy dosya `mode=ro` ve `query_only` ile açılır. Kaynak dosyanın aktarım
+  öncesi ve commit öncesi SHA-256 özeti eşleşmezse işlem geri alınır.
+- Her tablo için kaynak/hedef sayaç ve kanonik satır hash'i karşılaştırılır;
+  issue foreign-key ihlali veya mevcut hedef payload uyuşmazlığı fail-closed
+  `IssueMigrationError` üretir.
+- İkinci aktarım aynı sekiz seçili kayıt için sıfır yeni satır oluşturdu.
+  Issue dışı ve yayımlanmış audit outbox kayıtları seçilmedi. İki aktarım ve
+  hedef uyuşmazlığı senaryosu gerçek PostgreSQL üzerinde doğrulandı.
+- `issues/repository.py` ve `SQLiteIssueRepository` package export'u ürün
+  paketinden kaldırıldı. Mevcut domain birim testlerinin legacy SQLite
+  fixture'ı yalnız `06-Testler/support` altında tutulur; runtime ve kalıcı
+  entegrasyon yolunda SQLite fallback yoktur.
+- Hedefli 103 issue/API testi ve beş gerçek PostgreSQL issue testi geçti. Tam
+  depoda 1072 test geçti; yalnız farklı sentetik PostgreSQL bayrağına bağlı iki
+  test atlandı. Mypy 133 kaynak dosyada, Ruff lint/183 dosya format kontrolü ve
+  `compileall` hatasızdır. `28A-v1` taraması 553 dosyada secret bulgusu üretmedi.
+- Genel PostgreSQL cutover tamamlanmamıştır; diğer domain repository'leri
+  bağımlılık sırasıyla taşınacaktır. Sıradaki ürün artımı 36B yazılabilir
+  Sorunlar ekranıdır.
+
 ### 2026-07-23 — İterasyon 36A2a: PostgreSQL issue mutasyon ve audit outbox
 
 - `FR-064–FR-070`, `UC-011/013/014`, `NFR-REL-005/006` ve `NFR-SEC-011`
