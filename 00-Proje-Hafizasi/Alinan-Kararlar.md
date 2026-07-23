@@ -746,6 +746,28 @@ gerektiğinde maker-checker, veri-minimum audit ve fail-closed hata davranışı
 korur. Karar üretim altyapısının kurulduğu veya banka onayının alındığı anlamına
 gelmez.
 
+### Kesinleşen Uygulama Seçenekleri
+
+| ID | Kesinleşen seçenek | Durum |
+| --- | --- | --- |
+| `PG-MIG-001` | Seçici taşıma: audit, issue, onay, politika, kural sürümü ve iş geçmişi idempotent salt okunur aktarılır; sentetik fixture, cache ve yeniden üretilebilir geliştirme verisi PostgreSQL üzerinde yeniden oluşturulur. | KararAlındı |
+| `PG-MIG-002` | Tek `data_quality` veritabanında özel `dq` uygulama şeması kullanılır; domain ayrımı repository ve tablo sınırlarıyla korunur. | KararAlındı |
+| `PG-MIG-003` | Domain bazlı kontrollü cutover uygulanır: yazma penceresi kapatılır, veri taşınır, sayaç/hash/foreign key doğrulanır ve trafik PostgreSQL'e alınır. Dual-write yapılmaz. | KararAlındı |
+| `PG-MIG-004` | Yalnız ileri Alembic migration uygulanır; `downgrade` üretim geri alma yöntemi değildir. Hata yeni düzeltici migration ile giderilir. Cutover öncesi PostgreSQL yedeği ve geri yükleme operasyonel felaket koruması olarak ayrıca korunur. SQLite runtime fallback kullanılmaz. | KararAlındı |
+| `PG-MIG-005` | Repository testleri transaction rollback, migration ve eşzamanlılık testleri benzersiz geçici PostgreSQL şeması kullanır. | KararAlındı |
+| `UI-WRITE-001` | Sorun atama/inceleme, çözüm ve doğrulama ayrı uygulama yetkinlikleridir; IdP grupları daha sonra bu yetkinliklere eşlenir ve çözen aktör doğrulama yapamaz. | KararAlındı |
+| `UI-WRITE-002` | Yazılabilir issue ve sonraki uygun varlıklarda sayısal `version` ile optimistic locking uygulanır; sürüm çakışması `409 Conflict` üretir. | KararAlındı |
+| `UI-WRITE-003` | Formlar açık “Kaydet” işlemiyle sunucuya yazılır; kaydedilmemiş değişiklikte çıkış uyarısı gösterilir. Hassas taslak `localStorage` içinde tutulmaz. | KararAlındı |
+| `UI-WRITE-004` | Düşük riskli kural taslağı yetkili tek kullanıcı tarafından düzenlenebilir; kritik kural, aktivasyon/pasifleştirme, eşik ve ağırlık değişikliği maker-checker gerektirir. | KararAlındı |
+| `UI-WRITE-005` | Veri kaynağı aktivasyonu Data Owner, farklı checker ve aynı bağlantı revizyonuna ait başarılı salt okunur bağlantı testi gerektirir. | KararAlındı |
+| `UI-WRITE-006` | Manuel çalıştırma doğrudan worker başlatmaz; kaynak politikası, kota, çalışma penceresi ve idempotency kontrolünden sonra kuyruğa alınır. | KararAlındı |
+| `UI-WRITE-007` | Rapor indirme sınıflandırma bazlı açılır: sentetik/düşük hassasiyetli raporlar yetkili kapsamda; hassas raporlar DLP, watermark, gerekçe ve gerektiğinde maker-checker tamamlanınca. Eksik kontrolde işlem fail-closed kalır. | KararAlındı |
+
+Karar referansı:
+`USER-DECLARATION-2026-07-23-PG-MIG-004-FORWARD-ONLY-OTHERS-RECOMMENDED`.
+Bu seçimler uygulama yönünü kesinleştirir; banka rol/grup değerleri, üretim
+altyapısı ve hassas dışa aktarma onayı ayrıca doğrulanır.
+
 ## 2026-07-22 — İterasyon 20E Teknik Kararı
 
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |

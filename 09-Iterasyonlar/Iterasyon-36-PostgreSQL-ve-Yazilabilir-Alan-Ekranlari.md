@@ -34,8 +34,12 @@ Durum: **Ready**
 
 - SQLite repository, tablo, migration ve test kullanımları envanterlenir.
 - Ortak SQLAlchemy 2 session/transaction sınırı oluşturulur.
-- `data_quality` PostgreSQL veritabanı için Alembic baseline hazırlanır.
-- Entegrasyon testleri PostgreSQL transaction veya şema izolasyonu kullanır.
+- `data_quality.dq` için Alembic baseline hazırlanır.
+- Migration'lar yalnız ileri çalışır; hata düzeltici yeni migration üretir.
+- Repository testleri PostgreSQL transaction rollback, migration/eşzamanlılık
+  testleri benzersiz geçici şema kullanır.
+- Audit, issue, onay, politika, kural sürümü ve iş geçmişi seçici/idempotent
+  taşınır; yeniden üretilebilir sentetik/cache verisi yeniden oluşturulur.
 - İlk domain olarak issue kalıcılığı PostgreSQL'e taşınır.
 - Taşınan issue yolunda SQLite fallback bulunmaz.
 - Secret veya bağlantı parolası repository'ye yazılmaz.
@@ -49,6 +53,9 @@ Durum: **Planned — 36A'ya bağlı**
 - Çözüm kaydetme.
 - Farklı aktörle doğrulama ve kapatma.
 - Aynı başarısızlıkta yeniden açma.
+- Sayısal `version` ile optimistic locking ve çakışmada `409 Conflict`.
+- Açık kaydetme, kaydedilmemiş değişiklikte çıkış uyarısı ve hassas taslağı
+  tarayıcı kalıcı depolamasına yazmama.
 - Güvenilir aktör, rol/kapsam, BFF/CSRF ve veri-minimum audit.
 
 ## 36C — Yazılabilir Kurallar
@@ -59,7 +66,7 @@ Durum: **Planned — ilgili repository PostgreSQL geçişine bağlı**
 - Taslak oluşturma ve düzenleme.
 - Kural testi.
 - Onaya gönderme ve geri çekme.
-- Kritik değişikliklerde maker-checker.
+- Düşük riskli taslakta tek yetkili; kritik değişikliklerde maker-checker.
 - Aktivasyon ve kontrollü pasifleştirme.
 
 ## 36D — Yazılabilir Veri Kaynakları
@@ -82,7 +89,8 @@ Durum: **Planned — execution/queue PostgreSQL geçişine bağlı**
 - Manuel başlatma.
 - İptal.
 - Yeniden deneme.
-- Kaynak kullanım politikası, kota, çalışma penceresi ve idempotency kontrolü.
+- Doğrudan worker başlatmadan kaynak kullanım politikası, kota, çalışma
+  penceresi ve idempotency kontrolü sonrası kuyruğa alma.
 
 ## 36F — Rapor İşlemleri ve Denetim Sınırı
 
@@ -91,7 +99,8 @@ Durum: **Planned — dışa aktarma kontrollerine bağlı**
 - Gereksinimler: `FR-072–FR-079`, `UC-015`, `UC-016`.
 - Rapor üretim talebi.
 - Asenkron durum izleme ve güvenli indirme.
-- Hassas raporda DLP, watermark ve gerekli maker-checker kapısı.
+- Sentetik/düşük hassasiyetli raporda yetkili kapsam; hassas raporda DLP,
+  watermark, gerekçe ve gerekli maker-checker kapısı.
 - Gereken banka kararı yoksa dışa aktarmanın fail-closed kalması.
 - Audit kayıtları için yalnız sorgu, filtre, bütünlük ve arşiv inceleme; kayıt
   düzeltme veya silme yoktur.
