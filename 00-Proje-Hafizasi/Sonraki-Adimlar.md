@@ -127,10 +127,10 @@ dışa aktarma uygulaması tamamlanmadan sonraki rapor yazma dilimine alınmaz;
 | FE-DEC-003 | Tema başlangıcı ve tercih saklama | İlk açılışta açık tema; kullanıcı seçimi `localStorage` içinde yalnız `light`/`dark` tercihi olarak saklanır | 30C |
 | FE-DEC-004 | Dashboard KPI zaman ve snapshot anlamı | Yeterlilik son geçerli ölçümden; kritik kontrol son tamamlanan execution'dan; teknik hata seçili dönemden, varsayılan son 30 UTC günden hesaplanır | 21C, 30D |
 
-Alan ekranlarının ilk dilimleri salt okunur liste ve detay olarak kurulacaktır;
-yazma, onay, çalıştırma ve dışa aktarma eylemleri kendi güvenlik ve maker-checker
-koşullarıyla sonraki küçük artımlarda açılır. Bu ayrıştırma yeni ürün kararı değil,
-mevcut çevik teslim ve güvenlik kurallarının uygulama sırasıdır.
+Alan ekranlarının 35A–35F salt okunur ilk dilimleri tamamlanmıştır. Yazma,
+onay, çalıştırma ve dışa aktarma eylemleri 36B–36F sırasında kendi güvenlik ve
+maker-checker koşullarıyla açılacaktır. Audit kayıtları değişmez ve salt okunur
+kalır; kaynak sistemlere yazma kapsam dışıdır.
 
 ## Sentetik Veri Backlogu
 
@@ -168,10 +168,30 @@ ifade etmez.
 Teknik inceleme `R-04` kapsamında yanlış `SOURCE` kritiklik ağırlıklandırması
 İterasyon 33B ile giderildi. `R-04`ün replay/backfill ve tam ayrık sonuç modeli
 alt kapsamlarında karar alınmıştır; runtime migration ve politika modelleri
-henüz uygulanmamıştır. İncelemenin doğruluk ve veri
-bütünlüğü sırasındaki sonraki küçük, hazır aday **R-06 — SQLite foreign key
-enforcement ve orphan doğrulaması**dır; uygulamadan önce etkilenen repository
-connection'ları ve silme semantikleri tek tek doğrulanmalıdır.
+henüz uygulanmamıştır. SQLite tamamen kaldırılacağı için **R-06 — SQLite
+foreign key enforcement ve orphan doğrulaması iptal edilmiştir**.
+
+### İterasyon 36 — PostgreSQL-only ve Yazılabilir Alan Ekranları
+
+1. **36A — PostgreSQL-only kalıcılık temeli:** SQLite repository envanteri,
+   SQLAlchemy 2 session/transaction sınırı, Alembic baseline, PostgreSQL test
+   izolasyonu ve ilk olarak issue repository geçişi.
+2. **36B — Yazılabilir Sorunlar:** atama, incelemeye alma, çözüm, farklı aktörle
+   doğrulama, kapatma ve yeniden açma.
+3. **36C — Yazılabilir Kurallar:** taslak oluşturma/düzenleme, test, onaya
+   gönderme/geri çekme ve maker-checker kontrollü aktivasyon/pasifleştirme.
+4. **36D — Yazılabilir Veri Kaynakları:** tanım, değişmez bağlantı revizyonu,
+   salt okunur bağlantı testi ve maker-checker kontrollü aktivasyon.
+5. **36E — Çalıştırma İşlemleri:** manuel başlatma, iptal ve yeniden deneme;
+   kaynak kullanım politikası, kota ve çalışma penceresi korunur.
+6. **36F — Rapor İşlemleri ve Denetim Sınırı:** rapor üretim talebi ile güvenli
+   indirme. DLP/watermark/maker-checker hazır değilse hassas dışa aktarma
+   fail-closed kalır; audit kayıtlarına yazma/düzeltme özelliği eklenmez.
+
+Sıradaki hazır ürün artımı **36A**'dır. Hiçbir dilimde geçici SQLite mutation
+API'si veya SQLite fallback oluşturulmayacaktır. Birim testleri fake domain
+double kullanabilir; kalıcı entegrasyon testleri yalnız PostgreSQL üzerinde
+çalışacaktır.
 
 **İterasyon 30B — Sentetik dashboard çalışma iskeleti** ve **İterasyon 30C —
 Uygulama kabuğu görsel uyumu ve tema** tamamlandı. 30C, referanstaki navigasyon

@@ -65,7 +65,10 @@ Yüklenen mevcut vault ve kod üzerinden doğrulanan durum:
   `OPEN-014` kapsamındaki nihai anonimleştirilmiş üretim örneği kabulinin yerine
   geçmez. Nicel eşikler ile üretim profili/örneği erişimi `OPEN-024/025`
   kapsamında açık kalır.
-- Yerel metadata ve execution deposu SQLite'tır; bu, üretim mimarisi kararı değildir.
+- Mevcut yerel metadata ve execution repository'lerinin önemli bölümü
+  SQLite'tır. Hedef kalıcılık yalnız PostgreSQL olarak kesinleşmiştir; 36A'dan
+  başlayarak domain bazlı geçiş ve ilgili SQLite fallback'in kaldırılması
+  planlanmıştır.
 
 ## Korunacak Kazanımlar
 

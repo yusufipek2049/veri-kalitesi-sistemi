@@ -330,7 +330,7 @@ sayfalayabilir; olay sonuçlarını ve zincir bütünlüğünü hassas değişik
 
 ## Sonraki Dilim
 
-Kullanıcı öncelikli 35A–35F alan ekranı zinciri tamamlandı. Sıradaki hazır
-teknik aday, repository bağlantılarında **R-06 — SQLite foreign key enforcement
-ve orphan doğrulaması**dır; üretim bağlantıları banka/altyapı kararlarını
-beklemeye devam eder.
+Kullanıcı öncelikli 35A–35F salt okunur alan ekranı zinciri tamamlandı. `R-06`
+SQLite tamamen kaldırılacağı için iptal edildi. Sıradaki hazır ürün artımı
+**36A — PostgreSQL-only kalıcılık temeli**dir; yazılabilir ekranlar 36B–36F
+sırasıyla açılacaktır.
