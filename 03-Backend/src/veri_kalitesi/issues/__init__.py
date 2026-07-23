@@ -35,6 +35,13 @@ from veri_kalitesi.issues.models import (
     TrustedIssueVerificationResult,
 )
 from veri_kalitesi.issues.repository import SQLiteIssueRepository
+from veri_kalitesi.issues.query import (
+    IssueQueryAuthorizationError,
+    IssueQueryError,
+    IssueQueryService,
+    IssueQueryTechnicalError,
+    IssueReader,
+)
 from veri_kalitesi.issues.service import (
     IssueAssigneeDirectory,
     IssueAssignmentResolver,
@@ -63,6 +70,11 @@ __all__ = [
     "IssueNotificationPublisher",
     "IssueNotificationTechnicalError",
     "IssuePriority",
+    "IssueQueryAuthorizationError",
+    "IssueQueryError",
+    "IssueQueryService",
+    "IssueQueryTechnicalError",
+    "IssueReader",
     "IssueResolutionDraft",
     "IssueRelationship",
     "IssueRelationshipError",

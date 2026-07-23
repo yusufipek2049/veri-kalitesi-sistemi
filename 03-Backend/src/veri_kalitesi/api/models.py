@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict
 from veri_kalitesi.dashboard import DashboardOverview
 from veri_kalitesi.data_sources import DataSource
 from veri_kalitesi.executions import RuleExecution
+from veri_kalitesi.issues import DataQualityIssue
 from veri_kalitesi.rules import QualityRule, RuleVersion
 
 
@@ -121,6 +122,50 @@ class ExecutionListResponse(BaseModel):
     correlation_id: str
     limit: int
     items: tuple[ExecutionListItemResponse, ...]
+
+
+class IssueListItemResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    issue_id: str
+    issue_no: str
+    source_event_type: str
+    trigger_type: str
+    scope_type: str
+    scope_id: str
+    status: str
+    priority: str
+    occurrence_count: int
+    created_at: datetime
+    updated_at: datetime
+    last_seen_at: datetime
+
+    @classmethod
+    def from_domain(cls, issue: DataQualityIssue) -> "IssueListItemResponse":
+        return cls(
+            issue_id=issue.issue_id,
+            issue_no=issue.issue_no,
+            source_event_type=issue.source_event_type.value,
+            trigger_type=issue.trigger_type.value,
+            scope_type=issue.scope_type.value,
+            scope_id=issue.scope_id,
+            status=issue.status.value,
+            priority=issue.priority.value,
+            occurrence_count=issue.occurrence_count,
+            created_at=issue.created_at,
+            updated_at=issue.updated_at,
+            last_seen_at=issue.last_seen_at,
+        )
+
+
+class IssueListResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    limit: int
+    items: tuple[IssueListItemResponse, ...]
 
 
 class DashboardObservationResponse(BaseModel):
