@@ -9,14 +9,18 @@
 
 !/00-Proje-Hafizasi/*.md
 /00-Proje-Hafizasi/AGENTS.md
+/00-Proje-Hafizasi/CLAUDE.md
 
 !/01-SRS/**/*.md
 /01-SRS/**/AGENTS.md
+/01-SRS/**/CLAUDE.md
 
 !/02-Mimari/*.md
 !/02-Mimari/Guvenlik/*.md
 /02-Mimari/AGENTS.md
+/02-Mimari/CLAUDE.md
 /02-Mimari/Guvenlik/AGENTS.md
+/02-Mimari/Guvenlik/CLAUDE.md
 
 !/03-Backend/BACKEND-INDEX.md
 !/03-Backend/01-Kimlik-ve-Yetki/AGENTS.md
@@ -33,6 +37,7 @@
 
 !/07-Operasyon/*.md
 /07-Operasyon/AGENTS.md
+/07-Operasyon/CLAUDE.md
 
 !/08-Uyum-Kanitlari/KANIT-INDEX.md
 !/08-Uyum-Kanitlari/Kanıt-Paketi-Sablonu.md
@@ -51,6 +56,7 @@
 
 !/09-Iterasyonlar/*.md
 /09-Iterasyonlar/AGENTS.md
+/09-Iterasyonlar/CLAUDE.md
 !/09-Iterasyonlar/AGENTS.md
 
 # Agent instructions outside the README link graph.
@@ -210,4 +216,5 @@ docker-compose.override.yaml
 *.pid.lock
 
 # Claude settings
-.claude/settings.local.json
+.claude/
+

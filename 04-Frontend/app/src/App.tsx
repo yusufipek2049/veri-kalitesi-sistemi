@@ -23,6 +23,8 @@ import {
   reassignIssue,
   resolveIssue,
   startIssueInvestigation,
+  verifyIssue,
+  closeIssue,
 } from "./issues/api";
 import {
   assigneeOptionsFromApi,
@@ -262,6 +264,21 @@ function IssuesRoute() {
     )));
     setCorrelationId(response.correlation_id);
   }, []);
+  const verify = useCallback(async (
+    item: IssueListItem,
+    verificationReferenceId: string,
+  ) => {
+    const response = await verifyIssue(
+      item.id,
+      item.version,
+      verificationReferenceId,
+    );
+    const updated = issueFromApiItem(response.item);
+    setItems((current) => current.map((candidate) => (
+      candidate.id === updated.id ? updated : candidate
+    )));
+    setCorrelationId(response.correlation_id);
+  }, []);
   const resolve = useCallback(async (
     item: IssueListItem,
     rootCause: string,
@@ -283,6 +300,14 @@ function IssuesRoute() {
     )));
     setCorrelationId(response.correlation_id);
   }, []);
+  const close = useCallback(async (item: IssueListItem) => {
+    const response = await closeIssue(item.id, item.version);
+    const updated = issueFromApiItem(response.item);
+    setItems((current) => current.map((candidate) => (
+      candidate.id === updated.id ? updated : candidate
+    )));
+    setCorrelationId(response.correlation_id);
+  }, []);
   return (
     <IssuesPage
       correlationId={correlationId}
@@ -291,7 +316,9 @@ function IssuesRoute() {
       onRefresh={() => void load()}
       onReassign={reassign}
       onResolve={resolve}
+      onClose={close}
       onStartInvestigation={startInvestigation}
+      onVerify={verify}
       state={fixtureState ?? state}
     />
   );

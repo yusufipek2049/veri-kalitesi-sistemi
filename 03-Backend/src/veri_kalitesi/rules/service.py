@@ -5,14 +5,13 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from datetime import datetime, timezone
-from typing import Any, Callable, Protocol
+from typing import Any, Callable, Generic, Protocol
 from uuid import uuid4
 
 from veri_kalitesi.audit import (
     AuditEventInput,
     AuditResult,
     AuditSink,
-    SQLiteTransactionalAudit,
 )
 from veri_kalitesi.data_sources.models import (
     DataField,
@@ -22,6 +21,7 @@ from veri_kalitesi.data_sources.models import (
 )
 from veri_kalitesi.data_sources.postgresql import is_read_only_sql
 from veri_kalitesi.identity import ActorContext, ActorType, is_trusted_actor_context
+from veri_kalitesi.rules.contracts import RuleRepository, AuditT
 from veri_kalitesi.rules.errors import (
     RuleAuthorizationError,
     RuleTestTechnicalError,
@@ -43,7 +43,6 @@ from veri_kalitesi.rules.models import (
     RuleVersion,
     utc_now,
 )
-from veri_kalitesi.rules.repository import SQLiteRuleRepository
 from veri_kalitesi.rules.templates import build_rule_plan, reference_scope, referenced_fields
 
 
@@ -72,15 +71,15 @@ class BusinessCalendar(Protocol):
     def add_business_days(self, start_at: datetime, business_days: int) -> datetime: ...
 
 
-class RuleService:
+class RuleService(Generic[AuditT]):
     def __init__(
         self,
-        repository: SQLiteRuleRepository,
+        repository: RuleRepository[AuditT],
         metadata_catalog: MetadataCatalog,
         executor: RuleTestExecutor,
         *,
         audit_sink: AuditSink,
-        transactional_audit: SQLiteTransactionalAudit,
+        transactional_audit: AuditT,
         approval_policy: RuleApprovalPolicy | None = None,
         approval_calendar: BusinessCalendar | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),

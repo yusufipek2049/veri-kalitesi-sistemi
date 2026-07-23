@@ -1,5 +1,5 @@
 export type IssueState = "normal" | "loading" | "empty" | "error" | "unauthorized" | "long-content";
-export type IssueAction = "START_INVESTIGATION" | "REASSIGN" | "RESOLVE" | "VERIFY";
+export type IssueAction = "START_INVESTIGATION" | "REASSIGN" | "RESOLVE" | "VERIFY" | "CLOSE";
 export type IssuePriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
 export interface IssueAssigneeOption {

@@ -729,6 +729,37 @@ class DevelopmentIssueStore:
             self._issues[issue_id] = updated
             return updated
 
+    def close(
+        self,
+        issue_id: str,
+        actor_context: ActorContext | None,
+    ) -> DataQualityIssue:
+        if actor_context is None:
+            raise IssueAuthorizationError("Development actor is required.")
+        with self._lock:
+            issue = self._issues.get(issue_id)
+            if issue is None:
+                raise IssueValidationError("Development issue was not found.")
+            has_scope = (
+                issue.scope_id in actor_context.permitted_source_ids
+                if issue.scope_type is IssueScopeType.SOURCE
+                else issue.scope_id in actor_context.permitted_dataset_ids
+            )
+            if not has_scope:
+                raise IssueAuthorizationError("Development actor cannot close this issue.")
+            if not actor_context.roles.intersection({"DATA_OWNER", "DATA_STEWARD"}):
+                raise IssueAuthorizationError("Development actor cannot close issues.")
+            if issue.status is not IssueStatus.VERIFIED:
+                raise IssueValidationError("Development issue is not verified.")
+            updated = replace(
+                issue,
+                status=IssueStatus.CLOSED,
+                updated_at=datetime.now(timezone.utc),
+                version=issue.version + 1,
+            )
+            self._issues[issue_id] = updated
+            return updated
+
     def _authorize_assignment(
         self,
         issue: DataQualityIssue,
@@ -989,6 +1020,7 @@ def create_development_app():  # type: ignore[no-untyped-def]
         issue_assignee_option_provider=issue_store,
         issue_resolution_service=issue_store,
         issue_verification_service=issue_store,
+        issue_closure_service=issue_store,
         report_preview_service=ReportPreviewService(
             SQLiteReportPreviewReader(repository.connection),
             audit_service,
