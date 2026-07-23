@@ -30,6 +30,29 @@ tags:
 
 ## Uygulama Durumu
 
+### 2026-07-23 — İterasyon 36A1: PostgreSQL kalıcılık temeli
+
+- `NFR-MNT-001/004/006`, `NFR-REL-006`, `FR-064–FR-070`, `UC-013/014` ve
+  `PG-MIG-001–005` için ilk küçük kalıcılık dilimi tamamlandı.
+- Ortak SQLAlchemy 2 session/transaction sınırı yalnız
+  `postgresql+psycopg` ve `data_quality` veritabanını kabul eder; varsayılan
+  uygulama şeması `dq` olur. Bağlantı bilgisi yalnız ortam ayarından alınır.
+- Alembic baseline issue ana kaydı, geçmiş, çözüm, doğrulama, ilişki ve audit
+  outbox tablolarını kurar. Offline SQL doğrulamasında şema sürüm tablosundan
+  önce oluşturulur; production downgrade fail-closed reddedilir.
+- `PostgreSQLIssueRepository`, kaynak ve dataset scope'larını bind
+  parametreleriyle uygular ve SQLite fallback içermez. Bu dilimde yalnız
+  salt okunur issue envanteri taşınmıştır.
+- Yedi yeni birim testi geçti. Tam depoda 1067 test başarılı, üç gerçek
+  PostgreSQL testi kontrollü atlandı; tam mypy 131 kaynak dosyada, Ruff
+  lint/format ve `compileall` hatasızdır. `28A-v1` taraması 546 dosyada secret
+  bulgusu üretmedi. Yeni gerçek PostgreSQL entegrasyon testi
+  `DATA_QUALITY_POSTGRES_TEST_URL` sağlanmadığı ve bu WSL oturumundan
+  PostgreSQL'e erişilemediği için kontrollü atlandı.
+- Issue mutasyon/geçmiş transaction'ı, idempotent veri aktarımı ve eski SQLite
+  issue runtime yolunun kaldırılması `36A2` kapsamındadır. Bu nedenle genel
+  PostgreSQL cutover tamamlanmış değildir.
+
 ### 2026-07-23 — İterasyon 35F: Salt okunur Denetim ekranı
 
 - `FR-077–FR-079`, `UC-016`, `AC-026`, `FE-DS-015`,

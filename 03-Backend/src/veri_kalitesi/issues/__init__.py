@@ -35,6 +35,10 @@ from veri_kalitesi.issues.models import (
     TrustedIssueVerificationResult,
 )
 from veri_kalitesi.issues.repository import SQLiteIssueRepository
+from veri_kalitesi.issues.postgresql_repository import (
+    PostgreSQLIssueRepository,
+    issue_table,
+)
 from veri_kalitesi.issues.query import (
     IssueQueryAuthorizationError,
     IssueQueryError,
@@ -94,6 +98,8 @@ __all__ = [
     "IssueVerificationResolver",
     "IssueValidationError",
     "ProtectedIssueResolution",
+    "PostgreSQLIssueRepository",
     "SQLiteIssueRepository",
     "TrustedIssueVerificationResult",
+    "issue_table",
 ]

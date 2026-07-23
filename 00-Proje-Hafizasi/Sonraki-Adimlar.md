@@ -173,24 +173,28 @@ foreign key enforcement ve orphan doğrulaması iptal edilmiştir**.
 
 ### İterasyon 36 — PostgreSQL-only ve Yazılabilir Alan Ekranları
 
-1. **36A — PostgreSQL-only kalıcılık temeli:** SQLite repository envanteri,
-   SQLAlchemy 2 session/transaction sınırı, Alembic baseline, PostgreSQL test
-   izolasyonu ve ilk olarak issue repository geçişi. Otoriter geçmiş seçici
-   taşınır, uygulama tabloları `data_quality.dq` altında tutulur ve migration
-   yalnız ileri düzeltici sürümlerle yönetilir.
-2. **36B — Yazılabilir Sorunlar:** atama, incelemeye alma, çözüm, farklı aktörle
+1. **36A1 — PostgreSQL-only kalıcılık temeli:** `TechnicallyVerified`. SQLite
+   envanteri, ortak SQLAlchemy 2 transaction sınırı, `data_quality.dq` Alembic
+   baseline'ı, test izolasyon sözleşmesi ve PostgreSQL-only scope filtreli issue
+   envanter okuyucusu tamamlandı.
+2. **36A2 — Issue mutasyon ve geçmiş cutover:** Sıradaki hazır ürün artımıdır.
+   Mevcut issue yaşam döngüsü yazımları, geçmiş/çözüm/doğrulama/ilişki kayıtları
+   ve audit outbox aynı PostgreSQL transaction'ına taşınır; idempotent
+   sayaç/hash/foreign key doğrulaması sonrası issue SQLite runtime yolu
+   kaldırılır.
+3. **36B — Yazılabilir Sorunlar:** atama, incelemeye alma, çözüm, farklı aktörle
    doğrulama, kapatma ve yeniden açma.
-3. **36C — Yazılabilir Kurallar:** taslak oluşturma/düzenleme, test, onaya
+4. **36C — Yazılabilir Kurallar:** taslak oluşturma/düzenleme, test, onaya
    gönderme/geri çekme ve maker-checker kontrollü aktivasyon/pasifleştirme.
-4. **36D — Yazılabilir Veri Kaynakları:** tanım, değişmez bağlantı revizyonu,
+5. **36D — Yazılabilir Veri Kaynakları:** tanım, değişmez bağlantı revizyonu,
    salt okunur bağlantı testi ve maker-checker kontrollü aktivasyon.
-5. **36E — Çalıştırma İşlemleri:** manuel başlatma, iptal ve yeniden deneme;
+6. **36E — Çalıştırma İşlemleri:** manuel başlatma, iptal ve yeniden deneme;
    kaynak kullanım politikası, kota ve çalışma penceresi korunur.
-6. **36F — Rapor İşlemleri ve Denetim Sınırı:** rapor üretim talebi ile güvenli
+7. **36F — Rapor İşlemleri ve Denetim Sınırı:** rapor üretim talebi ile güvenli
    indirme. DLP/watermark/maker-checker hazır değilse hassas dışa aktarma
    fail-closed kalır; audit kayıtlarına yazma/düzeltme özelliği eklenmez.
 
-Sıradaki hazır ürün artımı **36A**'dır. Hiçbir dilimde geçici SQLite mutation
+Sıradaki hazır ürün artımı **36A2**'dir. Hiçbir dilimde geçici SQLite mutation
 API'si veya SQLite fallback oluşturulmayacaktır. Birim testleri fake domain
 double kullanabilir; kalıcı entegrasyon testleri yalnız PostgreSQL üzerinde
 çalışacaktır. `PG-MIG-001–005` ve `UI-WRITE-001–007` uygulama kararları

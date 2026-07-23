@@ -5,6 +5,8 @@ from __future__ import annotations
 import sqlite3
 from typing import Protocol
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from veri_kalitesi.identity import ActorContext, AuthorizationService, IdentityError
 from veri_kalitesi.issues.models import DataQualityIssue
 
@@ -65,7 +67,7 @@ class IssueQueryService:
                     limit=self.page_limit,
                 )
             )
-        except (sqlite3.Error, OSError) as exc:
+        except (sqlite3.Error, SQLAlchemyError, OSError) as exc:
             raise IssueQueryTechnicalError(
                 "Issue query could not be completed.", correlation_id
             ) from exc
