@@ -25,7 +25,7 @@ gelmez.
 | Audit | `audit/repository.py`, `audit/outbox.py`, `audit/migration.py` | Bekliyor |
 | Kimlik ve oturum | `identity/sessions.py`, `identity/throttling.py` | Bekliyor |
 | Veri kaynakları | `data_sources/repository.py` | Bekliyor |
-| Kural yönetimi | `rules/repository.py` | Bekliyor |
+| Kural yönetimi | `rules/repository.py` | `36C0` tamamlandı; PostgreSQLRuleRepository ve `rule_tables()` eklendi, `SQLiteRuleRepository` korunuyor |
 | Çalıştırma ve zamanlama | `executions/repository.py`, `executions/scheduling.py`, `executions/source_usage_policies.py` | Bekliyor |
 | Skorlama | `scoring/repository.py`, `scoring/partial_score_policies.py` | Bekliyor |
 | Sorun yönetimi | Ürün paketinde SQLite yüzeyi yok | `36A1–36A2b` tamamlandı; PostgreSQL-only runtime, seçici aktarım doğrulandı |

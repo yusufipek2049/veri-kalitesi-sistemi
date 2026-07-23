@@ -147,6 +147,14 @@ class IssueVerificationService(Protocol):
     ) -> DataQualityIssue: ...
 
 
+class IssueClosureService(Protocol):
+    def close(
+        self,
+        issue_id: str,
+        actor_context: ActorContext | None,
+    ) -> DataQualityIssue: ...
+
+
 class RuleCreatorService(Protocol):
     def create_rule(
         self,
@@ -186,6 +194,7 @@ def create_dashboard_api(
     issue_assignee_option_provider: IssueAssigneeOptionProvider | None = None,
     issue_resolution_service: IssueResolutionService | None = None,
     issue_verification_service: IssueVerificationService | None = None,
+    issue_closure_service: IssueClosureService | None = None,
     rule_creator_service: RuleCreatorService | None = None,
     report_preview_service: ReportPreviewService | None = None,
     audit_query_service: AuditQueryService | None = None,
@@ -864,6 +873,39 @@ def create_dashboard_api(
             ),
         )
 
+    @app.post(
+        "/api/v1/issues/{issue_id}/closure",
+        response_model=IssueMutationResponse,
+        tags=["issues"],
+    )
+    async def close_issue(
+        issue_id: str,
+        payload: IssueMutationRequest,
+        request: Request,
+        response: Response,
+    ) -> IssueMutationResponse:
+        if issue_closure_service is None:
+            raise IssueTechnicalError(
+                "Issue closure service is unavailable.",
+                request.state.correlation_id,
+            )
+        actor_context = getattr(request.state, "actor_context", None)
+        if actor_context is None:
+            actor_context = resolver.resolve(request)
+        issue = issue_closure_service.close(
+            issue_id,
+            actor_context,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return IssueMutationResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=IssueListItemResponse.from_domain(
+                issue,
+                available_actions=_issue_actions(issue, actor_context),
+            ),
+        )
+
     @app.get(
         "/api/v1/reports/summary",
         response_model=ReportSummaryResponse,
@@ -1045,6 +1087,13 @@ def _issue_actions(
         and not actor_context.privileged
     ):
         actions.append("VERIFY")
+    if (
+        issue.status.value == "VERIFIED"
+        and actor_context.roles.intersection({"DATA_OWNER", "DATA_STEWARD"})
+        and has_scope
+        and not actor_context.privileged
+    ):
+        actions.append("CLOSE")
     return tuple(actions)
 
 

@@ -30,6 +30,69 @@ tags:
 
 ## Uygulama Durumu
 
+### 2026-07-23 — Claude Code yapılandırma ve bağlam optimizasyonu
+
+- Claude Code entegrasyonu için kök `CLAUDE.md` ve 36 modül CLAUDE.md köprüsü
+  oluşturuldu.
+- `AGENTS.md` içine bağlam hijyeni kuralları (hedefli arama, okunmayacak dosyalar,
+  terminal çıktısı sınırlama, subagent kullanımı, doğruluk kaynağı, iterasyon
+  yaşam döngüsü) eklendi.
+- `.claude/settings.json` içine `CLAUDE_ENABLE_STREAM_WATCHDOG` ve
+  `CLAUDE_STREAM_IDLE_TIMEOUT_MS` eklendi; `permissions.deny` kuralları
+  (secret, build, coverage, log, sentetik veri vb.) uygulandı.
+- `.gitignore` içine CLAUDE.md istisnaları eklendi.
+- `.claude/agents/context-explorer.md` ve `test-runner.md` subagent'ları
+  kuruldu.
+- MCP sunucusu bulunmamaktadır (gereksiz başlangıç yükü yok).
+- Bu bir ürün iterasyonu değildir; yapılandırma ve geliştirici deneyimi
+  çalışmasıdır. Sıradaki ürün artımı 36B5'tir.
+
+### 2026-07-23 — İterasyon 36B5: Sorun kapatma
+
+- `FR-066`, `FR-070`, `UC-014`, `UI-WRITE-001/002/003`,
+  `NFR-SEC-001/005/008/011` ve `NFR-USA-001–006` için sorun kapatma
+  dikeyi tamamlandı.
+- `POST /api/v1/issues/{issue_id}/closure` BFF sınırına eklendi. Yazım CSRF
+  doğrulaması, sayısal `version`, güvenli `403/404/409/503` yanıtları ve
+  `no-store` önbellek politikası kullanır.
+- `IssueClosureService` protokolü ve `DevelopmentIssueStore.close()` metodu
+  eklendi. Servis yalnız `VERIFIED` durumundaki sorunda, güvenilir
+  `DATA_OWNER`/`DATA_STEWARD` aktörüne `CLOSE` eylemi sunar. Kapatma işlemi
+  `CLOSED` durumuna geçer, değişiklik geçmişi ve audit olayı kaydedilir.
+- Frontend `closeIssue()` API fonksiyonu, `IssuesPage` `onClose` callback'i,
+  "Kapat" menü öğesi ve onay dialogu eklendi. Dialog geri alınamaz kapatma
+  uyarısı ve açık "Kapat"/"Vazgeç" eylemlerini içerir.
+- Hedefli issue/API testlerinde 127, tam backend paketinde `1091 passed,
+  7 skipped` sonucu alındı. Frontend 70 birim testi, TypeScript type-check
+  ve production build temizdir.
+- 36B’nin yeniden açma dilimi tamamlanmamıştır. Sıradaki ürün artımı 36C0
+  kural repository PostgreSQL geçişidir.
+
+### 2026-07-23 — İterasyon 36C0: Kural repository PostgreSQL geçişi
+
+- `FR-023–FR-035`, `UC-005`, `UC-006`, `RULE-001` ve `NFR-MNT-001/004/006`
+  kapsamında kural repository'si PostgreSQL'e taşındı.
+- `rules/contracts.py` içinde `RuleRepository[AuditRepoT]` ve
+  `RuleTransactionalAudit` protokolleri tanımlandı; `RuleService` generic
+  protokol tipine dönüştürüldü.
+- `rules/postgresql_repository.py` içinde `PostgreSQLRuleRepository`, SQLAlchemy
+  Core `rule_tables()` fabrika fonksiyonuyla SessionFactory enjeksiyonu ve
+  `transactional_session` bağlam yöneticisi üzerinden çalışır.
+- `05-Veritabani/alembic/versions/20260723_02_rule_baseline.py` migration'ı
+  quality_rules, rule_versions, rule_test_results ve rule_approval_requests
+  tablolarını CheckConstraint, UniqueConstraint, ForeignKey ve partial unique
+  index ile kurar.
+- `RuleQueryService` hem SQLite hem SQLAlchemy hata sınıflarını yakalayacak
+  şekilde genişletildi.
+- Mevcut `SQLiteRuleRepository` ve tüm testler korunmuştur; `RuleService` her
+  iki repository tipiyle çalışır.
+- 10 yeni birim testi ve 16 PostgreSQL entegrasyon testi eklendi.
+- Tam pytest: `1099 passed, 18 skipped`. Mypy 135 kaynak dosyada sıfır hata,
+  Ruff lint/format ve compileall temizdir. Alembic offline SQL doğrulaması
+  geçti.
+- 36C0, 36C (Yazılabilir Kurallar) için ön koşuldur. Sıradaki ürün artımı
+  36C1 PostgreSQL kural mutasyonlarıdır.
+
 ### 2026-07-23 — İterasyon 36B3: Korumalı çözüm kaydı
 
 - `FR-068`, `FR-070`, `UC-014`, `UI-WRITE-001/002/003`,
@@ -55,8 +118,33 @@ tags:
   birim testi ve 90 Playwright senaryosu geçti; production ve Storybook
   build'leri başarılıdır. Mypy 133 kaynak dosyada, Ruff 183 dosyada temizdir;
   `28A-v1` 555 kaynak dosyada secret bulgusu üretmedi.
-- 36B’nin farklı aktörle doğrulama, kapatma ve yeniden açma dilimleri
-  tamamlanmamıştır. Sıradaki ürün artımı 36B4 farklı aktörle doğrulamadır.
+- 36B’nin kapatma ve yeniden açma dilimleri tamamlanmamıştır. Sıradaki ürün
+  artımı 36B5 sorun kapatmadır.
+
+### 2026-07-23 — İterasyon 36B4: Farklı aktörle doğrulama
+
+- `FR-066`, `FR-069`, `UC-014`, `UI-WRITE-001/002/003`,
+  `NFR-SEC-001/005/007/008/011` ve `NFR-USA-001–006` için farklı aktörle
+  doğrulama dikeyi tamamlandı.
+- `POST /api/v1/issues/{issue_id}/verification` endpoint’i 36B3’te eklenmişti;
+  bu iterasyonda frontend `verifyIssue()` API fonksiyonu ve `IssuesPage`
+  `onVerify` callback’i bağlanarak uçtan uca doğrulama akışı tamamlandı.
+- Backend servisi yalnız `RESOLVED` durumundaki sorunda, çözümü hazırlayandan
+  farklı güvenilir `DATA_OWNER`/`DATA_STEWARD` aktörüne `VERIFY` eylemi sunar.
+  `QUALITY_PASSED` sonucu `VERIFIED` durumuna, `QUALITY_FAILED`/`PARTIAL`
+  `WAITING_FOR_RESOLUTION` durumuna geçer; `TECHNICAL_ERROR` sorunu `RESOLVED`
+  durumunda korur.
+- İstek sayısal `version` ve `verification_reference_id` UUID taşır. Eski
+  sürüm `409 Conflict` üretir ve hiçbir issue/doğrulama/geçmiş/audit yazımı
+  yapılmaz. Cookie tabanlı yazım CSRF sınırından geçer.
+- Sorunlar ekranında satır eylemleri üç nokta menüsünde “Doğrula” seçeneği ile
+  sunulur. Modal form doğrulama referans UUID’si alır, açık “Doğrula” eylemi
+  ve bekleme/başarı/hata durumlarını içerir.
+- Hedefli issue/API testlerinde 127, tam backend paketinde `1091 passed,
+  7 skipped` sonucu alındı. Frontend 70 birim testi geçti; production build,
+  TypeScript, Mypy ve Ruff temizdir.
+- 36B’nin kapatma ve yeniden açma dilimleri tamamlanmamıştır. Sıradaki ürün
+  artımı 36B5 sorun kapatmadır.
 
 ### 2026-07-23 — İterasyon 36B2: Güvenilir yeniden atama
 

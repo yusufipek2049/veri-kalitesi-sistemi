@@ -73,6 +73,7 @@ interface IssuesPageProps {
     item: IssueListItem,
     verificationReferenceId: string,
   ) => Promise<void>;
+  onClose?: (item: IssueListItem) => Promise<void>;
 }
 
 const statusLabels: Record<string, string> = {
@@ -148,6 +149,7 @@ function IssueRow({
   onStartInvestigation,
   onResolve,
   onVerify,
+  onClose,
 }: {
   item: IssueListItem;
   mutationPending: boolean;
@@ -155,6 +157,7 @@ function IssueRow({
   onStartInvestigation?: (item: IssueListItem) => void;
   onResolve?: (item: IssueListItem) => void;
   onVerify?: (item: IssueListItem) => void;
+  onClose?: (item: IssueListItem) => void;
 }) {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const presentation = issuePresentation(item);
@@ -309,6 +312,17 @@ function IssueRow({
                   <ListItemText>Doğrula</ListItemText>
                 </MenuItem>
               ) : null}
+              {item.availableActions.includes("CLOSE") ? (
+                <MenuItem
+                  onClick={() => {
+                    closeMenu();
+                    onClose?.(item);
+                  }}
+                >
+                  <ListItemIcon><BadgeCheck aria-hidden="true" size={16} /></ListItemIcon>
+                  <ListItemText>Kapat</ListItemText>
+                </MenuItem>
+              ) : null}
             </Menu>
           </>
         ) : (
@@ -359,6 +373,7 @@ export function IssuesPage({
   onResolve,
   onStartInvestigation,
   onVerify,
+  onClose,
 }: IssuesPageProps) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
@@ -384,6 +399,7 @@ export function IssuesPage({
   const [resolutionConfirmDiscard, setResolutionConfirmDiscard] = useState(false);
   const [verificationItem, setVerificationItem] = useState<IssueListItem>();
   const [verificationReferenceId, setVerificationReferenceId] = useState("");
+  const [closeItem, setCloseItem] = useState<IssueListItem>();
   const [actionFeedback, setActionFeedback] = useState<{
     severity: "success" | "error";
     message: string;
@@ -574,6 +590,35 @@ export function IssuesPage({
         message: error instanceof Error
           ? error.message
           : "Doğrulama tamamlanamadı. Sorunu yenileyip yeniden deneyin.",
+      });
+    } finally {
+      setPendingIssueId(undefined);
+    }
+  };
+  const openClose = (item: IssueListItem) => {
+    setCloseItem(item);
+    setActionFeedback(undefined);
+  };
+  const closeClose = () => {
+    setCloseItem(undefined);
+  };
+  const submitClose = async () => {
+    if (!closeItem || !onClose || pendingIssueId) return;
+    setPendingIssueId(closeItem.id);
+    setActionFeedback(undefined);
+    try {
+      await onClose(closeItem);
+      setActionFeedback({
+        severity: "success",
+        message: `${closeItem.issueNo} kapatıldı.`,
+      });
+      closeClose();
+    } catch (error) {
+      setActionFeedback({
+        severity: "error",
+        message: error instanceof Error
+          ? error.message
+          : "Kapatma tamamlanamadı. Sorunu yenileyip yeniden deneyin.",
       });
     } finally {
       setPendingIssueId(undefined);
@@ -846,6 +891,33 @@ export function IssuesPage({
           </DialogActions>
         </Dialog>
         <Dialog
+          aria-describedby="close-dialog-description"
+          fullWidth
+          maxWidth="sm"
+          onClose={closeClose}
+          open={Boolean(closeItem)}
+        >
+          <DialogTitle>Sorunu kapat</DialogTitle>
+          <DialogContent sx={{ display: "grid", gap: 4, pt: 2 }}>
+            <Typography color="text.secondary" id="close-dialog-description">
+              {closeItem?.issueNo} sorununu kapatıyorsunuz. Kapatma işlemi geri alınamaz.
+            </Typography>
+            <Typography color="text.secondary" variant="caption">
+              Kapatıldığında sorun Kapatıldı durumuna geçer ve değişiklik geçmişe yazılır.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={closeClose}>Vazgeç</Button>
+            <Button
+              disabled={pendingIssueId === closeItem?.id}
+              onClick={() => void submitClose()}
+              variant="contained"
+            >
+              {pendingIssueId === closeItem?.id ? "Kapatılıyor" : "Kapat"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+        <Dialog
           aria-describedby="discard-assignment-description"
           onClose={() => setConfirmDiscard(false)}
           open={confirmDiscard}
@@ -918,6 +990,7 @@ export function IssuesPage({
                   onReassign={openAssignment}
                   onResolve={openResolution}
                   onVerify={openVerification}
+                  onClose={openClose}
                   onStartInvestigation={(selected) => void startInvestigation(selected)}
                 />
               ))}

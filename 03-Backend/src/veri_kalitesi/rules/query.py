@@ -5,6 +5,8 @@ from __future__ import annotations
 import sqlite3
 from typing import Protocol
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from veri_kalitesi.identity import ActorContext, AuthorizationService, IdentityError
 from veri_kalitesi.rules.models import QualityRule, RuleVersion
 
@@ -48,7 +50,7 @@ class RuleQueryService:
             ) from exc
         try:
             return tuple(self.reader.list_rules_with_latest_version(decision.permitted_dataset_ids))
-        except (sqlite3.Error, OSError) as exc:
+        except (sqlite3.Error, SQLAlchemyError, OSError) as exc:
             raise RuleQueryTechnicalError(
                 "Rule query could not be completed.", correlation_id
             ) from exc

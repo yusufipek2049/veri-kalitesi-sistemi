@@ -161,6 +161,64 @@ export async function resolveIssue(
   return response.json();
 }
 
+export async function verifyIssue(
+  issueId: string,
+  version: number,
+  verificationReferenceId: string,
+): Promise<{
+  api_version: "v1";
+  data_origin: string;
+  correlation_id: string;
+  item: IssueListApiResponse["items"][number];
+}> {
+  if (!csrfProof) throw new IssueApiError("unauthorized");
+  const response = await fetch(
+    `/api/v1/issues/${encodeURIComponent(issueId)}/verification`,
+    {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        [CSRF_HEADER]: csrfProof,
+      },
+      body: JSON.stringify({
+        version,
+        verification_reference_id: verificationReferenceId,
+      }),
+    },
+  );
+  if (!response.ok) throw issueApiError(response);
+  return response.json();
+}
+
+export async function closeIssue(
+  issueId: string,
+  version: number,
+): Promise<{
+  api_version: "v1";
+  data_origin: string;
+  correlation_id: string;
+  item: IssueListApiResponse["items"][number];
+}> {
+  if (!csrfProof) throw new IssueApiError("unauthorized");
+  const response = await fetch(
+    `/api/v1/issues/${encodeURIComponent(issueId)}/closure`,
+    {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        [CSRF_HEADER]: csrfProof,
+      },
+      body: JSON.stringify({ version }),
+    },
+  );
+  if (!response.ok) throw issueApiError(response);
+  return response.json();
+}
+
 function issueApiError(response: Response): IssueApiError {
   const correlationId = response.headers.get("X-Correlation-ID") ?? undefined;
   const kind = response.status === 401 || response.status === 403

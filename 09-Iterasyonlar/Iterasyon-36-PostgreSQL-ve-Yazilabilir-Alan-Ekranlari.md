@@ -75,9 +75,10 @@ Durum: **InProgress — 36B1, 36B2 ve 36B3 TechnicallyVerified**
 
 ## 36C — Yazılabilir Kurallar
 
-Durum: **Planned — ilgili repository PostgreSQL geçişine bağlı**
+Durum: **Planned — 36C0 repository geçişi TechnicallyVerified; 36C1 kural mutasyonları bekliyor**
 
 - Gereksinimler: `FR-023–FR-035`, `UC-005`, `UC-006`, `RULE-001`.
+- **36C0**: PostgreSQLRuleRepository, rule_tables(), Alembic migration, contracts ve RuleService Protocol geçişi `TechnicallyVerified`
 - Taslak oluşturma ve düzenleme.
 - Kural testi.
 - Onaya gönderme ve geri çekme.

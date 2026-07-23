@@ -200,12 +200,19 @@ foreign key enforcement ve orphan doğrulaması iptal edilmiştir**.
       Kendisine atanmış ve incelenen sorunun veri-minimum çözüm kaydını güvenilir
       koruma servisi, sürüm çakışması, audit/geçmiş ve açık frontend kaydetme
       akışıyla PostgreSQL üzerinde sunar.
-    - **36B4 — Farklı aktörle doğrulama:** Sıradaki hazır ürün artımıdır.
+    - **36B4 — Farklı aktörle doğrulama:** `TechnicallyVerified`.
       Çözülen sorunun farklı güvenilir aktör tarafından doğrulanması ve
-      `VERIFIED` durumuna geçirilmesi.
-    - Kapatma ve yeniden açma sonraki küçük 36B dilimleridir.
-5. **36C — Yazılabilir Kurallar:** taslak oluşturma/düzenleme, test, onaya
-   gönderme/geri çekme ve maker-checker kontrollü aktivasyon/pasifleştirme.
+      `VERIFIED` durumuna geçirilmesi. Frontend `verifyIssue()` API fonksiyonu
+      ve `onVerify` callback’i bağlanarak uçtan uca akış tamamlandı.
+    - **36B5 — Sorun kapatma:** TechnicallyVerified.
+      `VERIFIED` durumundaki sorunun yetkili kullanıcı tarafından
+      `CLOSED` durumuna geçirilmesi.
+5. **36C — Yazılabilir Kurallar:**
+   - **36C0 — Kural repository PostgreSQL geçişi:** `TechnicallyVerified`.
+     `RuleRepository` Protocol, `PostgreSQLRuleRepository`, Alembic migration,
+     RuleService generic tip dönüşümü ve 1099 geçen testle doğrulandı.
+   - **36C1 — Kural mutasyonları:** taslak oluşturma/düzenleme, test, onaya
+     gönderme/geri çekme ve maker-checker kontrollü aktivasyon/pasifleştirme.
 6. **36D — Yazılabilir Veri Kaynakları:** tanım, değişmez bağlantı revizyonu,
    salt okunur bağlantı testi ve maker-checker kontrollü aktivasyon.
 7. **36E — Çalıştırma İşlemleri:** manuel başlatma, iptal ve yeniden deneme;
@@ -214,7 +221,7 @@ foreign key enforcement ve orphan doğrulaması iptal edilmiştir**.
    indirme. DLP/watermark/maker-checker hazır değilse hassas dışa aktarma
    fail-closed kalır; audit kayıtlarına yazma/düzeltme özelliği eklenmez.
 
-Sıradaki hazır ürün artımı **36B4**'tür. Hiçbir dilimde geçici SQLite mutation
+Sıradaki hazır ürün artımı **36C1**'dir. Hiçbir dilimde geçici SQLite mutation
 API'si veya SQLite fallback oluşturulmayacaktır. Birim testleri fake domain
 double kullanabilir; kalıcı entegrasyon testleri yalnız PostgreSQL üzerinde
 çalışacaktır. `PG-MIG-001–005` ve `UI-WRITE-001–007` uygulama kararları
