@@ -36,6 +36,7 @@ class DevelopmentActorContextResolver:
         permitted_source_ids: frozenset[str],
         can_view_enterprise: bool,
         permitted_dataset_ids: frozenset[str] = frozenset(),
+        roles: frozenset[str] = frozenset({"DATA_VIEWER"}),
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ) -> None:
         if runtime_environment != "development":
@@ -55,9 +56,15 @@ class DevelopmentActorContextResolver:
                 "Development dataset identifiers must not be blank.",
                 "api-startup",
             )
+        if not roles or any(not role.strip() for role in roles):
+            raise ApiConfigurationError(
+                "Development roles must not be empty or blank.",
+                "api-startup",
+            )
         self.policy_version = policy_version
         self.permitted_source_ids = permitted_source_ids
         self.permitted_dataset_ids = permitted_dataset_ids
+        self.roles = roles
         self.can_view_enterprise = can_view_enterprise
         self.clock = clock
         self.issuer = ActorContextIssuer()
@@ -69,7 +76,7 @@ class DevelopmentActorContextResolver:
             actor_type=ActorType.USER,
             authentication_source="development-only-adapter",
             session_id="development-only-session",
-            roles=frozenset({"DATA_VIEWER"}),
+            roles=self.roles,
             permitted_source_ids=self.permitted_source_ids,
             permitted_dataset_ids=self.permitted_dataset_ids,
             can_view_enterprise=self.can_view_enterprise,

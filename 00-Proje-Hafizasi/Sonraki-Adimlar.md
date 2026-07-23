@@ -106,17 +106,17 @@ hazır oldukları anda genel teknik borç backlogunun önünde ele alınacaktır
    `TechnicallyVerified`; 21C KPI bağlantısı, sentetik veri alanı
    karşılaştırması ve erişilebilir kalite boyutu matrisi tamamlandı.
 5. **İterasyon 35A–35F — Alan ekranları:** 35A Veri Kaynakları, 35B Kurallar,
-   35C Çalıştırmalar ve 35D Sorunlar `TechnicallyVerified`; sıradaki artım 35E
-   Raporlar, ardından Denetim. Her dilim route, güvenli API,
+   35C Çalıştırmalar, 35D Sorunlar ve 35E Raporlar `TechnicallyVerified`;
+   sıradaki artım 35F Denetim. Her dilim route, güvenli API,
    yetki, loading/empty/error durumları, Storybook ve Playwright kanıtıyla ayrı
    teslim edilecektir.
 
-30C, 20E, 21C, 30D ve 35A–35D tamamlandı. 35E–35F'nin üretim bağlantısı gerçek IdP callback,
+30C, 20E, 21C, 30D ve 35A–35E tamamlandı. 35F'nin üretim bağlantısı gerçek IdP callback,
 HA session store ve ilgili güvenli API/repository sınırları tamamlanmadan açılmaz.
 Rapor dosyası dışa aktarma,
 `OPEN-BNK-014` kapsamındaki banka veri sahibi/bilgi güvenliği onayı ve güvenli
-dışa aktarma uygulaması tamamlanmadan 35E kapsamına alınmaz; güvenli rapor
-önizleme ayrı kalır.
+dışa aktarma uygulaması tamamlanmadan sonraki rapor yazma dilimine alınmaz;
+35E güvenli rapor önizlemesiyle sınırlıdır.
 
 ### Kesinleşen Frontend Kararları
 
@@ -183,9 +183,9 @@ Kullanıcı öncelikli frontend zincirindeki BFF güvenlik ön koşulu
 Dashboard operasyonel gösterge API'si** ve **İterasyon 30D — Dashboard referans
 içerik tamamlaması**, **İterasyon 35A — salt okunur Veri Kaynakları ekranı**,
 **İterasyon 35B — salt okunur Kurallar ekranı** ve **İterasyon 35C — salt
-okunur Çalıştırmalar ekranı** ile **İterasyon 35D — salt okunur Sorunlar
-ekranı** tamamlandı. Sıradaki kullanıcı öncelikli küçük artım 35E salt okunur
-Raporlar ekranıdır.
+okunur Çalıştırmalar ekranı**, **İterasyon 35D — salt okunur Sorunlar ekranı**
+ve **İterasyon 35E — güvenli Rapor Önizleme ekranı** tamamlandı. Sıradaki
+kullanıcı öncelikli küçük artım 35F salt okunur Denetim ekranıdır.
 
 **İterasyon 34E — Deterministik çok dönemli zaman semantiği** de `FR-090`,
 `FR-094`, `UC-017`, `RULE-016` ve `AC/TS-054`ün zaman anlamı alt kapsamında
@@ -236,10 +236,11 @@ uygulama yapılmamalıdır.
 İterasyon 21B yerel/test dashboard özet API'sini, 20E BFF cookie/CSRF HTTP
 sınırını, 21C operasyonel gösterge DTO'sunu ve 30D güvenli frontend bağlantısını
 tamamladı. 35A Veri Kaynakları, 35B dataset scope filtreli veri-minimum
-Kurallar, 35C kaynak scope filtreli veri-minimum Çalıştırmalar, 35D ise
-kaynak/dataset scope filtreli veri-minimum Sorunlar API'sini ve salt okunur
-liste ekranını tamamladı. Sıradaki hazır frontend artımı **İterasyon 35E —
-salt okunur Raporlar ekranı**dır. Üretim bağlantısı ayrıca gerçek IdP
+Kurallar, 35C kaynak scope filtreli veri-minimum Çalıştırmalar, 35D
+kaynak/dataset scope filtreli veri-minimum Sorunlar ve 35E rol/source scope
+filtreli toplulaştırılmış Rapor Önizleme API'sini ve salt okunur liste
+ekranlarını tamamladı. Sıradaki hazır frontend artımı **İterasyon 35F —
+salt okunur Denetim ekranı**dır. Üretim bağlantısı ayrıca gerçek IdP
 session assertion ve PostgreSQL repository'lerini bekler. Olumlu yeterlilik,
 kapsam, kullanım kararı, kritik kontrol sayıları ve alarm alanları ilgili runtime
 sözleşmeleri tamamlanmadan üretilmemelidir.

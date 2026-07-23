@@ -10,10 +10,10 @@ from veri_kalitesi.api.identity import DevelopmentActorContextResolver
 from veri_kalitesi.audit import (
     AuditFailureMode,
     AuditFailurePolicy,
-    AuditRedactionPolicy,
     AuditRedactor,
     AuditService,
     SQLiteAuditRepository,
+    build_default_redaction_policy,
 )
 from veri_kalitesi.dashboard import DashboardQueryService
 from veri_kalitesi.data_sources import (
@@ -47,6 +47,11 @@ from veri_kalitesi.rules import (
     RuleStatus,
     RuleType,
     RuleVersion,
+)
+from veri_kalitesi.reporting import (
+    ReportPreviewAccessPolicy,
+    ReportPreviewService,
+    SQLiteReportPreviewReader,
 )
 from veri_kalitesi.scoring import (
     QualityScore,
@@ -570,24 +575,51 @@ def create_development_app():  # type: ignore[no-untyped-def]
                 calculated_at=now - timedelta(days=days_ago),
             )
         )
+    source_observations = (
+        (
+            "source-core-banking",
+            "91.80",
+            ScoreStatus.CALCULATED,
+            ScoreLevel.GOOD,
+            True,
+        ),
+        (
+            "source-customer-file",
+            "82.40",
+            ScoreStatus.PARTIAL,
+            ScoreLevel.ACCEPTABLE,
+            True,
+        ),
+        ("source-risk-mart", None, ScoreStatus.NO_DATA, None, None),
+        (
+            "source-regulatory-api",
+            None,
+            ScoreStatus.NOT_CALCULATED_TECHNICAL_ERROR,
+            None,
+            None,
+        ),
+    )
+    for index, (source_id, score_value, status, level, official) in enumerate(source_observations):
+        calculation_details: dict[str, object] = {"aggregate": True}
+        if official is not None:
+            calculation_details["included_in_official_aggregation"] = official
+        repository.add_or_get(
+            QualityScore(
+                execution_id=f"development-report-{index}",
+                rule_version_id=None,
+                scope_type=ScoreScopeType.SOURCE,
+                scope_id=source_id,
+                score_value=Decimal(score_value) if score_value is not None else None,
+                score_status=status,
+                level=level,
+                calculation_details=calculation_details,
+                calculated_at=now - timedelta(hours=index + 1),
+            )
+        )
     audit_repository = SQLiteAuditRepository()
     audit_service = AuditService(
         audit_repository,
-        AuditRedactor(
-            AuditRedactionPolicy(
-                version="DEVELOPMENT_API_REDACTION_V1",
-                allowed_fields_by_action={
-                    "DASHBOARD_SCOPE_AUTHORIZATION": frozenset(
-                        {
-                            "policy_version",
-                            "permitted_source_count",
-                            "can_view_enterprise",
-                            "reason_code",
-                        }
-                    )
-                },
-            )
-        ),
+        AuditRedactor(build_default_redaction_policy()),
         AuditFailurePolicy(
             version="DEVELOPMENT_API_AUDIT_FAILURE_V1",
             default_mode=AuditFailureMode.FAIL_CLOSED,
@@ -608,6 +640,7 @@ def create_development_app():  # type: ignore[no-untyped-def]
         policy_version=POLICY_VERSION,
         permitted_source_ids=frozenset(source.data_source_id for source in DEVELOPMENT_SOURCES),
         permitted_dataset_ids=frozenset(rule.dataset_id for rule, _ in DEVELOPMENT_RULES),
+        roles=frozenset({"DATA_VIEWER", "DATA_STEWARD"}),
         can_view_enterprise=True,
     )
     return create_dashboard_api(
@@ -621,4 +654,14 @@ def create_development_app():  # type: ignore[no-untyped-def]
         rule_query_service=RuleQueryService(DevelopmentRuleReader(), authorization),
         execution_query_service=ExecutionQueryService(DevelopmentExecutionReader(), authorization),
         issue_query_service=IssueQueryService(DevelopmentIssueReader(), authorization),
+        report_preview_service=ReportPreviewService(
+            SQLiteReportPreviewReader(repository.connection),
+            audit_service,
+            ReportPreviewAccessPolicy(
+                version="DEVELOPMENT_REPORT_POLICY_V1",
+                actor_policy_version=POLICY_VERSION,
+            ),
+            clock=lambda: datetime.now(timezone.utc),
+        ),
+        clock=lambda: datetime.now(timezone.utc),
     )

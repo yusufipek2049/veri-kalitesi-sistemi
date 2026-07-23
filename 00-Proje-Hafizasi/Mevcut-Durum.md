@@ -30,6 +30,32 @@ tags:
 
 ## Uygulama Durumu
 
+### 2026-07-23 — İterasyon 35E: Güvenli Rapor Önizleme ekranı
+
+- `FR-072`, `UC-015`, `AC-021`, `AC-023`, `FE-DS-015`,
+  `NFR-SEC-001`, `NFR-PRV-002–003` ve `NFR-USA-001–006` içinden güvenli
+  özet önizleme alt kapsamı tamamlandı.
+- `/api/v1/reports/summary`, kullanıcıdan scope veya tarih kabul etmeden
+  güvenilir `ActorContext` içindeki kaynaklar için sabit son 30 UTC günü
+  sorgular. Mevcut `ReportPreviewService` rol, politika sürümü, 500 kaynak
+  sınırı, salt okunur sorgu, veri-minimum audit ve toplulaştırılmış maskeleme
+  sınırını uygular.
+- DTO yalnız dönem, özet sayaçları, ortalama, politika/maskeleme bilgisi ve
+  kaynak skor satırlarını taşır. Aktör/session kimliği, audit gerekçesi, ham
+  kayıt, secret veya rapor dosyası içermez.
+- `/reports` rotası kaynak, sonuç durumu ve seviye filtreleri ile sabit dönem ve
+  yetkili kapsamı gösterir. Hesaplanan, resmî kısmi, veri yok ve teknik hata
+  durumları sıfıra çevrilmeden açık/koyu temada ayrılır.
+- İlk görsel turda beş masaüstü viewport ve iki tema için taşma, ikon ekseni,
+  klavye odağı ve yetkisiz veri ifşası doğrulandı. İkinci turda ölçüm alt metni,
+  teknik/veri-yok gözlemlerini “resmî skor” gibi göstermeyecek şekilde
+  netleştirildi ve 75 senaryolu tam görsel paket yeniden geçti.
+- 1054 pytest geçti, iki opt-in PostgreSQL testi atlandı; tam mypy 128 kaynak
+  dosyada, Ruff lint/format hatasızdır. 52 Vitest, 75 Playwright, TypeScript,
+  Vite ve Storybook build geçti. Production npm audit sıfır zafiyet, `28A-v1`
+  taraması 524 dosyada sıfır secret bulgusu verdi. Mevcut dashboard chunk
+  boyutu uyarısı sürmektedir.
+
 ### 2026-07-23 — İterasyon 35D: Salt okunur Sorunlar ekranı
 
 - `FR-064–FR-070`, `UC-011`, `UC-013`, `UC-014`, `FE-DS-015`,

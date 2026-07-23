@@ -207,7 +207,7 @@ Durum: **TechnicallyVerified**
 Kullanıcı öncelikli zincirde 35A salt okunur Veri Kaynakları ekranı ve istemci
 route kabuğu tamamlandı. 35B salt okunur Kurallar ekranı da teknik olarak
 doğrulandı. 35C salt okunur Çalıştırmalar ekranı da teknik olarak doğrulandı;
-35D salt okunur Sorunlar ekranı da teknik olarak doğrulandı; sıradaki hazır
-artım 35E salt okunur Raporlar ekranıdır.
+35D salt okunur Sorunlar ve 35E güvenli Rapor Önizleme ekranı da teknik olarak
+doğrulandı; sıradaki hazır artım 35F salt okunur Denetim ekranıdır.
 Üretim bağlantılı 30F gerçek IdP, yüksek
 erişilebilir session store, PostgreSQL repository ve geçiş kapısını bekler.

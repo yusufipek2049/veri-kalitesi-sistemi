@@ -11,6 +11,8 @@ import { fetchIssues, IssueApiError } from "./issues/api";
 import { issuesFromApi, syntheticIssues, type IssueListItem, type IssueState } from "./issues/model";
 import { RuleApiError, fetchRules } from "./rules/api";
 import { rulesFromApi, syntheticRules, type RuleListItem, type RuleState } from "./rules/model";
+import { fetchReportSummary, ReportApiError } from "./reports/api";
+import { reportSummaryFromApi, syntheticReportSummary, type ReportState, type ReportSummary } from "./reports/model";
 import {
   dashboardViewModelFromApi,
   syntheticDashboardViewModel,
@@ -24,6 +26,7 @@ const DataSourcesPage = lazy(() => import("./dataSources/DataSourcesPage").then(
 const RulesPage = lazy(() => import("./rules/RulesPage").then((module) => ({ default: module.RulesPage })));
 const ExecutionsPage = lazy(() => import("./executions/ExecutionsPage").then((module) => ({ default: module.ExecutionsPage })));
 const IssuesPage = lazy(() => import("./issues/IssuesPage").then((module) => ({ default: module.IssuesPage })));
+const ReportsPage = lazy(() => import("./reports/ReportsPage").then((module) => ({ default: module.ReportsPage })));
 
 function DashboardRoute() {
   const requestedState = new URLSearchParams(window.location.search).get("state") as DashboardState | null;
@@ -203,6 +206,39 @@ function IssuesRoute() {
   return <IssuesPage correlationId={correlationId} items={items} onRefresh={() => void load()} state={fixtureState ?? state} />;
 }
 
+const reportStates: ReportState[] = ["normal", "loading", "empty", "error", "unauthorized", "long-content"];
+
+function ReportsRoute() {
+  const requestedState = new URLSearchParams(window.location.search).get("state") as ReportState | null;
+  const fixtureState = import.meta.env.DEV && requestedState && reportStates.includes(requestedState) ? requestedState : null;
+  const [state, setState] = useState<ReportState>(fixtureState ?? "loading");
+  const [summary, setSummary] = useState<ReportSummary>(syntheticReportSummary);
+  const [correlationId, setCorrelationId] = useState<string>();
+  const load = useCallback(async (signal?: AbortSignal) => {
+    if (fixtureState) return;
+    setState("loading");
+    try {
+      const response = await fetchReportSummary(signal);
+      const nextSummary = reportSummaryFromApi(response);
+      setSummary(nextSummary);
+      setCorrelationId(response.correlation_id);
+      setState(nextSummary.rows.length ? "normal" : "empty");
+    } catch (error) {
+      if (signal?.aborted) return;
+      if (error instanceof ReportApiError) {
+        setCorrelationId(error.correlationId);
+        setState(error.kind === "unauthorized" ? "unauthorized" : "error");
+      } else setState("error");
+    }
+  }, [fixtureState]);
+  useEffect(() => {
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
+  return <ReportsPage correlationId={correlationId} onRefresh={() => void load()} state={fixtureState ?? state} summary={summary} />;
+}
+
 function RouteBoundary({ unauthorized = false }: { unauthorized?: boolean }) {
   const navigate = useNavigate();
   return (
@@ -228,7 +264,7 @@ export default function App() {
         <Route element={<ExecutionsRoute />} path="/executions" />
         <Route element={<IssuesRoute />} path="/issues" />
         <Route element={<RouteBoundary unauthorized />} path="/unauthorized" />
-        <Route element={<Navigate replace to="/not-found" />} path="/reports" />
+        <Route element={<ReportsRoute />} path="/reports" />
         <Route element={<Navigate replace to="/not-found" />} path="/audit" />
         <Route element={<RouteBoundary />} path="*" />
       </Routes>

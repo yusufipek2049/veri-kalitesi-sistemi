@@ -9,6 +9,7 @@ from veri_kalitesi.dashboard import DashboardOverview
 from veri_kalitesi.data_sources import DataSource
 from veri_kalitesi.executions import RuleExecution
 from veri_kalitesi.issues import DataQualityIssue
+from veri_kalitesi.reporting import ReportPreview, ReportSummaryRow
 from veri_kalitesi.rules import QualityRule, RuleVersion
 
 
@@ -166,6 +167,67 @@ class IssueListResponse(BaseModel):
     correlation_id: str
     limit: int
     items: tuple[IssueListItemResponse, ...]
+
+
+class ReportSummaryRowResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    source_id: str
+    score_value: Decimal | None
+    score_status: str
+    level: str | None
+    calculated_at: datetime
+
+    @classmethod
+    def from_domain(cls, row: ReportSummaryRow) -> "ReportSummaryRowResponse":
+        return cls(
+            source_id=row.source_id,
+            score_value=row.score_value,
+            score_status=row.score_status.value,
+            level=row.level.value if row.level is not None else None,
+            calculated_at=row.calculated_at,
+        )
+
+
+class ReportSummaryResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    report_type: str
+    created_at: datetime
+    period_start: datetime
+    period_end: datetime
+    source_count: int
+    calculated_source_count: int
+    average_score: Decimal | None
+    policy_version: str
+    masking_mode: str
+    rows: tuple[ReportSummaryRowResponse, ...]
+
+    @classmethod
+    def from_domain(
+        cls,
+        preview: ReportPreview,
+        *,
+        correlation_id: str,
+        data_origin: str,
+    ) -> "ReportSummaryResponse":
+        return cls(
+            data_origin=data_origin,
+            correlation_id=correlation_id,
+            report_type=preview.report_type.value,
+            created_at=preview.created_at,
+            period_start=preview.filters.start_at,
+            period_end=preview.filters.end_at,
+            source_count=preview.source_count,
+            calculated_source_count=preview.calculated_source_count,
+            average_score=preview.average_score,
+            policy_version=preview.policy_version,
+            masking_mode=preview.masking_mode,
+            rows=tuple(ReportSummaryRowResponse.from_domain(row) for row in preview.rows),
+        )
 
 
 class DashboardObservationResponse(BaseModel):

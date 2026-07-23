@@ -127,6 +127,9 @@ temp/
 data/
 exports/
 reports/
+!/04-Frontend/app/src/reports/
+!/04-Frontend/app/src/reports/*.ts
+!/04-Frontend/app/src/reports/*.tsx
 artifacts/
 
 # Secrets, credentials and local configuration

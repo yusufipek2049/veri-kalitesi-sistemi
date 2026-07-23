@@ -212,7 +212,63 @@ filtreleyebilir.
   erişilebilir session store ve üretim repository bağlantısı uygulanmamıştır.
 - Bu kayıt banka onayı veya üretim uygunluğu değildir.
 
+## 35E — Güvenli Rapor Önizleme Ekranı
+
+Durum: **TechnicallyVerified**
+
+### Kullanıcı Değeri
+
+Yetkili kullanıcı, son 30 gündeki kaynak skorlarını toplulaştırılmış özet,
+sonuç durumu, seviye ve ölçüm zamanıyla inceleyebilir; veri yokluğu veya teknik
+hata düşük kalite skoru gibi gösterilmez.
+
+### Kapsam
+
+- Güvenilir aktör rolü ve kaynak kapsamını kullanan
+  `GET /api/v1/reports/summary`.
+- Sunucu tarafında sabit son 30 UTC gün, 500 kaynak sınırı ve `no-store` yanıtı.
+- Aktör/session, ham kayıt, secret veya dosya içermeyen veri-minimum DTO.
+- `/reports` rotasında kaynak, sonuç durumu, seviye ve sabit dönem/kapsam
+  filtreleri.
+- Hesaplanan, resmî kısmi, veri yok ve teknik hata durumlarının ayrı sunumu.
+- Loading, empty, technical error, unauthorized ve long-content durumları.
+
+### Gereksinim Bağlantıları
+
+- `FR-072`
+- `UC-015`
+- `AC-021`, `AC-023`
+- `FE-DS-015`
+- `NFR-SEC-001`
+- `NFR-PRV-002–NFR-PRV-003`
+- `NFR-USA-001–NFR-USA-006`
+
+### Doğrulama
+
+- Backend: üç yeni API testi; güvenilir scope, sahte header etkisizliği,
+  veri-minimum DTO, rol reddi ve teknik/veri-yok ayrımı.
+- Frontend: 52 Vitest ve 75 Playwright testi; beş viewport, açık/koyu tema,
+  yatay taşma, ikon ekseni, filtre/temizleme, klavye odağı ve yetkisiz veri
+  ifşa etmeme.
+- TypeScript, Vite/Storybook build, 1054 pytest, 128 kaynak dosyalık mypy ve
+  Ruff geçti.
+
+### Görsel İyileştirme Turları
+
+1. Beş masaüstü viewport ve iki temada filtre yoğunluğu, ikon ekseni, durum
+   ayrımı, klavye odağı ve yatay taşma doğrudan incelendi.
+2. Ölçüm alt metni teknik ve veri-yok sonuçlarını “resmî skor” gibi
+   göstermeyecek biçimde “Son rapor gözlemi” olarak netleştirildi; tam 75
+   senaryolu görsel paket yeniden çalıştırıldı.
+
+### Sınırlar
+
+- PDF/XLSX/CSV, indirme, asenkron üretim, zamanlama, dosya saklama/arşiv/imha,
+  DLP/watermark ve maker-checker yoktur.
+- Yerel uygulama yalnız sentetik skorlar kullanır. Gerçek IdP, yüksek
+  erişilebilir session store ve üretim repository bağlantısı uygulanmamıştır.
+- Bu kayıt banka onayı veya üretim uygunluğu değildir.
+
 ## Sonraki Dilim
 
-35E, güvenli önizleme sözleşmesiyle salt okunur Raporlar ekranıdır; dosya dışa
-aktarma bu dilimin kapsamında değildir.
+35F, mevcut audit inceleme sözleşmesiyle salt okunur Denetim ekranıdır.
