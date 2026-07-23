@@ -67,7 +67,13 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
 36. ServiceNow senkron geçici/429 retry politikası toplam en fazla üç deneme, üstel backoff ve `Retry-After` ile teknik olarak doğrulandı. Gerçek timeout/ağ adaptörü ve operasyon alarmı açık kalır.
 37. ServiceNow kalıcı retry işi, tek worker claim'i, due-time yeniden planlama, dead-letter ve auditli yeniden kuyruğa alma SQLite prototipinde doğrulandı. Gerçek broker, çoklu süreç lease/heartbeat ve kayıp worker recovery, kuyruk kapasitesi/saklama ve operasyon alarmı açık kalır.
 38. ServiceNow circuit breaker beş ardışık geçici hata, beş dakikalık açık durum ve tek half-open probe ile SQLite prototipinde doğrulandı. Dağıtık/çoklu instance state deposu, üretim eşik onayı, metrik/alarm sahipliği ve gerçek ServiceNow endpoint/credential kararı açık kalır; `OPEN-BNK-009` geçerlidir.
-39. Audit inceleme sorgusu güvenilir `AUDIT_VIEWER` context'i, 31 günlük senkron pencere, snapshot cursor, parametreli filtre ve auditli görüntüleme ile doğrulandı. Banka onaylı auditor rol/grup eşlemesi, istemci bilgisi alanı, çevrimiçi saklama penceresini aşan asenkron arşiv raporu ve hassas dışa aktarma politikası açık kalır; `OPEN-BNK-002`, `OPEN-BNK-008` ve `OPEN-BNK-014` geçerlidir.
+39. Audit inceleme sorgusu ve `/audit` ekranı güvenilir `AUDIT_VIEWER`
+    context'i, 31 günlük senkron pencere, snapshot cursor, parametreli filtre,
+    bütünlük sonucu, veri-minimum DTO ve auditli görüntülemeyle doğrulandı.
+    Banka onaylı auditor rol/grup eşlemesi, istemci bilgisi alanı, çevrimiçi
+    saklama penceresini aşan asenkron arşiv raporu ve hassas dışa aktarma
+    politikası açık kalır; `OPEN-BNK-002`, `OPEN-BNK-008` ve `OPEN-BNK-014`
+    geçerlidir.
 40. Rapor önizleme güvenilir rol/source kapsamı, 31 günlük servis sınırı, sabit 30 günlük HTTP/UI penceresi, 500 source sınırı, salt okunur latest-score sorgusu, veri-minimum audit ve toplulaştırılmış ekranla doğrulandı. PDF/XLSX/CSV, Report yaşam döngüsü, asenkron üretim, indirme, DLP/watermark, dosya saklama/imha ve banka onaylı dışa aktarma/maker-checker politikası açık kalır; `OPEN-BNK-002`, `OPEN-BNK-007`, `OPEN-BNK-008` ve `OPEN-BNK-014` geçerlidir.
 41. Güvenlik olayı, kişisel veri ihlali şüphesi, 72 saat hedefi, veri işleyen bildirim kanıt referansı ve farklı aktörle insan kararı teknik olarak uygulandı. Banka olay/rol sözlüğü, gerçek SIEM/SOC akışı, hukuk/uyum karar içeriği, dış bildirim, saklama/imha ve tatbikat kanıtı açık kalır; `OPEN-BNK-001`, `OPEN-BNK-002`, `OPEN-BNK-004`, `OPEN-BNK-008` ve `OPEN-BNK-010` geçerlidir.
 42. İhlal zaman çizelgesi güvenilir privacy rolü ve incident scope'u ile veri-minimum görüntülenebilir; 72 saat durumu ve görüntüleme auditi teknik olarak doğrulandı. Listeleme/arama, HTTP/UI, kanıt içeriğine ayrı erişim, gerçek SIEM/SOC, banka rol eşlemesi ve saklama/imha açık kalır; `OPEN-BNK-002`, `OPEN-BNK-008` ve `OPEN-BNK-010` geçerlidir.
@@ -85,10 +91,11 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
     okunur Çalıştırmalar ekranı; 35D ile kaynak/dataset scope filtreli,
     veri-minimum sorun API'si ve salt okunur Sorunlar ekranı; 35E ile rol/source
     kapsamlı, toplulaştırılmış rapor önizleme API'si ve salt okunur Raporlar
-    ekranı teknik olarak doğrulandı. Kurumsal font, onaylı görsel
+    ekranı; 35F ile `AUDIT_VIEWER` rol kontrollü, bütünlük gösterimli ve
+    snapshot sayfalı Denetim ekranı teknik olarak doğrulandı. Kurumsal font, onaylı görsel
     baseline/diff eşiği, performans bütçesi ve banka marka onayı henüz
     tamamlanmamıştır. 21B yerel/test API bağlantısını eklemiştir; üretim dashboard
-    ve Denetim ekranı ilgili güvenli API, gerçek IdP bağlantısı, yüksek
+    ve alan ekranları gerçek IdP bağlantısı, yüksek
     erişilebilir session store, PostgreSQL repository bağlantıları ve bankacılık
     geçiş kapısına bağlıdır.
 47. `28D-v1` doğrudan bağımlılık zafiyet bulgu zarfı, tamamlanmamış tarama teknik

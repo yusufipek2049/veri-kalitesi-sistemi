@@ -30,6 +30,32 @@ tags:
 
 ## Uygulama Durumu
 
+### 2026-07-23 — İterasyon 35F: Salt okunur Denetim ekranı
+
+- `FR-077–FR-079`, `UC-016`, `AC-026`, `FE-DS-015`,
+  `NFR-SEC-001/005/008/011`, `NFR-CMP-001–003` ve
+  `NFR-USA-001–006` içinden çevrimiçi audit inceleme alt kapsamı tamamlandı.
+- `/api/v1/audit/events`, yalnız güvenilir `AUDIT_VIEWER` aktör bağlamıyla en
+  fazla 31 günlük dönemi ve 100 kayıtlık sayfayı sorgular. Aktör, işlem, nesne,
+  sonuç ve correlation filtreleri sunucu tarafında uygulanır; sayfalama sabit
+  snapshot sınırını korur ve görüntüleme işlemi ayrıca audit edilir.
+- Yanıt olay/sıra kimliği, zaman, aktör türü/kimliği, correlation, işlem,
+  nesne, sonuç, güvenli gerekçe ve redaksiyon sayacıyla sınırlıdır. Eski/yeni
+  değer özeti, hash zinciri alanları, session özeti, secret veya ham hassas
+  veri taşımaz; `Cache-Control: no-store` kullanır.
+- `/audit` rotası filtreleri, zincir bütünlüğü, başarılı/başarısız/reddedilmiş
+  olay ayrımını, snapshot sayfalamasını ve loading/empty/error/unauthorized/
+  long-content durumlarını açık/koyu temada gösterir.
+- İlk görsel turda beş masaüstü viewport ve iki temada taşma, ikon ekseni,
+  filtre ve yetkisiz veri ifşası doğrulandı. İkinci turda olay zamanı dar
+  görünümde korundu, bütünlük özeti başarı/hata tonuyla belirginleştirildi ve
+  87 senaryolu tam görsel paket yeniden geçti.
+- 1060 pytest geçti, iki opt-in PostgreSQL testi atlandı; tam mypy 128 kaynak
+  dosyada, Ruff lint/format ve `compileall` hatasızdır. 59 Vitest, 87
+  Playwright, TypeScript, Vite ve Storybook build geçti. Production npm audit
+  sıfır zafiyet, `28A-v1` taraması 534 dosyada sıfır secret bulgusu verdi.
+  Mevcut dashboard chunk boyutu uyarısı sürmektedir.
+
 ### 2026-07-23 — İterasyon 35E: Güvenli Rapor Önizleme ekranı
 
 - `FR-072`, `UC-015`, `AC-021`, `AC-023`, `FE-DS-015`,

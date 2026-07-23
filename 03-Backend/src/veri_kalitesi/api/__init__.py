@@ -14,10 +14,15 @@ from veri_kalitesi.api.identity import (
     DevelopmentActorContextResolver,
     UnavailableActorContextResolver,
 )
-from veri_kalitesi.api.models import DashboardSummaryResponse, ReportSummaryResponse
+from veri_kalitesi.api.models import (
+    AuditEventListResponse,
+    DashboardSummaryResponse,
+    ReportSummaryResponse,
+)
 
 __all__ = [
     "ActorContextResolver",
+    "AuditEventListResponse",
     "ApiAuthenticationError",
     "ApiConfigurationError",
     "ApiCsrfError",
