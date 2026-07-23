@@ -191,11 +191,17 @@ foreign key enforcement ve orphan doğrulaması iptal edilmiştir**.
      Backend tarafından verilen satır eylemi, güvenilir kapsam, BFF/CSRF,
      sayısal optimistic locking, PostgreSQL koşullu güncelleme ve erişilebilir
      frontend geri bildirimi tamamlandı.
-   - **36B2 — Güvenilir yeniden atama:** Sıradaki hazır ürün artımıdır.
-     Yetkili atayanın kapsam içindeki açık sorunu güvenilir kullanıcı
-     resolver'ıyla yeniden ataması; sürüm çakışması, audit ve frontend seçimi.
-   - Çözüm, farklı aktörle doğrulama, kapatma ve yeniden açma sonraki küçük
-     36B dilimleridir.
+   - **36B2 — Güvenilir yeniden atama:** `TechnicallyVerified`.
+     Yetkili atayan kapsam içindeki açık sorunu güvenilir kullanıcı
+     sağlayıcısıyla yeniden atar; aktiflik/kapsam doğrulaması, sürüm çakışması,
+     PostgreSQL audit/geçmiş transaction'ı, açık kaydetme ve kaydedilmemiş
+     değişiklik uyarısı tamamlandı.
+   - **36B3 — Korumalı çözüm kaydı:** Sıradaki hazır ürün artımıdır.
+     Kendisine atanmış ve incelenen sorunun veri-minimum çözüm kaydını güvenilir
+     koruma servisi, sürüm çakışması, audit/geçmiş ve açık frontend kaydetme
+     akışıyla PostgreSQL üzerinde sunar.
+   - Farklı aktörle doğrulama, kapatma ve yeniden açma sonraki küçük 36B
+     dilimleridir.
 5. **36C — Yazılabilir Kurallar:** taslak oluşturma/düzenleme, test, onaya
    gönderme/geri çekme ve maker-checker kontrollü aktivasyon/pasifleştirme.
 6. **36D — Yazılabilir Veri Kaynakları:** tanım, değişmez bağlantı revizyonu,
@@ -206,7 +212,7 @@ foreign key enforcement ve orphan doğrulaması iptal edilmiştir**.
    indirme. DLP/watermark/maker-checker hazır değilse hassas dışa aktarma
    fail-closed kalır; audit kayıtlarına yazma/düzeltme özelliği eklenmez.
 
-Sıradaki hazır ürün artımı **36B2**'dir. Hiçbir dilimde geçici SQLite mutation
+Sıradaki hazır ürün artımı **36B3**'tür. Hiçbir dilimde geçici SQLite mutation
 API'si veya SQLite fallback oluşturulmayacaktır. Birim testleri fake domain
 double kullanabilir; kalıcı entegrasyon testleri yalnız PostgreSQL üzerinde
 çalışacaktır. `PG-MIG-001–005` ve `UI-WRITE-001–007` uygulama kararları

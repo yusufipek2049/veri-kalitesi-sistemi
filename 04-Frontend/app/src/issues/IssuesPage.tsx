@@ -3,13 +3,22 @@ import {
   Alert,
   Box,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
+  IconButton,
   InputLabel,
+  ListItemIcon,
+  ListItemText,
+  Menu,
   MenuItem,
   Paper,
   Select,
   Skeleton,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import {
@@ -19,17 +28,25 @@ import {
   CircleDot,
   CircleEllipsis,
   LoaderCircle,
+  MoreVertical,
   RefreshCw,
   Search,
   SearchCheck,
   ShieldAlert,
+  UserRoundPen,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
 import { AppShell } from "../components/AppShell";
 import { StatusBadge } from "../components/StatusBadge";
 import { designTokens, type StatusTone } from "../theme/tokens";
-import { syntheticIssues, type IssueListItem, type IssueState } from "./model";
+import {
+  syntheticIssues,
+  type IssueAssigneeOption,
+  type IssueListItem,
+  type IssuePriority,
+  type IssueState,
+} from "./model";
 
 interface IssuesPageProps {
   state?: IssueState;
@@ -37,6 +54,12 @@ interface IssuesPageProps {
   correlationId?: string;
   onRefresh?: () => void;
   onStartInvestigation?: (item: IssueListItem) => Promise<void>;
+  onLoadAssignmentOptions?: (item: IssueListItem) => Promise<IssueAssigneeOption[]>;
+  onReassign?: (
+    item: IssueListItem,
+    assigneeUserId: string,
+    priority: IssuePriority,
+  ) => Promise<void>;
 }
 
 const statusLabels: Record<string, string> = {
@@ -99,14 +122,19 @@ function formatDate(value: string): string {
 function IssueRow({
   item,
   mutationPending,
+  onReassign,
   onStartInvestigation,
 }: {
   item: IssueListItem;
   mutationPending: boolean;
+  onReassign?: (item: IssueListItem) => void;
   onStartInvestigation?: (item: IssueListItem) => void;
 }) {
+  const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const presentation = issuePresentation(item);
   const Icon = presentation.icon;
+  const hasActions = item.availableActions.length > 0;
+  const closeMenu = () => setMenuAnchor(null);
   return (
     <Box
       component="li"
@@ -190,20 +218,51 @@ function IssueRow({
           justifySelf: { md: "end", lg: "start" },
         }}
       >
-        {item.availableActions.includes("START_INVESTIGATION") ? (
-          <Button
-            disabled={mutationPending}
-            onClick={() => onStartInvestigation?.(item)}
-            size="small"
-            startIcon={
-              mutationPending
-                ? <LoaderCircle aria-hidden="true" size={16} />
-                : <SearchCheck aria-hidden="true" size={16} />
-            }
-            variant="outlined"
-          >
-            {mutationPending ? "Kaydediliyor" : "İncelemeye al"}
-          </Button>
+        {hasActions ? (
+          <>
+            <Tooltip title="Sorun işlemleri">
+              <span>
+                <IconButton
+                  aria-label={`${item.issueNo} işlemleri`}
+                  disabled={mutationPending}
+                  onClick={(event) => setMenuAnchor(event.currentTarget)}
+                  size="small"
+                >
+                  {mutationPending
+                    ? <LoaderCircle aria-hidden="true" size={18} />
+                    : <MoreVertical aria-hidden="true" size={18} />}
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Menu
+              anchorEl={menuAnchor}
+              onClose={closeMenu}
+              open={Boolean(menuAnchor)}
+            >
+              {item.availableActions.includes("START_INVESTIGATION") ? (
+                <MenuItem
+                  onClick={() => {
+                    closeMenu();
+                    onStartInvestigation?.(item);
+                  }}
+                >
+                  <ListItemIcon><SearchCheck aria-hidden="true" size={16} /></ListItemIcon>
+                  <ListItemText>İncelemeye al</ListItemText>
+                </MenuItem>
+              ) : null}
+              {item.availableActions.includes("REASSIGN") ? (
+                <MenuItem
+                  onClick={() => {
+                    closeMenu();
+                    onReassign?.(item);
+                  }}
+                >
+                  <ListItemIcon><UserRoundPen aria-hidden="true" size={16} /></ListItemIcon>
+                  <ListItemText>Yeniden ata</ListItemText>
+                </MenuItem>
+              ) : null}
+            </Menu>
+          </>
         ) : (
           <Typography
             aria-label="Kullanılabilir eylem yok"
@@ -246,7 +305,9 @@ export function IssuesPage({
   state = "normal",
   items = syntheticIssues,
   correlationId,
+  onLoadAssignmentOptions,
   onRefresh,
+  onReassign,
   onStartInvestigation,
 }: IssuesPageProps) {
   const [query, setQuery] = useState("");
@@ -254,6 +315,14 @@ export function IssuesPage({
   const [priority, setPriority] = useState("ALL");
   const [period, setPeriod] = useState("ALL");
   const [pendingIssueId, setPendingIssueId] = useState<string>();
+  const [assignmentItem, setAssignmentItem] = useState<IssueListItem>();
+  const [assignmentOptions, setAssignmentOptions] = useState<IssueAssigneeOption[]>([]);
+  const [assignmentOptionsState, setAssignmentOptionsState] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [selectedAssigneeId, setSelectedAssigneeId] = useState("");
+  const [selectedPriority, setSelectedPriority] = useState<IssuePriority>("MEDIUM");
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<{
     severity: "success" | "error";
     message: string;
@@ -295,10 +364,77 @@ export function IssuesPage({
         severity: "success",
         message: `${item.issueNo} incelemeye alındı.`,
       });
-    } catch {
+    } catch (error) {
       setActionFeedback({
         severity: "error",
-        message: "İşlem tamamlanamadı. Sorunu yenileyip yeniden deneyin.",
+        message: error instanceof Error
+          ? error.message
+          : "İşlem tamamlanamadı. Sorunu yenileyip yeniden deneyin.",
+      });
+    } finally {
+      setPendingIssueId(undefined);
+    }
+  };
+  const loadAssignmentOptions = async (item: IssueListItem) => {
+    if (!onLoadAssignmentOptions) return;
+    setAssignmentOptionsState("loading");
+    try {
+      const options = await onLoadAssignmentOptions(item);
+      setAssignmentOptions(options);
+      setAssignmentOptionsState("ready");
+    } catch (error) {
+      setAssignmentOptions([]);
+      setAssignmentOptionsState("error");
+      setActionFeedback({
+        severity: "error",
+        message: error instanceof Error
+          ? error.message
+          : "Atama seçenekleri yüklenemedi. Yeniden deneyin.",
+      });
+    }
+  };
+  const openAssignment = (item: IssueListItem) => {
+    setAssignmentItem(item);
+    setSelectedAssigneeId("");
+    setSelectedPriority(item.priority);
+    setAssignmentOptions([]);
+    setActionFeedback(undefined);
+    void loadAssignmentOptions(item);
+  };
+  const closeAssignment = () => {
+    setAssignmentItem(undefined);
+    setAssignmentOptions([]);
+    setAssignmentOptionsState("idle");
+    setSelectedAssigneeId("");
+    setConfirmDiscard(false);
+  };
+  const requestAssignmentClose = () => {
+    if (
+      assignmentItem
+      && (selectedAssigneeId || selectedPriority !== assignmentItem.priority)
+    ) {
+      setConfirmDiscard(true);
+      return;
+    }
+    closeAssignment();
+  };
+  const submitAssignment = async () => {
+    if (!assignmentItem || !selectedAssigneeId || !onReassign || pendingIssueId) return;
+    setPendingIssueId(assignmentItem.id);
+    setActionFeedback(undefined);
+    try {
+      await onReassign(assignmentItem, selectedAssigneeId, selectedPriority);
+      setActionFeedback({
+        severity: "success",
+        message: `${assignmentItem.issueNo} yeniden atandı.`,
+      });
+      closeAssignment();
+    } catch (error) {
+      setActionFeedback({
+        severity: "error",
+        message: error instanceof Error
+          ? error.message
+          : "Atama tamamlanamadı. Sorunu yenileyip yeniden deneyin.",
       });
     } finally {
       setPendingIssueId(undefined);
@@ -336,6 +472,114 @@ export function IssuesPage({
             {actionFeedback.message}
           </Alert>
         ) : null}
+        <Dialog
+          aria-describedby="assignment-dialog-description"
+          fullWidth
+          maxWidth="sm"
+          onClose={requestAssignmentClose}
+          open={Boolean(assignmentItem) && !confirmDiscard}
+        >
+          <DialogTitle>Sorunu yeniden ata</DialogTitle>
+          <DialogContent sx={{ display: "grid", gap: 4, pt: 2 }}>
+            <Typography color="text.secondary" id="assignment-dialog-description">
+              {assignmentItem?.issueNo} için yeni sorumlu ve öncelik seçin.
+            </Typography>
+            <Typography color="text.secondary" variant="caption">
+              Kaydedildiğinde sorun Atandı durumuna döner ve değişiklik geçmişe yazılır.
+            </Typography>
+            {assignmentOptionsState === "loading" ? (
+              <Box aria-label="Atama seçenekleri yükleniyor" sx={{ display: "grid", gap: 2 }}>
+                <Skeleton height={56} />
+                <Skeleton height={56} />
+              </Box>
+            ) : null}
+            {assignmentOptionsState === "error" && assignmentItem ? (
+              <Alert
+                action={
+                  <Button
+                    color="inherit"
+                    onClick={() => void loadAssignmentOptions(assignmentItem)}
+                  >
+                    Yeniden dene
+                  </Button>
+                }
+                severity="error"
+              >
+                Atama seçenekleri yüklenemedi.
+              </Alert>
+            ) : null}
+            {assignmentOptionsState === "ready" ? (
+              <>
+                {assignmentOptions.length ? (
+                  <FormControl>
+                    <InputLabel id="assignment-user-label">Yeni sorumlu</InputLabel>
+                    <Select
+                      label="Yeni sorumlu"
+                      labelId="assignment-user-label"
+                      onChange={(event) => setSelectedAssigneeId(event.target.value)}
+                      value={selectedAssigneeId}
+                    >
+                      {assignmentOptions.map((option) => (
+                        <MenuItem key={option.userId} value={option.userId}>
+                          {option.displayName}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                ) : (
+                  <Alert severity="info">
+                    Bu kapsam için atanabilir kullanıcı bulunamadı.
+                  </Alert>
+                )}
+                <FormControl>
+                  <InputLabel id="assignment-priority-label">Öncelik</InputLabel>
+                  <Select
+                    label="Öncelik"
+                    labelId="assignment-priority-label"
+                    onChange={(event) => (
+                      setSelectedPriority(event.target.value as IssuePriority)
+                    )}
+                    value={selectedPriority}
+                  >
+                    {Object.entries(priorityLabels).map(([value, label]) => (
+                      <MenuItem key={value} value={value}>{label}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </>
+            ) : null}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={requestAssignmentClose}>Vazgeç</Button>
+            <Button
+              disabled={
+                assignmentOptionsState !== "ready"
+                || !selectedAssigneeId
+                || pendingIssueId === assignmentItem?.id
+              }
+              onClick={() => void submitAssignment()}
+              variant="contained"
+            >
+              {pendingIssueId === assignmentItem?.id ? "Kaydediliyor" : "Kaydet"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+        <Dialog
+          aria-describedby="discard-assignment-description"
+          onClose={() => setConfirmDiscard(false)}
+          open={confirmDiscard}
+        >
+          <DialogTitle>Değişiklikler kaydedilmedi</DialogTitle>
+          <DialogContent>
+            <Typography id="discard-assignment-description">
+              Kaydedilmemiş atama değişikliklerinden vazgeçilsin mi?
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmDiscard(false)}>Forma dön</Button>
+            <Button color="error" onClick={closeAssignment}>Değişiklikleri sil</Button>
+          </DialogActions>
+        </Dialog>
         {state === "loading" ? <Box aria-busy="true" aria-label="Sorunlar yükleniyor">{Array.from({ length: 6 }, (_, index) => <Skeleton height={88} key={index} />)}</Box> : null}
         {state === "empty" || state === "error" || state === "unauthorized" ? <StateMessage correlationId={correlationId} onRefresh={onRefresh} state={state} /> : null}
         {(state === "normal" || state === "long-content") && effectiveItems.length === 0 ? <StateMessage state="empty" /> : null}
@@ -374,6 +618,7 @@ export function IssuesPage({
                   item={item}
                   key={item.id}
                   mutationPending={pendingIssueId === item.id}
+                  onReassign={openAssignment}
                   onStartInvestigation={(selected) => void startInvestigation(selected)}
                 />
               ))}

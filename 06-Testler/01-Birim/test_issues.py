@@ -416,6 +416,7 @@ def test_fr_065_fr_070_uc_013_ac_017_authorized_steward_reassigns_with_history_a
     assigned = fixture.service.reassign(
         issue.issue_id,
         IssueAssignment(OTHER_USER_ID, IssuePriority.HIGH),
+        issue.version,
         _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
     )
 
@@ -464,6 +465,7 @@ def test_fr_065_nfr_sec_001_unauthorized_actor_cannot_reassign(
         fixture.service.reassign(
             issue.issue_id,
             IssueAssignment(OTHER_USER_ID, IssuePriority.HIGH),
+            issue.version,
             contexts[context_kind],
         )
 
@@ -490,6 +492,7 @@ def test_fr_065_uc_013_inactive_or_outside_scope_assignee_is_rejected(
         fixture.service.reassign(
             issue.issue_id,
             IssueAssignment(OTHER_USER_ID, IssuePriority.HIGH),
+            issue.version,
             _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
         )
 
@@ -505,9 +508,29 @@ def test_fr_065_same_assignee_and_priority_is_rejected_without_history_or_notifi
         fixture.service.reassign(
             issue.issue_id,
             IssueAssignment(ASSIGNEE_ID, IssuePriority.CRITICAL),
+            issue.version,
             _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
         )
 
+    assert len(fixture.repository.list_history(issue.issue_id)) == 1
+    assert fixture.assignee_directory.calls == 0
+
+
+def test_fr_065_ui_write_002_stale_assignment_version_is_rejected_without_mutation() -> None:
+    fixture = _fixture()
+    issue = _create(fixture.service, _trigger(IssueTriggerType.QUALITY_THRESHOLD))
+
+    with pytest.raises(IssueConflictError, match="changed"):
+        fixture.service.reassign(
+            issue.issue_id,
+            IssueAssignment(OTHER_USER_ID, IssuePriority.HIGH),
+            issue.version + 1,
+            _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
+        )
+
+    stored = fixture.repository.get(issue.issue_id)
+    assert stored.assignee_user_id == ASSIGNEE_ID
+    assert stored.version == issue.version
     assert len(fixture.repository.list_history(issue.issue_id)) == 1
     assert fixture.assignee_directory.calls == 0
 
@@ -521,6 +544,7 @@ def test_fr_065_assignee_directory_failure_is_redacted_technical_error() -> None
         fixture.service.reassign(
             issue.issue_id,
             IssueAssignment(OTHER_USER_ID, IssuePriority.HIGH),
+            issue.version,
             _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
         )
 
@@ -543,6 +567,7 @@ def test_fr_065_nfr_rel_006_assignment_audit_failure_rolls_back(
         fixture.service.reassign(
             issue.issue_id,
             IssueAssignment(OTHER_USER_ID, IssuePriority.HIGH),
+            issue.version,
             _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
         )
 
@@ -563,6 +588,7 @@ def test_uc_013_notification_failure_preserves_committed_assignment() -> None:
         fixture.service.reassign(
             issue.issue_id,
             IssueAssignment(OTHER_USER_ID, IssuePriority.HIGH),
+            issue.version,
             _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
         )
 

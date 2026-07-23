@@ -31,8 +31,11 @@ from veri_kalitesi.api.models import (
     ExecutionListResponse,
     IssueListItemResponse,
     IssueListResponse,
+    IssueAssigneeOptionResponse,
+    IssueAssigneeOptionsResponse,
     IssueMutationRequest,
     IssueMutationResponse,
+    IssueReassignmentRequest,
     ReportSummaryResponse,
     RuleListItemResponse,
     RuleListResponse,
@@ -63,8 +66,12 @@ from veri_kalitesi.executions import (
 )
 from veri_kalitesi.issues import (
     DataQualityIssue,
+    IssueAssignment,
+    IssueAssignmentError,
     IssueAuthorizationError,
     IssueConflictError,
+    IssueNotificationConfigurationError,
+    IssueNotificationTechnicalError,
     IssueNotFoundError,
     IssueQueryAuthorizationError,
     IssueQueryService,
@@ -96,6 +103,24 @@ class IssueInvestigationService(Protocol):
     ) -> DataQualityIssue: ...
 
 
+class IssueAssignmentService(Protocol):
+    def reassign(
+        self,
+        issue_id: str,
+        assignment: IssueAssignment,
+        expected_version: int,
+        actor_context: ActorContext | None,
+    ) -> DataQualityIssue: ...
+
+
+class IssueAssigneeOptionProvider(Protocol):
+    def list_assignment_options(
+        self,
+        issue_id: str,
+        actor_context: ActorContext | None,
+    ) -> tuple[IssueAssigneeOptionResponse, ...]: ...
+
+
 class StateChangeBoundary(Protocol):
     def protect_state_changing(self, request: Request) -> ActorContext | None: ...
 
@@ -112,6 +137,8 @@ def create_dashboard_api(
     execution_query_service: ExecutionQueryService | None = None,
     issue_query_service: IssueQueryService | None = None,
     issue_investigation_service: IssueInvestigationService | None = None,
+    issue_assignment_service: IssueAssignmentService | None = None,
+    issue_assignee_option_provider: IssueAssigneeOptionProvider | None = None,
     report_preview_service: ReportPreviewService | None = None,
     audit_query_service: AuditQueryService | None = None,
     clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
@@ -354,6 +381,42 @@ def create_dashboard_api(
             title="Issue action unavailable",
             detail="The issue is no longer in a state that allows this action.",
             correlation_id=request.state.correlation_id,
+        )
+
+    @app.exception_handler(IssueAssignmentError)
+    async def handle_issue_assignment_error(
+        request: Request, error: IssueAssignmentError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=409,
+            title="Issue assignment unavailable",
+            detail="The selected assignee is not available for this issue.",
+            correlation_id=request.state.correlation_id,
+        )
+
+    @app.exception_handler(IssueNotificationTechnicalError)
+    async def handle_issue_notification_technical_error(
+        request: Request, error: IssueNotificationTechnicalError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=503,
+            title="Issue notification delayed",
+            detail="The assignment was saved, but its notification could not be completed.",
+            correlation_id=error.correlation_id,
+        )
+
+    @app.exception_handler(IssueNotificationConfigurationError)
+    async def handle_issue_notification_configuration_error(
+        request: Request, error: IssueNotificationConfigurationError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=503,
+            title="Issue notification unavailable",
+            detail="The assignment was saved, but its notification policy is unavailable.",
+            correlation_id=error.correlation_id,
         )
 
     @app.exception_handler(IssueTechnicalError)
@@ -614,6 +677,71 @@ def create_dashboard_api(
         )
 
     @app.get(
+        "/api/v1/issues/{issue_id}/assignment-options",
+        response_model=IssueAssigneeOptionsResponse,
+        tags=["issues"],
+    )
+    async def get_issue_assignment_options(
+        issue_id: str,
+        request: Request,
+        response: Response,
+    ) -> IssueAssigneeOptionsResponse:
+        if issue_assignee_option_provider is None:
+            raise IssueTechnicalError(
+                "Issue assignment options are unavailable.",
+                request.state.correlation_id,
+            )
+        actor_context = resolver.resolve(request)
+        options = issue_assignee_option_provider.list_assignment_options(
+            issue_id,
+            actor_context,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return IssueAssigneeOptionsResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            items=options,
+        )
+
+    @app.post(
+        "/api/v1/issues/{issue_id}/assignment",
+        response_model=IssueMutationResponse,
+        tags=["issues"],
+    )
+    async def reassign_issue(
+        issue_id: str,
+        payload: IssueReassignmentRequest,
+        request: Request,
+        response: Response,
+    ) -> IssueMutationResponse:
+        if issue_assignment_service is None:
+            raise IssueTechnicalError(
+                "Issue assignment service is unavailable.",
+                request.state.correlation_id,
+            )
+        actor_context = getattr(request.state, "actor_context", None)
+        if actor_context is None:
+            actor_context = resolver.resolve(request)
+        issue = issue_assignment_service.reassign(
+            issue_id,
+            IssueAssignment(
+                assignee_user_id=str(payload.assignee_user_id),
+                priority=payload.priority,
+            ),
+            payload.version,
+            actor_context,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return IssueMutationResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=IssueListItemResponse.from_domain(
+                issue,
+                available_actions=_issue_actions(issue, actor_context),
+            ),
+        )
+
+    @app.get(
         "/api/v1/reports/summary",
         response_model=ReportSummaryResponse,
         tags=["reports"],
@@ -725,14 +853,22 @@ def _issue_actions(
         if issue.scope_type.value == "SOURCE"
         else issue.scope_id in actor_context.permitted_dataset_ids
     )
+    actions: list[str] = []
     if (
         issue.status.value == "ASSIGNED"
         and issue.assignee_user_id == actor_context.actor_id
         and has_scope
         and not actor_context.privileged
     ):
-        return ("START_INVESTIGATION",)
-    return ()
+        actions.append("START_INVESTIGATION")
+    if (
+        issue.status.value in {"ASSIGNED", "INVESTIGATING"}
+        and actor_context.roles.intersection({"DATA_STEWARD", "DATA_GOVERNANCE_SPECIALIST"})
+        and has_scope
+        and not actor_context.privileged
+    ):
+        actions.append("REASSIGN")
+    return tuple(actions)
 
 
 def _problem(

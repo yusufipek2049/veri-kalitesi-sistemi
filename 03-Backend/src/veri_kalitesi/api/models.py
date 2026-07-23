@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from decimal import Decimal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -9,7 +10,7 @@ from veri_kalitesi.audit import AuditEvent, AuditQueryPage
 from veri_kalitesi.dashboard import DashboardOverview
 from veri_kalitesi.data_sources import DataSource
 from veri_kalitesi.executions import RuleExecution
-from veri_kalitesi.issues import DataQualityIssue
+from veri_kalitesi.issues import DataQualityIssue, IssuePriority
 from veri_kalitesi.reporting import ReportPreview, ReportSummaryRow
 from veri_kalitesi.rules import QualityRule, RuleVersion
 
@@ -192,6 +193,30 @@ class IssueMutationResponse(BaseModel):
     data_origin: str
     correlation_id: str
     item: IssueListItemResponse
+
+
+class IssueReassignmentRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    version: int = Field(ge=1)
+    assignee_user_id: UUID
+    priority: IssuePriority
+
+
+class IssueAssigneeOptionResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    user_id: UUID
+    display_name: str = Field(min_length=1, max_length=160)
+
+
+class IssueAssigneeOptionsResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    items: tuple[IssueAssigneeOptionResponse, ...]
 
 
 class ReportSummaryRowResponse(BaseModel):

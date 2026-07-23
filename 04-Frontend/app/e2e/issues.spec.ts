@@ -10,6 +10,55 @@ const viewports = [
 
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.route("**/api/v1/issues/*/assignment-options", async (route) => {
+    await route.fulfill({
+      body: JSON.stringify({
+        api_version: "v1",
+        data_origin: "synthetic-development",
+        correlation_id: "e2e-assignment-options",
+        items: [
+          {
+            user_id: "4ec96cb4-d150-45d2-9565-c1879d135f08",
+            display_name: "Veri Sorumlusu A",
+          },
+          {
+            user_id: "d6b099c7-0b6d-4ae5-8f58-6978050c434f",
+            display_name: "Veri Sorumlusu B",
+          },
+        ],
+      }),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
+  await page.route("**/api/v1/issues/*/assignment", async (route) => {
+    const request = route.request();
+    expect(request.method()).toBe("POST");
+    expect(request.headers()["x-csrf-token"]).toBe("e2e-csrf-proof");
+    expect(request.postDataJSON()).toEqual({
+      version: 2,
+      assignee_user_id: "4ec96cb4-d150-45d2-9565-c1879d135f08",
+      priority: "MEDIUM",
+    });
+    const item = issueFixture().items[2];
+    await route.fulfill({
+      body: JSON.stringify({
+        api_version: "v1",
+        data_origin: "synthetic-development",
+        correlation_id: "e2e-assignment",
+        item: {
+          ...item,
+          status: "ASSIGNED",
+          priority: "MEDIUM",
+          version: 3,
+          available_actions: ["REASSIGN"],
+          updated_at: "2026-07-23T10:05:00Z",
+        },
+      }),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
   await page.route("**/api/v1/issues/*/investigation", async (route) => {
     const request = route.request();
     expect(request.method()).toBe("POST");
@@ -25,7 +74,7 @@ test.beforeEach(async ({ page }) => {
           ...item,
           status: "INVESTIGATING",
           version: 2,
-          available_actions: [],
+          available_actions: ["REASSIGN"],
           updated_at: "2026-07-23T10:00:00Z",
         },
       }),
@@ -90,11 +139,37 @@ test("atanan sorun incelemeye alınır ve eylem kapanır", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/issues");
 
-  await page.getByRole("button", { name: "İncelemeye al" }).click();
+  await page.getByRole("button", { name: "DQI-2026-0017 işlemleri" }).click();
+  await page.getByRole("menuitem", { name: "İncelemeye al" }).click();
 
   await expect(page.getByText("DQI-2026-0017 incelemeye alındı.")).toBeVisible();
   await expect(page.getByLabel("Durum: İnceleniyor").first()).toBeVisible();
-  await expect(page.getByRole("button", { name: "İncelemeye al" })).not.toBeVisible();
+  await page.getByRole("button", { name: "DQI-2026-0017 işlemleri" }).click();
+  await expect(page.getByRole("menuitem", { name: "İncelemeye al" })).not.toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Yeniden ata" })).toBeVisible();
+});
+
+test("sorun yeniden atanır ve kaydedilmemiş değişiklik korunur", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/issues");
+
+  await page.getByRole("button", { name: "DQI-2026-0016 işlemleri" }).click();
+  await page.getByRole("menuitem", { name: "Yeniden ata" }).click();
+  await page.getByRole("combobox", { name: "Yeni sorumlu" }).click();
+  await page.getByRole("option", { name: "Veri Sorumlusu A" }).click();
+  await page.screenshot({
+    path: testInfo.outputPath("issues--assignment-dialog--1440x900.png"),
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Vazgeç" }).click();
+  await expect(page.getByText("Değişiklikler kaydedilmedi")).toBeVisible();
+  await page.getByRole("button", { name: "Forma dön" }).click();
+  await page.getByRole("combobox", { name: "Öncelik" }).click();
+  await page.getByRole("option", { name: "Orta" }).click();
+  await page.getByRole("button", { name: "Kaydet" }).click();
+
+  await expect(page.getByText("DQI-2026-0016 yeniden atandı.")).toBeVisible();
+  await expect(page.getByLabel("Durum: Atandı").first()).toBeVisible();
 });
 
 test("yetkisiz sorun yüzeyi veri ifşa etmez ve klavyeyle erişilir", async ({ page }, testInfo) => {
@@ -121,8 +196,8 @@ function issueFixture() {
     limit: 100,
     items: [
       { issue_id: "issue-critical-customer", issue_no: "DQI-2026-0018", source_event_type: "QUALITY", trigger_type: "CRITICAL_RULE_FAILURE", scope_type: "DATASET", scope_id: "dataset-customer", status: "NEW", priority: "CRITICAL", occurrence_count: 1, version: 1, available_actions: [], created_at: "2026-07-23T08:10:00Z", updated_at: "2026-07-23T08:10:00Z", last_seen_at: "2026-07-23T08:10:00Z" },
-      { issue_id: "issue-technical-risk", issue_no: "DQI-2026-0017", source_event_type: "TECHNICAL", trigger_type: "TECHNICAL_ERROR", scope_type: "SOURCE", scope_id: "source-risk-mart", status: "ASSIGNED", priority: "HIGH", occurrence_count: 3, version: 1, available_actions: ["START_INVESTIGATION"], created_at: "2026-07-22T15:00:00Z", updated_at: "2026-07-23T07:40:00Z", last_seen_at: "2026-07-23T07:40:00Z" },
-      { issue_id: "issue-account-investigation", issue_no: "DQI-2026-0016", source_event_type: "QUALITY", trigger_type: "QUALITY_THRESHOLD", scope_type: "DATASET", scope_id: "dataset-account", status: "INVESTIGATING", priority: "HIGH", occurrence_count: 2, version: 2, available_actions: [], created_at: "2026-07-21T10:30:00Z", updated_at: "2026-07-22T16:20:00Z", last_seen_at: "2026-07-22T16:20:00Z" },
+      { issue_id: "issue-technical-risk", issue_no: "DQI-2026-0017", source_event_type: "TECHNICAL", trigger_type: "TECHNICAL_ERROR", scope_type: "SOURCE", scope_id: "source-risk-mart", status: "ASSIGNED", priority: "HIGH", occurrence_count: 3, version: 1, available_actions: ["START_INVESTIGATION", "REASSIGN"], created_at: "2026-07-22T15:00:00Z", updated_at: "2026-07-23T07:40:00Z", last_seen_at: "2026-07-23T07:40:00Z" },
+      { issue_id: "issue-account-investigation", issue_no: "DQI-2026-0016", source_event_type: "QUALITY", trigger_type: "QUALITY_THRESHOLD", scope_type: "DATASET", scope_id: "dataset-account", status: "INVESTIGATING", priority: "HIGH", occurrence_count: 2, version: 2, available_actions: ["REASSIGN"], created_at: "2026-07-21T10:30:00Z", updated_at: "2026-07-22T16:20:00Z", last_seen_at: "2026-07-22T16:20:00Z" },
       { issue_id: "issue-transaction-waiting", issue_no: "DQI-2026-0015", source_event_type: "QUALITY", trigger_type: "QUALITY_THRESHOLD", scope_type: "DATASET", scope_id: "dataset-transaction", status: "WAITING_FOR_RESOLUTION", priority: "MEDIUM", occurrence_count: 4, version: 3, available_actions: [], created_at: "2026-07-19T09:00:00Z", updated_at: "2026-07-22T11:45:00Z", last_seen_at: "2026-07-22T11:45:00Z" },
       { issue_id: "issue-risk-resolved", issue_no: "DQI-2026-0014", source_event_type: "QUALITY", trigger_type: "CRITICAL_RULE_FAILURE", scope_type: "DATASET", scope_id: "dataset-risk", status: "RESOLVED", priority: "CRITICAL", occurrence_count: 1, version: 4, available_actions: [], created_at: "2026-07-18T13:15:00Z", updated_at: "2026-07-21T14:10:00Z", last_seen_at: "2026-07-18T13:15:00Z" },
       { issue_id: "issue-customer-verified", issue_no: "DQI-2026-0013", source_event_type: "QUALITY", trigger_type: "QUALITY_THRESHOLD", scope_type: "DATASET", scope_id: "dataset-customer", status: "VERIFIED", priority: "MEDIUM", occurrence_count: 1, version: 5, available_actions: [], created_at: "2026-07-17T12:00:00Z", updated_at: "2026-07-20T15:30:00Z", last_seen_at: "2026-07-17T12:00:00Z" },
