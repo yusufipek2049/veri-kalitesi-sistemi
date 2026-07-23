@@ -3,6 +3,10 @@ import {
   Alert,
   Box,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
   InputLabel,
   MenuItem,
@@ -17,6 +21,7 @@ import {
   Clock3,
   KeyRound,
   ListChecks,
+  Plus,
   RefreshCw,
   ScanText,
   Search,
@@ -25,7 +30,7 @@ import {
 import { AppShell } from "../components/AppShell";
 import { StatusBadge } from "../components/StatusBadge";
 import { designTokens } from "../theme/tokens";
-import { syntheticRules, type RuleListItem, type RuleState } from "./model";
+import { syntheticRules, type RuleCreateRequest, type RuleListItem, type RuleState } from "./model";
 
 interface RulesPageProps {
   state?: RuleState;
@@ -210,6 +215,19 @@ export function RulesPage({
   const [status, setStatus] = useState("ALL");
   const [dimension, setDimension] = useState("ALL");
   const [criticality, setCriticality] = useState("ALL");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [formData, setFormData] = useState<RuleCreateRequest>({
+    code: "",
+    name: "",
+    dataset_id: "",
+    rule_type: "REQUIRED",
+    primary_dimension: "COMPLETENESS",
+    threshold: 100,
+    weight: 1,
+    criticality: "MEDIUM",
+    owner_user_id: "",
+    parameters: {},
+  });
   const visibleItems = useMemo(
     () => items.filter((item) => {
       const searchable = `${item.name} ${item.code} ${item.datasetId} ${item.ruleType}`;
@@ -228,16 +246,137 @@ export function RulesPage({
     }))).flat()
     : visibleItems;
 
+  const handleCreateRule = () => {
+    setDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
+  };
+
+  const handleSubmit = () => {
+    // TODO: API call to create rule
+    setDialogOpen(false);
+  };
+
   return (
     <AppShell currentPage="Kurallar">
       <Box sx={(theme) => ({ display: "grid", gap: 5, margin: "0 auto", maxWidth: theme.appLayout.contentMaxWidth, p: { xs: 3, md: 4, lg: 6 }, width: "100%" })}>
         <Box sx={{ alignItems: { md: "center" }, display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 3, justifyContent: "space-between" }}>
           <Box>
             <Typography component="h1" variant="h1">Kurallar</Typography>
-            <Typography color="text.secondary">Yetkili dataset kapsamınızdaki salt okunur kural envanteri</Typography>
+            <Typography color="text.secondary">Yetkili dataset kapsamınızdaki kural envanteri</Typography>
           </Box>
-          {state !== "unauthorized" ? <Button onClick={onRefresh} startIcon={<RefreshCw aria-hidden="true" size={16} />} variant="contained">Yenile</Button> : null}
+          {state !== "unauthorized" ? (
+            <Box sx={{ display: "flex", gap: 2 }}>
+              <Button onClick={handleCreateRule} startIcon={<Plus aria-hidden="true" size={16} />} variant="outlined">Kural Oluştur</Button>
+              <Button onClick={onRefresh} startIcon={<RefreshCw aria-hidden="true" size={16} />} variant="contained">Yenile</Button>
+            </Box>
+          ) : null}
         </Box>
+
+        {/* Kural Oluşturma Dialogu */}
+        <Dialog
+          aria-labelledby="create-rule-dialog-title"
+          maxWidth="sm"
+          onClose={handleCloseDialog}
+          open={dialogOpen}
+          fullWidth
+        >
+          <DialogTitle id="create-rule-dialog-title">Kural Oluştur</DialogTitle>
+          <DialogContent>
+            <Box sx={{ display: "grid", gap: 3, pt: 2 }}>
+              <TextField
+                autoFocus
+                fullWidth
+                label="Kod"
+                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                required
+                value={formData.code}
+              />
+              <TextField
+                fullWidth
+                label="Ad"
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+                value={formData.name}
+              />
+              <TextField
+                fullWidth
+                label="Dataset ID"
+                onChange={(e) => setFormData({ ...formData, dataset_id: e.target.value })}
+                required
+                value={formData.dataset_id}
+              />
+              <FormControl fullWidth>
+                <InputLabel id="rule-type-label">Kural Tipi</InputLabel>
+                <Select
+                  label="Kural Tipi"
+                  labelId="rule-type-label"
+                  onChange={(e) => setFormData({ ...formData, rule_type: e.target.value })}
+                  value={formData.rule_type}
+                >
+                  {Object.entries(ruleTypeLabels).map(([value, label]) => (
+                    <MenuItem key={value} value={value}>{label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl fullWidth>
+                <InputLabel id="dimension-label">Birincil Boyut</InputLabel>
+                <Select
+                  label="Birincil Boyut"
+                  labelId="dimension-label"
+                  onChange={(e) => setFormData({ ...formData, primary_dimension: e.target.value })}
+                  value={formData.primary_dimension}
+                >
+                  {Object.entries(dimensionLabels).map(([value, label]) => (
+                    <MenuItem key={value} value={value}>{label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <TextField
+                fullWidth
+                label="Eşik Değeri (0-100)"
+                onChange={(e) => setFormData({ ...formData, threshold: Number(e.target.value) })}
+                required
+                type="number"
+                value={formData.threshold}
+              />
+              <TextField
+                fullWidth
+                label="Ağırlık"
+                onChange={(e) => setFormData({ ...formData, weight: Number(e.target.value) })}
+                required
+                type="number"
+                value={formData.weight}
+              />
+              <FormControl fullWidth>
+                <InputLabel id="criticality-label">Kritiklik</InputLabel>
+                <Select
+                  label="Kritiklik"
+                  labelId="criticality-label"
+                  onChange={(e) => setFormData({ ...formData, criticality: e.target.value })}
+                  value={formData.criticality}
+                >
+                  {Object.entries(criticalityLabels).map(([value, label]) => (
+                    <MenuItem key={value} value={value}>{label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <TextField
+                fullWidth
+                label="Sahip Kullanıcı ID"
+                onChange={(e) => setFormData({ ...formData, owner_user_id: e.target.value })}
+                required
+                value={formData.owner_user_id}
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseDialog}>İptal</Button>
+            <Button onClick={handleSubmit} variant="contained">Oluştur</Button>
+          </DialogActions>
+        </Dialog>
 
         {state !== "unauthorized" ? (
           <Paper component="section" sx={{ borderRadius: 1.5, p: 4 }} variant="outlined">

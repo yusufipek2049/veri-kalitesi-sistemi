@@ -1,4 +1,4 @@
-"""Dashboard HTTP yanıt modelleri."""
+"""Dashboard HTTP yant modelleri."""
 
 from datetime import datetime
 from decimal import Decimal
@@ -83,6 +83,32 @@ class RuleListResponse(BaseModel):
     data_origin: str
     correlation_id: str
     items: tuple[RuleListItemResponse, ...]
+
+
+class RuleCreateRequest(BaseModel):
+    """Kural oluşturma için girdi modeli."""
+
+    model_config = ConfigDict(frozen=True)
+
+    code: str = Field(min_length=1, max_length=120, pattern=r"^[A-Za-z0-9_-]+$")
+    name: str = Field(min_length=1, max_length=250)
+    dataset_id: str = Field(min_length=1)
+    rule_type: str = Field(min_length=1)
+    primary_dimension: str = Field(min_length=1)
+    threshold: float = Field(ge=0, le=100)
+    weight: float = Field(gt=0)
+    criticality: str = Field(min_length=1)
+    owner_user_id: str = Field(min_length=1)
+    parameters: dict = Field(default_factory=dict)
+
+
+class RuleMutationResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    item: RuleListItemResponse
 
 
 class ExecutionListItemResponse(BaseModel):
@@ -184,6 +210,27 @@ class IssueMutationRequest(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     version: int = Field(ge=1)
+
+
+class IssueVerificationRequest(BaseModel):
+    """Farklı aktörle doğrulama için girdi modeli."""
+
+    model_config = ConfigDict(frozen=True)
+
+    version: int = Field(ge=1)
+    verification_reference_id: UUID
+
+
+class IssueResolutionDraftRequest(BaseModel):
+    """Korumalı çözüm kaydı için girdi modeli."""
+
+    model_config = ConfigDict(frozen=True)
+
+    version: int = Field(ge=1)
+    root_cause: str = Field(min_length=1, max_length=4000)
+    corrective_action: str = Field(min_length=1, max_length=4000)
+    evidence_reference_id: UUID
+    completed_at: datetime
 
 
 class IssueMutationResponse(BaseModel):

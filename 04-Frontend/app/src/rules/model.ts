@@ -41,6 +41,38 @@ export const syntheticRules: RuleListItem[] = [
   { id: "rule-branch-code-reference", code: "DQ_BRANCH_CODE_REFERENCE", name: "Şube kodu referans bütünlüğü", datasetId: "dataset-account", dimension: "INTEGRITY", status: "PASSIVE", versionId: "rule-version-branch-code-2", versionNo: 2, ruleType: "REFERENTIAL_INTEGRITY", criticality: "LOW", createdAt: "2026-07-17T09:00:00Z" },
 ];
 
+export interface RuleCreateRequest {
+  code: string;
+  name: string;
+  dataset_id: string;
+  rule_type: string;
+  primary_dimension: string;
+  threshold: number;
+  weight: number;
+  criticality: string;
+  owner_user_id: string;
+  parameters: Record<string, unknown>;
+}
+
+export interface RuleMutationApiResponse {
+  api_version: "v1";
+  data_origin: string;
+  correlation_id: string;
+  item: {
+    quality_rule_id: string;
+    code: string;
+    name: string;
+    dataset_id: string;
+    primary_dimension: string;
+    status: string;
+    rule_version_id: string;
+    version_no: number;
+    rule_type: string;
+    criticality: string;
+    created_at: string;
+  };
+}
+
 export function rulesFromApi(response: RuleListApiResponse): RuleListItem[] {
   return response.items.map((item) => ({
     id: item.quality_rule_id,

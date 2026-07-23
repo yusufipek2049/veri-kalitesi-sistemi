@@ -196,12 +196,14 @@ foreign key enforcement ve orphan doğrulaması iptal edilmiştir**.
      sağlayıcısıyla yeniden atar; aktiflik/kapsam doğrulaması, sürüm çakışması,
      PostgreSQL audit/geçmiş transaction'ı, açık kaydetme ve kaydedilmemiş
      değişiklik uyarısı tamamlandı.
-   - **36B3 — Korumalı çözüm kaydı:** Sıradaki hazır ürün artımıdır.
-     Kendisine atanmış ve incelenen sorunun veri-minimum çözüm kaydını güvenilir
-     koruma servisi, sürüm çakışması, audit/geçmiş ve açık frontend kaydetme
-     akışıyla PostgreSQL üzerinde sunar.
-   - Farklı aktörle doğrulama, kapatma ve yeniden açma sonraki küçük 36B
-     dilimleridir.
+    - **36B3 — Korumalı çözüm kaydı:** `TechnicallyVerified`.
+      Kendisine atanmış ve incelenen sorunun veri-minimum çözüm kaydını güvenilir
+      koruma servisi, sürüm çakışması, audit/geçmiş ve açık frontend kaydetme
+      akışıyla PostgreSQL üzerinde sunar.
+    - **36B4 — Farklı aktörle doğrulama:** Sıradaki hazır ürün artımıdır.
+      Çözülen sorunun farklı güvenilir aktör tarafından doğrulanması ve
+      `VERIFIED` durumuna geçirilmesi.
+    - Kapatma ve yeniden açma sonraki küçük 36B dilimleridir.
 5. **36C — Yazılabilir Kurallar:** taslak oluşturma/düzenleme, test, onaya
    gönderme/geri çekme ve maker-checker kontrollü aktivasyon/pasifleştirme.
 6. **36D — Yazılabilir Veri Kaynakları:** tanım, değişmez bağlantı revizyonu,

@@ -39,6 +39,7 @@ from veri_kalitesi.issues import (
     IssueConflictError,
     IssuePriority,
     IssueQueryService,
+    IssueResolutionDraft,
     IssueScopeType,
     IssueSourceEventType,
     IssueStatus,
@@ -229,7 +230,7 @@ def test_fr_066_uc_013_assignee_starts_investigation_through_bff() -> None:
     assert response.headers["cache-control"] == "no-store"
     assert response.json()["item"]["status"] == "INVESTIGATING"
     assert response.json()["item"]["version"] == 2
-    assert response.json()["item"]["available_actions"] == ["REASSIGN"]
+    assert response.json()["item"]["available_actions"] == ["REASSIGN", "RESOLVE"]
     assert command.calls == [("issue-assigned", 1, boundary.context.actor_id)]
 
 
@@ -380,6 +381,103 @@ def test_issue_mutation_errors_are_classified_and_redacted(
     assert response.json()["title"] == title
     assert "sensitive" not in response.text
     assert "password" not in response.text
+
+
+def test_fr_068_authorized_assignee_resolves_issue_through_bff() -> None:
+    boundary = FakeBffBoundary()
+    resolution = FakeResolutionService()
+    client = TestClient(
+        _mutation_app(
+            boundary,
+            FakeInvestigationService(),
+            resolution_command=resolution,
+        ),
+        base_url="https://app.example",
+    )
+
+    response = client.post(
+        "/api/v1/issues/issue-resolved/resolution",
+        json={
+            "version": 1,
+            "root_cause": "Eksik kaynak doğrulaması",
+            "corrective_action": "Kaynak doğrulama kuralı eklendi",
+            "evidence_reference_id": "550e8400-e29b-41d4-a716-446655440000",
+            "completed_at": "2026-07-23T10:00:00Z",
+        },
+        headers=_mutation_headers(),
+    )
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json()["item"]["status"] == "RESOLVED"
+    assert response.json()["item"]["version"] == 2
+    assert resolution.calls == [
+        (
+            "issue-resolved",
+            "Eksik kaynak doğrulaması",
+            "Kaynak doğrulama kuralı eklendi",
+            "550e8400-e29b-41d4-a716-446655440000",
+            boundary.context.actor_id,
+        )
+    ]
+
+
+def test_fr_068_resolution_missing_csrf_is_rejected() -> None:
+    boundary = FakeBffBoundary()
+    resolution = FakeResolutionService()
+    client = TestClient(
+        _mutation_app(
+            boundary,
+            FakeInvestigationService(),
+            resolution_command=resolution,
+        ),
+        base_url="https://app.example",
+    )
+    headers = _mutation_headers()
+    headers.pop(CSRF_HEADER_NAME)
+
+    response = client.post(
+        "/api/v1/issues/issue-resolved/resolution",
+        json={
+            "version": 1,
+            "root_cause": "Test nedeni",
+            "corrective_action": "Test aksiyonu",
+            "evidence_reference_id": "550e8400-e29b-41d4-a716-446655440000",
+            "completed_at": "2026-07-23T10:00:00Z",
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 403
+    assert resolution.calls == []
+
+
+def test_fr_068_resolution_errors_are_classified_and_redacted() -> None:
+    boundary = FakeBffBoundary()
+    resolution = FakeResolutionService(error=IssueTechnicalError("db password=unsafe", "issue-err"))
+    response = TestClient(
+        _mutation_app(
+            boundary,
+            FakeInvestigationService(),
+            resolution_command=resolution,
+        ),
+        base_url="https://app.example",
+    ).post(
+        "/api/v1/issues/issue-resolved/resolution",
+        json={
+            "version": 1,
+            "root_cause": "Test nedeni",
+            "corrective_action": "Test aksiyonu",
+            "evidence_reference_id": "550e8400-e29b-41d4-a716-446655440000",
+            "completed_at": "2026-07-23T10:00:00Z",
+        },
+        headers=_mutation_headers(),
+    )
+
+    assert response.status_code == 503
+    assert response.json()["title"] == "Issue action temporarily unavailable"
+    assert "password" not in response.text
+    assert "unsafe" not in response.text
 
 
 def test_issue_list_exposes_action_only_to_assignee_in_scope() -> None:
@@ -673,6 +771,8 @@ def _mutation_app(
     reader: FakeIssueReader | None = None,
     assignment_command: FakeAssignmentService | None = None,
     assignment_options: FakeAssignmentOptions | None = None,
+    resolution_command: FakeResolutionService | None = None,
+    verification_command: FakeVerificationService | None = None,
 ):
     audit_service = AuditService(
         SQLiteAuditRepository(),
@@ -704,8 +804,188 @@ def _mutation_app(
         issue_investigation_service=command,
         issue_assignment_service=assignment_command,
         issue_assignee_option_provider=assignment_options,
+        issue_resolution_service=resolution_command,
+        issue_verification_service=verification_command,
         data_origin="test",
     )
+
+
+class FakeResolutionService:
+    def __init__(self, *, error: Exception | None = None) -> None:
+        self.error = error
+        self.calls: list[tuple[str, str, str, str, str]] = []
+
+    def resolve(
+        self,
+        issue_id: str,
+        draft: IssueResolutionDraft,
+        actor_context: ActorContext | None,
+    ) -> DataQualityIssue:
+        assert actor_context is not None
+        self.calls.append(
+            (
+                issue_id,
+                draft.root_cause,
+                draft.corrective_action,
+                draft.evidence_reference_id,
+                actor_context.actor_id,
+            )
+        )
+        if self.error is not None:
+            raise self.error
+        issue = _issue(issue_id, IssueScopeType.DATASET, "dataset-a")
+        return DataQualityIssue(
+            **{
+                **issue.__dict__,
+                "status": IssueStatus.RESOLVED,
+                "version": issue.version + 1,
+            }
+        )
+
+
+class FakeVerificationService:
+    def __init__(self, *, error: Exception | None = None) -> None:
+        self.error = error
+        self.calls: list[tuple[str, str, str]] = []
+
+    def record_verification_result(
+        self,
+        issue_id: str,
+        verification_reference_id: str,
+        actor_context: ActorContext | None,
+    ) -> DataQualityIssue:
+        assert actor_context is not None
+        self.calls.append((issue_id, verification_reference_id, actor_context.actor_id))
+        if self.error is not None:
+            raise self.error
+        issue = _issue(issue_id, IssueScopeType.DATASET, "dataset-a")
+        return DataQualityIssue(
+            **{
+                **issue.__dict__,
+                "status": IssueStatus.VERIFIED,
+                "version": issue.version + 1,
+            }
+        )
+
+
+def test_fr_070_uc_015_authorized_verifier_verifies_issue_through_bff() -> None:
+    boundary = FakeBffBoundary()
+    verification = FakeVerificationService()
+    client = TestClient(
+        _mutation_app(
+            boundary,
+            FakeInvestigationService(),
+            verification_command=verification,
+        ),
+        base_url="https://app.example",
+    )
+
+    response = client.post(
+        "/api/v1/issues/issue-resolved/verification",
+        json={
+            "version": 1,
+            "verification_reference_id": "550e8400-e29b-41d4-a716-446655440000",
+        },
+        headers=_mutation_headers(),
+    )
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json()["item"]["status"] == "VERIFIED"
+    assert response.json()["item"]["version"] == 2
+    assert verification.calls == [
+        (
+            "issue-resolved",
+            "550e8400-e29b-41d4-a716-446655440000",
+            boundary.context.actor_id,
+        )
+    ]
+
+
+def test_fr_070_verification_missing_csrf_is_rejected() -> None:
+    boundary = FakeBffBoundary()
+    verification = FakeVerificationService()
+    client = TestClient(
+        _mutation_app(
+            boundary,
+            FakeInvestigationService(),
+            verification_command=verification,
+        ),
+        base_url="https://app.example",
+    )
+    headers = _mutation_headers()
+    headers.pop(CSRF_HEADER_NAME)
+
+    response = client.post(
+        "/api/v1/issues/issue-resolved/verification",
+        json={
+            "version": 1,
+            "verification_reference_id": "550e8400-e29b-41d4-a716-446655440000",
+        },
+        headers=headers,
+    )
+
+    assert response.status_code == 403
+    assert verification.calls == []
+
+
+def test_fr_070_verification_errors_are_classified_and_redacted() -> None:
+    boundary = FakeBffBoundary()
+    verification = FakeVerificationService(
+        error=IssueTechnicalError("db password=unsafe", "issue-err")
+    )
+    response = TestClient(
+        _mutation_app(
+            boundary,
+            FakeInvestigationService(),
+            verification_command=verification,
+        ),
+        base_url="https://app.example",
+    ).post(
+        "/api/v1/issues/issue-resolved/verification",
+        json={
+            "version": 1,
+            "verification_reference_id": "550e8400-e29b-41d4-a716-446655440000",
+        },
+        headers=_mutation_headers(),
+    )
+
+    assert response.status_code == 503
+    assert response.json()["title"] == "Issue action temporarily unavailable"
+    assert "password" not in response.text
+    assert "unsafe" not in response.text
+
+
+def test_development_api_supports_verification_demo() -> None:
+    client = TestClient(
+        create_development_app(),
+        base_url="http://localhost:5173",
+    )
+    listed = client.get("/api/v1/issues")
+    proof = listed.headers[CSRF_HEADER_NAME]
+    resolved = next(
+        item
+        for item in listed.json()["items"]
+        if "VERIFY" in item["available_actions"]
+    )
+
+    changed = client.post(
+        f"/api/v1/issues/{resolved['issue_id']}/verification",
+        json={
+            "version": resolved["version"],
+            "verification_reference_id": "550e8400-e29b-41d4-a716-446655440000",
+        },
+        headers={
+            CSRF_HEADER_NAME: proof,
+            "Origin": "http://localhost:5173",
+            "Referer": "http://localhost:5173/issues",
+            "Sec-Fetch-Site": "same-origin",
+        },
+    )
+
+    assert changed.status_code == 200
+    assert changed.json()["item"]["status"] == "VERIFIED"
+    assert changed.json()["item"]["version"] == resolved["version"] + 1
 
 
 def _mutation_headers() -> dict[str, str]:
