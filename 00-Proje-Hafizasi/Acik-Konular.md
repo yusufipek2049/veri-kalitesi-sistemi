@@ -81,10 +81,11 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
     routing, tema tercihi ve dashboard KPI zaman/snapshot kararları kesinleşti.
     35A ile `react-router-dom` route kabuğu ve veri kaynağı ekranı; 35B ile
     dataset scope filtreli, veri-minimum kural API'si ve salt okunur Kurallar
-    ekranı teknik olarak doğrulandı. Kurumsal font, onaylı görsel
+    ekranı; 35C ile kaynak scope filtreli, veri-minimum çalışma API'si ve salt
+    okunur Çalıştırmalar ekranı teknik olarak doğrulandı. Kurumsal font, onaylı görsel
     baseline/diff eşiği, performans bütçesi ve banka marka onayı henüz
     tamamlanmamıştır. 21B yerel/test API bağlantısını eklemiştir; üretim dashboard
-    ve Çalıştırmalar/Sorunlar/Raporlar/Denetim ekranları ilgili güvenli API'ler, gerçek IdP bağlantısı, yüksek
+    ve Sorunlar/Raporlar/Denetim ekranları ilgili güvenli API'ler, gerçek IdP bağlantısı, yüksek
     erişilebilir session store, PostgreSQL repository bağlantıları ve bankacılık
     geçiş kapısına bağlıdır.
 47. `28D-v1` doğrudan bağımlılık zafiyet bulgu zarfı, tamamlanmamış tarama teknik

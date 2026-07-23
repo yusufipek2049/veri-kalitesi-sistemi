@@ -108,4 +108,57 @@ kalite boyutu ve kritiklik bilgileriyle tarayıp filtreleyebilir.
 
 ## Sonraki Dilim
 
-35C, aynı güvenlik ve durum sözleşmeleriyle salt okunur Çalıştırmalar ekranıdır.
+## 35C — Salt Okunur Çalıştırmalar Ekranı
+
+Durum: **TechnicallyVerified**
+
+### Kullanıcı Değeri
+
+Yetkili kullanıcı, erişebildiği kaynakları tamamen kapsayan çalıştırmaları
+durum, tür, yük sınıfı, zaman ve güvenli teknik sonuç bilgileriyle tarayıp
+filtreleyebilir.
+
+### Kapsam
+
+- Güvenilir aktör kaynak kapsamına göre filtrelenen `GET /api/v1/executions`.
+- Kural/kaynak listeleri, kullanıcı kimlikleri ve hata ayrıntısı içermeyen DTO.
+- `/executions` rotasında metin, durum, tür, tarih ve sabit kapsam filtreleri.
+- Sekiz çalışma durumunu ayrı koruyan sabit eksenli Lucide ikonları ve iki tema.
+- Loading, empty, technical error, unauthorized ve long-content durumları.
+
+### Gereksinim Bağlantıları
+
+- `FR-043`, `FR-044`
+- `UC-008`
+- `FE-DS-015`
+- `NFR-USA-001–NFR-USA-006`
+
+### Doğrulama
+
+- Backend: dört yeni API testi ve bir repository testi; kaynak scope filtresi,
+  sahte header etkisizliği, çok kaynaklı kayıtların tam kapsam zorunluluğu,
+  eski kapsamsız kayıtların dışlanması, veri-minimum yanıt ve güvenli hata.
+- Frontend: 40 Vitest ve 51 Playwright testi; beş viewport, açık/koyu tema,
+  yatay taşma, ikon ekseni, birleşik filtre, klavye odağı ve yetkisiz veri ifşa
+  etmeme.
+- TypeScript, Vite/Storybook build, production npm audit, 1046 pytest, 164
+  dosyalık mypy, Ruff ve `compileall` geçti.
+
+### Görsel İyileştirme Turları
+
+1. Yetkili kaynak kapsamı görünür ve devre dışı bir filtreyle belirtildi;
+   filtreler 1024 pikselde iki kolonlu, geniş masaüstünde beş kolonlu kararlı
+   düzene alındı.
+2. Masaüstü listeye kolon başlıkları eklendi; çalışma ikonları ve içerik
+   başlangıçları aynı dikey eksende hizalandı.
+
+### Sınırlar
+
+- Çalıştırma başlatma, yeniden deneme, iptal ve zamanlama eylemleri yoktur.
+- Yerel uygulama yalnız sentetik çalışmalar kullanır. Gerçek IdP, yüksek
+  erişilebilir session store ve üretim repository bağlantısı uygulanmamıştır.
+- Bu kayıt banka onayı veya üretim uygunluğu değildir.
+
+## Sonraki Dilim
+
+35D, aynı güvenlik ve durum sözleşmeleriyle salt okunur Sorunlar ekranıdır.

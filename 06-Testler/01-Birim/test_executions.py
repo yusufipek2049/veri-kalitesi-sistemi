@@ -30,6 +30,7 @@ from veri_kalitesi.executions import (
     ExecutionValidationError,
     IdempotencyConflictError,
     RetryPolicy,
+    RuleExecution,
     Schedule,
     ScheduleType,
     SchedulingService,
@@ -1243,6 +1244,63 @@ def _active_source_policy(
     )
 
 
+def test_repository_lists_only_fully_authorized_recent_executions() -> None:
+    repository = SQLiteExecutionRepository()
+    now = datetime(2026, 7, 23, 12, 0, tzinfo=timezone.utc)
+    allowed_old = _queued_execution(
+        "allowed-old",
+        WorkloadClass.LIGHT,
+        "source-a",
+        now - timedelta(hours=1),
+    )
+    allowed_new = _queued_execution(
+        "allowed-new",
+        WorkloadClass.LIGHT,
+        "source-a",
+        now,
+    )
+    denied = _queued_execution(
+        "denied",
+        WorkloadClass.LIGHT,
+        "source-b",
+        now + timedelta(hours=1),
+    )
+    mixed = RuleExecution(
+        execution_id="mixed",
+        idempotency_key_hash="key-mixed",
+        payload_hash="payload-mixed",
+        rule_version_ids=("version-main",),
+        scope={},
+        triggered_by="user-1",
+        correlation_id="correlation-mixed",
+        source_ids=("source-a", "source-b"),
+        created_at=now + timedelta(hours=2),
+    )
+    legacy_unscoped = RuleExecution(
+        execution_id="legacy-unscoped",
+        idempotency_key_hash="key-legacy",
+        payload_hash="payload-legacy",
+        rule_version_ids=("version-main",),
+        scope={},
+        triggered_by="user-1",
+        correlation_id="correlation-legacy",
+        source_ids=(),
+        created_at=now + timedelta(hours=3),
+    )
+    for execution in (allowed_old, allowed_new, denied, mixed, legacy_unscoped):
+        repository.create_or_get(execution)
+
+    listed = repository.list_executions_for_sources(
+        frozenset({"source-a"}),
+        limit=1,
+    )
+
+    assert [execution.execution_id for execution in listed] == ["allowed-new"]
+    assert repository.list_executions_for_sources(frozenset()) == []
+    with pytest.raises(ExecutionValidationError):
+        repository.list_executions_for_sources(frozenset({"source-a"}), limit=101)
+
+
 def _start(service: ExecutionService, version: RuleVersion) -> Any:
     return service.start_manual(
         actor_id="user-1",
@@ -1272,8 +1330,6 @@ def _queued_execution(
     source_id: str,
     created_at: datetime,
 ) -> Any:
-    from veri_kalitesi.executions import RuleExecution
-
     return RuleExecution(
         execution_id=execution_id,
         idempotency_key_hash=f"key-{execution_id}",

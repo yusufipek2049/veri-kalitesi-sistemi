@@ -105,13 +105,13 @@ hazır oldukları anda genel teknik borç backlogunun önünde ele alınacaktır
 4. **İterasyon 30D — Dashboard referans içerik tamamlaması:**
    `TechnicallyVerified`; 21C KPI bağlantısı, sentetik veri alanı
    karşılaştırması ve erişilebilir kalite boyutu matrisi tamamlandı.
-5. **İterasyon 35A–35F — Alan ekranları:** 35A Veri Kaynakları ve 35B Kurallar
-   `TechnicallyVerified`; sıradaki artım 35C Çalıştırmalar, ardından Sorunlar,
-   Raporlar ve Denetim. Her dilim route, güvenli API,
+5. **İterasyon 35A–35F — Alan ekranları:** 35A Veri Kaynakları, 35B Kurallar ve
+   35C Çalıştırmalar `TechnicallyVerified`; sıradaki artım 35D Sorunlar,
+   ardından Raporlar ve Denetim. Her dilim route, güvenli API,
    yetki, loading/empty/error durumları, Storybook ve Playwright kanıtıyla ayrı
    teslim edilecektir.
 
-30C, 20E, 21C, 30D, 35A ve 35B tamamlandı. 35C–35F'nin üretim bağlantısı gerçek IdP callback,
+30C, 20E, 21C, 30D ve 35A–35C tamamlandı. 35D–35F'nin üretim bağlantısı gerçek IdP callback,
 HA session store ve ilgili güvenli API/repository sınırları tamamlanmadan açılmaz.
 Rapor dosyası dışa aktarma,
 `OPEN-BNK-014` kapsamındaki banka veri sahibi/bilgi güvenliği onayı ve güvenli
@@ -181,9 +181,10 @@ tema seçimini ve iki temada beş viewport doğrulamasını sunar.
 Kullanıcı öncelikli frontend zincirindeki BFF güvenlik ön koşulu
 **İterasyon 20E — BFF oturum ve CSRF HTTP sınırı**, **İterasyon 21C —
 Dashboard operasyonel gösterge API'si** ve **İterasyon 30D — Dashboard referans
-içerik tamamlaması**, **İterasyon 35A — salt okunur Veri Kaynakları ekranı** ve
-**İterasyon 35B — salt okunur Kurallar ekranı** tamamlandı. Sıradaki kullanıcı
-öncelikli küçük artım 35C salt okunur Çalıştırmalar ekranıdır.
+içerik tamamlaması**, **İterasyon 35A — salt okunur Veri Kaynakları ekranı**,
+**İterasyon 35B — salt okunur Kurallar ekranı** ve **İterasyon 35C — salt
+okunur Çalıştırmalar ekranı** tamamlandı. Sıradaki kullanıcı öncelikli küçük
+artım 35D salt okunur Sorunlar ekranıdır.
 
 **İterasyon 34E — Deterministik çok dönemli zaman semantiği** de `FR-090`,
 `FR-094`, `UC-017`, `RULE-016` ve `AC/TS-054`ün zaman anlamı alt kapsamında
@@ -233,9 +234,10 @@ kapsama/eksik kayıt formülleriyle ayrıca engellidir; bu iki konu kesinleşmed
 uygulama yapılmamalıdır.
 İterasyon 21B yerel/test dashboard özet API'sini, 20E BFF cookie/CSRF HTTP
 sınırını, 21C operasyonel gösterge DTO'sunu ve 30D güvenli frontend bağlantısını
-tamamladı. 35A Veri Kaynakları, 35B ise dataset scope filtreli veri-minimum
-Kurallar API'sini ve salt okunur liste ekranını tamamladı. Sıradaki hazır
-frontend artımı **İterasyon 35C — salt okunur Çalıştırmalar ekranı**dır. Üretim bağlantısı ayrıca gerçek IdP
+tamamladı. 35A Veri Kaynakları, 35B dataset scope filtreli veri-minimum
+Kurallar, 35C ise kaynak scope filtreli veri-minimum Çalıştırmalar API'sini ve
+salt okunur liste ekranını tamamladı. Sıradaki hazır frontend artımı
+**İterasyon 35D — salt okunur Sorunlar ekranı**dır. Üretim bağlantısı ayrıca gerçek IdP
 session assertion ve PostgreSQL repository'lerini bekler. Olumlu yeterlilik,
 kapsam, kullanım kararı, kritik kontrol sayıları ve alarm alanları ilgili runtime
 sözleşmeleri tamamlanmadan üretilmemelidir.
