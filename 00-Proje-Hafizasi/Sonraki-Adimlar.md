@@ -211,8 +211,13 @@ foreign key enforcement ve orphan doğrulaması iptal edilmiştir**.
    - **36C0 — Kural repository PostgreSQL geçişi:** `TechnicallyVerified`.
      `RuleRepository` Protocol, `PostgreSQLRuleRepository`, Alembic migration,
      RuleService generic tip dönüşümü ve 1099 geçen testle doğrulandı.
-   - **36C1 — Kural mutasyonları:** taslak oluşturma/düzenleme, test, onaya
-     gönderme/geri çekme ve maker-checker kontrollü aktivasyon/pasifleştirme.
+   - **36C1a — Kural mutasyonları API yüzeyi:** `TechnicallyVerified`.
+     passivate_rule metodu, 7 API endpoint (version/test/aktivasyon/onay/geri
+     çekme/pasifleştirme), RuleMutationService protokolü, CRUD modelleri ve
+     frontend create dialog API bağlantısı tamamlandı.
+   - **36C1b — Kural düzenleme/onay frontend formları:** Kural düzenleme
+     ekranı, test sonucu görüntüleme, onay akışı UI'ı (onay iste/karar ver/geri
+     çek) ve kural pasifleştirme eylemi.
 6. **36D — Yazılabilir Veri Kaynakları:** tanım, değişmez bağlantı revizyonu,
    salt okunur bağlantı testi ve maker-checker kontrollü aktivasyon.
 7. **36E — Çalıştırma İşlemleri:** manuel başlatma, iptal ve yeniden deneme;
@@ -221,7 +226,7 @@ foreign key enforcement ve orphan doğrulaması iptal edilmiştir**.
    indirme. DLP/watermark/maker-checker hazır değilse hassas dışa aktarma
    fail-closed kalır; audit kayıtlarına yazma/düzeltme özelliği eklenmez.
 
-Sıradaki hazır ürün artımı **36C1**'dir. Hiçbir dilimde geçici SQLite mutation
+Sıradaki hazır ürün artımı **36C1b** (kural düzenleme/onay frontend formları). Hiçbir dilimde geçici SQLite mutation
 API'si veya SQLite fallback oluşturulmayacaktır. Birim testleri fake domain
 double kullanabilir; kalıcı entegrasyon testleri yalnız PostgreSQL üzerinde
 çalışacaktır. `PG-MIG-001–005` ve `UI-WRITE-001–007` uygulama kararları

@@ -93,6 +93,38 @@ tags:
 - 36C0, 36C (Yazılabilir Kurallar) için ön koşuldur. Sıradaki ürün artımı
   36C1 PostgreSQL kural mutasyonlarıdır.
 
+### 2026-07-23 — İterasyon 36C1a: Kural mutasyonları API yüzeyi ve passivate_rule
+
+- `FR-023–FR-035`, `UC-005`, `UC-006`, `RULE-001` ve `RULE-007` kapsamında
+  kural yaşam döngüsü backend API yüzeyi tamamlandı.
+- `RuleService.passivate_rule()` metodu eklendi: yalnız `ACTIVE` durumdaki
+  kuralı güvenilir `DATA_STEWARD`/`DATA_GOVERNANCE_SPECIALIST` aktörü ve dataset
+  kapsamıyla `PASSIVE` durumuna geçirir; audit outbox ile atomik transaction.
+- `RuleMutationService` protokolü tanımlandı: `create_version`, `test_rule`,
+  `activate_rule`, `request_rule_approval`, `decide_rule_approval`,
+  `withdraw_rule_approval` ve `passivate_rule` metotlarını `tuple[QualityRule, RuleVersion]`
+  dönüş tipiyle kapsar.
+- API endpoint'leri eklendi:
+  - `POST /api/v1/rules/{quality_rule_id}/versions` — yeni sürüm taslağı
+  - `POST /api/v1/rules/{quality_rule_id}/test` — kural testi çalıştırma
+  - `POST /api/v1/rules/{quality_rule_id}/activation` — kural aktivasyonu
+  - `POST /api/v1/rules/{quality_rule_id}/approval` — onay isteği
+  - `POST /api/v1/rules/approval/{approval_request_id}/decide` — onay kararı
+  - `POST /api/v1/rules/approval/{approval_request_id}/withdraw` — onay geri çekme
+  - `POST /api/v1/rules/{quality_rule_id}/passivation` — kural pasifleştirme
+- Request/response modelleri eklendi: `RuleVersionCreateRequest`, `RuleTestRequest`,
+  `RuleActivationRequest`, `RuleApprovalRequestPayload`, `RuleApprovalDecisionRequest`,
+  `RuleApprovalWithdrawRequest`, `RulePassivationRequest`, `RuleTestResultResponse`.
+- `AUDIT_REDACTION_V3` redaksiyon politikasına `QUALITY_RULE_PASSIVATED` eklendi.
+- Frontend kural oluşturma dialogu API'ye bağlandı; `onCreateRule` callback,
+  loading/error durumları ve hata gösterimi eklendi.
+- 7 yeni birim testi (passivate_rule): başarılı akış, draft reddi, yetkisiz rol,
+  eksik context, kapsam dışı, audit outbox rollback.
+- Tam pytest: `1105 passed, 18 skipped`. Mypy 135 kaynak dosyada sıfır hata,
+  Ruff lint, compileall, frontend 70 Vitest ve TypeScript/Production build temizdir.
+- 36C1'in aktivasyon/pasifleştirme API'leri ve test akışı tamamlandı; onay
+  akışı frontend formları ve kural düzenleme UI'ı sonraki dilimlerde ele alınacaktır.
+
 ### 2026-07-23 — İterasyon 36B3: Korumalı çözüm kaydı
 
 - `FR-068`, `FR-070`, `UC-014`, `UI-WRITE-001/002/003`,
