@@ -124,6 +124,43 @@ export async function reassignIssue(
   return response.json();
 }
 
+export async function resolveIssue(
+  issueId: string,
+  version: number,
+  rootCause: string,
+  correctiveAction: string,
+  evidenceReferenceId: string,
+  completedAt: string,
+): Promise<{
+  api_version: "v1";
+  data_origin: string;
+  correlation_id: string;
+  item: IssueListApiResponse["items"][number];
+}> {
+  if (!csrfProof) throw new IssueApiError("unauthorized");
+  const response = await fetch(
+    `/api/v1/issues/${encodeURIComponent(issueId)}/resolution`,
+    {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        [CSRF_HEADER]: csrfProof,
+      },
+      body: JSON.stringify({
+        version,
+        root_cause: rootCause,
+        corrective_action: correctiveAction,
+        evidence_reference_id: evidenceReferenceId,
+        completed_at: completedAt,
+      }),
+    },
+  );
+  if (!response.ok) throw issueApiError(response);
+  return response.json();
+}
+
 function issueApiError(response: Response): IssueApiError {
   const correlationId = response.headers.get("X-Correlation-ID") ?? undefined;
   const kind = response.status === 401 || response.status === 403

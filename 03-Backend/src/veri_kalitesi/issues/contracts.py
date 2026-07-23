@@ -76,6 +76,7 @@ class IssueRepository(Protocol[AuditRepoT]):
         self,
         issue_id: str,
         *,
+        expected_version: int,
         expected_status: IssueStatus,
         expected_assignee_user_id: str,
         resolution: IssueResolutionRecord,

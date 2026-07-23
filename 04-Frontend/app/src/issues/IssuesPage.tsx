@@ -99,6 +99,15 @@ const triggerLabels: Record<string, string> = {
   TECHNICAL_ERROR: "Teknik olay",
 };
 
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function localDateTimeValue(): string {
+  const now = new Date();
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 16);
+}
+
 function statusTone(status: string): StatusTone {
   if (status === "RESOLVED" || status === "VERIFIED") return "success";
   if (status === "INVESTIGATING" || status === "ASSIGNED") return "info";
@@ -138,6 +147,7 @@ function IssueRow({
   onReassign,
   onStartInvestigation,
   onResolve,
+  onVerify,
 }: {
   item: IssueListItem;
   mutationPending: boolean;
@@ -346,7 +356,9 @@ export function IssuesPage({
   onLoadAssignmentOptions,
   onRefresh,
   onReassign,
+  onResolve,
   onStartInvestigation,
+  onVerify,
 }: IssuesPageProps) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
@@ -365,8 +377,9 @@ export function IssuesPage({
   const [resolutionRootCause, setResolutionRootCause] = useState("");
   const [resolutionCorrectiveAction, setResolutionCorrectiveAction] = useState("");
   const [resolutionEvidenceRef, setResolutionEvidenceRef] = useState("");
-  const [resolutionCompletedAt, setResolutionCompletedAt] = useState(
-    new Date().toISOString().slice(0, 16),
+  const [resolutionCompletedAt, setResolutionCompletedAt] = useState(localDateTimeValue());
+  const [resolutionInitialCompletedAt, setResolutionInitialCompletedAt] = useState(
+    resolutionCompletedAt,
   );
   const [resolutionConfirmDiscard, setResolutionConfirmDiscard] = useState(false);
   const [verificationItem, setVerificationItem] = useState<IssueListItem>();
@@ -467,11 +480,13 @@ export function IssuesPage({
     closeAssignment();
   };
   const openResolution = (item: IssueListItem) => {
+    const completedAt = localDateTimeValue();
     setResolutionItem(item);
     setResolutionRootCause("");
     setResolutionCorrectiveAction("");
     setResolutionEvidenceRef("");
-    setResolutionCompletedAt(new Date().toISOString().slice(0, 16));
+    setResolutionCompletedAt(completedAt);
+    setResolutionInitialCompletedAt(completedAt);
     setActionFeedback(undefined);
   };
   const closeResolution = () => {
@@ -482,7 +497,15 @@ export function IssuesPage({
     setResolutionConfirmDiscard(false);
   };
   const requestResolutionClose = () => {
-    if (resolutionItem && (resolutionRootCause || resolutionCorrectiveAction)) {
+    if (
+      resolutionItem
+      && (
+        resolutionRootCause
+        || resolutionCorrectiveAction
+        || resolutionEvidenceRef
+        || resolutionCompletedAt !== resolutionInitialCompletedAt
+      )
+    ) {
       setResolutionConfirmDiscard(true);
       return;
     }
@@ -490,7 +513,14 @@ export function IssuesPage({
   };
   const submitResolution = async () => {
     if (!resolutionItem || !onResolve || pendingIssueId) return;
-    if (!resolutionRootCause.trim() || !resolutionCorrectiveAction.trim()) return;
+    const completedAt = new Date(resolutionCompletedAt);
+    if (
+      !resolutionRootCause.trim()
+      || !resolutionCorrectiveAction.trim()
+      || !uuidPattern.test(resolutionEvidenceRef.trim())
+      || Number.isNaN(completedAt.getTime())
+      || completedAt > new Date()
+    ) return;
     setPendingIssueId(resolutionItem.id);
     setActionFeedback(undefined);
     try {
@@ -498,8 +528,8 @@ export function IssuesPage({
         resolutionItem,
         resolutionRootCause.trim(),
         resolutionCorrectiveAction.trim(),
-        resolutionEvidenceRef.trim() || "00000000-0000-0000-0000-000000000000",
-        new Date(resolutionCompletedAt).toISOString(),
+        resolutionEvidenceRef.trim(),
+        completedAt.toISOString(),
       );
       setActionFeedback({
         severity: "success",
@@ -717,6 +747,7 @@ export function IssuesPage({
               multiline
               onChange={(event) => setResolutionRootCause(event.target.value)}
               required
+              slotProps={{ htmlInput: { maxLength: 4000 } }}
               value={resolutionRootCause}
             />
             <TextField
@@ -726,17 +757,36 @@ export function IssuesPage({
               multiline
               onChange={(event) => setResolutionCorrectiveAction(event.target.value)}
               required
+              slotProps={{ htmlInput: { maxLength: 4000 } }}
               value={resolutionCorrectiveAction}
             />
             <TextField
+              error={Boolean(resolutionEvidenceRef) && !uuidPattern.test(resolutionEvidenceRef)}
+              helperText={
+                resolutionEvidenceRef && !uuidPattern.test(resolutionEvidenceRef)
+                  ? "Geçerli bir UUID girin."
+                  : "Ham kayıt veya hassas veri yerine güvenli kanıt referansı kullanın."
+              }
               label="Kanıt referansı (UUID)"
               onChange={(event) => setResolutionEvidenceRef(event.target.value)}
               placeholder="00000000-0000-0000-0000-000000000000"
+              required
               value={resolutionEvidenceRef}
             />
             <TextField
+              error={
+                !resolutionCompletedAt
+                || new Date(resolutionCompletedAt) > new Date()
+              }
+              helperText={
+                !resolutionCompletedAt || new Date(resolutionCompletedAt) > new Date()
+                  ? "Tamamlanma zamanı gelecekte olamaz."
+                  : "Yerel saat, kayıtta UTC olarak saklanır."
+              }
               label="Tamamlanma zamanı"
               onChange={(event) => setResolutionCompletedAt(event.target.value)}
+              required
+              slotProps={{ htmlInput: { max: localDateTimeValue() } }}
               type="datetime-local"
               value={resolutionCompletedAt}
             />
@@ -747,6 +797,9 @@ export function IssuesPage({
               disabled={
                 !resolutionRootCause.trim()
                 || !resolutionCorrectiveAction.trim()
+                || !uuidPattern.test(resolutionEvidenceRef.trim())
+                || !resolutionCompletedAt
+                || new Date(resolutionCompletedAt) > new Date()
                 || pendingIssueId === resolutionItem?.id
               }
               onClick={() => void submitResolution()}

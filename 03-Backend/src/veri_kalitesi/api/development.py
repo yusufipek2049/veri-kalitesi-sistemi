@@ -422,7 +422,7 @@ DEVELOPMENT_ISSUES = (
         scope_id="dataset-account",
         status=IssueStatus.INVESTIGATING,
         priority=IssuePriority.HIGH,
-        assignee_user_id="development-assignee",
+        assignee_user_id="development-dashboard-user",
         deduplication_key_digest="development-digest-16",
         occurrence_count=2,
         created_at=datetime(2026, 7, 21, 10, 30, tzinfo=timezone.utc),
@@ -666,6 +666,7 @@ class DevelopmentIssueStore:
         self,
         issue_id: str,
         draft: IssueResolutionDraft,
+        expected_version: int,
         actor_context: ActorContext | None,
     ) -> DataQualityIssue:
         if actor_context is None:
@@ -674,6 +675,8 @@ class DevelopmentIssueStore:
             issue = self._issues.get(issue_id)
             if issue is None:
                 raise IssueValidationError("Development issue was not found.")
+            if issue.version != expected_version:
+                raise IssueConflictError("Development issue version changed.")
             has_scope = (
                 issue.scope_id in actor_context.permitted_source_ids
                 if issue.scope_type is IssueScopeType.SOURCE
@@ -748,8 +751,7 @@ class DevelopmentIssueStore:
 class DevelopmentRuleStore:
     def __init__(self) -> None:
         self._rules: dict[str, tuple[QualityRule, RuleVersion]] = {
-            rule.quality_rule_id: (rule, version)
-            for rule, version in DEVELOPMENT_RULES
+            rule.quality_rule_id: (rule, version) for rule, version in DEVELOPMENT_RULES
         }
         self._lock = RLock()
 

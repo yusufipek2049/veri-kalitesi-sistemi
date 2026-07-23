@@ -501,9 +501,12 @@ class IssueService(Generic[AuditT]):
         self,
         issue_id: str,
         draft: IssueResolutionDraft,
+        expected_version: int,
         actor_context: ActorContext | None,
     ) -> DataQualityIssue:
         validate_resolution_draft(draft)
+        if expected_version < 1:
+            raise IssueValidationError("Issue version must be positive.")
         context = self._authorize_actor(
             actor_context,
             self.access_policy.allowed_reader_actor_types,
@@ -516,6 +519,8 @@ class IssueService(Generic[AuditT]):
             issue = self.repository.get(issue_id)
         except _PERSISTENCE_ERRORS as exc:
             raise IssueTechnicalError("Issue could not be read.", context.correlation_id) from exc
+        if issue.version != expected_version:
+            raise IssueConflictError("Issue changed after it was loaded.")
         if issue.assignee_user_id != context.actor_id or not _has_scope(context, issue):
             raise IssueAuthorizationError("Actor cannot resolve this issue.")
         if issue.status not in {
@@ -583,6 +588,7 @@ class IssueService(Generic[AuditT]):
         try:
             stored = self.repository.resolve(
                 issue.issue_id,
+                expected_version=expected_version,
                 expected_status=issue.status,
                 expected_assignee_user_id=issue.assignee_user_id,
                 resolution=resolution,

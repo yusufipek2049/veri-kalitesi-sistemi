@@ -37,18 +37,24 @@ tags:
   dikeyi tamamlandı.
 - `POST /api/v1/issues/{issue_id}/resolution` BFF sınırına eklendi. Yazım CSRF
   doğrulaması, sayısal `version`, güvenli `403/404/409/503` yanıtları ve
-  `no-store` önbellek politikası kullanır.
+  `no-store` önbellek politikası kullanır. Beklenen sürüm domain ve PostgreSQL
+  koşullu güncelleme sınırına kadar taşınır; eski sürüm hiçbir
+  issue/çözüm/geçmiş/audit yazımı oluşturmadan `409 Conflict` üretir.
 - Backend yalnız güvenilir kapsam içindeki `INVESTIGATING` veya
   `WAITING_FOR_RESOLUTION` sorunlarda, atanmış kullanıcıya `RESOLVE` eylemi
   verir. Çözüm kaydı kök neden, düzeltici faaliyet, kanıt referansı ve
   tamamlanma zamanını içerir; `IssueResolutionProtector` üzerinden korunur.
 - Sorunlar ekranında satır eylemleri üç nokta menüsünde “Çözüm kaydet” seçeneği
   ile genişletilmiştir. Modal form kök neden, düzeltici faaliyet, kanıt
-  referansı ve tamamlanma zamanı alanlarını, açık “Kaydet” eylemini, bekleme ve
-  erişilebilir sonuç durumlarını içerir. Kaydedilmemiş değişiklikte çıkış
-  uyarısı gösterilir.
-- Hedefli issue/API testlerinde 120, tam backend paketinde mevcut test sayısı
-  korunmuştur. 20 issue API testi başarıyla geçmiştir.
+  UUID referansı ve gelecekte olmayan tamamlanma zamanı alanlarını, açık
+  “Kaydet” eylemini, bekleme ve erişilebilir sonuç durumlarını içerir.
+  Kaydedilmemiş tüm çözüm alanlarında çıkış uyarısı gösterilir; çözüm taslağı
+  tarayıcı kalıcı depolamasına yazılmaz.
+- Hedefli issue/API testlerinde 127, gerçek PostgreSQL mutasyon testlerinde 2,
+  tam backend paketinde `1096 passed, 2 skipped` sonucu alındı. Frontend 70
+  birim testi ve 90 Playwright senaryosu geçti; production ve Storybook
+  build'leri başarılıdır. Mypy 133 kaynak dosyada, Ruff 183 dosyada temizdir;
+  `28A-v1` 555 kaynak dosyada secret bulgusu üretmedi.
 - 36B’nin farklı aktörle doğrulama, kapatma ve yeniden açma dilimleri
   tamamlanmamıştır. Sıradaki ürün artımı 36B4 farklı aktörle doğrulamadır.
 

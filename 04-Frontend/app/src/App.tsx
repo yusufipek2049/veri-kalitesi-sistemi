@@ -21,6 +21,7 @@ import {
   fetchIssues,
   IssueApiError,
   reassignIssue,
+  resolveIssue,
   startIssueInvestigation,
 } from "./issues/api";
 import {
@@ -261,6 +262,27 @@ function IssuesRoute() {
     )));
     setCorrelationId(response.correlation_id);
   }, []);
+  const resolve = useCallback(async (
+    item: IssueListItem,
+    rootCause: string,
+    correctiveAction: string,
+    evidenceReferenceId: string,
+    completedAt: string,
+  ) => {
+    const response = await resolveIssue(
+      item.id,
+      item.version,
+      rootCause,
+      correctiveAction,
+      evidenceReferenceId,
+      completedAt,
+    );
+    const updated = issueFromApiItem(response.item);
+    setItems((current) => current.map((candidate) => (
+      candidate.id === updated.id ? updated : candidate
+    )));
+    setCorrelationId(response.correlation_id);
+  }, []);
   return (
     <IssuesPage
       correlationId={correlationId}
@@ -268,6 +290,7 @@ function IssuesRoute() {
       onLoadAssignmentOptions={loadAssignmentOptions}
       onRefresh={() => void load()}
       onReassign={reassign}
+      onResolve={resolve}
       onStartInvestigation={startInvestigation}
       state={fixtureState ?? state}
     />

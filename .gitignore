@@ -208,3 +208,6 @@ docker-compose.override.yaml
 *.lprof
 *.pid
 *.pid.lock
+
+# Claude settings
+.claude/settings.local.json

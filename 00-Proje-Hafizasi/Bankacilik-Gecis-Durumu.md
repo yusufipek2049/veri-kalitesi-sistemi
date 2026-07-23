@@ -69,9 +69,9 @@ Yüklenen mevcut vault ve kod üzerinden doğrulanan durum:
   SQLite'tır. Hedef kalıcılık yalnız PostgreSQL olarak kesinleşmiştir. 36A ile
   issue domaini PostgreSQL'e taşınmış ve SQLite issue runtime yolu
   kaldırılmıştır; diğer domainler bağımlılık sırasıyla bekler. 36B1 issue
-  incelemeye alma ve 36B2 güvenilir yeniden atama dikeyleri
-  PostgreSQL/BFF/CSRF/optimistic-locking sınırında tamamlanmıştır; korumalı
-  çözüm, doğrulama, kapatma ve yeniden açma yazımları bekler.
+  incelemeye alma, 36B2 güvenilir yeniden atama ve 36B3 korumalı çözüm kaydı
+  dikeyleri PostgreSQL/BFF/CSRF/optimistic-locking sınırında tamamlanmıştır;
+  farklı aktörle doğrulama, kapatma ve yeniden açma yazımları bekler.
 
 ## Korunacak Kazanımlar
 

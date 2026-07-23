@@ -417,6 +417,7 @@ def test_fr_068_authorized_assignee_resolves_issue_through_bff() -> None:
             "Eksik kaynak doğrulaması",
             "Kaynak doğrulama kuralı eklendi",
             "550e8400-e29b-41d4-a716-446655440000",
+            1,
             boundary.context.actor_id,
         )
     ]
@@ -478,6 +479,70 @@ def test_fr_068_resolution_errors_are_classified_and_redacted() -> None:
     assert response.json()["title"] == "Issue action temporarily unavailable"
     assert "password" not in response.text
     assert "unsafe" not in response.text
+
+
+def test_fr_068_ui_write_002_stale_resolution_returns_conflict() -> None:
+    boundary = FakeBffBoundary()
+    resolution = FakeResolutionService(
+        error=IssueConflictError("stale resolution contains sensitive details")
+    )
+    response = TestClient(
+        _mutation_app(
+            boundary,
+            FakeInvestigationService(),
+            resolution_command=resolution,
+        ),
+        base_url="https://app.example",
+    ).post(
+        "/api/v1/issues/issue-resolved/resolution",
+        json={
+            "version": 7,
+            "root_cause": "Test nedeni",
+            "corrective_action": "Test aksiyonu",
+            "evidence_reference_id": "550e8400-e29b-41d4-a716-446655440000",
+            "completed_at": "2026-07-23T10:00:00Z",
+        },
+        headers=_mutation_headers(),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["title"] == "Issue changed"
+    assert "sensitive" not in response.text
+    assert resolution.calls[0][4] == 7
+
+
+def test_development_api_supports_resolution_demo() -> None:
+    client = TestClient(
+        create_development_app(),
+        base_url="http://localhost:5173",
+    )
+    listed = client.get("/api/v1/issues")
+    proof = listed.headers[CSRF_HEADER_NAME]
+    investigating = next(
+        item for item in listed.json()["items"] if "RESOLVE" in item["available_actions"]
+    )
+
+    changed = client.post(
+        f"/api/v1/issues/{investigating['issue_id']}/resolution",
+        json={
+            "version": investigating["version"],
+            "root_cause": "Sentetik kaynak eşlemesi",
+            "corrective_action": "Sentetik eşleme düzeltildi",
+            "evidence_reference_id": "550e8400-e29b-41d4-a716-446655440000",
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+        },
+        headers={
+            CSRF_HEADER_NAME: proof,
+            "Origin": "http://localhost:5173",
+            "Referer": "http://localhost:5173/issues",
+            "Sec-Fetch-Site": "same-origin",
+        },
+    )
+
+    assert changed.status_code == 200
+    assert changed.json()["item"]["status"] == "RESOLVED"
+    assert changed.json()["item"]["version"] == investigating["version"] + 1
+    assert changed.json()["item"]["available_actions"] == []
 
 
 def test_issue_list_exposes_action_only_to_assignee_in_scope() -> None:
@@ -813,12 +878,13 @@ def _mutation_app(
 class FakeResolutionService:
     def __init__(self, *, error: Exception | None = None) -> None:
         self.error = error
-        self.calls: list[tuple[str, str, str, str, str]] = []
+        self.calls: list[tuple[str, str, str, str, int, str]] = []
 
     def resolve(
         self,
         issue_id: str,
         draft: IssueResolutionDraft,
+        expected_version: int,
         actor_context: ActorContext | None,
     ) -> DataQualityIssue:
         assert actor_context is not None
@@ -828,6 +894,7 @@ class FakeResolutionService:
                 draft.root_cause,
                 draft.corrective_action,
                 draft.evidence_reference_id,
+                expected_version,
                 actor_context.actor_id,
             )
         )
@@ -964,9 +1031,7 @@ def test_development_api_supports_verification_demo() -> None:
     listed = client.get("/api/v1/issues")
     proof = listed.headers[CSRF_HEADER_NAME]
     resolved = next(
-        item
-        for item in listed.json()["items"]
-        if "VERIFY" in item["available_actions"]
+        item for item in listed.json()["items"] if "VERIFY" in item["available_actions"]
     )
 
     changed = client.post(

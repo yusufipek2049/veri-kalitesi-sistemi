@@ -4,6 +4,7 @@ import {
   fetchIssues,
   IssueApiError,
   reassignIssue,
+  resolveIssue,
   startIssueInvestigation,
 } from "./api";
 
@@ -154,6 +155,46 @@ describe("issue API istemcisi", () => {
           version: 3,
           assignee_user_id: "4ec96cb4-d150-45d2-9565-c1879d135f08",
           priority: "CRITICAL",
+        }),
+      }),
+    );
+  });
+
+  it("CSRF kanıtı ve sürümle korumalı çözüm kaydı gönderir", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response("{}", {
+        status: 200,
+        headers: { "X-CSRF-Token": "memory-only-proof" },
+      }))
+      .mockResolvedValueOnce(Response.json({
+        api_version: "v1",
+        data_origin: "test",
+        correlation_id: "resolution",
+        item: {},
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+    await fetchIssues();
+
+    await resolveIssue(
+      "issue-a",
+      4,
+      "Kaynak eşlemesi hatalı",
+      "Eşleme yapılandırması düzeltildi",
+      "550e8400-e29b-41d4-a716-446655440000",
+      "2026-07-23T09:30:00.000Z",
+    );
+
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/issues/issue-a/resolution",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ "X-CSRF-Token": "memory-only-proof" }),
+        body: JSON.stringify({
+          version: 4,
+          root_cause: "Kaynak eşlemesi hatalı",
+          corrective_action: "Eşleme yapılandırması düzeltildi",
+          evidence_reference_id: "550e8400-e29b-41d4-a716-446655440000",
+          completed_at: "2026-07-23T09:30:00.000Z",
         }),
       }),
     );
