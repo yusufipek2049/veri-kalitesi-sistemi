@@ -2,10 +2,10 @@
 
 ## Gerçek başlangıç noktası
 
-- 16 iterasyon, İterasyon 17A–17E, İterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20E, Iterasyon 21A–21C, İterasyon 22A–22İ, İterasyon 23A–23D, İterasyon 24A–24B, İterasyon 25A–25D, İterasyon 26A–26B, İterasyon 27A, İterasyon 28A–28E, İterasyon 29A–29C, İterasyon 30A–30D, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A–33B, İterasyon 34A–34F ve İterasyon 35A–35C teknik dikeyleri tamamlandı.
-- Tam depoda 1046 test geçiyor; iki gerçek PostgreSQL entegrasyon testi opt-in
-  koşuda ayrıca geçiyor. Tam mypy kontrolü 164 dosyada sıfır hata veriyor.
-- Son ürün artımı kaynak scope filtreli veri-minimum Çalıştırmalar API'sini ve
+- 16 iterasyon, İterasyon 17A–17E, İterasyon 18A–18C, Iterasyon 19A–19H, Iterasyon 20A–20E, Iterasyon 21A–21C, İterasyon 22A–22İ, İterasyon 23A–23D, İterasyon 24A–24B, İterasyon 25A–25D, İterasyon 26A–26B, İterasyon 27A, İterasyon 28A–28E, İterasyon 29A–29C, İterasyon 30A–30D, İterasyon 31A–31C, İterasyon 32A–32D, İterasyon 33A–33B, İterasyon 34A–34F ve İterasyon 35A–35D teknik dikeyleri tamamlandı.
+- Tam depoda 1051 test geçiyor; iki gerçek PostgreSQL entegrasyon testi opt-in
+  koşuda ayrıca geçiyor. Tam mypy kontrolü 166 dosyada sıfır hata veriyor.
+- Son ürün artımı kaynak/dataset scope filtreli veri-minimum Sorunlar API'sini ve
   salt okunur frontend rotasını ekler; gerçek IdP ve üretim session/veri altyapısını
   tamamlamaz.
 - İterasyon 27A `TechnicallyVerified` durumundadır. Restore/DR dilimleri `OPEN-BNK-011` ve `OPEN-BNK-012` kararlarını bekler.
@@ -29,6 +29,6 @@
 15. [Iterasyon-33-Kanonik-Kural-Skoru](Iterasyon-33-Kanonik-Kural-Skoru.md) - 33A `TechnicallyVerified`; tarihsel backfill ve yeterlilik dilimleri açık
 16. [Iterasyon-34-Sentetik-Veri-Kayit-Cekirdegi](Iterasyon-34-Sentetik-Veri-Kayit-Cekirdegi.md) - 34A–34F `TechnicallyVerified`; PostgreSQL kusur dataseti hazır, uygulama profil/kural entegrasyonu ve gizlilik kapısı açık
 17. [Iterasyon-21-Dashboard-API](Iterasyon-21-Dashboard-API.md) - 21B güvenli özet API ve 21C operasyonel gösterge DTO'su `TechnicallyVerified`; 30D UI bağlantısı tamamlandı, gerçek IdP ve üretim altyapısı açık
-18. [Iterasyon-35-Frontend-Alan-Ekranlari](Iterasyon-35-Frontend-Alan-Ekranlari.md) - 35A Veri Kaynakları, 35B Kurallar ve 35C Çalıştırmalar ekranı `TechnicallyVerified`; 35D Sorunlar ekranı sırada
+18. [Iterasyon-35-Frontend-Alan-Ekranlari](Iterasyon-35-Frontend-Alan-Ekranlari.md) - 35A Veri Kaynakları, 35B Kurallar, 35C Çalıştırmalar ve 35D Sorunlar ekranı `TechnicallyVerified`; 35E Raporlar ekranı sırada
 
 Her iterasyon [Iterasyon-Kapanis-Sablonu](Iterasyon-Kapanis-Sablonu.md) ile kapatılır.

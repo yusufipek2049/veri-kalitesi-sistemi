@@ -23,6 +23,15 @@ from veri_kalitesi.data_sources import (
     SourceType,
 )
 from veri_kalitesi.identity import DashboardAuthorizationPolicy, PolicyAuthorizationService
+from veri_kalitesi.issues import (
+    DataQualityIssue,
+    IssuePriority,
+    IssueQueryService,
+    IssueScopeType,
+    IssueSourceEventType,
+    IssueStatus,
+    IssueTriggerType,
+)
 from veri_kalitesi.executions import (
     ExecutionQueryService,
     ExecutionStatus,
@@ -331,6 +340,144 @@ DEVELOPMENT_EXECUTIONS = (
         cancelled_at=datetime(2026, 7, 19, 16, 2, tzinfo=timezone.utc),
     ),
 )
+DEVELOPMENT_ISSUES = (
+    DataQualityIssue(
+        issue_id="issue-critical-customer",
+        issue_no="DQI-2026-0018",
+        source_event_id="development-event-18",
+        source_event_type=IssueSourceEventType.QUALITY,
+        trigger_type=IssueTriggerType.CRITICAL_RULE_FAILURE,
+        scope_type=IssueScopeType.DATASET,
+        scope_id="dataset-customer",
+        status=IssueStatus.NEW,
+        priority=IssuePriority.CRITICAL,
+        assignee_user_id="development-assignee",
+        deduplication_key_digest="development-digest-18",
+        occurrence_count=1,
+        created_at=datetime(2026, 7, 23, 8, 10, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 7, 23, 8, 10, tzinfo=timezone.utc),
+        last_seen_at=datetime(2026, 7, 23, 8, 10, tzinfo=timezone.utc),
+    ),
+    DataQualityIssue(
+        issue_id="issue-technical-risk",
+        issue_no="DQI-2026-0017",
+        source_event_id="development-event-17",
+        source_event_type=IssueSourceEventType.TECHNICAL,
+        trigger_type=IssueTriggerType.TECHNICAL_ERROR,
+        scope_type=IssueScopeType.SOURCE,
+        scope_id="source-risk-mart",
+        status=IssueStatus.ASSIGNED,
+        priority=IssuePriority.HIGH,
+        assignee_user_id="development-assignee",
+        deduplication_key_digest="development-digest-17",
+        occurrence_count=3,
+        created_at=datetime(2026, 7, 22, 15, 0, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 7, 23, 7, 40, tzinfo=timezone.utc),
+        last_seen_at=datetime(2026, 7, 23, 7, 40, tzinfo=timezone.utc),
+    ),
+    DataQualityIssue(
+        issue_id="issue-account-investigation",
+        issue_no="DQI-2026-0016",
+        source_event_id="development-event-16",
+        source_event_type=IssueSourceEventType.QUALITY,
+        trigger_type=IssueTriggerType.QUALITY_THRESHOLD,
+        scope_type=IssueScopeType.DATASET,
+        scope_id="dataset-account",
+        status=IssueStatus.INVESTIGATING,
+        priority=IssuePriority.HIGH,
+        assignee_user_id="development-assignee",
+        deduplication_key_digest="development-digest-16",
+        occurrence_count=2,
+        created_at=datetime(2026, 7, 21, 10, 30, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 7, 22, 16, 20, tzinfo=timezone.utc),
+        last_seen_at=datetime(2026, 7, 22, 16, 20, tzinfo=timezone.utc),
+    ),
+    DataQualityIssue(
+        issue_id="issue-transaction-waiting",
+        issue_no="DQI-2026-0015",
+        source_event_id="development-event-15",
+        source_event_type=IssueSourceEventType.QUALITY,
+        trigger_type=IssueTriggerType.QUALITY_THRESHOLD,
+        scope_type=IssueScopeType.DATASET,
+        scope_id="dataset-transaction",
+        status=IssueStatus.WAITING_FOR_RESOLUTION,
+        priority=IssuePriority.MEDIUM,
+        assignee_user_id="development-assignee",
+        deduplication_key_digest="development-digest-15",
+        occurrence_count=4,
+        created_at=datetime(2026, 7, 19, 9, 0, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 7, 22, 11, 45, tzinfo=timezone.utc),
+        last_seen_at=datetime(2026, 7, 22, 11, 45, tzinfo=timezone.utc),
+    ),
+    DataQualityIssue(
+        issue_id="issue-risk-resolved",
+        issue_no="DQI-2026-0014",
+        source_event_id="development-event-14",
+        source_event_type=IssueSourceEventType.QUALITY,
+        trigger_type=IssueTriggerType.CRITICAL_RULE_FAILURE,
+        scope_type=IssueScopeType.DATASET,
+        scope_id="dataset-risk",
+        status=IssueStatus.RESOLVED,
+        priority=IssuePriority.CRITICAL,
+        assignee_user_id="development-assignee",
+        deduplication_key_digest="development-digest-14",
+        occurrence_count=1,
+        created_at=datetime(2026, 7, 18, 13, 15, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 7, 21, 14, 10, tzinfo=timezone.utc),
+        last_seen_at=datetime(2026, 7, 18, 13, 15, tzinfo=timezone.utc),
+    ),
+    DataQualityIssue(
+        issue_id="issue-customer-verified",
+        issue_no="DQI-2026-0013",
+        source_event_id="development-event-13",
+        source_event_type=IssueSourceEventType.QUALITY,
+        trigger_type=IssueTriggerType.QUALITY_THRESHOLD,
+        scope_type=IssueScopeType.DATASET,
+        scope_id="dataset-customer",
+        status=IssueStatus.VERIFIED,
+        priority=IssuePriority.MEDIUM,
+        assignee_user_id="development-assignee",
+        deduplication_key_digest="development-digest-13",
+        occurrence_count=1,
+        created_at=datetime(2026, 7, 17, 12, 0, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 7, 20, 15, 30, tzinfo=timezone.utc),
+        last_seen_at=datetime(2026, 7, 17, 12, 0, tzinfo=timezone.utc),
+    ),
+    DataQualityIssue(
+        issue_id="issue-account-closed",
+        issue_no="DQI-2026-0012",
+        source_event_id="development-event-12",
+        source_event_type=IssueSourceEventType.QUALITY,
+        trigger_type=IssueTriggerType.QUALITY_THRESHOLD,
+        scope_type=IssueScopeType.DATASET,
+        scope_id="dataset-account",
+        status=IssueStatus.CLOSED,
+        priority=IssuePriority.LOW,
+        assignee_user_id="development-assignee",
+        deduplication_key_digest="development-digest-12",
+        occurrence_count=1,
+        created_at=datetime(2026, 7, 15, 8, 0, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 7, 19, 10, 0, tzinfo=timezone.utc),
+        last_seen_at=datetime(2026, 7, 15, 8, 0, tzinfo=timezone.utc),
+    ),
+    DataQualityIssue(
+        issue_id="issue-source-cancelled",
+        issue_no="DQI-2026-0011",
+        source_event_id="development-event-11",
+        source_event_type=IssueSourceEventType.TECHNICAL,
+        trigger_type=IssueTriggerType.TECHNICAL_ERROR,
+        scope_type=IssueScopeType.SOURCE,
+        scope_id="source-customer-file",
+        status=IssueStatus.CANCELLED,
+        priority=IssuePriority.LOW,
+        assignee_user_id="development-assignee",
+        deduplication_key_digest="development-digest-11",
+        occurrence_count=1,
+        created_at=datetime(2026, 7, 14, 9, 0, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 7, 18, 9, 0, tzinfo=timezone.utc),
+        last_seen_at=datetime(2026, 7, 14, 9, 0, tzinfo=timezone.utc),
+    ),
+)
 
 
 class DevelopmentDataSourceReader:
@@ -364,6 +511,32 @@ class DevelopmentExecutionReader:
                 if execution.source_ids and set(execution.source_ids).issubset(allowed_source_ids)
             ),
             key=lambda execution: (execution.created_at, execution.execution_id),
+            reverse=True,
+        )[:limit]
+
+
+class DevelopmentIssueReader:
+    def list_issues_for_scopes(
+        self,
+        allowed_source_ids: frozenset[str],
+        allowed_dataset_ids: frozenset[str],
+        *,
+        limit: int = 100,
+    ) -> list[DataQualityIssue]:
+        return sorted(
+            (
+                issue
+                for issue in DEVELOPMENT_ISSUES
+                if (
+                    issue.scope_type is IssueScopeType.SOURCE
+                    and issue.scope_id in allowed_source_ids
+                )
+                or (
+                    issue.scope_type is IssueScopeType.DATASET
+                    and issue.scope_id in allowed_dataset_ids
+                )
+            ),
+            key=lambda issue: (issue.updated_at, issue.issue_id),
             reverse=True,
         )[:limit]
 
@@ -447,4 +620,5 @@ def create_development_app():  # type: ignore[no-untyped-def]
         ),
         rule_query_service=RuleQueryService(DevelopmentRuleReader(), authorization),
         execution_query_service=ExecutionQueryService(DevelopmentExecutionReader(), authorization),
+        issue_query_service=IssueQueryService(DevelopmentIssueReader(), authorization),
     )

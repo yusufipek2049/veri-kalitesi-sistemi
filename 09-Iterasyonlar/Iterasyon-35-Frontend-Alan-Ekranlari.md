@@ -161,4 +161,58 @@ filtreleyebilir.
 
 ## Sonraki Dilim
 
-35D, aynı güvenlik ve durum sözleşmeleriyle salt okunur Sorunlar ekranıdır.
+## 35D — Salt Okunur Sorunlar Ekranı
+
+Durum: **TechnicallyVerified**
+
+### Kullanıcı Değeri
+
+Yetkili kullanıcı, erişebildiği kaynak ve datasetlerdeki kalite ve teknik
+sorunları yaşam döngüsü, öncelik, kapsam ve son hareket bilgileriyle tarayıp
+filtreleyebilir.
+
+### Kapsam
+
+- Güvenilir aktör kaynak/dataset kapsamına göre filtrelenen `GET /api/v1/issues`.
+- Aktör, çözüm, yorum, kanıt ve entegrasyon hata ayrıntısı içermeyen DTO.
+- `/issues` rotasında metin, durum, öncelik, tarih ve sabit kapsam filtreleri.
+- Sekiz yaşam döngüsü durumu, dört öncelik ve teknik/kalite olay ayrımı.
+- Loading, empty, technical error, unauthorized ve long-content durumları.
+
+### Gereksinim Bağlantıları
+
+- `FR-064–FR-070`
+- `UC-011`, `UC-013`, `UC-014`
+- `FE-DS-015`
+- `NFR-SEC-001`
+- `NFR-USA-001–NFR-USA-006`
+
+### Doğrulama
+
+- Backend: dört API davranış testi ve bir repository testi; kaynak/dataset scope
+  filtresi, sahte header etkisizliği, veri-minimum yanıt, boş kapsam ve güvenli
+  teknik hata.
+- Frontend: 46 Vitest ve 63 Playwright testi; beş viewport, açık/koyu tema,
+  yatay taşma, ikon ekseni, filtre/temizleme, klavye odağı ve yetkisiz veri ifşa
+  etmeme.
+- TypeScript, Vite/Storybook build, production npm audit, 1051 pytest, 166
+  dosyalık mypy, Ruff ve `compileall` geçti.
+
+### Görsel İyileştirme Turları
+
+1. 1024 piksel filtre ızgarası üç kolona alındı, kapsam etiketi kısaltıldı ve
+   paneldeki gereksiz boşluk azaltıldı.
+2. Masaüstü kolon başlıklarının gizlendiği genişliklerde durum ve öncelik alan
+   adları rozetlerin üzerinde görünür hale getirildi.
+
+### Sınırlar
+
+- Atama, çözüm, doğrulama, kapatma ve ServiceNow eylemleri yoktur.
+- Yerel uygulama yalnız sentetik sorunlar kullanır. Gerçek IdP, yüksek
+  erişilebilir session store ve üretim repository bağlantısı uygulanmamıştır.
+- Bu kayıt banka onayı veya üretim uygunluğu değildir.
+
+## Sonraki Dilim
+
+35E, güvenli önizleme sözleşmesiyle salt okunur Raporlar ekranıdır; dosya dışa
+aktarma bu dilimin kapsamında değildir.

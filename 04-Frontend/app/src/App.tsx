@@ -7,6 +7,8 @@ import { dataSourcesFromApi, syntheticDataSources, type DataSourceListItem, type
 import { DashboardApiError, fetchDashboardSummary } from "./dashboard/api";
 import { ExecutionApiError, fetchExecutions } from "./executions/api";
 import { executionsFromApi, syntheticExecutions, type ExecutionListItem, type ExecutionState } from "./executions/model";
+import { fetchIssues, IssueApiError } from "./issues/api";
+import { issuesFromApi, syntheticIssues, type IssueListItem, type IssueState } from "./issues/model";
 import { RuleApiError, fetchRules } from "./rules/api";
 import { rulesFromApi, syntheticRules, type RuleListItem, type RuleState } from "./rules/model";
 import {
@@ -21,6 +23,7 @@ const DashboardPage = lazy(() => import("./dashboard/DashboardPage").then((modul
 const DataSourcesPage = lazy(() => import("./dataSources/DataSourcesPage").then((module) => ({ default: module.DataSourcesPage })));
 const RulesPage = lazy(() => import("./rules/RulesPage").then((module) => ({ default: module.RulesPage })));
 const ExecutionsPage = lazy(() => import("./executions/ExecutionsPage").then((module) => ({ default: module.ExecutionsPage })));
+const IssuesPage = lazy(() => import("./issues/IssuesPage").then((module) => ({ default: module.IssuesPage })));
 
 function DashboardRoute() {
   const requestedState = new URLSearchParams(window.location.search).get("state") as DashboardState | null;
@@ -167,6 +170,39 @@ function ExecutionsRoute() {
   return <ExecutionsPage correlationId={correlationId} items={items} onRefresh={() => void load()} state={fixtureState ?? state} />;
 }
 
+const issueStates: IssueState[] = ["normal", "loading", "empty", "error", "unauthorized", "long-content"];
+
+function IssuesRoute() {
+  const requestedState = new URLSearchParams(window.location.search).get("state") as IssueState | null;
+  const fixtureState = import.meta.env.DEV && requestedState && issueStates.includes(requestedState) ? requestedState : null;
+  const [state, setState] = useState<IssueState>(fixtureState ?? "loading");
+  const [items, setItems] = useState<IssueListItem[]>(syntheticIssues);
+  const [correlationId, setCorrelationId] = useState<string>();
+  const load = useCallback(async (signal?: AbortSignal) => {
+    if (fixtureState) return;
+    setState("loading");
+    try {
+      const response = await fetchIssues(signal);
+      const nextItems = issuesFromApi(response);
+      setItems(nextItems);
+      setCorrelationId(response.correlation_id);
+      setState(nextItems.length ? "normal" : "empty");
+    } catch (error) {
+      if (signal?.aborted) return;
+      if (error instanceof IssueApiError) {
+        setCorrelationId(error.correlationId);
+        setState(error.kind === "unauthorized" ? "unauthorized" : "error");
+      } else setState("error");
+    }
+  }, [fixtureState]);
+  useEffect(() => {
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
+  return <IssuesPage correlationId={correlationId} items={items} onRefresh={() => void load()} state={fixtureState ?? state} />;
+}
+
 function RouteBoundary({ unauthorized = false }: { unauthorized?: boolean }) {
   const navigate = useNavigate();
   return (
@@ -190,8 +226,8 @@ export default function App() {
         <Route element={<DataSourcesRoute />} path="/data-sources" />
         <Route element={<RulesRoute />} path="/rules" />
         <Route element={<ExecutionsRoute />} path="/executions" />
+        <Route element={<IssuesRoute />} path="/issues" />
         <Route element={<RouteBoundary unauthorized />} path="/unauthorized" />
-        <Route element={<Navigate replace to="/not-found" />} path="/issues" />
         <Route element={<Navigate replace to="/not-found" />} path="/reports" />
         <Route element={<Navigate replace to="/not-found" />} path="/audit" />
         <Route element={<RouteBoundary />} path="*" />

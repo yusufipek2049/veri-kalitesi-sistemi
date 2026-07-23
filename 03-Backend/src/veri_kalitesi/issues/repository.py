@@ -511,6 +511,44 @@ class SQLiteIssueRepository:
             raise IssueNotFoundError("Issue not found.")
         return _row_to_issue(row)
 
+    def list_issues_for_scopes(
+        self,
+        allowed_source_ids: frozenset[str],
+        allowed_dataset_ids: frozenset[str],
+        *,
+        limit: int = 100,
+    ) -> list[DataQualityIssue]:
+        """Yalnız güvenilir kaynak veya dataset kapsamındaki son sorunları döndürür."""
+
+        if not 1 <= limit <= 100:
+            raise IssueValidationError("Issue query limit must be between 1 and 100.")
+        clauses: list[str] = []
+        parameters: list[str | int] = []
+        if allowed_source_ids:
+            source_ids = sorted(allowed_source_ids)
+            placeholders = ", ".join("?" for _ in source_ids)
+            clauses.append(f"(scope_type = 'SOURCE' AND scope_id IN ({placeholders}))")
+            parameters.extend(source_ids)
+        if allowed_dataset_ids:
+            dataset_ids = sorted(allowed_dataset_ids)
+            placeholders = ", ".join("?" for _ in dataset_ids)
+            clauses.append(f"(scope_type = 'DATASET' AND scope_id IN ({placeholders}))")
+            parameters.extend(dataset_ids)
+        if not clauses:
+            return []
+        parameters.append(limit)
+        with self._lock:
+            rows = self.connection.execute(
+                f"""
+                SELECT * FROM data_quality_issues
+                WHERE {" OR ".join(clauses)}
+                ORDER BY updated_at DESC, issue_id DESC
+                LIMIT ?
+                """,
+                parameters,
+            ).fetchall()
+        return [_row_to_issue(row) for row in rows]
+
     def list_history(self, issue_id: str) -> tuple[IssueHistoryEntry, ...]:
         with self._lock:
             rows = self.connection.execute(

@@ -30,6 +30,31 @@ tags:
 
 ## Uygulama Durumu
 
+### 2026-07-23 — İterasyon 35D: Salt okunur Sorunlar ekranı
+
+- `FR-064–FR-070`, `UC-011`, `UC-013`, `UC-014`, `FE-DS-015`,
+  `NFR-SEC-001` ve `NFR-USA-001–006` içinden salt okunur sorun envanteri alt
+  kapsamı tamamlandı.
+- `/api/v1/issues`, güvenilir `ActorContext` içindeki kaynak ve dataset
+  kapsamlarını ayrı uygular; yalnız eşleşen sorunları en yeni güncellenen kayıt
+  önce ve en fazla 100 öğe olarak döndürür. Boş kapsam boş liste üretir.
+- Yanıt; sorun kimliği/numarası, olay ve tetik türü, yetkili kapsam, durum,
+  öncelik, görülme sayısı ve zamanlarla sınırlıdır. Kaynak olay kimliği, atanan
+  kullanıcı, deduplication özeti, kök neden, düzeltici faaliyet, yorum, kanıt ve
+  ServiceNow hata ayrıntısı taşınmaz.
+- `/issues` rotası metin, durum, öncelik, tarih ve sabit yetkili kapsam
+  filtreleri; sekiz yaşam döngüsü durumunu, dört önceliği ve teknik/kalite olay
+  ayrımını açık/koyu temada gösterir. Loading, empty, error, unauthorized ve
+  long-content durumları uygulanmıştır.
+- İlk görsel turda 1024 piksel filtre ızgarası üç kolona alınarak gereksiz boşluk
+  azaltıldı ve kapsam etiketi kısaltıldı. İkinci turda masaüstü kolon
+  başlıklarının gizlendiği genişliklerde durum ve öncelik alan adları görünür
+  hale getirildi.
+- 1051 pytest geçti, iki opt-in PostgreSQL testi atlandı; mypy 166 dosyada,
+  Ruff lint/format ve `compileall` hatasızdır. 46 Vitest, 63 Playwright,
+  TypeScript, Vite/Storybook build ve production npm audit geçti. Mevcut
+  dashboard chunk boyutu uyarısı sürmektedir.
+
 ### 2026-07-23 — İterasyon 35C: Salt okunur Çalıştırmalar ekranı
 
 - `FR-043`, `FR-044`, `UC-008`, `FE-DS-015` ve `NFR-USA-001–006` içinden

@@ -22,6 +22,8 @@ from veri_kalitesi.api.models import (
     DataSourceListResponse,
     ExecutionListItemResponse,
     ExecutionListResponse,
+    IssueListItemResponse,
+    IssueListResponse,
     RuleListItemResponse,
     RuleListResponse,
 )
@@ -41,6 +43,11 @@ from veri_kalitesi.executions import (
     ExecutionQueryService,
     ExecutionQueryTechnicalError,
 )
+from veri_kalitesi.issues import (
+    IssueQueryAuthorizationError,
+    IssueQueryService,
+    IssueQueryTechnicalError,
+)
 from veri_kalitesi.rules import (
     RuleQueryAuthorizationError,
     RuleQueryService,
@@ -58,6 +65,7 @@ def create_dashboard_api(
     data_source_query_service: DataSourceQueryService | None = None,
     rule_query_service: RuleQueryService | None = None,
     execution_query_service: ExecutionQueryService | None = None,
+    issue_query_service: IssueQueryService | None = None,
 ) -> FastAPI:
     """Bağımlılıkları dışarıdan verilen, varsayılanı fail-closed API üretir."""
 
@@ -220,6 +228,30 @@ def create_dashboard_api(
             correlation_id=error.correlation_id,
         )
 
+    @app.exception_handler(IssueQueryAuthorizationError)
+    async def handle_issue_authorization_error(
+        request: Request, error: IssueQueryAuthorizationError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=403,
+            title="Access denied",
+            detail="The requested issue scope is not available.",
+            correlation_id=error.correlation_id,
+        )
+
+    @app.exception_handler(IssueQueryTechnicalError)
+    async def handle_issue_query_error(
+        request: Request, error: IssueQueryTechnicalError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=503,
+            title="Issues temporarily unavailable",
+            detail="The issue query could not be completed.",
+            correlation_id=error.correlation_id,
+        )
+
     @app.exception_handler(ApiSessionUnavailableError)
     async def handle_session_unavailable_error(
         request: Request, error: ApiSessionUnavailableError
@@ -329,6 +361,26 @@ def create_dashboard_api(
             items=tuple(
                 ExecutionListItemResponse.from_domain(execution) for execution in executions
             ),
+        )
+
+    @app.get(
+        "/api/v1/issues",
+        response_model=IssueListResponse,
+        tags=["issues"],
+    )
+    async def get_issues(request: Request, response: Response) -> IssueListResponse:
+        if issue_query_service is None:
+            raise IssueQueryTechnicalError(
+                "Issue service is unavailable.", request.state.correlation_id
+            )
+        actor_context = resolver.resolve(request)
+        issues = issue_query_service.list_for_actor(actor_context)
+        response.headers["Cache-Control"] = "no-store"
+        return IssueListResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            limit=issue_query_service.page_limit,
+            items=tuple(IssueListItemResponse.from_domain(issue) for issue in issues),
         )
 
     @app.post("/api/v1/session/logout", status_code=204, tags=["session"])

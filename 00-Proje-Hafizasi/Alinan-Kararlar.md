@@ -712,6 +712,12 @@ yeterlilik runtime/API uygulamasını veya banka marka onayını tamamlanmış s
 | --- | --- | --- | --- |
 | Çalıştırma listesi güvenilir aktör bağlamındaki izinli kaynak kimlikleriyle tamamen kapsanan kayıtları en yeni önce ve en fazla 100 öğe olarak döndürecektir. Kaynak kapsamı olmayan eski kayıtlar ile izinli/izinsiz kaynakları birlikte içeren kayıtlar fail-closed dışlanacaktır. DTO yalnız durum, tür, yük sınıfı, toplu sayaçlar, güvenli teknik hata sınıfı ve zamanları taşıyacaktır. | Çok kaynaklı bir çalışmayı tek izinli kaynak üzerinden görünür kılmak diğer kaynakların varlığını ifşa eder. Eski kapsamsız kayıt için yetki kanıtı üretilemez. Kural/kaynak listeleri, aktörler, iptal gerekçesi ve hata ayrıntısı envanter ekranı için gerekli değildir. | Herhangi bir kaynak eşleşince kaydı döndürmek; kapsamsız eski kayıtları herkese açmak; tüm domain modelini istemciye taşımak; sınırsız liste döndürmek. | `/api/v1/executions` veri-minimum ve kaynak scope filtreli çalışır. Boş kapsam boş liste, güvenilmeyen bağlam 403, depo hatası redakte edilmiş 503 üretir. Başlatma, yeniden deneme, iptal ve zamanlama bu salt okunur yüzeyin dışındadır. |
 
+## 2026-07-23 — İterasyon 35D Teknik Kararı
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| Sorun listesi güvenilir aktör bağlamındaki kaynak ve dataset kapsamlarını ayrı uygulayacak, en yeni güncellenen en fazla 100 kaydı döndürecektir. DTO sorun numarası, olay/tetik türü, kapsam, yaşam döngüsü durumu, öncelik, görülme sayısı ve zamanlarla sınırlı olacaktır. | SOURCE ve DATASET kapsamlarını tek tür gibi değerlendirmek yetkisiz envanter ifşasına yol açabilir. Atanan kullanıcı, çözüm metni, yorum, kanıt, deduplication özeti ve entegrasyon hata ayrıntısı liste ekranı için gerekli değildir. | Tüm issue domain modelini döndürmek; istemcide scope filtresi yapmak; `can_view_enterprise` iznini tüm issue envanterine genişletmek; sınırsız liste döndürmek. | `/api/v1/issues` veri-minimum ve iki kapsam türünde fail-closed çalışır. Boş kapsam boş liste, güvenilmeyen bağlam 403, depo hatası redakte edilmiş 503 üretir. Atama, çözüm, doğrulama, kapatma ve ServiceNow eylemleri bu salt okunur yüzeyin dışındadır. |
+
 ## 2026-07-22 — İterasyon 20E Teknik Kararı
 
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
