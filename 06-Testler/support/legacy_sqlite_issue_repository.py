@@ -61,6 +61,7 @@ class SQLiteIssueRepository:
                 deduplication_key_digest TEXT NOT NULL UNIQUE,
                 payload_digest TEXT NOT NULL,
                 occurrence_count INTEGER NOT NULL CHECK (occurrence_count >= 1),
+                version INTEGER NOT NULL DEFAULT 1 CHECK (version >= 1),
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 last_seen_at TEXT NOT NULL
@@ -161,8 +162,19 @@ class SQLiteIssueRepository:
             ON issue_relationships(predecessor_issue_id, sequence_no);
             """
         )
+        self._ensure_issue_version_column()
         self._ensure_history_assignment_columns()
         self.connection.commit()
+
+    def _ensure_issue_version_column(self) -> None:
+        existing = {
+            row["name"]
+            for row in self.connection.execute("PRAGMA table_info(data_quality_issues)").fetchall()
+        }
+        if "version" not in existing:
+            self.connection.execute(
+                "ALTER TABLE data_quality_issues ADD COLUMN version INTEGER NOT NULL DEFAULT 1"
+            )
 
     def _ensure_history_assignment_columns(self) -> None:
         existing = {
@@ -228,7 +240,8 @@ class SQLiteIssueRepository:
                     """
                     UPDATE data_quality_issues
                     SET occurrence_count = occurrence_count + 1,
-                        last_seen_at = ?, updated_at = ?, source_event_id = ?, status = ?
+                        last_seen_at = ?, updated_at = ?, source_event_id = ?, status = ?,
+                        version = version + 1
                     WHERE issue_id = ?
                     """,
                     (
@@ -261,8 +274,8 @@ class SQLiteIssueRepository:
                         issue_id, issue_no, source_event_id, source_event_type,
                         trigger_type, scope_type, scope_id, status, priority,
                         assignee_user_id, deduplication_key_digest, payload_digest,
-                        occurrence_count, created_at, updated_at, last_seen_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        occurrence_count, version, created_at, updated_at, last_seen_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         issue.issue_id,
@@ -278,6 +291,7 @@ class SQLiteIssueRepository:
                         issue.deduplication_key_digest,
                         payload_digest,
                         issue.occurrence_count,
+                        issue.version,
                         issue.created_at.isoformat(),
                         issue.updated_at.isoformat(),
                         issue.last_seen_at.isoformat(),
@@ -316,17 +330,19 @@ class SQLiteIssueRepository:
         self._require_shared_audit_transaction(audit_outbox)
         with self._lock, self.connection:
             row = self.connection.execute(
-                "SELECT status FROM data_quality_issues WHERE issue_id = ?",
+                "SELECT status, version FROM data_quality_issues WHERE issue_id = ?",
                 (issue_id,),
             ).fetchone()
             if row is None:
                 raise IssueNotFoundError("Issue not found.")
             if IssueStatus(row["status"]) is not expected_status:
                 raise IssueValidationError("Issue status transition is no longer valid.")
+            if row["version"] != expected_version:
+                raise IssueConflictError("Issue status version changed.")
             self.connection.execute(
                 """
                 UPDATE data_quality_issues
-                SET status = ?, updated_at = ?
+                SET status = ?, updated_at = ?, version = version + 1
                 WHERE issue_id = ?
                 """,
                 (target_status.value, updated_at.isoformat(), issue_id),
@@ -355,8 +371,9 @@ class SQLiteIssueRepository:
             cursor = self.connection.execute(
                 """
                 UPDATE data_quality_issues
-                SET status = ?, assignee_user_id = ?, priority = ?, updated_at = ?
-                WHERE issue_id = ? AND status = ?
+                SET status = ?, assignee_user_id = ?, priority = ?, updated_at = ?,
+                    version = version + 1
+                WHERE issue_id = ? AND version = ? AND status = ?
                     AND assignee_user_id = ? AND priority = ?
                 """,
                 (
@@ -365,6 +382,7 @@ class SQLiteIssueRepository:
                     priority.value,
                     updated_at.isoformat(),
                     issue_id,
+                    expected_version,
                     expected_status.value,
                     expected_assignee_user_id,
                     expected_priority.value,
@@ -386,6 +404,7 @@ class SQLiteIssueRepository:
         self,
         issue_id: str,
         *,
+        expected_version: int,
         expected_status: IssueStatus,
         expected_assignee_user_id: str,
         resolution: IssueResolutionRecord,
@@ -399,13 +418,14 @@ class SQLiteIssueRepository:
             cursor = self.connection.execute(
                 """
                 UPDATE data_quality_issues
-                SET status = ?, updated_at = ?
-                WHERE issue_id = ? AND status = ? AND assignee_user_id = ?
+                SET status = ?, updated_at = ?, version = version + 1
+                WHERE issue_id = ? AND version = ? AND status = ? AND assignee_user_id = ?
                 """,
                 (
                     IssueStatus.RESOLVED.value,
                     updated_at.isoformat(),
                     issue_id,
+                    expected_version,
                     expected_status.value,
                     expected_assignee_user_id,
                 ),
@@ -459,7 +479,7 @@ class SQLiteIssueRepository:
             cursor = self.connection.execute(
                 """
                 UPDATE data_quality_issues
-                SET status = ?, updated_at = ?
+                SET status = ?, updated_at = ?, version = version + 1
                 WHERE issue_id = ? AND status = ?
                 """,
                 (
@@ -724,6 +744,7 @@ def _row_to_issue(row: sqlite3.Row) -> DataQualityIssue:
         assignee_user_id=row["assignee_user_id"],
         deduplication_key_digest=row["deduplication_key_digest"],
         occurrence_count=row["occurrence_count"],
+        version=row["version"],
         created_at=datetime.fromisoformat(row["created_at"]),
         updated_at=datetime.fromisoformat(row["updated_at"]),
         last_seen_at=datetime.fromisoformat(row["last_seen_at"]),

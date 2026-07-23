@@ -343,10 +343,18 @@ def test_fr_066_repeated_investigation_transition_is_rejected() -> None:
     fixture = _fixture()
     issue = _create(fixture.service, _trigger(IssueTriggerType.QUALITY_THRESHOLD))
     context = _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID})
-    fixture.service.start_investigation(issue.issue_id, issue.version, context)
+    investigated = fixture.service.start_investigation(
+        issue.issue_id,
+        issue.version,
+        context,
+    )
 
     with pytest.raises(IssueValidationError, match="assigned"):
-        fixture.service.start_investigation(issue.issue_id, issue.version, context)
+        fixture.service.start_investigation(
+            issue.issue_id,
+            investigated.version,
+            context,
+        )
 
     assert len(fixture.repository.list_history(issue.issue_id)) == 2
 
@@ -617,6 +625,7 @@ def test_fr_066_fr_068_fr_070_uc_014_assignee_records_protected_resolution() -> 
             evidence_reference_id=EVIDENCE_ID,
             completed_at=NOW,
         ),
+        issue.version,
         _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
     )
 
@@ -644,6 +653,30 @@ def test_fr_066_fr_068_fr_070_uc_014_assignee_records_protected_resolution() -> 
     assert "evidence_reference_id" not in audit_event.new_value_summary
 
 
+def test_fr_068_ui_write_002_stale_resolution_does_not_mutate_issue() -> None:
+    fixture = _fixture()
+    issue = _investigating_issue(fixture)
+    history_count = len(fixture.repository.list_history(issue.issue_id))
+    audit_count = len(fixture.issue_audit_repository.list_events())
+
+    with pytest.raises(IssueConflictError, match="changed"):
+        fixture.service.resolve(
+            issue.issue_id,
+            _resolution_draft(),
+            issue.version + 1,
+            _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
+        )
+
+    stored = fixture.repository.get(issue.issue_id)
+    assert stored.status is IssueStatus.INVESTIGATING
+    assert stored.version == issue.version
+    assert len(fixture.repository.list_history(issue.issue_id)) == history_count
+    assert len(fixture.issue_audit_repository.list_events()) == audit_count
+    assert fixture.resolution_protector.calls == 0
+    with pytest.raises(IssueNotFoundError):
+        fixture.repository.get_latest_resolution(issue.issue_id)
+
+
 @pytest.mark.parametrize(
     "draft",
     [
@@ -669,6 +702,7 @@ def test_fr_068_uc_014_missing_or_invalid_resolution_fields_are_rejected(
         fixture.service.resolve(
             issue.issue_id,
             draft,
+            issue.version,
             _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
         )
 
@@ -693,7 +727,12 @@ def test_fr_066_nfr_sec_001_unauthorized_actor_cannot_resolve(context_kind: str)
     }
 
     with pytest.raises(IssueAuthorizationError):
-        fixture.service.resolve(issue.issue_id, _resolution_draft(), contexts[context_kind])
+        fixture.service.resolve(
+            issue.issue_id,
+            _resolution_draft(),
+            issue.version,
+            contexts[context_kind],
+        )
 
     assert fixture.repository.get(issue.issue_id).status is IssueStatus.INVESTIGATING
     assert fixture.resolution_protector.calls == 0
@@ -707,6 +746,7 @@ def test_fr_066_uc_014_assigned_issue_cannot_skip_investigation_to_resolved() ->
         fixture.service.resolve(
             issue.issue_id,
             _resolution_draft(),
+            issue.version,
             _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
         )
 
@@ -729,6 +769,7 @@ def test_fr_068_resolution_completion_must_be_within_issue_lifetime(
         fixture.service.resolve(
             issue.issue_id,
             _resolution_draft(completed_at=completed_at),
+            issue.version,
             _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
         )
 
@@ -765,6 +806,7 @@ def test_bfr_data_003_unprotected_resolution_output_is_rejected(
         fixture.service.resolve(
             issue.issue_id,
             _resolution_draft(),
+            issue.version,
             _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
         )
 
@@ -788,6 +830,7 @@ def test_fr_068_resolution_protector_cannot_change_evidence_reference() -> None:
         fixture.service.resolve(
             issue.issue_id,
             _resolution_draft(),
+            issue.version,
             _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
         )
 
@@ -803,6 +846,7 @@ def test_fr_068_resolution_protector_failure_is_redacted_technical_error() -> No
         fixture.service.resolve(
             issue.issue_id,
             _resolution_draft(),
+            issue.version,
             _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
         )
 
@@ -825,6 +869,7 @@ def test_fr_068_nfr_rel_006_resolution_audit_failure_rolls_back(
         fixture.service.resolve(
             issue.issue_id,
             _resolution_draft(),
+            issue.version,
             _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
         )
 
@@ -1929,6 +1974,7 @@ def _resolved_issue(
     return fixture.service.resolve(
         issue.issue_id,
         _resolution_draft(),
+        issue.version,
         _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
     )
 

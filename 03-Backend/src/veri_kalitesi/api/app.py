@@ -90,7 +90,6 @@ from veri_kalitesi.rules import (
     RuleQueryAuthorizationError,
     RuleQueryService,
     RuleQueryTechnicalError,
-    RuleValidationError,
     RuleVersion,
 )
 from veri_kalitesi.reporting import (
@@ -134,6 +133,7 @@ class IssueResolutionService(Protocol):
         self,
         issue_id: str,
         draft: IssueResolutionDraft,
+        expected_version: int,
         actor_context: ActorContext | None,
     ) -> DataQualityIssue: ...
 
@@ -817,6 +817,7 @@ def create_dashboard_api(
         issue = issue_resolution_service.resolve(
             issue_id,
             draft,
+            payload.version,
             actor_context,
         )
         response.headers["Cache-Control"] = "no-store"

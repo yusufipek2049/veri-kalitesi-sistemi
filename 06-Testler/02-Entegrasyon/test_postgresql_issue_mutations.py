@@ -26,6 +26,7 @@ from veri_kalitesi.audit import (
 from veri_kalitesi.issues import (
     DataQualityIssue,
     IssueHistoryEntry,
+    IssueNotFoundError,
     IssuePriority,
     IssueRelationship,
     IssueRelationshipType,
@@ -172,8 +173,33 @@ def test_fr_064_070_issue_lifecycle_and_audit_share_postgresql_transactions() ->
             created_by=new_assignee,
             created_at=now + timedelta(seconds=3),
         )
+        history_count = len(fixture.repository.list_history(issue.issue_id))
+        with pytest.raises(IssueValidationError, match="no longer valid"):
+            fixture.repository.resolve(
+                issue.issue_id,
+                expected_version=assigned.version - 1,
+                expected_status=IssueStatus.ASSIGNED,
+                expected_assignee_user_id=new_assignee,
+                resolution=resolution,
+                updated_at=now + timedelta(seconds=3),
+                history=IssueHistoryEntry(
+                    issue_id=issue.issue_id,
+                    action="STALE_RESOLUTION",
+                    actor_id=new_assignee,
+                    old_status=IssueStatus.ASSIGNED,
+                    new_status=IssueStatus.RESOLVED,
+                    occurred_at=now + timedelta(seconds=3),
+                    resolution_id=resolution.resolution_id,
+                ),
+                audit_event=fixture.audit_event(issue.issue_id, now),
+                audit_outbox=fixture.audit,
+            )
+        assert len(fixture.repository.list_history(issue.issue_id)) == history_count
+        with pytest.raises(IssueNotFoundError):
+            fixture.repository.get_latest_resolution(issue.issue_id)
         resolved = fixture.repository.resolve(
             issue.issue_id,
+            expected_version=assigned.version,
             expected_status=IssueStatus.ASSIGNED,
             expected_assignee_user_id=new_assignee,
             resolution=resolution,

@@ -432,6 +432,7 @@ class PostgreSQLIssueRepository:
         self,
         issue_id: str,
         *,
+        expected_version: int,
         expected_status: IssueStatus,
         expected_assignee_user_id: str,
         resolution: IssueResolutionRecord,
@@ -446,6 +447,7 @@ class PostgreSQLIssueRepository:
                 update(self._table)
                 .where(
                     self._table.c.issue_id == issue_id,
+                    self._table.c.version == expected_version,
                     self._table.c.status == expected_status.value,
                     self._table.c.assignee_user_id == expected_assignee_user_id,
                 )

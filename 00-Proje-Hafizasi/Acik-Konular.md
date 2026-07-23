@@ -259,8 +259,10 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
     yetkisi ve sayısal optimistic locking ile incelemeye alma dikeyini
     tamamlamıştır. 36B2 güvenilir kullanıcı sağlayıcısı, aktiflik/kapsam
     doğrulaması, sayısal optimistic locking, explicit kaydetme ve
-    kaydedilmemiş değişiklik uyarısıyla yeniden atamayı tamamlamıştır. 36B'nin
-    çözüm, farklı aktörle doğrulama, kapatma ve yeniden açma eylemleri ile 36C–36F
+    kaydedilmemiş değişiklik uyarısıyla yeniden atamayı tamamlamıştır. 36B3
+    korumalı çözüm kaydını zorunlu kanıt referansı, sayısal optimistic locking,
+    atomik geçmiş/audit ve açık frontend kaydetme akışıyla tamamlamıştır.
+    36B'nin farklı aktörle doğrulama, kapatma ve yeniden açma eylemleri ile 36C–36F
     mutasyonları gerçek IdP, güvenilir aktör, BFF/CSRF, rol/kapsam,
     maker-checker ve audit önkoşullarını sağlamadan açılmaz. Denetim kayıtları
     değişmezdir; kaynak sistemlere yazma kapsam dışıdır.

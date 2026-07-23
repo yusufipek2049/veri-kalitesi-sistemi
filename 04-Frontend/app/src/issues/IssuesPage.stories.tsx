@@ -23,6 +23,7 @@ export const Normal: Story = {
       },
     ],
     onReassign: async () => undefined,
+    onResolve: async () => undefined,
     onStartInvestigation: async () => undefined,
   },
 };

@@ -55,7 +55,7 @@ Durum: **TechnicallyVerified — 36A1/36A2a/36A2b tamamlandı**
 
 ## 36B — Yazılabilir Sorunlar
 
-Durum: **InProgress — 36B1 ve 36B2 TechnicallyVerified**
+Durum: **InProgress — 36B1, 36B2 ve 36B3 TechnicallyVerified**
 
 - Gereksinimler: `FR-064–FR-070`, `UC-013`, `UC-014`.
 - `36B1`: kendisine atanmış sorunu backend eylem yetkisi, BFF/CSRF ve sayısal
@@ -63,8 +63,10 @@ Durum: **InProgress — 36B1 ve 36B2 TechnicallyVerified**
 - `36B2`: güvenilir kullanıcı sağlayıcısı, aktiflik/kapsam doğrulaması,
   BFF/CSRF, sayısal optimistic locking ve açık kaydetmeyle yeniden atama;
   `TechnicallyVerified`.
-- `36B3`: korumalı çözüm kaydetme; `Ready`.
-- Farklı aktörle doğrulama ve kapatma.
+- `36B3`: korumalı çözüm kaydetme, zorunlu kanıt ve sayısal optimistic
+  locking; `TechnicallyVerified`.
+- `36B4`: farklı aktörle doğrulama; `Ready`.
+- Kapatma.
 - Aynı başarısızlıkta yeniden açma.
 - Sayısal `version` ile optimistic locking ve çakışmada `409 Conflict`.
 - Açık kaydetme, kaydedilmemiş değişiklikte çıkış uyarısı ve hassas taslağı

@@ -115,4 +115,66 @@ describe("Sorunlar ekranı", () => {
     fireEvent.click(screen.getByRole("button", { name: "Forma dön" }));
     expect(await screen.findByRole("combobox", { name: "Yeni sorumlu" })).toBeVisible();
   });
+
+  it("zorunlu kanıtla korumalı çözüm kaydını açıkça kaydeder", async () => {
+    const onResolve = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ThemeModeProvider>
+        <MemoryRouter>
+          <IssuesPage onResolve={onResolve} />
+        </MemoryRouter>
+      </ThemeModeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "DQI-2026-0016 işlemleri" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Çözüm kaydet" }));
+    fireEvent.change(screen.getByRole("textbox", { name: /Kök neden/ }), {
+      target: { value: "Kaynak eşlemesi hatalı" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: /Düzeltici faaliyet/ }), {
+      target: { value: "Eşleme yapılandırması düzeltildi" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: /Kanıt referansı/ }), {
+      target: { value: "550e8400-e29b-41d4-a716-446655440000" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
+
+    await waitFor(() => expect(onResolve).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "issue-account-investigation", version: 2 }),
+      "Kaynak eşlemesi hatalı",
+      "Eşleme yapılandırması düzeltildi",
+      "550e8400-e29b-41d4-a716-446655440000",
+      expect.stringMatching(/Z$/),
+    ));
+    expect(await screen.findByText("DQI-2026-0016 çözüm kaydı oluşturuldu.")).toBeVisible();
+  });
+
+  it("geçersiz kanıtı reddeder ve kaydedilmemiş çözümü korur", () => {
+    const onResolve = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ThemeModeProvider>
+        <MemoryRouter>
+          <IssuesPage onResolve={onResolve} />
+        </MemoryRouter>
+      </ThemeModeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "DQI-2026-0016 işlemleri" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Çözüm kaydet" }));
+    fireEvent.change(screen.getByRole("textbox", { name: /Kök neden/ }), {
+      target: { value: "Kaynak eşlemesi hatalı" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: /Düzeltici faaliyet/ }), {
+      target: { value: "Eşleme yapılandırması düzeltildi" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: /Kanıt referansı/ }), {
+      target: { value: "ham-kayıt-değeri" },
+    });
+
+    expect(screen.getByText("Geçerli bir UUID girin.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Kaydet" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Vazgeç" }));
+    expect(screen.getByText("Değişiklikler kaydedilmedi")).toBeVisible();
+    expect(onResolve).not.toHaveBeenCalled();
+  });
 });
