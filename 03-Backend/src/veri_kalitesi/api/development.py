@@ -6,9 +6,11 @@ from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from threading import RLock
+from uuid import UUID
 
 from veri_kalitesi.api.app import create_dashboard_api
 from veri_kalitesi.api.identity import DevelopmentActorContextResolver
+from veri_kalitesi.api.models import IssueAssigneeOptionResponse
 from veri_kalitesi.audit import (
     AuditAccessPolicy,
     AuditEventInput,
@@ -35,6 +37,7 @@ from veri_kalitesi.identity import (
 )
 from veri_kalitesi.issues import (
     DataQualityIssue,
+    IssueAssignment,
     IssueAuthorizationError,
     IssueConflictError,
     IssuePriority,
@@ -75,6 +78,20 @@ from veri_kalitesi.scoring import (
 )
 
 POLICY_VERSION = "DEVELOPMENT_DASHBOARD_POLICY_V1"
+DEVELOPMENT_ASSIGNEE_OPTIONS = (
+    IssueAssigneeOptionResponse(
+        user_id=UUID("4ec96cb4-d150-45d2-9565-c1879d135f08"),
+        display_name="Veri Sorumlusu A",
+    ),
+    IssueAssigneeOptionResponse(
+        user_id=UUID("d6b099c7-0b6d-4ae5-8f58-6978050c434f"),
+        display_name="Veri Sorumlusu B",
+    ),
+    IssueAssigneeOptionResponse(
+        user_id=UUID("257c5792-b9ad-4678-aa8e-f44759d4752e"),
+        display_name="Teknik Sorumlu",
+    ),
+)
 DEVELOPMENT_SOURCES = (
     DataSource(
         data_source_id="source-core-banking",
@@ -594,6 +611,73 @@ class DevelopmentIssueStore:
             self._issues[issue_id] = updated
             return updated
 
+    def list_assignment_options(
+        self,
+        issue_id: str,
+        actor_context: ActorContext | None,
+    ) -> tuple[IssueAssigneeOptionResponse, ...]:
+        if actor_context is None:
+            raise IssueAuthorizationError("Development actor is required.")
+        with self._lock:
+            issue = self._issues.get(issue_id)
+            if issue is None:
+                raise IssueValidationError("Development issue was not found.")
+            self._authorize_assignment(issue, actor_context)
+            return DEVELOPMENT_ASSIGNEE_OPTIONS
+
+    def reassign(
+        self,
+        issue_id: str,
+        assignment: IssueAssignment,
+        expected_version: int,
+        actor_context: ActorContext | None,
+    ) -> DataQualityIssue:
+        if actor_context is None:
+            raise IssueAuthorizationError("Development actor is required.")
+        with self._lock:
+            issue = self._issues.get(issue_id)
+            if issue is None:
+                raise IssueValidationError("Development issue was not found.")
+            self._authorize_assignment(issue, actor_context)
+            if issue.version != expected_version:
+                raise IssueConflictError("Development issue version changed.")
+            allowed_ids = {str(option.user_id) for option in DEVELOPMENT_ASSIGNEE_OPTIONS}
+            if assignment.assignee_user_id not in allowed_ids:
+                raise IssueAuthorizationError("Development assignee is not available.")
+            if (
+                issue.assignee_user_id == assignment.assignee_user_id
+                and issue.priority is assignment.priority
+            ):
+                raise IssueValidationError("Development assignment must change.")
+            updated = replace(
+                issue,
+                assignee_user_id=assignment.assignee_user_id,
+                priority=assignment.priority,
+                status=IssueStatus.ASSIGNED,
+                updated_at=datetime.now(timezone.utc),
+                version=issue.version + 1,
+            )
+            self._issues[issue_id] = updated
+            return updated
+
+    def _authorize_assignment(
+        self,
+        issue: DataQualityIssue,
+        actor_context: ActorContext,
+    ) -> None:
+        has_scope = (
+            issue.scope_id in actor_context.permitted_source_ids
+            if issue.scope_type is IssueScopeType.SOURCE
+            else issue.scope_id in actor_context.permitted_dataset_ids
+        )
+        if (
+            actor_context.privileged
+            or not actor_context.roles.intersection({"DATA_STEWARD", "DATA_GOVERNANCE_SPECIALIST"})
+            or not has_scope
+            or issue.status not in {IssueStatus.ASSIGNED, IssueStatus.INVESTIGATING}
+        ):
+            raise IssueAuthorizationError("Development actor cannot assign issue.")
+
 
 def create_development_app():  # type: ignore[no-untyped-def]
     """Sentetik skorlarla yerel gösterim uygulaması üretir; üretimde kullanılmaz."""
@@ -775,6 +859,8 @@ def create_development_app():  # type: ignore[no-untyped-def]
         execution_query_service=ExecutionQueryService(DevelopmentExecutionReader(), authorization),
         issue_query_service=IssueQueryService(issue_store, authorization),
         issue_investigation_service=issue_store,
+        issue_assignment_service=issue_store,
+        issue_assignee_option_provider=issue_store,
         report_preview_service=ReportPreviewService(
             SQLiteReportPreviewReader(repository.connection),
             audit_service,

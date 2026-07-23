@@ -403,9 +403,12 @@ class IssueService(Generic[AuditT]):
         self,
         issue_id: str,
         assignment: IssueAssignment,
+        expected_version: int,
         actor_context: ActorContext | None,
     ) -> DataQualityIssue:
         validate_assignment(assignment)
+        if expected_version < 1:
+            raise IssueValidationError("Issue version must be positive.")
         context = self._authorize_actor(
             actor_context,
             self.access_policy.allowed_reader_actor_types,
@@ -420,6 +423,8 @@ class IssueService(Generic[AuditT]):
             raise IssueTechnicalError("Issue could not be read.", context.correlation_id) from exc
         if not _has_scope(context, issue):
             raise IssueAuthorizationError("Actor cannot assign this issue.")
+        if issue.version != expected_version:
+            raise IssueConflictError("Issue changed after it was loaded.")
         if issue.status not in {IssueStatus.ASSIGNED, IssueStatus.INVESTIGATING}:
             raise IssueValidationError("Only assigned or investigating issues can be reassigned.")
         if (
@@ -473,6 +478,7 @@ class IssueService(Generic[AuditT]):
         try:
             stored = self.repository.update_assignment(
                 issue.issue_id,
+                expected_version=expected_version,
                 expected_status=issue.status,
                 expected_assignee_user_id=issue.assignee_user_id,
                 expected_priority=issue.priority,

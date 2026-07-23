@@ -16,8 +16,23 @@ import { dataSourcesFromApi, syntheticDataSources, type DataSourceListItem, type
 import { DashboardApiError, fetchDashboardSummary } from "./dashboard/api";
 import { ExecutionApiError, fetchExecutions } from "./executions/api";
 import { executionsFromApi, syntheticExecutions, type ExecutionListItem, type ExecutionState } from "./executions/model";
-import { fetchIssues, IssueApiError, startIssueInvestigation } from "./issues/api";
-import { issueFromApiItem, issuesFromApi, syntheticIssues, type IssueListItem, type IssueState } from "./issues/model";
+import {
+  fetchIssueAssignmentOptions,
+  fetchIssues,
+  IssueApiError,
+  reassignIssue,
+  startIssueInvestigation,
+} from "./issues/api";
+import {
+  assigneeOptionsFromApi,
+  issueFromApiItem,
+  issuesFromApi,
+  syntheticIssues,
+  type IssueAssigneeOption,
+  type IssueListItem,
+  type IssuePriority,
+  type IssueState,
+} from "./issues/model";
 import { RuleApiError, fetchRules } from "./rules/api";
 import { rulesFromApi, syntheticRules, type RuleListItem, type RuleState } from "./rules/model";
 import { fetchReportSummary, ReportApiError } from "./reports/api";
@@ -221,11 +236,38 @@ function IssuesRoute() {
     )));
     setCorrelationId(response.correlation_id);
   }, []);
+  const loadAssignmentOptions = useCallback(
+    async (item: IssueListItem): Promise<IssueAssigneeOption[]> => {
+      const response = await fetchIssueAssignmentOptions(item.id);
+      setCorrelationId(response.correlation_id);
+      return assigneeOptionsFromApi(response);
+    },
+    [],
+  );
+  const reassign = useCallback(async (
+    item: IssueListItem,
+    assigneeUserId: string,
+    priority: IssuePriority,
+  ) => {
+    const response = await reassignIssue(
+      item.id,
+      item.version,
+      assigneeUserId,
+      priority,
+    );
+    const updated = issueFromApiItem(response.item);
+    setItems((current) => current.map((candidate) => (
+      candidate.id === updated.id ? updated : candidate
+    )));
+    setCorrelationId(response.correlation_id);
+  }, []);
   return (
     <IssuesPage
       correlationId={correlationId}
       items={items}
+      onLoadAssignmentOptions={loadAssignmentOptions}
       onRefresh={() => void load()}
+      onReassign={reassign}
       onStartInvestigation={startInvestigation}
       state={fixtureState ?? state}
     />

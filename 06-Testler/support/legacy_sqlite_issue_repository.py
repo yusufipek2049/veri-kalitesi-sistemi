@@ -339,6 +339,7 @@ class SQLiteIssueRepository:
         self,
         issue_id: str,
         *,
+        expected_version: int,
         expected_status: IssueStatus,
         expected_assignee_user_id: str,
         expected_priority: IssuePriority,

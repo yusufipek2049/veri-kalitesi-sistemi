@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { issuesFromApi } from "./model";
+import { assigneeOptionsFromApi, issuesFromApi } from "./model";
 
 describe("issue API modeli", () => {
   it("snake_case yanıtı istemci modeline dönüştürür", () => {
@@ -34,5 +34,20 @@ describe("issue API modeli", () => {
       version: 4,
       availableActions: ["START_INVESTIGATION"],
     });
+  });
+
+  it("atanabilir kullanıcı seçeneğini güvenli istemci modeline dönüştürür", () => {
+    expect(assigneeOptionsFromApi({
+      api_version: "v1",
+      data_origin: "synthetic-test",
+      correlation_id: "assignee-options",
+      items: [{
+        user_id: "4ec96cb4-d150-45d2-9565-c1879d135f08",
+        display_name: "Veri Sorumlusu A",
+      }],
+    })).toEqual([{
+      userId: "4ec96cb4-d150-45d2-9565-c1879d135f08",
+      displayName: "Veri Sorumlusu A",
+    }]);
   });
 });

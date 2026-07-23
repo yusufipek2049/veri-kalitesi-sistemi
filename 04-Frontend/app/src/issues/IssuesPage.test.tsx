@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { ThemeModeProvider } from "../theme/ThemeModeProvider";
@@ -48,11 +48,71 @@ describe("Sorunlar ekranı", () => {
       </ThemeModeProvider>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "İncelemeye al" }));
+    fireEvent.click(screen.getByRole("button", { name: "DQI-2026-0017 işlemleri" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "İncelemeye al" }));
 
     expect(onStartInvestigation).toHaveBeenCalledWith(
       expect.objectContaining({ id: "issue-technical-risk", version: 1 }),
     );
     expect(await screen.findByText("DQI-2026-0017 incelemeye alındı.")).toBeVisible();
+  });
+
+  it("yetkili sorunu açık kaydetme işlemiyle yeniden atar", async () => {
+    const onLoadAssignmentOptions = vi.fn().mockResolvedValue([
+      {
+        userId: "4ec96cb4-d150-45d2-9565-c1879d135f08",
+        displayName: "Veri Sorumlusu A",
+      },
+    ]);
+    const onReassign = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ThemeModeProvider>
+        <MemoryRouter>
+          <IssuesPage
+            onLoadAssignmentOptions={onLoadAssignmentOptions}
+            onReassign={onReassign}
+          />
+        </MemoryRouter>
+      </ThemeModeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "DQI-2026-0017 işlemleri" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Yeniden ata" }));
+    await waitFor(() => expect(onLoadAssignmentOptions).toHaveBeenCalled());
+    fireEvent.mouseDown(await screen.findByLabelText("Yeni sorumlu"));
+    fireEvent.click(screen.getByRole("option", { name: "Veri Sorumlusu A" }));
+    fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
+
+    await waitFor(() => expect(onReassign).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "issue-technical-risk", version: 1 }),
+      "4ec96cb4-d150-45d2-9565-c1879d135f08",
+      "HIGH",
+    ));
+    expect(await screen.findByText("DQI-2026-0017 yeniden atandı.")).toBeVisible();
+  });
+
+  it("kaydedilmemiş atama değişikliğinde çıkış uyarısı gösterir", async () => {
+    render(
+      <ThemeModeProvider>
+        <MemoryRouter>
+          <IssuesPage
+            onLoadAssignmentOptions={vi.fn().mockResolvedValue([{
+              userId: "4ec96cb4-d150-45d2-9565-c1879d135f08",
+              displayName: "Veri Sorumlusu A",
+            }])}
+          />
+        </MemoryRouter>
+      </ThemeModeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "DQI-2026-0017 işlemleri" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Yeniden ata" }));
+    fireEvent.mouseDown(await screen.findByLabelText("Yeni sorumlu"));
+    fireEvent.click(screen.getByRole("option", { name: "Veri Sorumlusu A" }));
+    fireEvent.click(screen.getByRole("button", { name: "Vazgeç" }));
+
+    expect(screen.getByText("Değişiklikler kaydedilmedi")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Forma dön" }));
+    expect(await screen.findByRole("combobox", { name: "Yeni sorumlu" })).toBeVisible();
   });
 });

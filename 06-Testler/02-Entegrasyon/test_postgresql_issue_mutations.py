@@ -115,8 +115,32 @@ def test_fr_064_070_issue_lifecycle_and_audit_share_postgresql_transactions() ->
         assert fixture.repository.get(issue.issue_id).version == investigated.version
         assert len(fixture.repository.list_history(issue.issue_id)) == 3
         new_assignee = str(uuid4())
+        with pytest.raises(IssueValidationError, match="no longer valid"):
+            fixture.repository.update_assignment(
+                issue.issue_id,
+                expected_version=repeated.version,
+                expected_status=IssueStatus.INVESTIGATING,
+                expected_assignee_user_id=issue.assignee_user_id,
+                expected_priority=issue.priority,
+                assignee_user_id=new_assignee,
+                priority=IssuePriority.CRITICAL,
+                updated_at=now + timedelta(seconds=2),
+                history=IssueHistoryEntry(
+                    issue_id=issue.issue_id,
+                    action="STALE_REASSIGNMENT",
+                    actor_id=str(uuid4()),
+                    old_status=IssueStatus.INVESTIGATING,
+                    new_status=IssueStatus.ASSIGNED,
+                    occurred_at=now + timedelta(seconds=2),
+                ),
+                audit_event=fixture.audit_event(issue.issue_id, now),
+                audit_outbox=fixture.audit,
+            )
+        assert fixture.repository.get(issue.issue_id).version == investigated.version
+        assert len(fixture.repository.list_history(issue.issue_id)) == 3
         assigned = fixture.repository.update_assignment(
             issue.issue_id,
+            expected_version=investigated.version,
             expected_status=IssueStatus.INVESTIGATING,
             expected_assignee_user_id=issue.assignee_user_id,
             expected_priority=issue.priority,

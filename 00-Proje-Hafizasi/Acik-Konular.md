@@ -257,7 +257,10 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
     doğrulamasını ve SQLite issue runtime yolunun kaldırılmasını tamamlamıştır.
     36B1 kendisine atanmış sorunu güvenilir kapsam, BFF/CSRF, backend eylem
     yetkisi ve sayısal optimistic locking ile incelemeye alma dikeyini
-    tamamlamıştır. 36B'nin diğer yaşam döngüsü eylemleri ile 36C–36F
+    tamamlamıştır. 36B2 güvenilir kullanıcı sağlayıcısı, aktiflik/kapsam
+    doğrulaması, sayısal optimistic locking, explicit kaydetme ve
+    kaydedilmemiş değişiklik uyarısıyla yeniden atamayı tamamlamıştır. 36B'nin
+    çözüm, farklı aktörle doğrulama, kapatma ve yeniden açma eylemleri ile 36C–36F
     mutasyonları gerçek IdP, güvenilir aktör, BFF/CSRF, rol/kapsam,
     maker-checker ve audit önkoşullarını sağlamadan açılmaz. Denetim kayıtları
     değişmezdir; kaynak sistemlere yazma kapsam dışıdır.

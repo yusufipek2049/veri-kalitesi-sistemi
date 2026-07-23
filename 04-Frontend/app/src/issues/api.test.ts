@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { fetchIssues, IssueApiError, startIssueInvestigation } from "./api";
+import {
+  fetchIssueAssignmentOptions,
+  fetchIssues,
+  IssueApiError,
+  reassignIssue,
+  startIssueInvestigation,
+} from "./api";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -93,6 +99,63 @@ describe("issue API istemcisi", () => {
 
     await expect(startIssueInvestigation("issue-a", 1)).rejects.toEqual(
       new IssueApiError("conflict", "issue-conflict"),
+    );
+  });
+
+  it("atanabilir kullanıcıları veri-minimum endpoint'ten yükler", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({
+      api_version: "v1",
+      data_origin: "test",
+      correlation_id: "options",
+      items: [{
+        user_id: "4ec96cb4-d150-45d2-9565-c1879d135f08",
+        display_name: "Veri Sorumlusu A",
+      }],
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchIssueAssignmentOptions("issue-a")).resolves.toMatchObject({
+      correlation_id: "options",
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/issues/issue-a/assignment-options",
+      expect.objectContaining({ credentials: "same-origin" }),
+    );
+  });
+
+  it("CSRF kanıtı, sürüm, kullanıcı ve öncelikle yeniden atama gönderir", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response("{}", {
+        status: 200,
+        headers: { "X-CSRF-Token": "memory-only-proof" },
+      }))
+      .mockResolvedValueOnce(Response.json({
+        api_version: "v1",
+        data_origin: "test",
+        correlation_id: "assignment",
+        item: {},
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+    await fetchIssues();
+
+    await reassignIssue(
+      "issue-a",
+      3,
+      "4ec96cb4-d150-45d2-9565-c1879d135f08",
+      "CRITICAL",
+    );
+
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/issues/issue-a/assignment",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ "X-CSRF-Token": "memory-only-proof" }),
+        body: JSON.stringify({
+          version: 3,
+          assignee_user_id: "4ec96cb4-d150-45d2-9565-c1879d135f08",
+          priority: "CRITICAL",
+        }),
+      }),
     );
   });
 });
