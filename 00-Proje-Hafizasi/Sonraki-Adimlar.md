@@ -175,7 +175,9 @@ foreign key enforcement ve orphan doğrulaması iptal edilmiştir**.
 
 1. **36A — PostgreSQL-only kalıcılık temeli:** SQLite repository envanteri,
    SQLAlchemy 2 session/transaction sınırı, Alembic baseline, PostgreSQL test
-   izolasyonu ve ilk olarak issue repository geçişi.
+   izolasyonu ve ilk olarak issue repository geçişi. Otoriter geçmiş seçici
+   taşınır, uygulama tabloları `data_quality.dq` altında tutulur ve migration
+   yalnız ileri düzeltici sürümlerle yönetilir.
 2. **36B — Yazılabilir Sorunlar:** atama, incelemeye alma, çözüm, farklı aktörle
    doğrulama, kapatma ve yeniden açma.
 3. **36C — Yazılabilir Kurallar:** taslak oluşturma/düzenleme, test, onaya
@@ -191,7 +193,8 @@ foreign key enforcement ve orphan doğrulaması iptal edilmiştir**.
 Sıradaki hazır ürün artımı **36A**'dır. Hiçbir dilimde geçici SQLite mutation
 API'si veya SQLite fallback oluşturulmayacaktır. Birim testleri fake domain
 double kullanabilir; kalıcı entegrasyon testleri yalnız PostgreSQL üzerinde
-çalışacaktır.
+çalışacaktır. `PG-MIG-001–005` ve `UI-WRITE-001–007` uygulama kararları
+kesinleşmiştir.
 
 **İterasyon 30B — Sentetik dashboard çalışma iskeleti** ve **İterasyon 30C —
 Uygulama kabuğu görsel uyumu ve tema** tamamlandı. 30C, referanstaki navigasyon

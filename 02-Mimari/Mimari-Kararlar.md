@@ -49,6 +49,13 @@ yönetilir. Geçiş tek seferde değil, domain bazlı küçük dikeylerle yapıl
 taşınan domainin SQLite repository'si ve fallback'i aynı geçiş zincirinde
 kaldırılır.
 
+Migration politikası yalnız ileridir. Üretimde Alembic `downgrade` çalıştırılmaz;
+hata yeni düzeltici migration ile giderilir. Cutover öncesi PostgreSQL yedeği
+ve geri yükleme prosedürü migration downgrade'i değil, operasyonel felaket ve
+başarısız cutover korumasıdır. Uygulama tabloları `data_quality` veritabanındaki
+özel `dq` şemasında tutulur. Taşıma seçicidir; otoriter geçmiş korunur,
+yeniden üretilebilir sentetik/cache verisi yeniden oluşturulur.
+
 Yazma yüzeyleri 36A–36F bağımlılık sırasında açılır: PostgreSQL temeli ve issue
 kalıcılığı; Sorunlar yaşam döngüsü; Kurallar; Veri Kaynakları; Çalıştırmalar;
 Rapor talepleri/güvenli indirme. Her mutasyon güvenilir aktör, BFF/CSRF,
@@ -59,7 +66,10 @@ Denetim kayıtları değişmez ve salt okunur kalır.
 sistemlere salt okunur erişim değişmez; yazılabilir arayüz yalnız uygulamanın
 sahip olduğu metadata, politika, iş akışı ve sonuç kayıtlarını etkiler. Karar
 üretim PostgreSQL kümesinin kurulduğu veya banka onayının alındığı anlamına
-gelmez.
+gelmez. Yazma yetkinlikleri, optimistic locking, açık kaydetme, risk bazlı kural
+onayı, kaynak aktivasyon önkoşulları, politika kontrollü çalıştırma ve
+sınıflandırma kontrollü rapor indirme `PG-MIG-001–005` ile
+`UI-WRITE-001–007` kararlarına uyar.
 
 ## ADR-019 — Kanıta Dayalı ve Politika Farkındalıklı Karar Desteği
 

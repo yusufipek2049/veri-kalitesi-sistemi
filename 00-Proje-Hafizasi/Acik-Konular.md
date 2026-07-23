@@ -247,8 +247,10 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
     uygulanmadı. Bu kaynaklar yokken API olumlu yeterlilik veya sıfır kritik
     ihlal sayısı üretmez.
 75. PostgreSQL-only hedefi ve 36A–36F yazılabilir arayüz sırası
-    kesinleşmiştir. 36A öncesinde SQLite repository envanteri, tablo/constraint
-    eşlemesi, Alembic baseline ve PostgreSQL test izolasyonu uygulanmalıdır.
+    kesinleşmiştir. `PG-MIG-001–005` ve `UI-WRITE-001–007` teknik seçenekleri
+    karara bağlanmıştır; yalnız ileri migration kullanılır. 36A öncesinde SQLite
+    repository envanteri, tablo/constraint eşlemesi, Alembic baseline,
+    `data_quality.dq` şeması ve PostgreSQL test izolasyonu uygulanmalıdır.
     36B–36F mutasyonları gerçek IdP, güvenilir aktör, BFF/CSRF, rol/kapsam,
     maker-checker ve audit önkoşullarını sağlamadan açılmaz. Denetim kayıtları
     değişmezdir; kaynak sistemlere yazma kapsam dışıdır.
