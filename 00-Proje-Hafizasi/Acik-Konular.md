@@ -2,7 +2,7 @@
 type: project-memory
 status: open
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-last_updated: 2026-07-22
+last_updated: 2026-07-23
 tags:
   - proje
   - acik-konu
@@ -21,9 +21,10 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
 ## Geliştirmeyi En Çok Etkileyen Açık Konular
 
 1. PostgreSQL-only uygulama kalıcılığı, `psycopg 3`, SQLAlchemy 2 ve Alembic
-   karara bağlanmıştır. Mevcut SQLite repository'lerin bağımlılık sıralı
-   migration'ı, PostgreSQL test izolasyonu ve SQLite fallback'lerin kaldırılması
-   henüz uygulanmamıştır.
+   karara bağlanmıştır. 36A1 ortak transaction sınırını, Alembic baseline'ını,
+   envanteri ve scope filtreli PostgreSQL issue okumasını tamamladı. Issue
+   mutasyon/geçmiş transaction'ı ile diğer SQLite repository'lerin bağımlılık
+   sıralı migration'ı ve fallback'lerin kaldırılması henüz tamamlanmamıştır.
 2. Worker/kota/pencere/CPU/IO/timeout/rate değerleri aktif sürümlü kaynak politikasından çözülecektir; kapasite testinden üretilmiş üretim politika kaydı ve CPU/IO/rate ölçüm adaptörü henüz yoktur.
 3. Kurumsal secret manager/PAM kullanımı karara bağlanmıştır; seçilen kurumsal hizmetin servis/workload identity eşlemesi ve gerçek adaptörü beklenmektedir.
 4. Kurumsal IdP üzerinden OIDC veya SAML, MFA, PAM ve çift onaylı break-glass karara bağlanmıştır; endpoint, grup-rol-scope değerleri ve üretim rol eşlemeleri beklenmektedir.
@@ -248,12 +249,18 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
     ihlal sayısı üretmez.
 75. PostgreSQL-only hedefi ve 36A–36F yazılabilir arayüz sırası
     kesinleşmiştir. `PG-MIG-001–005` ve `UI-WRITE-001–007` teknik seçenekleri
-    karara bağlanmıştır; yalnız ileri migration kullanılır. 36A öncesinde SQLite
-    repository envanteri, tablo/constraint eşlemesi, Alembic baseline,
-    `data_quality.dq` şeması ve PostgreSQL test izolasyonu uygulanmalıdır.
+    karara bağlanmıştır; yalnız ileri migration kullanılır. 36A1 ile SQLite
+    repository envanteri, issue tablo/constraint baseline'ı, `data_quality.dq`
+    şeması ve PostgreSQL test izolasyon sözleşmesi uygulanmıştır. 36A2 issue
+    mutasyon/geçmiş aktarımı ile SQLite runtime yolunu kaldırmalıdır.
     36B–36F mutasyonları gerçek IdP, güvenilir aktör, BFF/CSRF, rol/kapsam,
     maker-checker ve audit önkoşullarını sağlamadan açılmaz. Denetim kayıtları
     değişmezdir; kaynak sistemlere yazma kapsam dışıdır.
+76. Bu WSL çalışma oturumunda `DATA_QUALITY_POSTGRES_TEST_URL` tanımlı değildir,
+    `127.0.0.1:5432` erişilebilir değildir ve Docker Desktop WSL entegrasyonu
+    etkin görünmemektedir. 36A1 gerçek PostgreSQL testi bu nedenle kontrollü
+    atlanmıştır. 36A2 öncesinde izole `data_quality` test veritabanı bu oturumdan
+    erişilebilir olmalıdır; bağlantı secret'ı repository'ye yazılmamalıdır.
 
 ## Bankacılık Geçiş Açık Konuları
 

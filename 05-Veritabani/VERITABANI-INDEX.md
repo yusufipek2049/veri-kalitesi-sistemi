@@ -16,6 +16,21 @@ tags:
 - [Kural ve Çalıştırma Varlıkları](../01-SRS/07-Veri-Modeli/Kural-ve-Calistirma-Varliklari.md)
 - [Sorun, Bildirim ve Audit Varlıkları](../01-SRS/07-Veri-Modeli/Sorun-Bildirim-ve-Audit-Varliklari.md)
 - [Kanıt ve Karar Desteği Varlıkları](../01-SRS/07-Veri-Modeli/Kanit-ve-Karar-Destegi-Varliklari.md)
+- [SQLite Kalıcılık Envanteri](SQLite-Kaliclilik-Envanteri.md)
+
+## İterasyon 36A1 PostgreSQL Temeli
+
+- Uygulama kalıcılığı yalnız `postgresql+psycopg` bağlantısını kabul eder;
+  bağlantı URL'si `DATA_QUALITY_DATABASE_URL` ortam ayarından alınır.
+- Uygulama veritabanı `data_quality`, varsayılan uygulama şeması `dq` olarak
+  doğrulanır. Secret veya parola repository'ye yazılmaz.
+- Alembic baseline issue ana kaydı, geçmiş, çözüm, doğrulama, ilişki ve audit
+  outbox tablolarını kurar.
+- Migration yalnız ileri çalışır. Üretimde `downgrade` yerine yeni düzeltici
+  migration kullanılır.
+- İlk PostgreSQL repository dilimi scope filtreli issue envanteri okumasıdır.
+  Mutasyon ve geçmiş aktarımı tamamlanmadan SQLite issue kodu kaldırılmış
+  sayılmaz.
 
 ## Tasarım İlkeleri
 
