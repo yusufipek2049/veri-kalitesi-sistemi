@@ -14,7 +14,7 @@ from veri_kalitesi.api.identity import (
     DevelopmentActorContextResolver,
     UnavailableActorContextResolver,
 )
-from veri_kalitesi.api.models import DashboardSummaryResponse
+from veri_kalitesi.api.models import DashboardSummaryResponse, ReportSummaryResponse
 
 __all__ = [
     "ActorContextResolver",
@@ -28,6 +28,7 @@ __all__ = [
     "DashboardSummaryResponse",
     "DevelopmentActorContextResolver",
     "SESSION_COOKIE_NAME",
+    "ReportSummaryResponse",
     "UnavailableActorContextResolver",
     "create_dashboard_api",
 ]

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from fastapi import FastAPI, Request, Response
@@ -24,6 +25,7 @@ from veri_kalitesi.api.models import (
     ExecutionListResponse,
     IssueListItemResponse,
     IssueListResponse,
+    ReportSummaryResponse,
     RuleListItemResponse,
     RuleListResponse,
 )
@@ -53,6 +55,13 @@ from veri_kalitesi.rules import (
     RuleQueryService,
     RuleQueryTechnicalError,
 )
+from veri_kalitesi.reporting import (
+    ReportAuthorizationError,
+    ReportPreviewRequest,
+    ReportPreviewService,
+    ReportTechnicalError,
+    ReportValidationError,
+)
 
 
 def create_dashboard_api(
@@ -66,6 +75,8 @@ def create_dashboard_api(
     rule_query_service: RuleQueryService | None = None,
     execution_query_service: ExecutionQueryService | None = None,
     issue_query_service: IssueQueryService | None = None,
+    report_preview_service: ReportPreviewService | None = None,
+    clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
 ) -> FastAPI:
     """Bağımlılıkları dışarıdan verilen, varsayılanı fail-closed API üretir."""
 
@@ -252,6 +263,42 @@ def create_dashboard_api(
             correlation_id=error.correlation_id,
         )
 
+    @app.exception_handler(ReportAuthorizationError)
+    async def handle_report_authorization_error(
+        request: Request, error: ReportAuthorizationError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=403,
+            title="Access denied",
+            detail="The requested report scope is not available.",
+            correlation_id=error.correlation_id,
+        )
+
+    @app.exception_handler(ReportTechnicalError)
+    async def handle_report_technical_error(
+        request: Request, error: ReportTechnicalError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=503,
+            title="Reports temporarily unavailable",
+            detail="The report preview could not be completed.",
+            correlation_id=error.correlation_id,
+        )
+
+    @app.exception_handler(ReportValidationError)
+    async def handle_report_validation_error(
+        request: Request, error: ReportValidationError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=503,
+            title="Reports temporarily unavailable",
+            detail="The report preview could not be completed.",
+            correlation_id=request.state.correlation_id,
+        )
+
     @app.exception_handler(ApiSessionUnavailableError)
     async def handle_session_unavailable_error(
         request: Request, error: ApiSessionUnavailableError
@@ -381,6 +428,34 @@ def create_dashboard_api(
             correlation_id=request.state.correlation_id,
             limit=issue_query_service.page_limit,
             items=tuple(IssueListItemResponse.from_domain(issue) for issue in issues),
+        )
+
+    @app.get(
+        "/api/v1/reports/summary",
+        response_model=ReportSummaryResponse,
+        tags=["reports"],
+    )
+    async def get_report_summary(request: Request, response: Response) -> ReportSummaryResponse:
+        if report_preview_service is None:
+            raise ReportTechnicalError(request.state.correlation_id)
+        actor_context = resolver.resolve(request)
+        period_end = clock()
+        if period_end.tzinfo is None or period_end.utcoffset() is None:
+            raise ReportValidationError("Report API clock must be timezone-aware.")
+        period_end = period_end.astimezone(timezone.utc)
+        preview = report_preview_service.preview_summary(
+            ReportPreviewRequest(
+                start_at=period_end - timedelta(days=30),
+                end_at=period_end,
+                reason_code="INTERACTIVE_PREVIEW",
+            ),
+            actor_context,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return ReportSummaryResponse.from_domain(
+            preview,
+            correlation_id=request.state.correlation_id,
+            data_origin=data_origin,
         )
 
     @app.post("/api/v1/session/logout", status_code=204, tags=["session"])

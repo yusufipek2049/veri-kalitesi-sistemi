@@ -718,6 +718,12 @@ yeterlilik runtime/API uygulamasını veya banka marka onayını tamamlanmış s
 | --- | --- | --- | --- |
 | Sorun listesi güvenilir aktör bağlamındaki kaynak ve dataset kapsamlarını ayrı uygulayacak, en yeni güncellenen en fazla 100 kaydı döndürecektir. DTO sorun numarası, olay/tetik türü, kapsam, yaşam döngüsü durumu, öncelik, görülme sayısı ve zamanlarla sınırlı olacaktır. | SOURCE ve DATASET kapsamlarını tek tür gibi değerlendirmek yetkisiz envanter ifşasına yol açabilir. Atanan kullanıcı, çözüm metni, yorum, kanıt, deduplication özeti ve entegrasyon hata ayrıntısı liste ekranı için gerekli değildir. | Tüm issue domain modelini döndürmek; istemcide scope filtresi yapmak; `can_view_enterprise` iznini tüm issue envanterine genişletmek; sınırsız liste döndürmek. | `/api/v1/issues` veri-minimum ve iki kapsam türünde fail-closed çalışır. Boş kapsam boş liste, güvenilmeyen bağlam 403, depo hatası redakte edilmiş 503 üretir. Atama, çözüm, doğrulama, kapatma ve ServiceNow eylemleri bu salt okunur yüzeyin dışındadır. |
 
+## 2026-07-23 — İterasyon 35E Teknik Kararı
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| İlk Raporlar ekranı mevcut auditli `ReportPreviewService` üzerinden sabit son 30 UTC günü ve yalnız güvenilir aktörün izinli kaynaklarını kullanacaktır. DTO toplulaştırılmış özet, durum ve politika bilgisiyle sınırlı olacak; PDF/XLSX/CSV, indirme ve dosya yaşam döngüsü bu dilime alınmayacaktır. | Kullanıcıdan scope veya geniş tarih aralığı kabul etmek yetki ve senkron sorgu riskini büyütür. Dışa aktarma ise ayrı DLP, saklama, maker-checker ve `OPEN-BNK-014` kararı gerektirir. | İstemcide scope filtresi yapmak; serbest tarih aralığı açmak; domain servisini atlayıp skor deposunu API'den doğrudan sorgulamak; sentetik indirilebilir dosya üretmek. | `/api/v1/reports/summary` ve `/reports` salt okunur, `no-store`, veri-minimum ve fail-closed çalışır. Hesaplanan, resmî kısmi, veri yok ve teknik hata durumları korunur; eksik skor sıfıra çevrilmez. Hassas dışa aktarma açık konu olarak kalır. |
+
 ## 2026-07-22 — İterasyon 20E Teknik Kararı
 
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
