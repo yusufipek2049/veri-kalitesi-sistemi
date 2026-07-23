@@ -12,7 +12,7 @@ from veri_kalitesi.data_sources import DataSource
 from veri_kalitesi.executions import RuleExecution
 from veri_kalitesi.issues import DataQualityIssue, IssuePriority
 from veri_kalitesi.reporting import ReportPreview, ReportSummaryRow
-from veri_kalitesi.rules import QualityRule, RuleVersion
+from veri_kalitesi.rules import QualityRule, RuleTestResult, RuleVersion
 
 
 class DataSourceListItemResponse(BaseModel):
@@ -109,6 +109,107 @@ class RuleMutationResponse(BaseModel):
     data_origin: str
     correlation_id: str
     item: RuleListItemResponse
+
+
+class RuleVersionCreateRequest(BaseModel):
+    """Kural sürümü oluşturma için girdi modeli."""
+
+    model_config = ConfigDict(frozen=True)
+
+    threshold: float = Field(ge=0, le=100)
+    weight: float = Field(gt=0)
+    criticality: str = Field(min_length=1)
+    parameters: dict = Field(default_factory=dict)
+
+
+class RuleTestRequest(BaseModel):
+    """Kural testi çalıştırma için girdi modeli."""
+
+    model_config = ConfigDict(frozen=True)
+
+    rule_version_id: str = Field(min_length=1)
+    limit: int = Field(default=10_000, ge=1, le=10_000)
+
+
+class RuleTestResultResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    rule_test_result_id: str
+    rule_version_id: str
+    status: str
+    record_limit: int
+    checked_count: int
+    passed_count: int
+    failed_count: int
+    not_evaluated_count: int
+    success_rate: float | None
+    preview_score: float | None
+    official_score_included: bool
+    error_class: str | None
+    message: str
+    created_at: datetime
+
+    @classmethod
+    def from_domain(cls, result: RuleTestResult) -> "RuleTestResultResponse":
+        return cls(
+            rule_test_result_id=result.rule_test_result_id,
+            rule_version_id=result.rule_version_id,
+            status=result.status.value,
+            record_limit=result.record_limit,
+            checked_count=result.checked_count,
+            passed_count=result.passed_count,
+            failed_count=result.failed_count,
+            not_evaluated_count=result.not_evaluated_count,
+            success_rate=result.success_rate,
+            preview_score=result.preview_score,
+            official_score_included=result.official_score_included,
+            error_class=result.error_class,
+            message=result.message,
+            created_at=result.created_at,
+        )
+
+
+class RuleActivationRequest(BaseModel):
+    """Kural aktivasyonu için girdi modeli."""
+
+    model_config = ConfigDict(frozen=True)
+
+    quality_rule_id: str = Field(min_length=1)
+
+
+class RuleApprovalRequestPayload(BaseModel):
+    """Kural onay isteği için girdi modeli."""
+
+    model_config = ConfigDict(frozen=True)
+
+    quality_rule_id: str = Field(min_length=1)
+
+
+class RuleApprovalDecisionRequest(BaseModel):
+    """Kural onay kararı için girdi modeli."""
+
+    model_config = ConfigDict(frozen=True)
+
+    approval_request_id: str = Field(min_length=1)
+    decision: str = Field(min_length=1, pattern=r"^(APPROVE|REJECT)$")
+    reason_code: str = Field(min_length=1, max_length=120)
+
+
+class RuleApprovalWithdrawRequest(BaseModel):
+    """Kural onay geri çekme için girdi modeli."""
+
+    model_config = ConfigDict(frozen=True)
+
+    approval_request_id: str = Field(min_length=1)
+    reason_code: str = Field(min_length=1, max_length=120)
+
+
+class RulePassivationRequest(BaseModel):
+    """Kural pasifleştirme için girdi modeli."""
+
+    model_config = ConfigDict(frozen=True)
+
+    quality_rule_id: str = Field(min_length=1)
 
 
 class ExecutionListItemResponse(BaseModel):

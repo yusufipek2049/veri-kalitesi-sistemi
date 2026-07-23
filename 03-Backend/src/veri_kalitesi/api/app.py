@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from datetime import datetime, timedelta, timezone
-from typing import Annotated, Protocol
+from typing import Annotated, Any, Protocol
 from uuid import uuid4
 
 from fastapi import FastAPI, Query as FastApiQuery, Request, Response
@@ -39,10 +39,18 @@ from veri_kalitesi.api.models import (
     IssueResolutionDraftRequest,
     IssueVerificationRequest,
     ReportSummaryResponse,
+    RuleActivationRequest,
+    RuleApprovalDecisionRequest,
+    RuleApprovalRequestPayload,
+    RuleApprovalWithdrawRequest,
     RuleCreateRequest,
     RuleListItemResponse,
     RuleListResponse,
     RuleMutationResponse,
+    RulePassivationRequest,
+    RuleTestRequest,
+    RuleTestResultResponse,
+    RuleVersionCreateRequest,
 )
 from veri_kalitesi.audit import (
     AuditQuery,
@@ -90,6 +98,7 @@ from veri_kalitesi.rules import (
     RuleQueryAuthorizationError,
     RuleQueryService,
     RuleQueryTechnicalError,
+    RuleTestResult,
     RuleVersion,
 )
 from veri_kalitesi.reporting import (
@@ -174,6 +183,76 @@ class RuleCreatorService(Protocol):
     ) -> tuple[QualityRule, RuleVersion]: ...
 
 
+class RuleMutationService(Protocol):
+    """Kural mutasyonlari icin tek protokol.
+
+    Her metod domain mutasyonunu gerceklestirir ve HTTP yaniti icin
+    hem guncel QualityRule hem de en son RuleVersion dondurur.
+    """
+
+    def create_version(
+        self,
+        *,
+        actor_id: str,
+        quality_rule_id: str,
+        parameters: dict,
+        threshold: float,
+        weight: float,
+        criticality: str,
+        correlation_id: str | None = None,
+        actor_context: ActorContext | None = None,
+    ) -> tuple[QualityRule, RuleVersion]: ...
+
+    def test_rule(
+        self,
+        *,
+        actor_id: str,
+        rule_version_id: str,
+        options: Any | None = None,
+        correlation_id: str | None = None,
+    ) -> RuleTestResult: ...
+
+    def activate_rule(
+        self,
+        *,
+        actor_id: str,
+        quality_rule_id: str,
+        correlation_id: str | None = None,
+    ) -> tuple[QualityRule, RuleVersion]: ...
+
+    def request_rule_approval(
+        self,
+        *,
+        actor_context: ActorContext | None,
+        quality_rule_id: str,
+    ) -> tuple[QualityRule, RuleVersion]: ...
+
+    def decide_rule_approval(
+        self,
+        *,
+        actor_context: ActorContext | None,
+        approval_request_id: str,
+        decision: str,
+        reason_code: str,
+    ) -> tuple[QualityRule, RuleVersion]: ...
+
+    def withdraw_rule_approval(
+        self,
+        *,
+        actor_context: ActorContext | None,
+        approval_request_id: str,
+        reason_code: str,
+    ) -> tuple[QualityRule, RuleVersion]: ...
+
+    def passivate_rule(
+        self,
+        *,
+        quality_rule_id: str,
+        correlation_id: str | None = None,
+        actor_context: ActorContext | None = None,
+    ) -> tuple[QualityRule, RuleVersion]: ...
+
+
 class StateChangeBoundary(Protocol):
     def protect_state_changing(self, request: Request) -> ActorContext | None: ...
 
@@ -196,6 +275,7 @@ def create_dashboard_api(
     issue_verification_service: IssueVerificationService | None = None,
     issue_closure_service: IssueClosureService | None = None,
     rule_creator_service: RuleCreatorService | None = None,
+    rule_mutation_service: RuleMutationService | None = None,
     report_preview_service: ReportPreviewService | None = None,
     audit_query_service: AuditQueryService | None = None,
     clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
@@ -1025,6 +1105,220 @@ def create_dashboard_api(
             criticality=payload.criticality,
             owner_user_id=payload.owner_user_id,
             parameters=payload.parameters,
+            actor_context=actor_context,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return RuleMutationResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=RuleListItemResponse.from_domain(rule, version),
+        )
+
+    @app.post(
+        "/api/v1/rules/{quality_rule_id}/versions",
+        response_model=RuleMutationResponse,
+        status_code=201,
+        tags=["rules"],
+    )
+    async def create_rule_version(
+        quality_rule_id: str,
+        payload: RuleVersionCreateRequest,
+        request: Request,
+        response: Response,
+    ) -> RuleMutationResponse:
+        if rule_mutation_service is None:
+            raise RuleQueryTechnicalError(
+                "Rule mutation service is unavailable.", request.state.correlation_id
+            )
+        actor_context = getattr(request.state, "actor_context", None)
+        if actor_context is None:
+            actor_context = resolver.resolve(request)
+        rule, version = rule_mutation_service.create_version(
+            actor_id=actor_context.actor_id if actor_context else "unknown",
+            quality_rule_id=quality_rule_id,
+            parameters=payload.parameters,
+            threshold=payload.threshold,
+            weight=payload.weight,
+            criticality=payload.criticality,
+            actor_context=actor_context,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return RuleMutationResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=RuleListItemResponse.from_domain(rule, version),
+        )
+
+    @app.post(
+        "/api/v1/rules/{quality_rule_id}/test",
+        response_model=RuleTestResultResponse,
+        status_code=201,
+        tags=["rules"],
+    )
+    async def test_rule(
+        quality_rule_id: str,
+        payload: RuleTestRequest,
+        request: Request,
+        response: Response,
+    ) -> RuleTestResultResponse:
+        if rule_mutation_service is None:
+            raise RuleQueryTechnicalError(
+                "Rule mutation service is unavailable.", request.state.correlation_id
+            )
+        actor_context = getattr(request.state, "actor_context", None)
+        if actor_context is None:
+            actor_context = resolver.resolve(request)
+        from veri_kalitesi.rules.models import RuleTestOptions
+
+        options = RuleTestOptions(limit=payload.limit)
+        result = rule_mutation_service.test_rule(
+            actor_id=actor_context.actor_id if actor_context else "unknown",
+            rule_version_id=payload.rule_version_id,
+            options=options,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return RuleTestResultResponse.from_domain(result)
+
+    @app.post(
+        "/api/v1/rules/{quality_rule_id}/activation",
+        response_model=RuleMutationResponse,
+        tags=["rules"],
+    )
+    async def activate_rule(
+        quality_rule_id: str,
+        payload: RuleActivationRequest,
+        request: Request,
+        response: Response,
+    ) -> RuleMutationResponse:
+        if rule_mutation_service is None:
+            raise RuleQueryTechnicalError(
+                "Rule mutation service is unavailable.", request.state.correlation_id
+            )
+        actor_context = getattr(request.state, "actor_context", None)
+        if actor_context is None:
+            actor_context = resolver.resolve(request)
+        rule, version = rule_mutation_service.activate_rule(
+            quality_rule_id=quality_rule_id,
+            actor_id=actor_context.actor_id if actor_context else "unknown",
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return RuleMutationResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=RuleListItemResponse.from_domain(rule, version),
+        )
+
+    @app.post(
+        "/api/v1/rules/{quality_rule_id}/approval",
+        response_model=RuleMutationResponse,
+        status_code=201,
+        tags=["rules"],
+    )
+    async def request_rule_approval(
+        quality_rule_id: str,
+        payload: RuleApprovalRequestPayload,
+        request: Request,
+        response: Response,
+    ) -> RuleMutationResponse:
+        if rule_mutation_service is None:
+            raise RuleQueryTechnicalError(
+                "Rule mutation service is unavailable.", request.state.correlation_id
+            )
+        actor_context = getattr(request.state, "actor_context", None)
+        if actor_context is None:
+            actor_context = resolver.resolve(request)
+        rule, version = rule_mutation_service.request_rule_approval(
+            actor_context=actor_context,
+            quality_rule_id=quality_rule_id,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return RuleMutationResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=RuleListItemResponse.from_domain(rule, version),
+        )
+
+    @app.post(
+        "/api/v1/rules/approval/{approval_request_id}/decide",
+        response_model=RuleMutationResponse,
+        tags=["rules"],
+    )
+    async def decide_rule_approval(
+        approval_request_id: str,
+        payload: RuleApprovalDecisionRequest,
+        request: Request,
+        response: Response,
+    ) -> RuleMutationResponse:
+        if rule_mutation_service is None:
+            raise RuleQueryTechnicalError(
+                "Rule mutation service is unavailable.", request.state.correlation_id
+            )
+        actor_context = getattr(request.state, "actor_context", None)
+        if actor_context is None:
+            actor_context = resolver.resolve(request)
+        rule, version = rule_mutation_service.decide_rule_approval(
+            actor_context=actor_context,
+            approval_request_id=approval_request_id,
+            decision=payload.decision,
+            reason_code=payload.reason_code,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return RuleMutationResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=RuleListItemResponse.from_domain(rule, version),
+        )
+
+    @app.post(
+        "/api/v1/rules/approval/{approval_request_id}/withdraw",
+        response_model=RuleMutationResponse,
+        tags=["rules"],
+    )
+    async def withdraw_rule_approval(
+        approval_request_id: str,
+        payload: RuleApprovalWithdrawRequest,
+        request: Request,
+        response: Response,
+    ) -> RuleMutationResponse:
+        if rule_mutation_service is None:
+            raise RuleQueryTechnicalError(
+                "Rule mutation service is unavailable.", request.state.correlation_id
+            )
+        actor_context = getattr(request.state, "actor_context", None)
+        if actor_context is None:
+            actor_context = resolver.resolve(request)
+        rule, version = rule_mutation_service.withdraw_rule_approval(
+            actor_context=actor_context,
+            approval_request_id=approval_request_id,
+            reason_code=payload.reason_code,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return RuleMutationResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=RuleListItemResponse.from_domain(rule, version),
+        )
+
+    @app.post(
+        "/api/v1/rules/{quality_rule_id}/passivation",
+        response_model=RuleMutationResponse,
+        tags=["rules"],
+    )
+    async def passivate_rule(
+        quality_rule_id: str,
+        payload: RulePassivationRequest,
+        request: Request,
+        response: Response,
+    ) -> RuleMutationResponse:
+        if rule_mutation_service is None:
+            raise RuleQueryTechnicalError(
+                "Rule mutation service is unavailable.", request.state.correlation_id
+            )
+        actor_context = getattr(request.state, "actor_context", None)
+        if actor_context is None:
+            actor_context = resolver.resolve(request)
+        rule, version = rule_mutation_service.passivate_rule(
+            quality_rule_id=quality_rule_id,
             actor_context=actor_context,
         )
         response.headers["Cache-Control"] = "no-store"

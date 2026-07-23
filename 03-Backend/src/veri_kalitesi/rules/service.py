@@ -332,6 +332,71 @@ class RuleService(Generic[AuditT]):
         self.transactional_audit.publish_pending()
         return result
 
+    def passivate_rule(
+        self,
+        *,
+        quality_rule_id: str,
+        correlation_id: str | None = None,
+        actor_context: ActorContext | None = None,
+    ) -> QualityRule:
+        """Aktif kurali pasif duruma getirir.
+
+        Yalniz ACTIVE durumdaki kural, güvenilir DATA_STEWARD veya
+        DATA_GOVERNANCE_SPECIALIST aktörü ve dataset kapsamiyla PASSIVE yapilabilir.
+        """
+        correlation_id = _resolve_correlation_id(correlation_id)
+        rule = self.repository.get_rule(quality_rule_id)
+        if rule.status is not RuleStatus.ACTIVE:
+            raise RuleValidationError("Only an active rule can be passivated.")
+        context = self._authorize_data_steward(
+            actor_context,
+            dataset_id=rule.dataset_id,
+        )
+        versions = self.repository.list_versions(quality_rule_id)
+        if not versions:
+            raise RuleValidationError("Rule passivation requires a version.")
+        audit_event = self._build_audit_event(
+            context.actor_id,
+            correlation_id,
+            "QUALITY_RULE_PASSIVATED",
+            quality_rule_id,
+            AuditResult.SUCCESS,
+            "QUALITY_RULE_PASSIVATED",
+            {"status": RuleStatus.PASSIVE.value},
+            old_values={"status": RuleStatus.ACTIVE.value},
+            actor_type=context.actor_type.value,
+            session_id=context.session_id,
+        )
+        passive_rule = self.repository.update_rule_status(
+            quality_rule_id,
+            RuleStatus.PASSIVE,
+            audit_event=self.transactional_audit.prepare(audit_event),
+            audit_outbox=self.transactional_audit,
+        )
+        self.transactional_audit.publish_pending()
+        return passive_rule
+
+    def _authorize_data_steward(
+        self,
+        context: ActorContext | None,
+        *,
+        dataset_id: str,
+    ) -> ActorContext:
+        now = self.clock()
+        if not _is_aware(now):
+            raise RuleAuthorizationError("Rule passivation clock must be timezone-aware.")
+        if not is_trusted_actor_context(context):
+            raise RuleAuthorizationError("Trusted actor context is required for rule passivation.")
+        assert context is not None
+        if context.issued_at > now or context.expires_at <= now:
+            raise RuleAuthorizationError("Actor context is not currently valid.")
+        stewards = {"DATA_STEWARD", "DATA_GOVERNANCE_SPECIALIST"}
+        if context.roles.isdisjoint(stewards):
+            raise RuleAuthorizationError("Actor does not have the required role for passivation.")
+        if dataset_id not in context.permitted_dataset_ids:
+            raise RuleAuthorizationError("Actor is outside the rule dataset scope for passivation.")
+        return context
+
     def activate_rule(
         self,
         *,

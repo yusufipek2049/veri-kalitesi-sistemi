@@ -525,6 +525,125 @@ def test_fr_030_uc_005_rejects_activation_without_successful_test() -> None:
         service.activate_rule(actor_id="user-1", quality_rule_id=rule.quality_rule_id)
 
 
+def test_passivate_rule_transitions_active_to_passive() -> None:
+    repository = SQLiteRuleRepository()
+    service = _rule_service(
+        repository,
+        FakeMetadataCatalog(),
+        FakeRuleExecutor(RuleTestComputation(5, 5, 0)),
+    )
+    rule, version = _create_required_rule(service)
+    service.test_rule(actor_id="user-1", rule_version_id=version.rule_version_id)
+    service.activate_rule(actor_id="user-1", quality_rule_id=rule.quality_rule_id)
+
+    passive = service.passivate_rule(
+        quality_rule_id=rule.quality_rule_id,
+        actor_context=_actor_context("steward-1", {"DATA_STEWARD"}),
+    )
+
+    assert passive.status is RuleStatus.PASSIVE
+    assert repository.get_rule(rule.quality_rule_id).status is RuleStatus.PASSIVE
+    audit = _audit_events(service)[-1]
+    assert audit.action == "QUALITY_RULE_PASSIVATED"
+    assert audit.old_value_summary == {"status": "ACTIVE"}
+    assert audit.new_value_summary["status"] == "PASSIVE"
+
+
+def test_passivate_rule_rejects_non_active_rule() -> None:
+    repository = SQLiteRuleRepository()
+    service = _rule_service(
+        repository,
+        FakeMetadataCatalog(),
+        FakeRuleExecutor(RuleTestComputation(5, 5, 0)),
+    )
+    rule, _ = _create_required_rule(service)
+
+    with pytest.raises(RuleValidationError, match="Only an active rule"):
+        service.passivate_rule(
+            quality_rule_id=rule.quality_rule_id,
+            actor_context=_actor_context("steward-1", {"DATA_STEWARD"}),
+        )
+
+
+def test_passivate_rule_rejects_unauthorized_actor() -> None:
+    repository = SQLiteRuleRepository()
+    service = _rule_service(
+        repository,
+        FakeMetadataCatalog(),
+        FakeRuleExecutor(RuleTestComputation(5, 5, 0)),
+    )
+    rule, version = _create_required_rule(service)
+    service.test_rule(actor_id="user-1", rule_version_id=version.rule_version_id)
+    service.activate_rule(actor_id="user-1", quality_rule_id=rule.quality_rule_id)
+
+    with pytest.raises(RuleAuthorizationError):
+        service.passivate_rule(
+            quality_rule_id=rule.quality_rule_id,
+            actor_context=_actor_context("viewer-1", {"DATA_VIEWER"}),
+        )
+
+
+def test_passivate_rule_rejects_missing_actor_context() -> None:
+    repository = SQLiteRuleRepository()
+    service = _rule_service(
+        repository,
+        FakeMetadataCatalog(),
+        FakeRuleExecutor(RuleTestComputation(5, 5, 0)),
+    )
+    rule, version = _create_required_rule(service)
+    service.test_rule(actor_id="user-1", rule_version_id=version.rule_version_id)
+    service.activate_rule(actor_id="user-1", quality_rule_id=rule.quality_rule_id)
+
+    with pytest.raises(RuleAuthorizationError, match="Trusted actor context"):
+        service.passivate_rule(
+            quality_rule_id=rule.quality_rule_id,
+            actor_context=None,
+        )
+
+
+def test_passivate_rule_rejects_out_of_scope_actor() -> None:
+    repository = SQLiteRuleRepository()
+    service = _rule_service(
+        repository,
+        FakeMetadataCatalog(),
+        FakeRuleExecutor(RuleTestComputation(5, 5, 0)),
+    )
+    rule, version = _create_required_rule(service)
+    service.test_rule(actor_id="user-1", rule_version_id=version.rule_version_id)
+    service.activate_rule(actor_id="user-1", quality_rule_id=rule.quality_rule_id)
+
+    with pytest.raises(RuleAuthorizationError, match="outside the rule dataset scope"):
+        service.passivate_rule(
+            quality_rule_id=rule.quality_rule_id,
+            actor_context=_actor_context(
+                "steward-other",
+                {"DATA_STEWARD"},
+                dataset_ids={"dataset-other"},
+            ),
+        )
+
+
+def test_passivate_rule_audit_outbox_failure_rolls_back() -> None:
+    repository = SQLiteRuleRepository()
+    service = _rule_service(
+        repository,
+        FakeMetadataCatalog(),
+        FakeRuleExecutor(RuleTestComputation(5, 5, 0)),
+    )
+    rule, version = _create_required_rule(service)
+    service.test_rule(actor_id="user-1", rule_version_id=version.rule_version_id)
+    service.activate_rule(actor_id="user-1", quality_rule_id=rule.quality_rule_id)
+    _use_failing_stage(service)
+
+    with pytest.raises(sqlite3.OperationalError, match="outbox write failure"):
+        service.passivate_rule(
+            quality_rule_id=rule.quality_rule_id,
+            actor_context=_actor_context("steward-1", {"DATA_STEWARD"}),
+        )
+
+    assert repository.get_rule(rule.quality_rule_id).status is RuleStatus.ACTIVE
+
+
 class FailingAuditRepository:
     def append(self, prepared: PreparedAuditEvent) -> AuditEvent:
         raise sqlite3.OperationalError("synthetic audit outage")

@@ -229,6 +229,7 @@ def build_default_redaction_policy() -> AuditRedactionPolicy:
                 }
             ),
             "QUALITY_RULE_ACTIVATED": frozenset({"rule_version_id", "status"}),
+            "QUALITY_RULE_PASSIVATED": frozenset({"rule_version_id", "status"}),
             "QUALITY_RULE_APPROVAL_REQUESTED": frozenset(
                 {
                     "rule_version_id",
