@@ -37,6 +37,8 @@ interface RulesPageProps {
   items?: RuleListItem[];
   correlationId?: string;
   onRefresh?: () => void;
+  onCreateRule?: (payload: RuleCreateRequest) => Promise<void>;
+  csrfProof?: string;
 }
 
 const statusLabels: Record<string, string> = {
@@ -215,6 +217,8 @@ export function RulesPage({
   const [status, setStatus] = useState("ALL");
   const [dimension, setDimension] = useState("ALL");
   const [criticality, setCriticality] = useState("ALL");
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [formData, setFormData] = useState<RuleCreateRequest>({
     code: "",
@@ -228,6 +232,47 @@ export function RulesPage({
     owner_user_id: "",
     parameters: {},
   });
+
+  const handleCreateRule = () => {
+    setDialogOpen(true);
+    setCreateError(null);
+  };
+
+  const handleCloseDialog = () => {
+    if (!createLoading) {
+      setDialogOpen(false);
+      setCreateError(null);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (createLoading) return;
+    setCreateLoading(true);
+    setCreateError(null);
+    try {
+      if (onCreateRule) {
+        await onCreateRule(formData);
+      }
+      setDialogOpen(false);
+      setFormData({
+        code: "",
+        name: "",
+        dataset_id: "",
+        rule_type: "REQUIRED",
+        primary_dimension: "COMPLETENESS",
+        threshold: 100,
+        weight: 1,
+        criticality: "MEDIUM",
+        owner_user_id: "",
+        parameters: {},
+      });
+    } catch {
+      setCreateError("Kural oluşturulamadı. Lütfen bilgileri kontrol edin.");
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
   const visibleItems = useMemo(
     () => items.filter((item) => {
       const searchable = `${item.name} ${item.code} ${item.datasetId} ${item.ruleType}`;
@@ -245,19 +290,6 @@ export function RulesPage({
       name: `${item.name} ${group + 1}`,
     }))).flat()
     : visibleItems;
-
-  const handleCreateRule = () => {
-    setDialogOpen(true);
-  };
-
-  const handleCloseDialog = () => {
-    setDialogOpen(false);
-  };
-
-  const handleSubmit = () => {
-    // TODO: API call to create rule
-    setDialogOpen(false);
-  };
 
   return (
     <AppShell currentPage="Kurallar">
@@ -370,11 +402,14 @@ export function RulesPage({
                 required
                 value={formData.owner_user_id}
               />
+            {createError ? (
+                <Alert severity="error" sx={{ mb: 1 }}>{createError}</Alert>
+              ) : null}
             </Box>
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleCloseDialog}>İptal</Button>
-            <Button onClick={handleSubmit} variant="contained">Oluştur</Button>
+            <Button disabled={createLoading} onClick={handleCloseDialog}>İptal</Button>
+            <Button disabled={createLoading} onClick={handleSubmit} variant="contained">{createLoading ? "Oluşturuluyor..." : "Oluştur"}</Button>
           </DialogActions>
         </Dialog>
 
