@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict
 
+from veri_kalitesi.audit import AuditEvent, AuditQueryPage
 from veri_kalitesi.dashboard import DashboardOverview
 from veri_kalitesi.data_sources import DataSource
 from veri_kalitesi.executions import RuleExecution
@@ -227,6 +228,82 @@ class ReportSummaryResponse(BaseModel):
             policy_version=preview.policy_version,
             masking_mode=preview.masking_mode,
             rows=tuple(ReportSummaryRowResponse.from_domain(row) for row in preview.rows),
+        )
+
+
+class AuditEventListItemResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    sequence_no: int
+    event_id: str
+    occurred_at: datetime
+    actor_id: str
+    actor_type: str | None
+    correlation_id: str
+    action: str
+    object_type: str
+    object_id: str | None
+    result: str
+    reason_code: str
+    redacted_field_count: int
+
+    @classmethod
+    def from_domain(cls, event: AuditEvent) -> "AuditEventListItemResponse":
+        return cls(
+            sequence_no=event.sequence_no,
+            event_id=event.event_id,
+            occurred_at=event.occurred_at,
+            actor_id=event.actor_id,
+            actor_type=event.actor_type,
+            correlation_id=event.correlation_id,
+            action=event.action,
+            object_type=event.object_type,
+            object_id=event.object_id,
+            result=event.result.value,
+            reason_code=event.reason_code,
+            redacted_field_count=len(event.redacted_fields),
+        )
+
+
+class AuditEventListResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    period_start: datetime
+    period_end: datetime
+    integrity_valid: bool
+    integrity_checked_count: int
+    next_after_sequence_no: int | None
+    through_sequence_no: int
+    page_size: int
+    policy_version: str
+    items: tuple[AuditEventListItemResponse, ...]
+
+    @classmethod
+    def from_domain(
+        cls,
+        page: AuditQueryPage,
+        *,
+        period_start: datetime,
+        period_end: datetime,
+        page_size: int,
+        correlation_id: str,
+        data_origin: str,
+    ) -> "AuditEventListResponse":
+        return cls(
+            data_origin=data_origin,
+            correlation_id=correlation_id,
+            period_start=period_start,
+            period_end=period_end,
+            integrity_valid=page.integrity.valid,
+            integrity_checked_count=page.integrity.checked_count,
+            next_after_sequence_no=page.next_after_sequence_no,
+            through_sequence_no=page.through_sequence_no,
+            page_size=page_size,
+            policy_version=page.policy_version,
+            items=tuple(AuditEventListItemResponse.from_domain(event) for event in page.events),
         )
 
 

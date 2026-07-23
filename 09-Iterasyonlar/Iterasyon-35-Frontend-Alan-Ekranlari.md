@@ -1,7 +1,7 @@
 ---
 iteration: 35
-status: in-progress
-completed_at: null
+status: TechnicallyVerified
+completed_at: 2026-07-23
 ---
 
 # İterasyon 35 — Frontend Alan Ekranları
@@ -269,6 +269,68 @@ hata düşük kalite skoru gibi gösterilmez.
   erişilebilir session store ve üretim repository bağlantısı uygulanmamıştır.
 - Bu kayıt banka onayı veya üretim uygunluğu değildir.
 
+## 35F — Salt Okunur Denetim Ekranı
+
+Durum: **TechnicallyVerified**
+
+### Kullanıcı Değeri
+
+Yetkili denetçi, çevrimiçi audit kayıtlarını güvenilir rol sınırında filtreleyip
+sayfalayabilir; olay sonuçlarını ve zincir bütünlüğünü hassas değişiklik
+özetleri istemciye taşınmadan inceleyebilir.
+
+### Kapsam
+
+- Güvenilir `AUDIT_VIEWER` aktör bağlamıyla çalışan
+  `GET /api/v1/audit/events`.
+- En fazla 31 günlük pencere, 100 kayıtlık sayfa ve sabit snapshot cursor.
+- Aktör, işlem, nesne, sonuç ve correlation sunucu filtreleri.
+- Eski/yeni değer özeti, hash ve session özeti içermeyen veri-minimum DTO.
+- `/audit` rotasında filtre, bütünlük özeti, olay listesi ve sayfalama.
+- Loading, empty, technical error, unauthorized ve long-content durumları.
+
+### Gereksinim Bağlantıları
+
+- `FR-077–FR-079`
+- `UC-016`
+- `AC-026`
+- `FE-DS-015`
+- `NFR-SEC-001/005/008/011`
+- `NFR-CMP-001–NFR-CMP-003`
+- `NFR-USA-001–NFR-USA-006`
+
+### Doğrulama
+
+- Backend: altı yeni API testi; güvenilir rol, sahte header etkisizliği,
+  snapshot sayfalama, veri-minimum DTO, güvenli doğrulama ve teknik hata
+  yolları.
+- Frontend: 59 Vitest ve 87 Playwright testi; beş viewport, açık/koyu tema,
+  yatay taşma, ikon ekseni, filtre/temizleme, klavye odağı ve yetkisiz veri
+  ifşa etmeme.
+- TypeScript, Vite/Storybook build, 1060 pytest, 128 kaynak dosyalık mypy,
+  Ruff, `compileall`, npm audit ve `28A-v1` secret taraması geçti.
+
+### Görsel İyileştirme Turları
+
+1. Beş masaüstü viewport ve iki temada filtre yoğunluğu, olay ikon ekseni,
+   durum ayrımı, klavye odağı ve yatay taşma doğrudan incelendi.
+2. Olay zamanı dar görünümde aktör satırına taşındı; zincir bütünlüğü kartı
+   başarı/hata tonuyla belirginleştirildi ve tam 87 senaryolu görsel paket
+   yeniden çalıştırıldı.
+
+### Sınırlar
+
+- Dışa aktarma, 31 günü aşan arşiv sorgusu, eski/yeni değer ayrıntısı ve istemci
+  bilgisi alanı yoktur.
+- Yerel uygulama yalnız sentetik audit olayları kullanır. Gerçek IdP, yüksek
+  erişilebilir session store ve üretim repository bağlantısı uygulanmamıştır.
+- Maker-checker etkisi yoktur; bu iterasyon audit veya güvenlik politikası
+  değiştiren işlem içermez.
+- Bu kayıt banka onayı veya üretim uygunluğu değildir.
+
 ## Sonraki Dilim
 
-35F, mevcut audit inceleme sözleşmesiyle salt okunur Denetim ekranıdır.
+Kullanıcı öncelikli 35A–35F alan ekranı zinciri tamamlandı. Sıradaki hazır
+teknik aday, repository bağlantılarında **R-06 — SQLite foreign key enforcement
+ve orphan doğrulaması**dır; üretim bağlantıları banka/altyapı kararlarını
+beklemeye devam eder.

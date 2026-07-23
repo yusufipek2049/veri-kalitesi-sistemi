@@ -724,6 +724,12 @@ yeterlilik runtime/API uygulamasını veya banka marka onayını tamamlanmış s
 | --- | --- | --- | --- |
 | İlk Raporlar ekranı mevcut auditli `ReportPreviewService` üzerinden sabit son 30 UTC günü ve yalnız güvenilir aktörün izinli kaynaklarını kullanacaktır. DTO toplulaştırılmış özet, durum ve politika bilgisiyle sınırlı olacak; PDF/XLSX/CSV, indirme ve dosya yaşam döngüsü bu dilime alınmayacaktır. | Kullanıcıdan scope veya geniş tarih aralığı kabul etmek yetki ve senkron sorgu riskini büyütür. Dışa aktarma ise ayrı DLP, saklama, maker-checker ve `OPEN-BNK-014` kararı gerektirir. | İstemcide scope filtresi yapmak; serbest tarih aralığı açmak; domain servisini atlayıp skor deposunu API'den doğrudan sorgulamak; sentetik indirilebilir dosya üretmek. | `/api/v1/reports/summary` ve `/reports` salt okunur, `no-store`, veri-minimum ve fail-closed çalışır. Hesaplanan, resmî kısmi, veri yok ve teknik hata durumları korunur; eksik skor sıfıra çevrilmez. Hassas dışa aktarma açık konu olarak kalır. |
 
+## 2026-07-23 — İterasyon 35F Teknik Kararı
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| İlk Denetim ekranı mevcut `AuditQueryService` üzerinden güvenilir `AUDIT_VIEWER` rolüyle çalışacak; istemci en fazla 31 günlük çevrimiçi pencere, izinli filtreler ve snapshot cursor kullanacaktır. DTO veri-minimum olay alanları ve bütünlük sonucuyla sınırlı olacak; eski/yeni değer özeti, hash alanları ve hassas dışa aktarma taşınmayacaktır. | Audit kaydı yüksek hassasiyetli bir güvenlik yüzeyidir. Domain sorgu ve rol sınırını yeniden kullanmak, sayfalar arasında tutarlı snapshot sağlamak ve ayrıntı/hash alanlarını istemciye açmamak gerekir. | API'den repository'yi doğrudan sorgulamak; istemci rol/scope header'ına güvenmek; sınırsız tarih aralığı veya tüm audit zarfını döndürmek; bütünlük sonucunu yalnız logda bırakmak. | `/api/v1/audit/events` ve `/audit` salt okunur, `no-store`, veri-minimum ve fail-closed çalışır. Yetkisiz çağrı veri ifşa etmeden 403, teknik hata redakte edilmiş 503 üretir; görüntüleme ayrıca audit edilir. Arşiv sorgusu, istemci bilgisi ve dışa aktarma açık kalır. |
+
 ## 2026-07-22 — İterasyon 20E Teknik Kararı
 
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |

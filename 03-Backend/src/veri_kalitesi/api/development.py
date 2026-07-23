@@ -8,9 +8,13 @@ from decimal import Decimal
 from veri_kalitesi.api.app import create_dashboard_api
 from veri_kalitesi.api.identity import DevelopmentActorContextResolver
 from veri_kalitesi.audit import (
+    AuditAccessPolicy,
+    AuditEventInput,
     AuditFailureMode,
     AuditFailurePolicy,
     AuditRedactor,
+    AuditQueryService,
+    AuditResult,
     AuditService,
     SQLiteAuditRepository,
     build_default_redaction_policy,
@@ -625,6 +629,74 @@ def create_development_app():  # type: ignore[no-untyped-def]
             default_mode=AuditFailureMode.FAIL_CLOSED,
         ),
     )
+    for index, (actor_id, action, object_type, object_id, result, reason_code) in enumerate(
+        (
+            (
+                "synthetic-iam-user",
+                "LDAP_AUTHENTICATION",
+                "UserSession",
+                "synthetic-session",
+                AuditResult.SUCCESS,
+                "AUTHENTICATED",
+            ),
+            (
+                "synthetic-data-steward",
+                "DATA_SOURCE_CONNECTION_TEST",
+                "DataSource",
+                "source-core-banking",
+                AuditResult.SUCCESS,
+                "TEST_SUCCEEDED",
+            ),
+            (
+                "synthetic-rule-checker",
+                "RULE_ACTIVATION",
+                "QualityRule",
+                "rule-customer-id-required",
+                AuditResult.SUCCESS,
+                "APPROVED",
+            ),
+            (
+                "synthetic-score-checker",
+                "SCORING_CONFIGURATION_ACTIVATION",
+                "ScoringConfiguration",
+                "scoring-policy-v2",
+                AuditResult.DENIED,
+                "MAKER_CHECKER_REQUIRED",
+            ),
+            (
+                "synthetic-report-viewer",
+                "REPORT_PREVIEW_VIEWED",
+                "ReportPreview",
+                None,
+                AuditResult.SUCCESS,
+                "QUERY_COMPLETED",
+            ),
+            (
+                "synthetic-session-user",
+                "IDENTITY_SESSION",
+                "UserSession",
+                "synthetic-expired-session",
+                AuditResult.FAILURE,
+                "ABSOLUTE_TIMEOUT",
+            ),
+        )
+    ):
+        audit_service.append(
+            AuditEventInput(
+                actor_id=actor_id,
+                actor_type="USER",
+                correlation_id=f"synthetic-audit-{index + 1}",
+                action=action,
+                object_type=object_type,
+                object_id=object_id,
+                result=result,
+                reason_code=reason_code,
+                old_values={},
+                new_values={},
+                occurred_at=now - timedelta(days=index, hours=1),
+                session_id=None,
+            )
+        )
     authorization = PolicyAuthorizationService(
         DashboardAuthorizationPolicy(version=POLICY_VERSION),
         audit_service,
@@ -640,7 +712,7 @@ def create_development_app():  # type: ignore[no-untyped-def]
         policy_version=POLICY_VERSION,
         permitted_source_ids=frozenset(source.data_source_id for source in DEVELOPMENT_SOURCES),
         permitted_dataset_ids=frozenset(rule.dataset_id for rule, _ in DEVELOPMENT_RULES),
-        roles=frozenset({"DATA_VIEWER", "DATA_STEWARD"}),
+        roles=frozenset({"DATA_VIEWER", "DATA_STEWARD", "AUDIT_VIEWER"}),
         can_view_enterprise=True,
     )
     return create_dashboard_api(
@@ -660,6 +732,15 @@ def create_development_app():  # type: ignore[no-untyped-def]
             ReportPreviewAccessPolicy(
                 version="DEVELOPMENT_REPORT_POLICY_V1",
                 actor_policy_version=POLICY_VERSION,
+            ),
+            clock=lambda: datetime.now(timezone.utc),
+        ),
+        audit_query_service=AuditQueryService(
+            audit_repository,
+            audit_service,
+            AuditAccessPolicy(
+                version="DEVELOPMENT_AUDIT_ACCESS_V1",
+                context_policy_version=POLICY_VERSION,
             ),
             clock=lambda: datetime.now(timezone.utc),
         ),
