@@ -309,6 +309,7 @@ class SQLiteIssueRepository:
         updated_at: datetime,
         history: IssueHistoryEntry,
         *,
+        expected_version: int,
         audit_event: PreparedAuditEvent,
         audit_outbox: SQLiteTransactionalAudit,
     ) -> DataQualityIssue:

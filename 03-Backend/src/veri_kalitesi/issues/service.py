@@ -330,8 +330,11 @@ class IssueService(Generic[AuditT]):
     def start_investigation(
         self,
         issue_id: str,
+        expected_version: int,
         actor_context: ActorContext | None,
     ) -> DataQualityIssue:
+        if expected_version < 1:
+            raise IssueValidationError("Issue version must be positive.")
         context = self._authorize_actor(
             actor_context,
             self.access_policy.allowed_reader_actor_types,
@@ -344,6 +347,8 @@ class IssueService(Generic[AuditT]):
             raise IssueTechnicalError("Issue could not be read.", context.correlation_id) from exc
         if issue.assignee_user_id != context.actor_id or not _has_scope(context, issue):
             raise IssueAuthorizationError("Actor cannot investigate this issue.")
+        if issue.version != expected_version:
+            raise IssueConflictError("Issue changed after it was loaded.")
         if issue.status is not IssueStatus.ASSIGNED:
             raise IssueValidationError("Only an assigned issue can enter investigation.")
 
@@ -383,6 +388,7 @@ class IssueService(Generic[AuditT]):
                 IssueStatus.INVESTIGATING,
                 now,
                 history,
+                expected_version=expected_version,
                 audit_event=audit_event,
                 audit_outbox=self.transactional_audit,
             )
@@ -776,6 +782,7 @@ class IssueService(Generic[AuditT]):
                 IssueStatus.CLOSED,
                 now,
                 history,
+                expected_version=issue.version,
                 audit_event=audit_event,
                 audit_outbox=self.transactional_audit,
             )

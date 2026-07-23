@@ -34,6 +34,7 @@ from veri_kalitesi.issues import (
     IssueSourceEventType,
     IssueStatus,
     IssueTriggerType,
+    IssueValidationError,
     IssueVerificationOutcome,
     IssueVerificationRecord,
     PostgreSQLIssueRepository,
@@ -90,9 +91,29 @@ def test_fr_064_070_issue_lifecycle_and_audit_share_postgresql_transactions() ->
                 "ISSUE_INVESTIGATION_STARTED",
                 now + timedelta(seconds=1),
             ),
+            expected_version=repeated.version,
             audit_event=fixture.audit_event(issue.issue_id, now),
             audit_outbox=fixture.audit,
         )
+        with pytest.raises(IssueValidationError, match="no longer valid"):
+            fixture.repository.transition_status(
+                issue.issue_id,
+                IssueStatus.INVESTIGATING,
+                IssueStatus.WAITING_FOR_RESOLUTION,
+                now + timedelta(seconds=2),
+                _history(
+                    issue,
+                    IssueStatus.INVESTIGATING,
+                    IssueStatus.WAITING_FOR_RESOLUTION,
+                    "STALE_TRANSITION",
+                    now + timedelta(seconds=2),
+                ),
+                expected_version=repeated.version,
+                audit_event=fixture.audit_event(issue.issue_id, now),
+                audit_outbox=fixture.audit,
+            )
+        assert fixture.repository.get(issue.issue_id).version == investigated.version
+        assert len(fixture.repository.list_history(issue.issue_id)) == 3
         new_assignee = str(uuid4())
         assigned = fixture.repository.update_assignment(
             issue.issue_id,
@@ -187,6 +208,7 @@ def test_fr_064_070_issue_lifecycle_and_audit_share_postgresql_transactions() ->
                 "ISSUE_CLOSED",
                 now + timedelta(seconds=5),
             ),
+            expected_version=verified.version,
             audit_event=fixture.audit_event(issue.issue_id, now),
             audit_outbox=fixture.audit,
         )

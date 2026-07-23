@@ -1,8 +1,11 @@
 import type { IssueListApiResponse } from "./model";
 
+const CSRF_HEADER = "X-CSRF-Token";
+let csrfProof: string | undefined;
+
 export class IssueApiError extends Error {
   constructor(
-    public readonly kind: "unauthorized" | "technical",
+    public readonly kind: "unauthorized" | "conflict" | "validation" | "technical",
     public readonly correlationId?: string,
   ) {
     super("Issue list request failed.");
@@ -22,5 +25,44 @@ export async function fetchIssues(signal?: AbortSignal): Promise<IssueListApiRes
       correlationId,
     );
   }
+  const receivedProof = response.headers.get(CSRF_HEADER);
+  if (receivedProof) csrfProof = receivedProof;
   return response.json() as Promise<IssueListApiResponse>;
+}
+
+export async function startIssueInvestigation(
+  issueId: string,
+  version: number,
+): Promise<{
+  api_version: "v1";
+  data_origin: string;
+  correlation_id: string;
+  item: IssueListApiResponse["items"][number];
+}> {
+  if (!csrfProof) throw new IssueApiError("unauthorized");
+  const response = await fetch(
+    `/api/v1/issues/${encodeURIComponent(issueId)}/investigation`,
+    {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        [CSRF_HEADER]: csrfProof,
+      },
+      body: JSON.stringify({ version }),
+    },
+  );
+  if (!response.ok) {
+    const correlationId = response.headers.get("X-Correlation-ID") ?? undefined;
+    const kind = response.status === 401 || response.status === 403
+      ? "unauthorized"
+      : response.status === 409
+        ? "conflict"
+        : response.status === 422
+          ? "validation"
+          : "technical";
+    throw new IssueApiError(kind, correlationId);
+  }
+  return response.json();
 }

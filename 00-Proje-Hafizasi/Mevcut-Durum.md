@@ -30,6 +30,38 @@ tags:
 
 ## Uygulama Durumu
 
+### 2026-07-23 — İterasyon 36B1: Atanmış sorunu incelemeye alma
+
+- `FR-066`, `FR-070`, `UC-013`, `UI-WRITE-001/002`,
+  `NFR-SEC-001/005/008/011` ve `NFR-USA-001–006` için ilk yazılabilir Sorunlar
+  dikeyi tamamlandı.
+- `/api/v1/issues/{issue_id}/investigation`, yalnız güvenilir aktörün yetkili
+  kaynak/dataset kapsamında kendisine atanmış `ASSIGNED` sorunu
+  `INVESTIGATING` durumuna geçirir. Backend yalnız geçerli satırda
+  `START_INVESTIGATION` eylemini yayımlar.
+- İstek sayısal `version` taşır. PostgreSQL güncellemesi sürümü koşullu
+  karşılaştırıp artırır; eski sürüm `409 Conflict` üretir ve issue/geçmiş/audit
+  yazımı yapmaz.
+- Cookie tabanlı yazım CSRF sınırından geçer. Yetkisiz erişim `403`, bulunamayan
+  kayıt `404`, doğrulama/çakışma `409` ve teknik hata `503` olarak veri-minimum
+  Problem Details ile döner. Secret, oturum belirteci veya ham hassas veri
+  yanıta ve loga eklenmez.
+- Sorunlar ekranı backend tarafından izin verilen satırda “İncelemeye al”
+  eylemini, bekleme durumunu ve erişilebilir başarı/hata geri bildirimini
+  gösterir. CSRF kanıtı yalnız bellek içinde tutulur; tarayıcı kalıcı
+  depolamasına yazılmaz.
+- Yerel geliştirme adaptörü sentetik atanmış sorunda aynı-origin
+  Origin/Referer/Fetch-Metadata ve CSRF doğrulamasını uygular. Bu adaptör
+  üretim IdP/session store veya PostgreSQL kalıcılığı iddiası değildir.
+- Hedefli issue/API testlerinde 112, gerçek PostgreSQL mutasyon testlerinde 2,
+  tam backend paketinde `1081 passed, 2 skipped` sonucu alındı. Frontend 62
+  birim testi, 88 Playwright senaryosu, typecheck, production build ve
+  Storybook build geçti. Mypy 133 kaynak dosyada ve Ruff 179 dosyada temizdir;
+  `28A-v1` 553 kaynak dosyada secret bulgusu üretmedi.
+- 36B’nin yeniden atama, çözüm, farklı aktörle doğrulama, kapatma ve yeniden
+  açma dilimleri tamamlanmamıştır. Sıradaki ürün artımı 36B2 güvenilir yeniden
+  atamadır.
+
 ### 2026-07-23 — İterasyon 36A2b: Seçici issue aktarımı ve SQLite kaldırma
 
 - Otoriter issue, geçmiş, çözüm, doğrulama, ilişki ve yalnız bekleyen

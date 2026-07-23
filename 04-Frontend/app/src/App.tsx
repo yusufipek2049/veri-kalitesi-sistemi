@@ -16,8 +16,8 @@ import { dataSourcesFromApi, syntheticDataSources, type DataSourceListItem, type
 import { DashboardApiError, fetchDashboardSummary } from "./dashboard/api";
 import { ExecutionApiError, fetchExecutions } from "./executions/api";
 import { executionsFromApi, syntheticExecutions, type ExecutionListItem, type ExecutionState } from "./executions/model";
-import { fetchIssues, IssueApiError } from "./issues/api";
-import { issuesFromApi, syntheticIssues, type IssueListItem, type IssueState } from "./issues/model";
+import { fetchIssues, IssueApiError, startIssueInvestigation } from "./issues/api";
+import { issueFromApiItem, issuesFromApi, syntheticIssues, type IssueListItem, type IssueState } from "./issues/model";
 import { RuleApiError, fetchRules } from "./rules/api";
 import { rulesFromApi, syntheticRules, type RuleListItem, type RuleState } from "./rules/model";
 import { fetchReportSummary, ReportApiError } from "./reports/api";
@@ -213,7 +213,23 @@ function IssuesRoute() {
     void load(controller.signal);
     return () => controller.abort();
   }, [load]);
-  return <IssuesPage correlationId={correlationId} items={items} onRefresh={() => void load()} state={fixtureState ?? state} />;
+  const startInvestigation = useCallback(async (item: IssueListItem) => {
+    const response = await startIssueInvestigation(item.id, item.version);
+    const updated = issueFromApiItem(response.item);
+    setItems((current) => current.map((candidate) => (
+      candidate.id === updated.id ? updated : candidate
+    )));
+    setCorrelationId(response.correlation_id);
+  }, []);
+  return (
+    <IssuesPage
+      correlationId={correlationId}
+      items={items}
+      onRefresh={() => void load()}
+      onStartInvestigation={startInvestigation}
+      state={fixtureState ?? state}
+    />
+  );
 }
 
 const reportStates: ReportState[] = ["normal", "loading", "empty", "error", "unauthorized", "long-content"];

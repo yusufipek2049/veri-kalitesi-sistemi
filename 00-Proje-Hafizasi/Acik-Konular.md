@@ -255,7 +255,10 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
     mutasyon/geçmiş ve audit outbox transaction'ını gerçek PostgreSQL üzerinde
     doğrulamıştır. 36A2b salt okunur/idempotent seçici aktarımı, sayaç/hash/FK
     doğrulamasını ve SQLite issue runtime yolunun kaldırılmasını tamamlamıştır.
-    36B–36F mutasyonları gerçek IdP, güvenilir aktör, BFF/CSRF, rol/kapsam,
+    36B1 kendisine atanmış sorunu güvenilir kapsam, BFF/CSRF, backend eylem
+    yetkisi ve sayısal optimistic locking ile incelemeye alma dikeyini
+    tamamlamıştır. 36B'nin diğer yaşam döngüsü eylemleri ile 36C–36F
+    mutasyonları gerçek IdP, güvenilir aktör, BFF/CSRF, rol/kapsam,
     maker-checker ve audit önkoşullarını sağlamadan açılmaz. Denetim kayıtları
     değişmezdir; kaynak sistemlere yazma kapsam dışıdır.
 ## Bankacılık Geçiş Açık Konuları

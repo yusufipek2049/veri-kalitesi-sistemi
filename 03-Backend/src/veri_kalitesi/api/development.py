@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from threading import RLock
 
 from veri_kalitesi.api.app import create_dashboard_api
 from veri_kalitesi.api.identity import DevelopmentActorContextResolver
@@ -26,15 +28,22 @@ from veri_kalitesi.data_sources import (
     DataSourceStatus,
     SourceType,
 )
-from veri_kalitesi.identity import DashboardAuthorizationPolicy, PolicyAuthorizationService
+from veri_kalitesi.identity import (
+    ActorContext,
+    DashboardAuthorizationPolicy,
+    PolicyAuthorizationService,
+)
 from veri_kalitesi.issues import (
     DataQualityIssue,
+    IssueAuthorizationError,
+    IssueConflictError,
     IssuePriority,
     IssueQueryService,
     IssueScopeType,
     IssueSourceEventType,
     IssueStatus,
     IssueTriggerType,
+    IssueValidationError,
 )
 from veri_kalitesi.executions import (
     ExecutionQueryService,
@@ -360,7 +369,7 @@ DEVELOPMENT_ISSUES = (
         scope_id="dataset-customer",
         status=IssueStatus.NEW,
         priority=IssuePriority.CRITICAL,
-        assignee_user_id="development-assignee",
+        assignee_user_id="development-dashboard-user",
         deduplication_key_digest="development-digest-18",
         occurrence_count=1,
         created_at=datetime(2026, 7, 23, 8, 10, tzinfo=timezone.utc),
@@ -377,7 +386,7 @@ DEVELOPMENT_ISSUES = (
         scope_id="source-risk-mart",
         status=IssueStatus.ASSIGNED,
         priority=IssuePriority.HIGH,
-        assignee_user_id="development-assignee",
+        assignee_user_id="development-dashboard-user",
         deduplication_key_digest="development-digest-17",
         occurrence_count=3,
         created_at=datetime(2026, 7, 22, 15, 0, tzinfo=timezone.utc),
@@ -524,7 +533,11 @@ class DevelopmentExecutionReader:
         )[:limit]
 
 
-class DevelopmentIssueReader:
+class DevelopmentIssueStore:
+    def __init__(self) -> None:
+        self._issues = {issue.issue_id: issue for issue in DEVELOPMENT_ISSUES}
+        self._lock = RLock()
+
     def list_issues_for_scopes(
         self,
         allowed_source_ids: frozenset[str],
@@ -535,7 +548,7 @@ class DevelopmentIssueReader:
         return sorted(
             (
                 issue
-                for issue in DEVELOPMENT_ISSUES
+                for issue in self._issues.values()
                 if (
                     issue.scope_type is IssueScopeType.SOURCE
                     and issue.scope_id in allowed_source_ids
@@ -548,6 +561,38 @@ class DevelopmentIssueReader:
             key=lambda issue: (issue.updated_at, issue.issue_id),
             reverse=True,
         )[:limit]
+
+    def start_investigation(
+        self,
+        issue_id: str,
+        expected_version: int,
+        actor_context: ActorContext | None,
+    ) -> DataQualityIssue:
+        if actor_context is None:
+            raise IssueAuthorizationError("Development actor is required.")
+        with self._lock:
+            issue = self._issues.get(issue_id)
+            if issue is None:
+                raise IssueValidationError("Development issue was not found.")
+            has_scope = (
+                issue.scope_id in actor_context.permitted_source_ids
+                if issue.scope_type is IssueScopeType.SOURCE
+                else issue.scope_id in actor_context.permitted_dataset_ids
+            )
+            if issue.assignee_user_id != actor_context.actor_id or not has_scope:
+                raise IssueAuthorizationError("Development actor cannot investigate issue.")
+            if issue.version != expected_version:
+                raise IssueConflictError("Development issue version changed.")
+            if issue.status is not IssueStatus.ASSIGNED:
+                raise IssueValidationError("Development issue is not assigned.")
+            updated = replace(
+                issue,
+                status=IssueStatus.INVESTIGATING,
+                updated_at=datetime.now(timezone.utc),
+                version=issue.version + 1,
+            )
+            self._issues[issue_id] = updated
+            return updated
 
 
 def create_development_app():  # type: ignore[no-untyped-def]
@@ -707,25 +752,29 @@ def create_development_app():  # type: ignore[no-untyped-def]
         authorization,
         clock=lambda: datetime.now(timezone.utc),
     )
+    development_origins = frozenset({"http://127.0.0.1:5173", "http://localhost:5173"})
     resolver = DevelopmentActorContextResolver(
         runtime_environment="development",
         policy_version=POLICY_VERSION,
         permitted_source_ids=frozenset(source.data_source_id for source in DEVELOPMENT_SOURCES),
         permitted_dataset_ids=frozenset(rule.dataset_id for rule, _ in DEVELOPMENT_RULES),
         roles=frozenset({"DATA_VIEWER", "DATA_STEWARD", "AUDIT_VIEWER"}),
+        allowed_origins=development_origins,
         can_view_enterprise=True,
     )
+    issue_store = DevelopmentIssueStore()
     return create_dashboard_api(
         service,
         actor_context_resolver=resolver,
-        allowed_origins=("http://127.0.0.1:5173", "http://localhost:5173"),
+        allowed_origins=tuple(development_origins),
         data_origin="synthetic-development",
         data_source_query_service=DataSourceQueryService(
             DevelopmentDataSourceReader(), authorization
         ),
         rule_query_service=RuleQueryService(DevelopmentRuleReader(), authorization),
         execution_query_service=ExecutionQueryService(DevelopmentExecutionReader(), authorization),
-        issue_query_service=IssueQueryService(DevelopmentIssueReader(), authorization),
+        issue_query_service=IssueQueryService(issue_store, authorization),
+        issue_investigation_service=issue_store,
         report_preview_service=ReportPreviewService(
             SQLiteReportPreviewReader(repository.connection),
             audit_service,

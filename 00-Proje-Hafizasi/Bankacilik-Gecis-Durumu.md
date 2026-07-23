@@ -66,9 +66,10 @@ Yüklenen mevcut vault ve kod üzerinden doğrulanan durum:
   geçmez. Nicel eşikler ile üretim profili/örneği erişimi `OPEN-024/025`
   kapsamında açık kalır.
 - Mevcut yerel metadata ve execution repository'lerinin önemli bölümü
-  SQLite'tır. Hedef kalıcılık yalnız PostgreSQL olarak kesinleşmiştir; 36A'dan
-  başlayarak domain bazlı geçiş ve ilgili SQLite fallback'in kaldırılması
-  planlanmıştır.
+  SQLite'tır. Hedef kalıcılık yalnız PostgreSQL olarak kesinleşmiştir. 36A ile
+  issue domaini PostgreSQL'e taşınmış ve SQLite issue runtime yolu
+  kaldırılmıştır; diğer domainler bağımlılık sırasıyla bekler. 36B1 issue
+  yaşam döngüsünün ilk yazılabilir frontend/API dikeyini tamamlamıştır.
 
 ## Korunacak Kazanımlar
 

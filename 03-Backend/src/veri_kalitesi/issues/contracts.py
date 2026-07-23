@@ -51,6 +51,7 @@ class IssueRepository(Protocol[AuditRepoT]):
         updated_at: datetime,
         history: IssueHistoryEntry,
         *,
+        expected_version: int,
         audit_event: PreparedAuditEvent,
         audit_outbox: AuditRepoT,
     ) -> DataQualityIssue: ...

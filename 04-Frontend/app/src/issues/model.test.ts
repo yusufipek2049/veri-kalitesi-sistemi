@@ -18,6 +18,8 @@ describe("issue API modeli", () => {
         status: "ASSIGNED",
         priority: "HIGH",
         occurrence_count: 3,
+        version: 4,
+        available_actions: ["START_INVESTIGATION"],
         created_at: "2026-07-23T08:00:00Z",
         updated_at: "2026-07-23T09:00:00Z",
         last_seen_at: "2026-07-23T09:00:00Z",
@@ -29,6 +31,8 @@ describe("issue API modeli", () => {
       issueNo: "DQI-001",
       sourceEventType: "TECHNICAL",
       occurrenceCount: 3,
+      version: 4,
+      availableActions: ["START_INVESTIGATION"],
     });
   });
 });

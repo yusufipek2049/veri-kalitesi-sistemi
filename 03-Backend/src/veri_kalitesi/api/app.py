@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from datetime import datetime, timedelta, timezone
-from typing import Annotated
+from typing import Annotated, Protocol
 from uuid import uuid4
 
 from fastapi import FastAPI, Query as FastApiQuery, Request, Response
@@ -17,7 +17,11 @@ from veri_kalitesi.api.errors import (
     ApiCsrfError,
     ApiSessionUnavailableError,
 )
-from veri_kalitesi.api.identity import ActorContextResolver, UnavailableActorContextResolver
+from veri_kalitesi.api.identity import (
+    ActorContextResolver,
+    DevelopmentActorContextResolver,
+    UnavailableActorContextResolver,
+)
 from veri_kalitesi.api.models import (
     AuditEventListResponse,
     DashboardSummaryResponse,
@@ -27,6 +31,8 @@ from veri_kalitesi.api.models import (
     ExecutionListResponse,
     IssueListItemResponse,
     IssueListResponse,
+    IssueMutationRequest,
+    IssueMutationResponse,
     ReportSummaryResponse,
     RuleListItemResponse,
     RuleListResponse,
@@ -56,10 +62,17 @@ from veri_kalitesi.executions import (
     ExecutionQueryTechnicalError,
 )
 from veri_kalitesi.issues import (
+    DataQualityIssue,
+    IssueAuthorizationError,
+    IssueConflictError,
+    IssueNotFoundError,
     IssueQueryAuthorizationError,
     IssueQueryService,
     IssueQueryTechnicalError,
+    IssueTechnicalError,
+    IssueValidationError,
 )
+from veri_kalitesi.identity import ActorContext
 from veri_kalitesi.rules import (
     RuleQueryAuthorizationError,
     RuleQueryService,
@@ -74,6 +87,19 @@ from veri_kalitesi.reporting import (
 )
 
 
+class IssueInvestigationService(Protocol):
+    def start_investigation(
+        self,
+        issue_id: str,
+        expected_version: int,
+        actor_context: ActorContext | None,
+    ) -> DataQualityIssue: ...
+
+
+class StateChangeBoundary(Protocol):
+    def protect_state_changing(self, request: Request) -> ActorContext | None: ...
+
+
 def create_dashboard_api(
     dashboard_service: DashboardQueryService,
     *,
@@ -85,6 +111,7 @@ def create_dashboard_api(
     rule_query_service: RuleQueryService | None = None,
     execution_query_service: ExecutionQueryService | None = None,
     issue_query_service: IssueQueryService | None = None,
+    issue_investigation_service: IssueInvestigationService | None = None,
     report_preview_service: ReportPreviewService | None = None,
     audit_query_service: AuditQueryService | None = None,
     clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
@@ -116,7 +143,13 @@ def create_dashboard_api(
     async def add_correlation_id(request: Request, call_next):  # type: ignore[no-untyped-def]
         request.state.correlation_id = str(uuid4())
         if request.method.upper() not in {"GET", "HEAD", "OPTIONS"}:
-            if bff_session_boundary is None:
+            state_change_boundary: StateChangeBoundary | None = bff_session_boundary
+            if state_change_boundary is None and isinstance(
+                resolver,
+                DevelopmentActorContextResolver,
+            ):
+                state_change_boundary = resolver
+            if state_change_boundary is None:
                 return _problem(
                     request,
                     status=401,
@@ -125,7 +158,8 @@ def create_dashboard_api(
                     correlation_id=request.state.correlation_id,
                 )
             try:
-                bff_session_boundary.protect_state_changing(request)
+                actor_context = state_change_boundary.protect_state_changing(request)
+                request.state.actor_context = actor_context
             except ApiCsrfError:
                 return _problem(
                     request,
@@ -271,6 +305,66 @@ def create_dashboard_api(
             status=503,
             title="Issues temporarily unavailable",
             detail="The issue query could not be completed.",
+            correlation_id=error.correlation_id,
+        )
+
+    @app.exception_handler(IssueAuthorizationError)
+    async def handle_issue_mutation_authorization_error(
+        request: Request, error: IssueAuthorizationError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=403,
+            title="Issue action denied",
+            detail="The requested issue action is not available.",
+            correlation_id=request.state.correlation_id,
+        )
+
+    @app.exception_handler(IssueNotFoundError)
+    async def handle_issue_not_found_error(
+        request: Request, error: IssueNotFoundError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=404,
+            title="Issue not found",
+            detail="The requested issue is not available.",
+            correlation_id=request.state.correlation_id,
+        )
+
+    @app.exception_handler(IssueConflictError)
+    async def handle_issue_conflict_error(
+        request: Request, error: IssueConflictError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=409,
+            title="Issue changed",
+            detail="The issue was changed by another operation. Reload and try again.",
+            correlation_id=request.state.correlation_id,
+        )
+
+    @app.exception_handler(IssueValidationError)
+    async def handle_issue_validation_error(
+        request: Request, error: IssueValidationError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=409,
+            title="Issue action unavailable",
+            detail="The issue is no longer in a state that allows this action.",
+            correlation_id=request.state.correlation_id,
+        )
+
+    @app.exception_handler(IssueTechnicalError)
+    async def handle_issue_mutation_technical_error(
+        request: Request, error: IssueTechnicalError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=503,
+            title="Issue action temporarily unavailable",
+            detail="The issue action could not be completed.",
             correlation_id=error.correlation_id,
         )
 
@@ -470,11 +564,53 @@ def create_dashboard_api(
         actor_context = resolver.resolve(request)
         issues = issue_query_service.list_for_actor(actor_context)
         response.headers["Cache-Control"] = "no-store"
+        if isinstance(resolver, DevelopmentActorContextResolver):
+            response.headers[CSRF_HEADER_NAME] = resolver.request_proof
         return IssueListResponse(
             data_origin=data_origin,
             correlation_id=request.state.correlation_id,
             limit=issue_query_service.page_limit,
-            items=tuple(IssueListItemResponse.from_domain(issue) for issue in issues),
+            items=tuple(
+                IssueListItemResponse.from_domain(
+                    issue,
+                    available_actions=_issue_actions(issue, actor_context),
+                )
+                for issue in issues
+            ),
+        )
+
+    @app.post(
+        "/api/v1/issues/{issue_id}/investigation",
+        response_model=IssueMutationResponse,
+        tags=["issues"],
+    )
+    async def start_issue_investigation(
+        issue_id: str,
+        payload: IssueMutationRequest,
+        request: Request,
+        response: Response,
+    ) -> IssueMutationResponse:
+        if issue_investigation_service is None:
+            raise IssueTechnicalError(
+                "Issue investigation service is unavailable.",
+                request.state.correlation_id,
+            )
+        actor_context = getattr(request.state, "actor_context", None)
+        if actor_context is None:
+            actor_context = resolver.resolve(request)
+        issue = issue_investigation_service.start_investigation(
+            issue_id,
+            payload.version,
+            actor_context,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return IssueMutationResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=IssueListItemResponse.from_domain(
+                issue,
+                available_actions=_issue_actions(issue, actor_context),
+            ),
         )
 
     @app.get(
@@ -578,6 +714,25 @@ def create_dashboard_api(
         return response
 
     return app
+
+
+def _issue_actions(
+    issue: DataQualityIssue,
+    actor_context: ActorContext,
+) -> tuple[str, ...]:
+    has_scope = (
+        issue.scope_id in actor_context.permitted_source_ids
+        if issue.scope_type.value == "SOURCE"
+        else issue.scope_id in actor_context.permitted_dataset_ids
+    )
+    if (
+        issue.status.value == "ASSIGNED"
+        and issue.assignee_user_id == actor_context.actor_id
+        and has_scope
+        and not actor_context.privileged
+    ):
+        return ("START_INVESTIGATION",)
+    return ()
 
 
 def _problem(

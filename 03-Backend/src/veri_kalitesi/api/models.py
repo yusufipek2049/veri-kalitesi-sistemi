@@ -3,7 +3,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from veri_kalitesi.audit import AuditEvent, AuditQueryPage
 from veri_kalitesi.dashboard import DashboardOverview
@@ -138,12 +138,19 @@ class IssueListItemResponse(BaseModel):
     status: str
     priority: str
     occurrence_count: int
+    version: int
+    available_actions: tuple[str, ...] = ()
     created_at: datetime
     updated_at: datetime
     last_seen_at: datetime
 
     @classmethod
-    def from_domain(cls, issue: DataQualityIssue) -> "IssueListItemResponse":
+    def from_domain(
+        cls,
+        issue: DataQualityIssue,
+        *,
+        available_actions: tuple[str, ...] = (),
+    ) -> "IssueListItemResponse":
         return cls(
             issue_id=issue.issue_id,
             issue_no=issue.issue_no,
@@ -154,6 +161,8 @@ class IssueListItemResponse(BaseModel):
             status=issue.status.value,
             priority=issue.priority.value,
             occurrence_count=issue.occurrence_count,
+            version=issue.version,
+            available_actions=available_actions,
             created_at=issue.created_at,
             updated_at=issue.updated_at,
             last_seen_at=issue.last_seen_at,
@@ -168,6 +177,21 @@ class IssueListResponse(BaseModel):
     correlation_id: str
     limit: int
     items: tuple[IssueListItemResponse, ...]
+
+
+class IssueMutationRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    version: int = Field(ge=1)
+
+
+class IssueMutationResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    item: IssueListItemResponse
 
 
 class ReportSummaryRowResponse(BaseModel):

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ThemeModeProvider } from "../theme/ThemeModeProvider";
 import { IssuesPage } from "./IssuesPage";
 
@@ -36,5 +36,23 @@ describe("Sorunlar ekranı", () => {
     expect(screen.getByText("Bu görünüm için yetkiniz yok")).toBeVisible();
     expect(screen.queryByLabelText("Sorun ara")).not.toBeInTheDocument();
     expect(screen.queryByText("DQI-2026-0018")).not.toBeInTheDocument();
+  });
+
+  it("yalnız izinli sorunda incelemeye alma eylemini çalıştırır", async () => {
+    const onStartInvestigation = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ThemeModeProvider>
+        <MemoryRouter>
+          <IssuesPage onStartInvestigation={onStartInvestigation} />
+        </MemoryRouter>
+      </ThemeModeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "İncelemeye al" }));
+
+    expect(onStartInvestigation).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "issue-technical-risk", version: 1 }),
+    );
+    expect(await screen.findByText("DQI-2026-0017 incelemeye alındı.")).toBeVisible();
   });
 });

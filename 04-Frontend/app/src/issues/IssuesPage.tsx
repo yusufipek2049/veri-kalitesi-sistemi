@@ -18,8 +18,10 @@ import {
   Ban,
   CircleDot,
   CircleEllipsis,
+  LoaderCircle,
   RefreshCw,
   Search,
+  SearchCheck,
   ShieldAlert,
   Wrench,
   type LucideIcon,
@@ -34,6 +36,7 @@ interface IssuesPageProps {
   items?: IssueListItem[];
   correlationId?: string;
   onRefresh?: () => void;
+  onStartInvestigation?: (item: IssueListItem) => Promise<void>;
 }
 
 const statusLabels: Record<string, string> = {
@@ -93,7 +96,15 @@ function formatDate(value: string): string {
   }).format(new Date(value));
 }
 
-function IssueRow({ item }: { item: IssueListItem }) {
+function IssueRow({
+  item,
+  mutationPending,
+  onStartInvestigation,
+}: {
+  item: IssueListItem;
+  mutationPending: boolean;
+  onStartInvestigation?: (item: IssueListItem) => void;
+}) {
   const presentation = issuePresentation(item);
   const Icon = presentation.icon;
   return (
@@ -107,8 +118,8 @@ function IssueRow({ item }: { item: IssueListItem }) {
         gap: 3,
         gridTemplateColumns: {
           xs: "40px minmax(0, 1fr)",
-          md: "40px minmax(210px, 1fr) minmax(140px, .6fr) minmax(120px, .5fr)",
-          lg: "40px minmax(220px, 1fr) minmax(140px, .62fr) minmax(120px, .5fr) minmax(185px, .8fr) minmax(165px, .7fr)",
+          md: "40px minmax(210px, 1fr) minmax(155px, auto)",
+          lg: "40px minmax(210px, 1fr) minmax(130px, .58fr) minmax(110px, .48fr) minmax(170px, .72fr) minmax(155px, .65fr) minmax(150px, .6fr)",
         },
         minHeight: 88,
         px: 4,
@@ -138,7 +149,12 @@ function IssueRow({ item }: { item: IssueListItem }) {
           {triggerLabels[item.triggerType] ?? item.triggerType} · {item.occurrenceCount} görülme
         </Typography>
       </Box>
-      <Box sx={{ gridColumn: { xs: "2", md: "auto" } }}>
+      <Box
+        sx={{
+          gridColumn: { xs: "2", md: "3", lg: "auto" },
+          justifySelf: { md: "end", lg: "start" },
+        }}
+      >
         <Typography color="text.secondary" sx={{ display: { xs: "block", lg: "none" } }} variant="caption">
           Durum
         </Typography>
@@ -147,7 +163,7 @@ function IssueRow({ item }: { item: IssueListItem }) {
           tone={statusTone(item.status)}
         />
       </Box>
-      <Box sx={{ gridColumn: { xs: "2", md: "auto" } }}>
+      <Box sx={{ gridColumn: { xs: "2", md: "2", lg: "auto" } }}>
         <Typography color="text.secondary" sx={{ display: { xs: "block", lg: "none" } }} variant="caption">
           Öncelik
         </Typography>
@@ -167,6 +183,37 @@ function IssueRow({ item }: { item: IssueListItem }) {
         <Typography color="text.secondary" variant="caption">
           Son görülme: {formatDate(item.lastSeenAt)}
         </Typography>
+      </Box>
+      <Box
+        sx={{
+          gridColumn: { xs: "2", md: "3", lg: "auto" },
+          justifySelf: { md: "end", lg: "start" },
+        }}
+      >
+        {item.availableActions.includes("START_INVESTIGATION") ? (
+          <Button
+            disabled={mutationPending}
+            onClick={() => onStartInvestigation?.(item)}
+            size="small"
+            startIcon={
+              mutationPending
+                ? <LoaderCircle aria-hidden="true" size={16} />
+                : <SearchCheck aria-hidden="true" size={16} />
+            }
+            variant="outlined"
+          >
+            {mutationPending ? "Kaydediliyor" : "İncelemeye al"}
+          </Button>
+        ) : (
+          <Typography
+            aria-label="Kullanılabilir eylem yok"
+            color="text.secondary"
+            sx={{ display: { xs: "none", lg: "block" } }}
+            variant="body2"
+          >
+            —
+          </Typography>
+        )}
       </Box>
     </Box>
   );
@@ -200,11 +247,17 @@ export function IssuesPage({
   items = syntheticIssues,
   correlationId,
   onRefresh,
+  onStartInvestigation,
 }: IssuesPageProps) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
   const [priority, setPriority] = useState("ALL");
   const [period, setPeriod] = useState("ALL");
+  const [pendingIssueId, setPendingIssueId] = useState<string>();
+  const [actionFeedback, setActionFeedback] = useState<{
+    severity: "success" | "error";
+    message: string;
+  }>();
   const newestTime = items.length
     ? Math.max(...items.map((item) => new Date(item.updatedAt).getTime()))
     : 0;
@@ -232,6 +285,25 @@ export function IssuesPage({
     setPriority("ALL");
     setPeriod("ALL");
   };
+  const startInvestigation = async (item: IssueListItem) => {
+    if (!onStartInvestigation || pendingIssueId) return;
+    setPendingIssueId(item.id);
+    setActionFeedback(undefined);
+    try {
+      await onStartInvestigation(item);
+      setActionFeedback({
+        severity: "success",
+        message: `${item.issueNo} incelemeye alındı.`,
+      });
+    } catch {
+      setActionFeedback({
+        severity: "error",
+        message: "İşlem tamamlanamadı. Sorunu yenileyip yeniden deneyin.",
+      });
+    } finally {
+      setPendingIssueId(undefined);
+    }
+  };
 
   return (
     <AppShell currentPage="Sorunlar">
@@ -239,7 +311,7 @@ export function IssuesPage({
         <Box sx={{ alignItems: { md: "center" }, display: "flex", flexDirection: { xs: "column", md: "row" }, gap: 3, justifyContent: "space-between" }}>
           <Box>
             <Typography component="h1" variant="h1">Sorunlar</Typography>
-            <Typography color="text.secondary">Yetkili kapsamınızdaki kalite ve teknik sorunların salt okunur envanteri</Typography>
+            <Typography color="text.secondary">Yetkili kapsamınızdaki kalite ve teknik sorunları inceleyin ve yönetin</Typography>
           </Box>
           {state !== "unauthorized" ? <Button onClick={onRefresh} startIcon={<RefreshCw aria-hidden="true" size={16} />} variant="contained">Yenile</Button> : null}
         </Box>
@@ -259,6 +331,11 @@ export function IssuesPage({
           </Paper>
         ) : null}
 
+        {actionFeedback ? (
+          <Alert aria-live="polite" severity={actionFeedback.severity}>
+            {actionFeedback.message}
+          </Alert>
+        ) : null}
         {state === "loading" ? <Box aria-busy="true" aria-label="Sorunlar yükleniyor">{Array.from({ length: 6 }, (_, index) => <Skeleton height={88} key={index} />)}</Box> : null}
         {state === "empty" || state === "error" || state === "unauthorized" ? <StateMessage correlationId={correlationId} onRefresh={onRefresh} state={state} /> : null}
         {(state === "normal" || state === "long-content") && effectiveItems.length === 0 ? <StateMessage state="empty" /> : null}
@@ -278,7 +355,7 @@ export function IssuesPage({
                 fontSize: "caption.fontSize",
                 fontWeight: 700,
                 gap: 3,
-                gridTemplateColumns: "40px minmax(220px, 1fr) minmax(140px, .62fr) minmax(120px, .5fr) minmax(185px, .8fr) minmax(165px, .7fr)",
+                gridTemplateColumns: "40px minmax(210px, 1fr) minmax(130px, .58fr) minmax(110px, .48fr) minmax(170px, .72fr) minmax(155px, .65fr) minmax(150px, .6fr)",
                 px: 4,
                 py: 2,
               }}
@@ -289,8 +366,18 @@ export function IssuesPage({
               <Box>Öncelik</Box>
               <Box>Kapsam ve tür</Box>
               <Box>Son hareket</Box>
+              <Box>İşlem</Box>
             </Box>
-            <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }}>{effectiveItems.map((item) => <IssueRow item={item} key={item.id} />)}</Box>
+            <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }}>
+              {effectiveItems.map((item) => (
+                <IssueRow
+                  item={item}
+                  key={item.id}
+                  mutationPending={pendingIssueId === item.id}
+                  onStartInvestigation={(selected) => void startInvestigation(selected)}
+                />
+              ))}
+            </Box>
           </Paper>
         ) : null}
       </Box>
