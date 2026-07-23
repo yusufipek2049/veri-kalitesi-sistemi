@@ -25,6 +25,12 @@ from veri_kalitesi.executions.models import (
     WorkloadClass,
 )
 from veri_kalitesi.executions.repository import SQLiteExecutionRepository
+from veri_kalitesi.executions.query import (
+    ExecutionQueryAuthorizationError,
+    ExecutionQueryError,
+    ExecutionQueryService,
+    ExecutionQueryTechnicalError,
+)
 from veri_kalitesi.executions.scheduling import (
     Schedule,
     ScheduleType,
@@ -57,6 +63,10 @@ __all__ = [
     "ExecutionError",
     "ExecutionExecutor",
     "ExecutionNotFoundError",
+    "ExecutionQueryAuthorizationError",
+    "ExecutionQueryError",
+    "ExecutionQueryService",
+    "ExecutionQueryTechnicalError",
     "ExecutionService",
     "ExecutionStatus",
     "ExecutionTechnicalError",

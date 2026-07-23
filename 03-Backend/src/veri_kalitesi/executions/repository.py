@@ -539,6 +539,37 @@ class SQLiteExecutionRepository:
             ).fetchall()
         return [_row_to_execution(row) for row in rows]
 
+    def list_executions_for_sources(
+        self,
+        allowed_source_ids: frozenset[str],
+        *,
+        limit: int = 100,
+    ) -> list[RuleExecution]:
+        """Yalnız tamamı yetkili kaynaklara bağlı son çalıştırmaları döndürür."""
+
+        if not 1 <= limit <= 100:
+            raise ExecutionValidationError("Execution query limit must be between 1 and 100.")
+        if not allowed_source_ids:
+            return []
+        source_ids = sorted(allowed_source_ids)
+        placeholders = ", ".join("?" for _ in source_ids)
+        with self._lock:
+            rows = self.connection.execute(
+                f"""
+                SELECT * FROM rule_executions
+                WHERE json_array_length(source_ids) > 0
+                  AND NOT EXISTS (
+                    SELECT 1
+                    FROM json_each(rule_executions.source_ids) scoped_source
+                    WHERE CAST(scoped_source.value AS TEXT) NOT IN ({placeholders})
+                  )
+                ORDER BY created_at DESC, execution_id DESC
+                LIMIT ?
+                """,
+                (*source_ids, limit),
+            ).fetchall()
+        return [_row_to_execution(row) for row in rows]
+
     def list_cancel_requested(self) -> list[RuleExecution]:
         with self._lock:
             rows = self.connection.execute(

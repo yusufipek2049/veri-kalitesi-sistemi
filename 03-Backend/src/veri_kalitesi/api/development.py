@@ -23,6 +23,13 @@ from veri_kalitesi.data_sources import (
     SourceType,
 )
 from veri_kalitesi.identity import DashboardAuthorizationPolicy, PolicyAuthorizationService
+from veri_kalitesi.executions import (
+    ExecutionQueryService,
+    ExecutionStatus,
+    ExecutionType,
+    RuleExecution,
+    WorkloadClass,
+)
 from veri_kalitesi.rules import (
     QualityDimension,
     QualityRule,
@@ -197,6 +204,133 @@ DEVELOPMENT_RULES = (
         ),
     ),
 )
+DEVELOPMENT_EXECUTIONS = (
+    RuleExecution(
+        execution_id="execution-running",
+        idempotency_key_hash="synthetic-running",
+        payload_hash="synthetic-running-payload",
+        rule_version_ids=("rule-version-customer-id-3", "rule-version-account-iban-2"),
+        scope={},
+        triggered_by="development-user",
+        correlation_id="development-running",
+        source_ids=("source-core-banking",),
+        workload_class=WorkloadClass.HEAVY,
+        execution_type=ExecutionType.MANUAL,
+        status=ExecutionStatus.RUNNING,
+        attempt_count=1,
+        created_at=datetime(2026, 7, 23, 8, 40, tzinfo=timezone.utc),
+        started_at=datetime(2026, 7, 23, 8, 41, tzinfo=timezone.utc),
+    ),
+    RuleExecution(
+        execution_id="execution-queued",
+        idempotency_key_hash="synthetic-queued",
+        payload_hash="synthetic-queued-payload",
+        rule_version_ids=("rule-version-risk-score-4",),
+        scope={},
+        triggered_by="development-user",
+        correlation_id="development-queued",
+        source_ids=("source-risk-mart",),
+        execution_type=ExecutionType.SCHEDULED,
+        status=ExecutionStatus.QUEUED,
+        created_at=datetime(2026, 7, 23, 8, 35, tzinfo=timezone.utc),
+    ),
+    RuleExecution(
+        execution_id="execution-success",
+        idempotency_key_hash="synthetic-success",
+        payload_hash="synthetic-success-payload",
+        rule_version_ids=("rule-version-customer-id-3",),
+        scope={},
+        triggered_by="development-user",
+        correlation_id="development-success",
+        source_ids=("source-core-banking",),
+        execution_type=ExecutionType.SCHEDULED,
+        status=ExecutionStatus.SUCCESS,
+        attempt_count=1,
+        created_at=datetime(2026, 7, 23, 7, 15, tzinfo=timezone.utc),
+        started_at=datetime(2026, 7, 23, 7, 16, tzinfo=timezone.utc),
+        finished_at=datetime(2026, 7, 23, 7, 24, tzinfo=timezone.utc),
+    ),
+    RuleExecution(
+        execution_id="execution-partial",
+        idempotency_key_hash="synthetic-partial",
+        payload_hash="synthetic-partial-payload",
+        rule_version_ids=("rule-version-transaction-freshness-1",),
+        scope={},
+        triggered_by="development-user",
+        correlation_id="development-partial",
+        source_ids=("source-customer-file",),
+        workload_class=WorkloadClass.HEAVY,
+        status=ExecutionStatus.PARTIAL,
+        error_class="QUERY_TIMEOUT",
+        attempt_count=1,
+        created_at=datetime(2026, 7, 22, 18, 0, tzinfo=timezone.utc),
+        started_at=datetime(2026, 7, 22, 18, 1, tzinfo=timezone.utc),
+        finished_at=datetime(2026, 7, 22, 18, 31, tzinfo=timezone.utc),
+    ),
+    RuleExecution(
+        execution_id="execution-technical-error",
+        idempotency_key_hash="synthetic-technical-error",
+        payload_hash="synthetic-technical-error-payload",
+        rule_version_ids=("rule-version-risk-score-4",),
+        scope={},
+        triggered_by="development-user",
+        correlation_id="development-technical-error",
+        source_ids=("source-risk-mart",),
+        status=ExecutionStatus.TECHNICAL_ERROR,
+        error_class="CONNECTION_UNAVAILABLE",
+        attempt_count=3,
+        created_at=datetime(2026, 7, 22, 14, 20, tzinfo=timezone.utc),
+        started_at=datetime(2026, 7, 22, 14, 21, tzinfo=timezone.utc),
+        finished_at=datetime(2026, 7, 22, 14, 24, tzinfo=timezone.utc),
+    ),
+    RuleExecution(
+        execution_id="execution-timeout",
+        idempotency_key_hash="synthetic-timeout",
+        payload_hash="synthetic-timeout-payload",
+        rule_version_ids=("rule-version-branch-code-2",),
+        scope={},
+        triggered_by="development-user",
+        correlation_id="development-timeout",
+        source_ids=("source-core-banking",),
+        status=ExecutionStatus.TIMEOUT,
+        error_class="TOTAL_TIMEOUT",
+        attempt_count=1,
+        created_at=datetime(2026, 7, 21, 11, 0, tzinfo=timezone.utc),
+        started_at=datetime(2026, 7, 21, 11, 1, tzinfo=timezone.utc),
+        finished_at=datetime(2026, 7, 21, 12, 1, tzinfo=timezone.utc),
+    ),
+    RuleExecution(
+        execution_id="execution-cancel-requested",
+        idempotency_key_hash="synthetic-cancel-requested",
+        payload_hash="synthetic-cancel-requested-payload",
+        rule_version_ids=("rule-version-account-iban-2",),
+        scope={},
+        triggered_by="development-user",
+        correlation_id="development-cancel-requested",
+        source_ids=("source-core-banking",),
+        status=ExecutionStatus.CANCEL_REQUESTED,
+        attempt_count=1,
+        created_at=datetime(2026, 7, 20, 9, 0, tzinfo=timezone.utc),
+        started_at=datetime(2026, 7, 20, 9, 1, tzinfo=timezone.utc),
+        cancel_requested_at=datetime(2026, 7, 20, 9, 4, tzinfo=timezone.utc),
+        cancel_requested_by="development-user",
+        cancel_reason="development-reason",
+    ),
+    RuleExecution(
+        execution_id="execution-cancelled",
+        idempotency_key_hash="synthetic-cancelled",
+        payload_hash="synthetic-cancelled-payload",
+        rule_version_ids=("rule-version-customer-id-3",),
+        scope={},
+        triggered_by="development-user",
+        correlation_id="development-cancelled",
+        source_ids=("source-customer-file",),
+        status=ExecutionStatus.CANCELLED,
+        created_at=datetime(2026, 7, 19, 16, 0, tzinfo=timezone.utc),
+        finished_at=datetime(2026, 7, 19, 16, 2, tzinfo=timezone.utc),
+        cancelled_at=datetime(2026, 7, 19, 16, 2, tzinfo=timezone.utc),
+    ),
+)
 
 
 class DevelopmentDataSourceReader:
@@ -214,6 +348,24 @@ class DevelopmentRuleReader:
             (item for item in DEVELOPMENT_RULES if item[0].dataset_id in allowed_dataset_ids),
             key=lambda item: (item[0].code.casefold(), item[0].quality_rule_id),
         )
+
+
+class DevelopmentExecutionReader:
+    def list_executions_for_sources(
+        self,
+        allowed_source_ids: frozenset[str],
+        *,
+        limit: int = 100,
+    ) -> list[RuleExecution]:
+        return sorted(
+            (
+                execution
+                for execution in DEVELOPMENT_EXECUTIONS
+                if execution.source_ids and set(execution.source_ids).issubset(allowed_source_ids)
+            ),
+            key=lambda execution: (execution.created_at, execution.execution_id),
+            reverse=True,
+        )[:limit]
 
 
 def create_development_app():  # type: ignore[no-untyped-def]
@@ -294,4 +446,5 @@ def create_development_app():  # type: ignore[no-untyped-def]
             DevelopmentDataSourceReader(), authorization
         ),
         rule_query_service=RuleQueryService(DevelopmentRuleReader(), authorization),
+        execution_query_service=ExecutionQueryService(DevelopmentExecutionReader(), authorization),
     )

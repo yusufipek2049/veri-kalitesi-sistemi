@@ -20,6 +20,8 @@ from veri_kalitesi.api.models import (
     DashboardSummaryResponse,
     DataSourceListItemResponse,
     DataSourceListResponse,
+    ExecutionListItemResponse,
+    ExecutionListResponse,
     RuleListItemResponse,
     RuleListResponse,
 )
@@ -33,6 +35,11 @@ from veri_kalitesi.dashboard import (
     DashboardQueryError,
     DashboardQueryService,
     DashboardValidationError,
+)
+from veri_kalitesi.executions import (
+    ExecutionQueryAuthorizationError,
+    ExecutionQueryService,
+    ExecutionQueryTechnicalError,
 )
 from veri_kalitesi.rules import (
     RuleQueryAuthorizationError,
@@ -50,6 +57,7 @@ def create_dashboard_api(
     data_origin: str = "runtime",
     data_source_query_service: DataSourceQueryService | None = None,
     rule_query_service: RuleQueryService | None = None,
+    execution_query_service: ExecutionQueryService | None = None,
 ) -> FastAPI:
     """Bağımlılıkları dışarıdan verilen, varsayılanı fail-closed API üretir."""
 
@@ -188,6 +196,30 @@ def create_dashboard_api(
             correlation_id=error.correlation_id,
         )
 
+    @app.exception_handler(ExecutionQueryAuthorizationError)
+    async def handle_execution_authorization_error(
+        request: Request, error: ExecutionQueryAuthorizationError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=403,
+            title="Access denied",
+            detail="The requested execution scope is not available.",
+            correlation_id=error.correlation_id,
+        )
+
+    @app.exception_handler(ExecutionQueryTechnicalError)
+    async def handle_execution_query_error(
+        request: Request, error: ExecutionQueryTechnicalError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=503,
+            title="Executions temporarily unavailable",
+            detail="The execution query could not be completed.",
+            correlation_id=error.correlation_id,
+        )
+
     @app.exception_handler(ApiSessionUnavailableError)
     async def handle_session_unavailable_error(
         request: Request, error: ApiSessionUnavailableError
@@ -275,6 +307,28 @@ def create_dashboard_api(
             data_origin=data_origin,
             correlation_id=request.state.correlation_id,
             items=tuple(RuleListItemResponse.from_domain(rule, version) for rule, version in rules),
+        )
+
+    @app.get(
+        "/api/v1/executions",
+        response_model=ExecutionListResponse,
+        tags=["executions"],
+    )
+    async def get_executions(request: Request, response: Response) -> ExecutionListResponse:
+        if execution_query_service is None:
+            raise ExecutionQueryTechnicalError(
+                "Execution service is unavailable.", request.state.correlation_id
+            )
+        actor_context = resolver.resolve(request)
+        executions = execution_query_service.list_for_actor(actor_context)
+        response.headers["Cache-Control"] = "no-store"
+        return ExecutionListResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            limit=execution_query_service.page_limit,
+            items=tuple(
+                ExecutionListItemResponse.from_domain(execution) for execution in executions
+            ),
         )
 
     @app.post("/api/v1/session/logout", status_code=204, tags=["session"])

@@ -2,7 +2,7 @@
 type: project-memory
 status: draft
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-last_updated: 2026-07-22
+last_updated: 2026-07-23
 tags:
   - proje
   - mevcut-durum
@@ -29,6 +29,30 @@ tags:
 - 71 sistem kabul kriteri.
 
 ## Uygulama Durumu
+
+### 2026-07-23 — İterasyon 35C: Salt okunur Çalıştırmalar ekranı
+
+- `FR-043`, `FR-044`, `UC-008`, `FE-DS-015` ve `NFR-USA-001–006` içinden
+  salt okunur çalışma envanteri alt kapsamı tamamlandı.
+- `/api/v1/executions`, yalnız güvenilir `ActorContext` içindeki izinli kaynak
+  kimlikleriyle tamamen kapsanan çalıştırmaları en yeni kayıt önce ve en fazla
+  100 öğe olarak döndürür. Kaynak kapsamı olmayan eski kayıtlar ile izinli ve
+  izinsiz kaynakları birlikte içeren çalışmalar fail-closed dışlanır.
+- Yanıt; çalışma kimliği/türü/durumu, yük sınıfı, kural ve kaynak sayısı, deneme
+  sayısı, güvenli teknik hata sınıfı ve zamanlarla sınırlıdır. Kural/kaynak
+  kimlikleri, tetikleyen/iptal eden kullanıcılar, iptal gerekçesi ve hata
+  ayrıntısı taşınmaz.
+- `/executions` rotası metin, durum, tür, tarih ve sabit yetkili kapsam
+  filtreleri; sekiz çalışma durumunu birbirine dönüştürmeyen görsel anlamlar;
+  açık/koyu tema ile loading, empty, error, unauthorized ve long-content
+  durumlarını sunar.
+- İlk görsel turda yetkili kapsam filtresi görünür ve salt okunur hale getirildi,
+  filtre ızgarası orta genişlikler için iki kolona bölündü. İkinci turda masaüstü
+  kolon başlıkları eklenerek satır taranabilirliği ve ikon ekseni iyileştirildi.
+- 1046 pytest geçti, iki opt-in PostgreSQL testi atlandı; mypy 164 dosyada,
+  Ruff lint/format ve `compileall` hatasızdır. 40 Vitest, 51 Playwright,
+  TypeScript, Vite/Storybook build ve production npm audit geçti. Mevcut
+  dashboard chunk boyutu uyarısı sürmektedir.
 
 ### 2026-07-22 — İterasyon 35B: Salt okunur Kurallar ekranı
 

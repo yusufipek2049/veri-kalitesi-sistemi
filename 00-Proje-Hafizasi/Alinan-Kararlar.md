@@ -706,6 +706,12 @@ yeterlilik runtime/API uygulamasını veya banka marka onayını tamamlanmış s
 | --- | --- | --- | --- |
 | Kural liste DTO'su yalnız kural kimliği, kodu, adı, dataset kimliği, boyutu, durumu ve son değişmez sürümün kimlik/tür/kritiklik/zaman özetini taşıyacaktır. Kapsam güvenilir aktör bağlamındaki izinli dataset kimliklerinden üretilecek; `can_view_enterprise` kural envanteri yetkisi sayılmayacaktır. | Kural tanımı, özel SQL, eşik, ağırlık, alan kimlikleri, sahip ve hazırlayan kimlikleri listeleme işi için gerekli değildir. İstemci tarafı filtreleme yetkisiz veriyi gereksiz yere taşır. | Tüm domain modellerini döndürmek; yalnız istemcide dataset filtresi uygulamak; kurum geneli skor iznini tüm kurallara genişletmek. | `/api/v1/rules` veri-minimum ve dataset scope filtreli çalışır. Boş kapsam boş liste, güvenilmeyen bağlam 403, depo hatası redakte edilmiş 503 üretir. Yazma, test ve aktivasyon işlemleri bu salt okunur yüzeyin dışındadır. |
 
+## 2026-07-23 — İterasyon 35C Teknik Kararı
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| Çalıştırma listesi güvenilir aktör bağlamındaki izinli kaynak kimlikleriyle tamamen kapsanan kayıtları en yeni önce ve en fazla 100 öğe olarak döndürecektir. Kaynak kapsamı olmayan eski kayıtlar ile izinli/izinsiz kaynakları birlikte içeren kayıtlar fail-closed dışlanacaktır. DTO yalnız durum, tür, yük sınıfı, toplu sayaçlar, güvenli teknik hata sınıfı ve zamanları taşıyacaktır. | Çok kaynaklı bir çalışmayı tek izinli kaynak üzerinden görünür kılmak diğer kaynakların varlığını ifşa eder. Eski kapsamsız kayıt için yetki kanıtı üretilemez. Kural/kaynak listeleri, aktörler, iptal gerekçesi ve hata ayrıntısı envanter ekranı için gerekli değildir. | Herhangi bir kaynak eşleşince kaydı döndürmek; kapsamsız eski kayıtları herkese açmak; tüm domain modelini istemciye taşımak; sınırsız liste döndürmek. | `/api/v1/executions` veri-minimum ve kaynak scope filtreli çalışır. Boş kapsam boş liste, güvenilmeyen bağlam 403, depo hatası redakte edilmiş 503 üretir. Başlatma, yeniden deneme, iptal ve zamanlama bu salt okunur yüzeyin dışındadır. |
+
 ## 2026-07-22 — İterasyon 20E Teknik Kararı
 
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
