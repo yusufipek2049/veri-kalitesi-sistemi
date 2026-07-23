@@ -19,7 +19,7 @@ etkiler. Audit olayları değişmez ve salt okunur kalır.
 
 ## 36A — PostgreSQL-only Kalıcılık Temeli
 
-Durum: **InProgress — 36A1/36A2a TechnicallyVerified, 36A2b Ready**
+Durum: **TechnicallyVerified — 36A1/36A2a/36A2b tamamlandı**
 
 36A tek iterasyon boyutunu aştığı için iki dikey dilime ayrılmıştır:
 
@@ -28,7 +28,7 @@ Durum: **InProgress — 36A1/36A2a TechnicallyVerified, 36A2b Ready**
 - `36A2a`: issue mutasyonları, geçmiş ve atomik audit outbox;
   `TechnicallyVerified`.
 - `36A2b`: idempotent seçici aktarım, bütünlük doğrulaması ve issue SQLite
-  runtime yolunun kaldırılması; `Ready`.
+  runtime yolunun kaldırılması; `TechnicallyVerified`.
 
 ### Gereksinim Bağlantıları
 
@@ -55,7 +55,7 @@ Durum: **InProgress — 36A1/36A2a TechnicallyVerified, 36A2b Ready**
 
 ## 36B — Yazılabilir Sorunlar
 
-Durum: **Planned — 36A'ya bağlı**
+Durum: **Ready — 36A tamamlandı**
 
 - Gereksinimler: `FR-064–FR-070`, `UC-013`, `UC-014`.
 - Atama ve incelemeye alma.

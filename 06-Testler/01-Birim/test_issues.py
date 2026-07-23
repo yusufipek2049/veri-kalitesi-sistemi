@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 import sqlite3
 
 import pytest
+from legacy_sqlite_issue_repository import SQLiteIssueRepository
 
 from veri_kalitesi.audit import (
     AuditRedactionPolicy,
@@ -38,7 +39,6 @@ from veri_kalitesi.issues import (
     IssueValidationError,
     IssueVerificationOutcome,
     ProtectedIssueResolution,
-    SQLiteIssueRepository,
     TrustedIssueVerificationResult,
 )
 from veri_kalitesi.notifications import (

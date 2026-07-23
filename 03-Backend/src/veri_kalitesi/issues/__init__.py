@@ -5,6 +5,7 @@ from veri_kalitesi.issues.errors import (
     IssueAuthorizationError,
     IssueConflictError,
     IssueError,
+    IssueMigrationError,
     IssueNotFoundError,
     IssueNotificationConfigurationError,
     IssueNotificationError,
@@ -34,7 +35,11 @@ from veri_kalitesi.issues.models import (
     ProtectedIssueResolution,
     TrustedIssueVerificationResult,
 )
-from veri_kalitesi.issues.repository import SQLiteIssueRepository
+from veri_kalitesi.issues.migration import (
+    IssueMigrationReport,
+    MigratedTable,
+    SQLiteIssueMigrator,
+)
 from veri_kalitesi.issues.postgresql_repository import (
     PostgreSQLIssueRepository,
     issue_table,
@@ -68,6 +73,8 @@ __all__ = [
     "IssueConflictError",
     "IssueError",
     "IssueHistoryEntry",
+    "IssueMigrationError",
+    "IssueMigrationReport",
     "IssueNotFoundError",
     "IssueNotificationConfigurationError",
     "IssueNotificationError",
@@ -99,7 +106,8 @@ __all__ = [
     "IssueValidationError",
     "ProtectedIssueResolution",
     "PostgreSQLIssueRepository",
-    "SQLiteIssueRepository",
+    "MigratedTable",
+    "SQLiteIssueMigrator",
     "TrustedIssueVerificationResult",
     "issue_table",
 ]

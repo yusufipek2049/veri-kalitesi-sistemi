@@ -42,7 +42,15 @@ tags:
 - Her başarılı mutasyon sayısal `version` alanını artırır; 36B optimistic
   locking HTTP sözleşmesi bu alanı kullanacaktır.
 - Seçici SQLite aktarımı ve eski issue repository/export yolunun kaldırılması
-  `36A2b` kapsamındadır.
+  `36A2b` ile tamamlanmıştır.
+
+## İterasyon 36A2b Seçici Issue Aktarımı
+
+- Legacy SQLite dosyası salt okunur açılır; issue ana/geçmiş/çözüm/doğrulama/
+  ilişki kayıtları ile yalnız bekleyen issue audit outbox olayları taşınır.
+- Aktarım tekrar çalıştırılabilir; kaynak/hedef sayaç ve kanonik hash'leri,
+  foreign key bütünlüğü ve kaynak dosya özeti commit öncesinde doğrulanır.
+- SQLite issue runtime repository'si ve package export'u kaldırılmıştır.
 
 ## Tasarım İlkeleri
 

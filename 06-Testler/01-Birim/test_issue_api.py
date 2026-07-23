@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
+from legacy_sqlite_issue_repository import SQLiteIssueRepository
 
 from veri_kalitesi.api import DevelopmentActorContextResolver, create_dashboard_api
 from veri_kalitesi.api.development import create_development_app
@@ -27,7 +28,6 @@ from veri_kalitesi.issues import (
     IssueStatus,
     IssueTriggerType,
     IssueValidationError,
-    SQLiteIssueRepository,
 )
 from veri_kalitesi.scoring import SQLiteScoreRepository
 

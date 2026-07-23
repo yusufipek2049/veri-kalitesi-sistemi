@@ -28,7 +28,7 @@ gelmez.
 | Kural yönetimi | `rules/repository.py` | Bekliyor |
 | Çalıştırma ve zamanlama | `executions/repository.py`, `executions/scheduling.py`, `executions/source_usage_policies.py` | Bekliyor |
 | Skorlama | `scoring/repository.py`, `scoring/partial_score_policies.py` | Bekliyor |
-| Sorun yönetimi | `issues/repository.py` | PostgreSQL şema/okuma `36A1`, mutasyon/geçmiş/audit outbox `36A2a`; seçici aktarım ve SQLite kaldırma `36A2b` |
+| Sorun yönetimi | Ürün paketinde SQLite yüzeyi yok | `36A1–36A2b` tamamlandı; PostgreSQL-only runtime, seçici aktarım doğrulandı |
 | Bildirim | `notifications/repository.py` | Bekliyor |
 | ServiceNow | `servicenow/repository.py` | Bekliyor |
 | Saklama ve arşiv | `retention/repository.py`, `retention/disposal_repository.py`, `retention/archive_recall_repository.py` | Bekliyor |
@@ -70,6 +70,19 @@ gelmez.
 - Ayrı `data-quality-postgres` konteynerinde benzersiz geçici şemalarla üç
   entegrasyon testi çalıştı. Secret ve bağlantı URL'si kalıcı dosyaya veya test
   çıktısına yazılmadı.
-- `issues/repository.py` hâlâ eski SQLite kayıtlarının aktarımı ve mevcut
-  testlerin compatibility yolu olarak bulunmaktadır. `36A2b` seçici/idempotent
-  aktarımı doğruladıktan sonra bu dosyayı ve package export'unu kaldıracaktır.
+- `issues/repository.py` ve package export'u 36A2b ile ürün paketinden
+  kaldırılmıştır.
+
+## 36A2b Sonucu
+
+- `SQLiteIssueMigrator`, legacy dosyayı salt okunur açar ve issue ana kaydı,
+  geçmiş, çözüm, doğrulama, ilişki ile bekleyen issue audit outbox kayıtlarını
+  PostgreSQL'e seçici taşır.
+- `ON CONFLICT DO NOTHING` tekrar çalıştırmayı idempotent yapar. Kaynak/hedef
+  sayaçları, kanonik hash'ler, foreign key'ler ve kaynak dosya özeti commit
+  öncesinde doğrulanır.
+- Gerçek PostgreSQL testinde ilk çalışma sekiz satır, ikinci çalışma sıfır yeni
+  satır üretti. Hedef payload uyuşmazlığı transaction'ı geri aldı.
+- `issues/repository.py` ve package export'u kaldırıldı. Legacy SQLite fixture
+  yalnız birim test desteğinde bulunur; runtime veya kalıcı entegrasyon fallback'i
+  değildir.

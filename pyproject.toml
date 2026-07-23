@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [tool.pytest.ini_options]
-pythonpath = ["03-Backend/src"]
+pythonpath = ["03-Backend/src", "06-Testler/support"]
 testpaths = ["06-Testler"]
 python_files = ["test_*.py"]
 

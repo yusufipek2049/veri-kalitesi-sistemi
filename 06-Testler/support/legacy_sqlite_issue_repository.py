@@ -1,4 +1,4 @@
-"""SQLite persistence for data quality issues and immutable history."""
+"""Yalnız legacy aktarım fixture'ları için SQLite issue test deposu."""
 
 from __future__ import annotations
 
