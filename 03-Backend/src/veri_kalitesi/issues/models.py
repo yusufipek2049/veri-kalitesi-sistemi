@@ -175,6 +175,7 @@ class DataQualityIssue:
     updated_at: datetime
     last_seen_at: datetime
     issue_id: str = field(default_factory=lambda: str(uuid4()))
+    version: int = 1
 
 
 @dataclass(frozen=True)

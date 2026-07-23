@@ -365,6 +365,7 @@ class PostgreSQLIssueRepository:
         updated_at: datetime,
         history: IssueHistoryEntry,
         *,
+        expected_version: int,
         audit_event: PreparedAuditEvent,
         audit_outbox: PostgreSQLTransactionalAudit,
     ) -> DataQualityIssue:
@@ -375,6 +376,7 @@ class PostgreSQLIssueRepository:
                 .where(
                     self._table.c.issue_id == issue_id,
                     self._table.c.status == expected_status.value,
+                    self._table.c.version == expected_version,
                 )
                 .values(
                     status=target_status.value,
@@ -753,6 +755,7 @@ def _row_to_issue(values: RowMapping) -> DataQualityIssue:
         created_at=_require_datetime(values["created_at"]),
         updated_at=_require_datetime(values["updated_at"]),
         last_seen_at=_require_datetime(values["last_seen_at"]),
+        version=int(values["version"]),
     )
 
 

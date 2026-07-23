@@ -152,6 +152,7 @@ def test_rule_011_repeated_trigger_preserves_current_investigating_status() -> N
     issue = _create(fixture.service, _trigger(IssueTriggerType.QUALITY_THRESHOLD))
     fixture.service.start_investigation(
         issue.issue_id,
+        issue.version,
         _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
     )
 
@@ -296,6 +297,7 @@ def test_fr_066_uc_013_assignee_with_scope_starts_investigation_and_history() ->
 
     investigating = fixture.service.start_investigation(
         issue.issue_id,
+        issue.version,
         _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
     )
 
@@ -327,7 +329,11 @@ def test_fr_066_unauthorized_actor_cannot_start_investigation(context_kind: str)
     }
 
     with pytest.raises(IssueAuthorizationError):
-        fixture.service.start_investigation(issue.issue_id, contexts[context_kind])
+        fixture.service.start_investigation(
+            issue.issue_id,
+            issue.version,
+            contexts[context_kind],
+        )
 
     assert fixture.repository.get(issue.issue_id).status is IssueStatus.ASSIGNED
     assert len(fixture.repository.list_history(issue.issue_id)) == 1
@@ -337,12 +343,27 @@ def test_fr_066_repeated_investigation_transition_is_rejected() -> None:
     fixture = _fixture()
     issue = _create(fixture.service, _trigger(IssueTriggerType.QUALITY_THRESHOLD))
     context = _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID})
-    fixture.service.start_investigation(issue.issue_id, context)
+    fixture.service.start_investigation(issue.issue_id, issue.version, context)
 
     with pytest.raises(IssueValidationError, match="assigned"):
-        fixture.service.start_investigation(issue.issue_id, context)
+        fixture.service.start_investigation(issue.issue_id, issue.version, context)
 
     assert len(fixture.repository.list_history(issue.issue_id)) == 2
+
+
+def test_ui_write_002_stale_issue_version_cannot_start_investigation() -> None:
+    fixture = _fixture()
+    issue = _create(fixture.service, _trigger(IssueTriggerType.QUALITY_THRESHOLD))
+
+    with pytest.raises(IssueConflictError, match="changed"):
+        fixture.service.start_investigation(
+            issue.issue_id,
+            issue.version + 1,
+            _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
+        )
+
+    assert fixture.repository.get(issue.issue_id).status is IssueStatus.ASSIGNED
+    assert len(fixture.repository.list_history(issue.issue_id)) == 1
 
 
 def test_bfr_data_003_sensitive_deduplication_key_is_rejected_before_assignment() -> None:
@@ -1869,6 +1890,7 @@ def _investigating_issue(
     )
     return fixture.service.start_investigation(
         issue.issue_id,
+        issue.version,
         _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
     )
 

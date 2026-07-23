@@ -55,10 +55,12 @@ Durum: **TechnicallyVerified — 36A1/36A2a/36A2b tamamlandı**
 
 ## 36B — Yazılabilir Sorunlar
 
-Durum: **Ready — 36A tamamlandı**
+Durum: **InProgress — 36B1 TechnicallyVerified**
 
 - Gereksinimler: `FR-064–FR-070`, `UC-013`, `UC-014`.
-- Atama ve incelemeye alma.
+- `36B1`: kendisine atanmış sorunu backend eylem yetkisi, BFF/CSRF ve sayısal
+  optimistic locking ile incelemeye alma; `TechnicallyVerified`.
+- `36B2`: güvenilir kullanıcı resolver'ıyla yeniden atama; `Ready`.
 - Çözüm kaydetme.
 - Farklı aktörle doğrulama ve kapatma.
 - Aynı başarısızlıkta yeniden açma.
