@@ -20,7 +20,10 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
 
 ## Geliştirmeyi En Çok Etkileyen Açık Konular
 
-1. PostgreSQL, `psycopg 3` ve SQLAlchemy seçilmiştir; kurum içi kalıcı entegrasyon veritabanı erişimi ve ikinci ilişkisel ürünün kurum standardı eşlemesi beklenmektedir.
+1. PostgreSQL-only uygulama kalıcılığı, `psycopg 3`, SQLAlchemy 2 ve Alembic
+   karara bağlanmıştır. Mevcut SQLite repository'lerin bağımlılık sıralı
+   migration'ı, PostgreSQL test izolasyonu ve SQLite fallback'lerin kaldırılması
+   henüz uygulanmamıştır.
 2. Worker/kota/pencere/CPU/IO/timeout/rate değerleri aktif sürümlü kaynak politikasından çözülecektir; kapasite testinden üretilmiş üretim politika kaydı ve CPU/IO/rate ölçüm adaptörü henüz yoktur.
 3. Kurumsal secret manager/PAM kullanımı karara bağlanmıştır; seçilen kurumsal hizmetin servis/workload identity eşlemesi ve gerçek adaptörü beklenmektedir.
 4. Kurumsal IdP üzerinden OIDC veya SAML, MFA, PAM ve çift onaylı break-glass karara bağlanmıştır; endpoint, grup-rol-scope değerleri ve üretim rol eşlemeleri beklenmektedir.
@@ -31,7 +34,9 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
 9. PostgreSQL transactional outbox ve ayrı publisher worker karara bağlanmıştır; kapasite testiyle üretilmiş alarm/eşik politikası ve üretim işletim kanıtı beklenmektedir.
 10. Kısmi resmî skorun koşulları sürümlü/onaylı dataset politikasından çözülecektir; banka onaylı üretim politika kayıtlarının oluşturulması beklenmektedir.
 11. Dashboard güvenilir `ActorContext` ve `AuthorizationService` sınırına taşındı; diğer servislerdeki serbest `actor_id` kullanımı ile context issuer'ın gerçek LDAP/session adaptörüne bağlanması İterasyon 20 ve sonraki modül geçişlerini gerektirir.
-13. Kurum içi kalıcı PostgreSQL entegrasyon veritabanı erişimi ve seçilen sürücü/havuz yaklaşımının kurum standardı onayı beklenmektedir.
+13. Yerel `data_quality` PostgreSQL veritabanı mevcuttur. Kurum içi kalıcı
+    entegrasyon/üretim veritabanı erişimi, yüksek erişilebilir küme ve seçilen
+    sürücü/havuz yaklaşımının kurum standardı onayı beklenmektedir.
 15. `AC-008` için veri sahibi onaylı, anonimleştirilmiş üretim örneği, yeniden kimliklendirme risk değerlendirmesi ve donanım gözlemli performans testi henüz hazırlanmadı; birim testleri yalnız SAMPLE sözleşmesini doğruluyor.
 16. `RuleTestExecutor` için PostgreSQL/CSV kaynak adaptörleri, sorgu maliyet tahmini ve regex çalışma timeoutu henüz uygulanmadı; mevcut iterasyon güvenli domain sözleşmesini, şablon planlarını ve test geçmişini doğruluyor.
 17. Kurumsal broker veya RabbitMQ fallback'i ve PostgreSQL transactional outbox
@@ -241,6 +246,12 @@ kararın uygulanmasını engelleyen dış bağımlılıkları tutar.
     kritik kural sonuç özeti, kullanım kararı ve alarm runtime kaynakları henüz
     uygulanmadı. Bu kaynaklar yokken API olumlu yeterlilik veya sıfır kritik
     ihlal sayısı üretmez.
+75. PostgreSQL-only hedefi ve 36A–36F yazılabilir arayüz sırası
+    kesinleşmiştir. 36A öncesinde SQLite repository envanteri, tablo/constraint
+    eşlemesi, Alembic baseline ve PostgreSQL test izolasyonu uygulanmalıdır.
+    36B–36F mutasyonları gerçek IdP, güvenilir aktör, BFF/CSRF, rol/kapsam,
+    maker-checker ve audit önkoşullarını sağlamadan açılmaz. Denetim kayıtları
+    değişmezdir; kaynak sistemlere yazma kapsam dışıdır.
 
 ## Bankacılık Geçiş Açık Konuları
 

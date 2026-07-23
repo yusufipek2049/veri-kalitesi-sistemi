@@ -2,7 +2,7 @@
 type: architecture-decision-log
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
 status: seed
-last_updated: 2026-07-22
+last_updated: 2026-07-23
 tags:
   - architecture
   - adr
@@ -31,6 +31,35 @@ tags:
 | ADR-017 | React + TypeScript + Vite, MUI, ECharts, Storybook ve Playwright frontend teknoloji yığını | Kabul edildi; paket kurulumu ve frontend uygulaması bekliyor |
 | ADR-018 | Değişken üretim değerlerinde sürümlü ve fail-closed politika çözümleme | KararAlındı; açık karar yerine uygulama/konfigürasyon kapısı |
 | ADR-019 | Kanıta dayalı, politika farkındalıklı karar desteği ve üretim verisini değiştirmeyen öneri/remediation sınırı | KararAlındı; `OPEN-026–OPEN-036` yönleri kesin, runtime ve banka incelemeleri açık |
+| ADR-020 | PostgreSQL-only uygulama kalıcılığı ve güvenlik bağımlılık sıralı yazılabilir arayüz geçişi | KararAlındı; 36A–36F uygulama backlogunda |
+
+## ADR-020 — PostgreSQL-only Kalıcılık ve Yazılabilir Arayüz Geçişi
+
+**Bağlam:** Mevcut modüler monolitte çok sayıda SQLite repository ve prototip
+kalıcılık yolu bulunurken PostgreSQL, `psycopg 3`, SQLAlchemy 2 ve Alembic hedef
+teknoloji olarak seçilmiştir. 35A–35F alan ekranları güvenli salt okunur
+yüzeyleri tamamlamıştır. SQLite bütünlük iyileştirmesi yapmak ve geçici SQLite
+mutasyon API'leri eklemek kaldırılacak altyapıya yeni bağımlılık yaratacaktır.
+
+**Karar:** Uygulamanın kalıcı ilişkisel deposu yalnız PostgreSQL olacaktır.
+Runtime ve kalıcı entegrasyon testlerinde SQLite fallback bulunmayacaktır.
+Birim testleri kalıcılık gerektirmediğinde fake domain double kullanabilir.
+Migration'lar Alembic, session/transaction sınırı SQLAlchemy 2 üzerinden
+yönetilir. Geçiş tek seferde değil, domain bazlı küçük dikeylerle yapılır;
+taşınan domainin SQLite repository'si ve fallback'i aynı geçiş zincirinde
+kaldırılır.
+
+Yazma yüzeyleri 36A–36F bağımlılık sırasında açılır: PostgreSQL temeli ve issue
+kalıcılığı; Sorunlar yaşam döngüsü; Kurallar; Veri Kaynakları; Çalıştırmalar;
+Rapor talepleri/güvenli indirme. Her mutasyon güvenilir aktör, BFF/CSRF,
+rol/kapsam, gerekli yerde maker-checker ve veri-minimum audit gerektirir.
+Denetim kayıtları değişmez ve salt okunur kalır.
+
+**Sonuç:** `R-06` SQLite foreign key iyileştirmesi iptal edilmiştir. Kaynak
+sistemlere salt okunur erişim değişmez; yazılabilir arayüz yalnız uygulamanın
+sahip olduğu metadata, politika, iş akışı ve sonuç kayıtlarını etkiler. Karar
+üretim PostgreSQL kümesinin kurulduğu veya banka onayının alındığı anlamına
+gelmez.
 
 ## ADR-019 — Kanıta Dayalı ve Politika Farkındalıklı Karar Desteği
 

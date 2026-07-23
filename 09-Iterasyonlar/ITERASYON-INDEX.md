@@ -30,5 +30,6 @@
 16. [Iterasyon-34-Sentetik-Veri-Kayit-Cekirdegi](Iterasyon-34-Sentetik-Veri-Kayit-Cekirdegi.md) - 34A–34F `TechnicallyVerified`; PostgreSQL kusur dataseti hazır, uygulama profil/kural entegrasyonu ve gizlilik kapısı açık
 17. [Iterasyon-21-Dashboard-API](Iterasyon-21-Dashboard-API.md) - 21B güvenli özet API ve 21C operasyonel gösterge DTO'su `TechnicallyVerified`; 30D UI bağlantısı tamamlandı, gerçek IdP ve üretim altyapısı açık
 18. [Iterasyon-35-Frontend-Alan-Ekranlari](Iterasyon-35-Frontend-Alan-Ekranlari.md) - 35A Veri Kaynakları, 35B Kurallar, 35C Çalıştırmalar, 35D Sorunlar, 35E Raporlar ve 35F Denetim ekranı `TechnicallyVerified`
+19. [Iterasyon-36-PostgreSQL-ve-Yazilabilir-Alan-Ekranlari](Iterasyon-36-PostgreSQL-ve-Yazilabilir-Alan-Ekranlari.md) - 36A PostgreSQL-only temel `Ready`; 36B–36F yazılabilir alan ekranları bağımlılık sırasında planlı
 
 Her iterasyon [Iterasyon-Kapanis-Sablonu](Iterasyon-Kapanis-Sablonu.md) ile kapatılır.

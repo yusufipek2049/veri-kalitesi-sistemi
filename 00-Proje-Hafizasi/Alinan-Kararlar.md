@@ -730,6 +730,22 @@ yeterlilik runtime/API uygulamasını veya banka marka onayını tamamlanmış s
 | --- | --- | --- | --- |
 | İlk Denetim ekranı mevcut `AuditQueryService` üzerinden güvenilir `AUDIT_VIEWER` rolüyle çalışacak; istemci en fazla 31 günlük çevrimiçi pencere, izinli filtreler ve snapshot cursor kullanacaktır. DTO veri-minimum olay alanları ve bütünlük sonucuyla sınırlı olacak; eski/yeni değer özeti, hash alanları ve hassas dışa aktarma taşınmayacaktır. | Audit kaydı yüksek hassasiyetli bir güvenlik yüzeyidir. Domain sorgu ve rol sınırını yeniden kullanmak, sayfalar arasında tutarlı snapshot sağlamak ve ayrıntı/hash alanlarını istemciye açmamak gerekir. | API'den repository'yi doğrudan sorgulamak; istemci rol/scope header'ına güvenmek; sınırsız tarih aralığı veya tüm audit zarfını döndürmek; bütünlük sonucunu yalnız logda bırakmak. | `/api/v1/audit/events` ve `/audit` salt okunur, `no-store`, veri-minimum ve fail-closed çalışır. Yetkisiz çağrı veri ifşa etmeden 403, teknik hata redakte edilmiş 503 üretir; görüntüleme ayrıca audit edilir. Arşiv sorgusu, istemci bilgisi ve dışa aktarma açık kalır. |
 
+## 2026-07-23 — PostgreSQL-only ve Yazılabilir Arayüz Yol Haritası Kararı
+
+Karar referansı: `USER-DECLARATION-2026-07-23-POSTGRESQL-WRITABLE-UI`.
+
+| Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
+| --- | --- | --- | --- |
+| Uygulama kalıcılığının hedef durumu yalnız PostgreSQL olacaktır. Runtime ve entegrasyon testlerinde SQLite fallback bulunmayacak; birim testleri gerekirse kalıcı veritabanı yerine fake domain double kullanacaktır. Geçiş SQLAlchemy 2 ve Alembic üzerinden küçük domain dilimleriyle yapılacaktır. | SQLite foreign key iyileştirmesine yatırım yapmak, kaldırılacak kalıcılık yolunu büyütür. Tek ilişkisel platform migration, transaction, concurrency ve üretim davranışını tutarlı kılar. | SQLite bütünlük iyileştirmesi yapmak; iki veritabanını süresiz desteklemek; tüm repository'leri tek seferde dönüştürmek. | `R-06` iptal edilmiştir. 36A PostgreSQL-only kalıcılık temelini ve ilk issue repository geçişini hazırlayacaktır. Her domain PostgreSQL'e taşındığında ilgili SQLite uygulaması ve fallback'i kaldırılacaktır. |
+| Salt okunur 35A–35F ekranlarından sonra yazma yetenekleri 36B–36F sırasında açılacaktır: Sorunlar; Kurallar; Veri Kaynakları; Çalıştırmalar; Raporlar/Denetim sınırı. | Mevcut domain servislerinde issue yaşam döngüsü en olgun ve kaynak sisteme yazmayan ilk kullanıcı işlemidir. Daha riskli kural, kaynak aktivasyonu, çalıştırma ve dışa aktarma işlemleri güvenlik bağımlılıklarıyla sonra gelmelidir. | Tüm ekranları aynı anda yazılabilir yapmak; önce kaynak aktivasyonu veya dışa aktarma açmak; geçici SQLite mutasyon API'leri eklemek. | 36B issue atama/inceleme/çözüm/doğrulama/kapatma; 36C kural taslak/test/onay; 36D kaynak tanım/revizyon/test/aktivasyon; 36E çalıştırma başlatma/iptal/retry; 36F rapor talebi ve güvenli indirme alt kapsamlarını ele alacaktır. Audit kayıtları değişmez ve salt okunur kalır. |
+
+Bu karar kaynak sistemlere salt okunur erişim ilkesini değiştirmez. Yazma
+yeteneği yalnız uygulamanın sahip olduğu metadata, politika, iş akışı ve sonuç
+kayıtlarını etkiler. Her mutasyon güvenilir aktör, BFF/CSRF, rol/kapsam,
+gerektiğinde maker-checker, veri-minimum audit ve fail-closed hata davranışını
+korur. Karar üretim altyapısının kurulduğu veya banka onayının alındığı anlamına
+gelmez.
+
 ## 2026-07-22 — İterasyon 20E Teknik Kararı
 
 | Karar | Gerekçe | Değerlendirilen alternatif | Sonuç |
