@@ -30,6 +30,31 @@ tags:
 
 ## Uygulama Durumu
 
+### 2026-07-23 — İterasyon 36A2a: PostgreSQL issue mutasyon ve audit outbox
+
+- `FR-064–FR-070`, `UC-011/013/014`, `NFR-REL-005/006` ve `NFR-SEC-011`
+  kapsamında issue yaşam döngüsünün PostgreSQL kalıcılık yüzeyi tamamlandı.
+- Issue oluşturma/tekrar, inceleme, yeniden atama, çözüm, doğrulama, geçmiş ve
+  ilişki kayıtları SQLAlchemy 2 transaction sınırında çalışır. Her mutasyon
+  sayısal `version` alanını artırır.
+- PostgreSQL advisory transaction lock aynı deduplication özeti için eş zamanlı
+  yazımları serileştirir. Issue, değişmez geçmiş ve redakte audit outbox olayı
+  aynı commit içinde yazılır; audit outbox çakışmasında tüm işlem geri alınır.
+- `IssueService`, somut SQLite repository yerine generic `IssueRepository` ve
+  `IssueTransactionalAudit` sözleşmelerine bağlıdır. PostgreSQL teknik hataları
+  veri kalitesi başarısızlığına çevrilmeden mevcut güvenli teknik hata yoluna
+  taşınır.
+- Ayrı `data-quality-postgres` konteyneri host `5433` üzerinden erişilebilir
+  hale getirildi. Parola veya bağlantı URL'si depoya/loga yazılmadan üç issue
+  PostgreSQL entegrasyon testi canlı çalıştı.
+- Tam depoda gerçek issue PostgreSQL testleri dahil 1070 test geçti; yalnız
+  farklı sentetik PostgreSQL bayrağına bağlı iki test atlandı. Mypy 133 kaynak
+  dosyada, Ruff lint/format ve `compileall` hatasızdır. `28A-v1` taraması 550
+  dosyada secret bulgusu üretmedi.
+- Seçici/idempotent SQLite issue aktarımı, sayaç/hash/foreign key karşılaştırması
+  ve eski SQLite issue repository'sinin fiziksel kaldırılması `36A2b`
+  kapsamındadır. Genel PostgreSQL cutover henüz tamamlanmamıştır.
+
 ### 2026-07-23 — İterasyon 36A1: PostgreSQL kalıcılık temeli
 
 - `NFR-MNT-001/004/006`, `NFR-REL-006`, `FR-064–FR-070`, `UC-013/014` ve
@@ -49,9 +74,9 @@ tags:
   bulgusu üretmedi. Yeni gerçek PostgreSQL entegrasyon testi
   `DATA_QUALITY_POSTGRES_TEST_URL` sağlanmadığı ve bu WSL oturumundan
   PostgreSQL'e erişilemediği için kontrollü atlandı.
-- Issue mutasyon/geçmiş transaction'ı, idempotent veri aktarımı ve eski SQLite
-  issue runtime yolunun kaldırılması `36A2` kapsamındadır. Bu nedenle genel
-  PostgreSQL cutover tamamlanmış değildir.
+- Issue mutasyon/geçmiş transaction'ı ve atomik audit outbox `36A2a` ile
+  tamamlandı. İdempotent veri aktarımı ve eski SQLite issue runtime yolunun
+  kaldırılması `36A2b` kapsamındadır.
 
 ### 2026-07-23 — İterasyon 35F: Salt okunur Denetim ekranı
 

@@ -6,16 +6,18 @@ import hashlib
 import json
 import sqlite3
 from datetime import datetime, timezone
-from typing import Callable, Protocol
+from typing import Callable, Generic, Protocol
 from uuid import UUID, uuid5
+
+from sqlalchemy.exc import SQLAlchemyError
 
 from veri_kalitesi.audit import (
     AuditEventInput,
     AuditResult,
     PreparedAuditEvent,
-    SQLiteTransactionalAudit,
 )
 from veri_kalitesi.identity import ActorContext, ActorType, is_trusted_actor_context
+from veri_kalitesi.issues.contracts import AuditT, IssueRepository
 from veri_kalitesi.issues.errors import (
     IssueAssignmentError,
     IssueAuthorizationError,
@@ -56,7 +58,6 @@ from veri_kalitesi.issues.models import (
     validate_resolution_draft,
     validate_trusted_verification_result,
 )
-from veri_kalitesi.issues.repository import SQLiteIssueRepository
 from veri_kalitesi.notifications import (
     NotificationAuthorizationError,
     NotificationConflictError,
@@ -103,13 +104,16 @@ class IssueNotificationPublisher(Protocol):
     ) -> tuple[object, ...]: ...
 
 
-class IssueService:
+_PERSISTENCE_ERRORS = (sqlite3.Error, SQLAlchemyError, OSError)
+
+
+class IssueService(Generic[AuditT]):
     def __init__(
         self,
-        repository: SQLiteIssueRepository,
+        repository: IssueRepository[AuditT],
         assignment_resolver: IssueAssignmentResolver,
         notification_publisher: IssueNotificationPublisher,
-        transactional_audit: SQLiteTransactionalAudit,
+        transactional_audit: AuditT,
         access_policy: IssueAccessPolicy,
         *,
         assignee_directory: IssueAssigneeDirectory | None = None,
@@ -293,7 +297,7 @@ class IssueService:
             )
         except IssueConflictError:
             raise
-        except (sqlite3.Error, OSError) as exc:
+        except _PERSISTENCE_ERRORS as exc:
             raise IssueTechnicalError(
                 "Issue could not be persisted.", trigger.correlation_id
             ) from exc
@@ -336,7 +340,7 @@ class IssueService:
         now = self._now()
         try:
             issue = self.repository.get(issue_id)
-        except (sqlite3.Error, OSError) as exc:
+        except _PERSISTENCE_ERRORS as exc:
             raise IssueTechnicalError("Issue could not be read.", context.correlation_id) from exc
         if issue.assignee_user_id != context.actor_id or not _has_scope(context, issue):
             raise IssueAuthorizationError("Actor cannot investigate this issue.")
@@ -382,7 +386,7 @@ class IssueService:
                 audit_event=audit_event,
                 audit_outbox=self.transactional_audit,
             )
-        except (sqlite3.Error, OSError) as exc:
+        except _PERSISTENCE_ERRORS as exc:
             raise IssueTechnicalError(
                 "Issue status could not be updated.", context.correlation_id
             ) from exc
@@ -406,7 +410,7 @@ class IssueService:
         now = self._now()
         try:
             issue = self.repository.get(issue_id)
-        except (sqlite3.Error, OSError) as exc:
+        except _PERSISTENCE_ERRORS as exc:
             raise IssueTechnicalError("Issue could not be read.", context.correlation_id) from exc
         if not _has_scope(context, issue):
             raise IssueAuthorizationError("Actor cannot assign this issue.")
@@ -473,7 +477,7 @@ class IssueService:
                 audit_event=audit_event,
                 audit_outbox=self.transactional_audit,
             )
-        except (sqlite3.Error, OSError) as exc:
+        except _PERSISTENCE_ERRORS as exc:
             raise IssueTechnicalError(
                 "Issue assignment could not be updated.", context.correlation_id
             ) from exc
@@ -498,7 +502,7 @@ class IssueService:
         now = self._now()
         try:
             issue = self.repository.get(issue_id)
-        except (sqlite3.Error, OSError) as exc:
+        except _PERSISTENCE_ERRORS as exc:
             raise IssueTechnicalError("Issue could not be read.", context.correlation_id) from exc
         if issue.assignee_user_id != context.actor_id or not _has_scope(context, issue):
             raise IssueAuthorizationError("Actor cannot resolve this issue.")
@@ -575,7 +579,7 @@ class IssueService:
                 audit_event=audit_event,
                 audit_outbox=self.transactional_audit,
             )
-        except (sqlite3.Error, OSError) as exc:
+        except _PERSISTENCE_ERRORS as exc:
             raise IssueTechnicalError(
                 "Issue resolution could not be persisted.", context.correlation_id
             ) from exc
@@ -599,7 +603,7 @@ class IssueService:
         now = self._now()
         try:
             issue = self.repository.get(issue_id)
-        except (sqlite3.Error, OSError) as exc:
+        except _PERSISTENCE_ERRORS as exc:
             raise IssueTechnicalError("Issue could not be read.", context.correlation_id) from exc
         if not _has_scope(context, issue):
             raise IssueAuthorizationError("Actor cannot verify this issue.")
@@ -616,7 +620,7 @@ class IssueService:
         if result.outcome is IssueVerificationOutcome.QUALITY_PASSED:
             try:
                 resolution = self.repository.get_latest_resolution(issue.issue_id)
-            except (sqlite3.Error, OSError) as exc:
+            except _PERSISTENCE_ERRORS as exc:
                 raise IssueTechnicalError(
                     "Issue resolution could not be read.", context.correlation_id
                 ) from exc
@@ -689,7 +693,7 @@ class IssueService:
                 audit_event=audit_event,
                 audit_outbox=self.transactional_audit,
             )
-        except (sqlite3.Error, OSError) as exc:
+        except _PERSISTENCE_ERRORS as exc:
             raise IssueTechnicalError(
                 "Issue verification could not be persisted.", context.correlation_id
             ) from exc
@@ -711,7 +715,7 @@ class IssueService:
         now = self._now()
         try:
             issue = self.repository.get(issue_id)
-        except (sqlite3.Error, OSError) as exc:
+        except _PERSISTENCE_ERRORS as exc:
             raise IssueTechnicalError("Issue could not be read.", context.correlation_id) from exc
         if not _has_scope(context, issue):
             raise IssueAuthorizationError("Actor cannot close this issue.")
@@ -724,7 +728,7 @@ class IssueService:
             raise IssueValidationError(
                 "Verified issue must have a persisted verification result."
             ) from exc
-        except (sqlite3.Error, OSError) as exc:
+        except _PERSISTENCE_ERRORS as exc:
             raise IssueTechnicalError(
                 "Issue verification could not be read.", context.correlation_id
             ) from exc
@@ -775,7 +779,7 @@ class IssueService:
                 audit_event=audit_event,
                 audit_outbox=self.transactional_audit,
             )
-        except (sqlite3.Error, OSError) as exc:
+        except _PERSISTENCE_ERRORS as exc:
             raise IssueTechnicalError(
                 "Issue closure could not be persisted.", context.correlation_id
             ) from exc

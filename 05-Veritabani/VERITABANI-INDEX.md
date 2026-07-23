@@ -32,6 +32,18 @@ tags:
   Mutasyon ve geçmiş aktarımı tamamlanmadan SQLite issue kodu kaldırılmış
   sayılmaz.
 
+## İterasyon 36A2a Issue Mutasyon ve Audit
+
+- Issue oluşturma/tekrar, durum, atama, çözüm, doğrulama ve ilişki yazımları
+  PostgreSQL repository'sine taşınmıştır.
+- Aynı deduplication özeti advisory transaction lock ile serileştirilir.
+- Issue ana kaydı, değişmez geçmiş ve redakte audit outbox aynı SQLAlchemy
+  transaction'ında commit veya rollback olur.
+- Her başarılı mutasyon sayısal `version` alanını artırır; 36B optimistic
+  locking HTTP sözleşmesi bu alanı kullanacaktır.
+- Seçici SQLite aktarımı ve eski issue repository/export yolunun kaldırılması
+  `36A2b` kapsamındadır.
+
 ## Tasarım İlkeleri
 
 - Tarihsel sonuçlar kural sürümüne bağlı kalmalı.
