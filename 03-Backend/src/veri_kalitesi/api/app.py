@@ -36,9 +36,13 @@ from veri_kalitesi.api.models import (
     IssueMutationRequest,
     IssueMutationResponse,
     IssueReassignmentRequest,
+    IssueResolutionDraftRequest,
+    IssueVerificationRequest,
     ReportSummaryResponse,
+    RuleCreateRequest,
     RuleListItemResponse,
     RuleListResponse,
+    RuleMutationResponse,
 )
 from veri_kalitesi.audit import (
     AuditQuery,
@@ -76,14 +80,18 @@ from veri_kalitesi.issues import (
     IssueQueryAuthorizationError,
     IssueQueryService,
     IssueQueryTechnicalError,
+    IssueResolutionDraft,
     IssueTechnicalError,
     IssueValidationError,
 )
 from veri_kalitesi.identity import ActorContext
 from veri_kalitesi.rules import (
+    QualityRule,
     RuleQueryAuthorizationError,
     RuleQueryService,
     RuleQueryTechnicalError,
+    RuleValidationError,
+    RuleVersion,
 )
 from veri_kalitesi.reporting import (
     ReportAuthorizationError,
@@ -121,6 +129,43 @@ class IssueAssigneeOptionProvider(Protocol):
     ) -> tuple[IssueAssigneeOptionResponse, ...]: ...
 
 
+class IssueResolutionService(Protocol):
+    def resolve(
+        self,
+        issue_id: str,
+        draft: IssueResolutionDraft,
+        actor_context: ActorContext | None,
+    ) -> DataQualityIssue: ...
+
+
+class IssueVerificationService(Protocol):
+    def record_verification_result(
+        self,
+        issue_id: str,
+        verification_reference_id: str,
+        actor_context: ActorContext | None,
+    ) -> DataQualityIssue: ...
+
+
+class RuleCreatorService(Protocol):
+    def create_rule(
+        self,
+        *,
+        actor_id: str,
+        code: str,
+        name: str,
+        dataset_id: str,
+        rule_type: str,
+        primary_dimension: str,
+        threshold: float,
+        weight: float,
+        criticality: str,
+        owner_user_id: str,
+        parameters: dict,
+        actor_context: ActorContext | None = None,
+    ) -> tuple[QualityRule, RuleVersion]: ...
+
+
 class StateChangeBoundary(Protocol):
     def protect_state_changing(self, request: Request) -> ActorContext | None: ...
 
@@ -139,6 +184,9 @@ def create_dashboard_api(
     issue_investigation_service: IssueInvestigationService | None = None,
     issue_assignment_service: IssueAssignmentService | None = None,
     issue_assignee_option_provider: IssueAssigneeOptionProvider | None = None,
+    issue_resolution_service: IssueResolutionService | None = None,
+    issue_verification_service: IssueVerificationService | None = None,
+    rule_creator_service: RuleCreatorService | None = None,
     report_preview_service: ReportPreviewService | None = None,
     audit_query_service: AuditQueryService | None = None,
     clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
@@ -741,6 +789,80 @@ def create_dashboard_api(
             ),
         )
 
+    @app.post(
+        "/api/v1/issues/{issue_id}/resolution",
+        response_model=IssueMutationResponse,
+        tags=["issues"],
+    )
+    async def resolve_issue(
+        issue_id: str,
+        payload: IssueResolutionDraftRequest,
+        request: Request,
+        response: Response,
+    ) -> IssueMutationResponse:
+        if issue_resolution_service is None:
+            raise IssueTechnicalError(
+                "Issue resolution service is unavailable.",
+                request.state.correlation_id,
+            )
+        actor_context = getattr(request.state, "actor_context", None)
+        if actor_context is None:
+            actor_context = resolver.resolve(request)
+        draft = IssueResolutionDraft(
+            root_cause=payload.root_cause,
+            corrective_action=payload.corrective_action,
+            evidence_reference_id=str(payload.evidence_reference_id),
+            completed_at=payload.completed_at,
+        )
+        issue = issue_resolution_service.resolve(
+            issue_id,
+            draft,
+            actor_context,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return IssueMutationResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=IssueListItemResponse.from_domain(
+                issue,
+                available_actions=_issue_actions(issue, actor_context),
+            ),
+        )
+
+    @app.post(
+        "/api/v1/issues/{issue_id}/verification",
+        response_model=IssueMutationResponse,
+        tags=["issues"],
+    )
+    async def verify_issue(
+        issue_id: str,
+        payload: IssueVerificationRequest,
+        request: Request,
+        response: Response,
+    ) -> IssueMutationResponse:
+        if issue_verification_service is None:
+            raise IssueTechnicalError(
+                "Issue verification service is unavailable.",
+                request.state.correlation_id,
+            )
+        actor_context = getattr(request.state, "actor_context", None)
+        if actor_context is None:
+            actor_context = resolver.resolve(request)
+        issue = issue_verification_service.record_verification_result(
+            issue_id,
+            str(payload.verification_reference_id),
+            actor_context,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return IssueMutationResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=IssueListItemResponse.from_domain(
+                issue,
+                available_actions=_issue_actions(issue, actor_context),
+            ),
+        )
+
     @app.get(
         "/api/v1/reports/summary",
         response_model=ReportSummaryResponse,
@@ -830,6 +952,45 @@ def create_dashboard_api(
             data_origin=data_origin,
         )
 
+    @app.post(
+        "/api/v1/rules",
+        response_model=RuleMutationResponse,
+        status_code=201,
+        tags=["rules"],
+    )
+    async def create_rule(
+        payload: RuleCreateRequest,
+        request: Request,
+        response: Response,
+    ) -> RuleMutationResponse:
+        if rule_creator_service is None:
+            raise RuleQueryTechnicalError(
+                "Rule creator service is unavailable.", request.state.correlation_id
+            )
+        actor_context = getattr(request.state, "actor_context", None)
+        if actor_context is None:
+            actor_context = resolver.resolve(request)
+        rule, version = rule_creator_service.create_rule(
+            actor_id=actor_context.actor_id if actor_context else "unknown",
+            code=payload.code,
+            name=payload.name,
+            dataset_id=payload.dataset_id,
+            rule_type=payload.rule_type,
+            primary_dimension=payload.primary_dimension,
+            threshold=payload.threshold,
+            weight=payload.weight,
+            criticality=payload.criticality,
+            owner_user_id=payload.owner_user_id,
+            parameters=payload.parameters,
+            actor_context=actor_context,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return RuleMutationResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=RuleListItemResponse.from_domain(rule, version),
+        )
+
     @app.post("/api/v1/session/logout", status_code=204, tags=["session"])
     async def logout(request: Request, response: Response) -> Response:
         if bff_session_boundary is None:
@@ -868,6 +1029,21 @@ def _issue_actions(
         and not actor_context.privileged
     ):
         actions.append("REASSIGN")
+    if (
+        issue.status.value in {"INVESTIGATING", "WAITING_FOR_RESOLUTION"}
+        and issue.assignee_user_id == actor_context.actor_id
+        and has_scope
+        and not actor_context.privileged
+    ):
+        actions.append("RESOLVE")
+    if (
+        issue.status.value == "RESOLVED"
+        and issue.assignee_user_id != actor_context.actor_id
+        and actor_context.roles.intersection({"DATA_STEWARD", "DATA_GOVERNANCE_SPECIALIST"})
+        and has_scope
+        and not actor_context.privileged
+    ):
+        actions.append("VERIFY")
     return tuple(actions)
 
 

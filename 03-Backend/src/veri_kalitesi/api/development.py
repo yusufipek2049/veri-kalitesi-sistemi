@@ -6,7 +6,7 @@ from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from threading import RLock
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from veri_kalitesi.api.app import create_dashboard_api
 from veri_kalitesi.api.identity import DevelopmentActorContextResolver
@@ -42,6 +42,7 @@ from veri_kalitesi.issues import (
     IssueConflictError,
     IssuePriority,
     IssueQueryService,
+    IssueResolutionDraft,
     IssueScopeType,
     IssueSourceEventType,
     IssueStatus,
@@ -63,6 +64,7 @@ from veri_kalitesi.rules import (
     RuleStatus,
     RuleType,
     RuleVersion,
+    RuleValidationError,
 )
 from veri_kalitesi.reporting import (
     ReportPreviewAccessPolicy,
@@ -660,6 +662,70 @@ class DevelopmentIssueStore:
             self._issues[issue_id] = updated
             return updated
 
+    def resolve(
+        self,
+        issue_id: str,
+        draft: IssueResolutionDraft,
+        actor_context: ActorContext | None,
+    ) -> DataQualityIssue:
+        if actor_context is None:
+            raise IssueAuthorizationError("Development actor is required.")
+        with self._lock:
+            issue = self._issues.get(issue_id)
+            if issue is None:
+                raise IssueValidationError("Development issue was not found.")
+            has_scope = (
+                issue.scope_id in actor_context.permitted_source_ids
+                if issue.scope_type is IssueScopeType.SOURCE
+                else issue.scope_id in actor_context.permitted_dataset_ids
+            )
+            if issue.assignee_user_id != actor_context.actor_id or not has_scope:
+                raise IssueAuthorizationError("Development actor cannot resolve issue.")
+            if issue.status not in {IssueStatus.INVESTIGATING, IssueStatus.WAITING_FOR_RESOLUTION}:
+                raise IssueValidationError("Development issue is not in a resolvable state.")
+            if draft.completed_at > datetime.now(timezone.utc):
+                raise IssueValidationError("Development resolution completed_at is in the future.")
+            updated = replace(
+                issue,
+                status=IssueStatus.RESOLVED,
+                updated_at=datetime.now(timezone.utc),
+                version=issue.version + 1,
+            )
+            self._issues[issue_id] = updated
+            return updated
+
+    def record_verification_result(
+        self,
+        issue_id: str,
+        verification_reference_id: str,
+        actor_context: ActorContext | None,
+    ) -> DataQualityIssue:
+        if actor_context is None:
+            raise IssueAuthorizationError("Development actor is required.")
+        with self._lock:
+            issue = self._issues.get(issue_id)
+            if issue is None:
+                raise IssueValidationError("Development issue was not found.")
+            has_scope = (
+                issue.scope_id in actor_context.permitted_source_ids
+                if issue.scope_type is IssueScopeType.SOURCE
+                else issue.scope_id in actor_context.permitted_dataset_ids
+            )
+            if issue.assignee_user_id == actor_context.actor_id or not has_scope:
+                raise IssueAuthorizationError("Development actor cannot verify this issue.")
+            if not actor_context.roles.intersection({"DATA_STEWARD", "DATA_GOVERNANCE_SPECIALIST"}):
+                raise IssueAuthorizationError("Development actor cannot verify issues.")
+            if issue.status is not IssueStatus.RESOLVED:
+                raise IssueValidationError("Development issue is not resolved.")
+            updated = replace(
+                issue,
+                status=IssueStatus.VERIFIED,
+                updated_at=datetime.now(timezone.utc),
+                version=issue.version + 1,
+            )
+            self._issues[issue_id] = updated
+            return updated
+
     def _authorize_assignment(
         self,
         issue: DataQualityIssue,
@@ -677,6 +743,62 @@ class DevelopmentIssueStore:
             or issue.status not in {IssueStatus.ASSIGNED, IssueStatus.INVESTIGATING}
         ):
             raise IssueAuthorizationError("Development actor cannot assign issue.")
+
+
+class DevelopmentRuleStore:
+    def __init__(self) -> None:
+        self._rules: dict[str, tuple[QualityRule, RuleVersion]] = {
+            rule.quality_rule_id: (rule, version)
+            for rule, version in DEVELOPMENT_RULES
+        }
+        self._lock = RLock()
+
+    def create_rule(
+        self,
+        *,
+        actor_id: str,
+        code: str,
+        name: str,
+        dataset_id: str,
+        rule_type: str,
+        primary_dimension: str,
+        threshold: float,
+        weight: float,
+        criticality: str,
+        owner_user_id: str,
+        parameters: dict,
+        actor_context: ActorContext | None = None,
+    ) -> tuple[QualityRule, RuleVersion]:
+        if actor_context is None:
+            raise RuleValidationError("Development actor is required.")
+        with self._lock:
+            quality_rule_id = f"rule-{uuid4().hex[:12]}"
+            rule_version_id = f"rule-version-{uuid4().hex[:12]}"
+            now = datetime.now(timezone.utc)
+            rule = QualityRule(
+                quality_rule_id=quality_rule_id,
+                code=code,
+                name=name,
+                dataset_id=dataset_id,
+                field_ids=(),
+                primary_dimension=QualityDimension(primary_dimension),
+                owner_user_id=owner_user_id,
+                status=RuleStatus.DRAFT,
+            )
+            version = RuleVersion(
+                rule_version_id=rule_version_id,
+                quality_rule_id=quality_rule_id,
+                version_no=1,
+                rule_type=RuleType(rule_type),
+                definition=parameters,
+                threshold=threshold,
+                weight=weight,
+                criticality=RuleCriticality(criticality),
+                prepared_by_actor_id=actor_id,
+                created_at=now,
+            )
+            self._rules[quality_rule_id] = (rule, version)
+            return rule, version
 
 
 def create_development_app():  # type: ignore[no-untyped-def]
@@ -847,8 +969,10 @@ def create_development_app():  # type: ignore[no-untyped-def]
         can_view_enterprise=True,
     )
     issue_store = DevelopmentIssueStore()
+    rule_store = DevelopmentRuleStore()
     return create_dashboard_api(
         service,
+        rule_creator_service=rule_store,
         actor_context_resolver=resolver,
         allowed_origins=tuple(development_origins),
         data_origin="synthetic-development",
@@ -861,6 +985,8 @@ def create_development_app():  # type: ignore[no-untyped-def]
         issue_investigation_service=issue_store,
         issue_assignment_service=issue_store,
         issue_assignee_option_provider=issue_store,
+        issue_resolution_service=issue_store,
+        issue_verification_service=issue_store,
         report_preview_service=ReportPreviewService(
             SQLiteReportPreviewReader(repository.connection),
             audit_service,

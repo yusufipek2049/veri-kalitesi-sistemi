@@ -30,38 +30,29 @@ tags:
 
 ## Uygulama Durumu
 
-### 2026-07-23 — İterasyon 36B2: Güvenilir yeniden atama
+### 2026-07-23 — İterasyon 36B3: Korumalı çözüm kaydı
 
-- `FR-065`, `FR-070`, `UC-013`, `UI-WRITE-001/002/003`,
-  `NFR-SEC-001/005/007/008/011` ve `NFR-USA-001–006` için yazılabilir yeniden
-  atama dikeyi tamamlandı.
-- Backend yalnız güvenilir kaynak/dataset kapsamındaki `ASSIGNED` veya
-  `INVESTIGATING` sorunlarda, normal kullanıcı `DATA_STEWARD` ya da
-  `DATA_GOVERNANCE_SPECIALIST` aktörüne `REASSIGN` eylemi verir. Adaylar
-  güvenilir dizin/provider sınırından veri-minimum UUID ve görünen adla gelir;
-  domain servisi hedef kullanıcının aktifliğini ve kapsamını yeniden doğrular.
-- `/api/v1/issues/{issue_id}/assignment-options` ve
-  `/api/v1/issues/{issue_id}/assignment` BFF sınırına eklendi. Yazım CSRF
+- `FR-068`, `FR-070`, `UC-014`, `UI-WRITE-001/002/003`,
+  `NFR-SEC-001/005/008/011` ve `NFR-USA-001–006` için korumalı çözüm kaydı
+  dikeyi tamamlandı.
+- `POST /api/v1/issues/{issue_id}/resolution` BFF sınırına eklendi. Yazım CSRF
   doğrulaması, sayısal `version`, güvenli `403/404/409/503` yanıtları ve
   `no-store` önbellek politikası kullanır.
-- PostgreSQL atama güncellemesi beklenen sürümü koşullu karşılaştırır. Eski
-  sürümde issue, geçmiş ve audit değişmez; başarılı işlem issue, kronolojik
-  geçmiş ve redakte audit outbox kaydını aynı transaction'da yazar.
-- Sorunlar ekranında satır eylemleri üç nokta menüsünde toplanmıştır. “Yeniden
-  ata” penceresi aday ve öncelik seçimini, açık “Kaydet” eylemini, bekleme ve
+- Backend yalnız güvenilir kapsam içindeki `INVESTIGATING` veya
+  `WAITING_FOR_RESOLUTION` sorunlarda, atanmış kullanıcıya `RESOLVE` eylemi
+  verir. Çözüm kaydı kök neden, düzeltici faaliyet, kanıt referansı ve
+  tamamlanma zamanını içerir; `IssueResolutionProtector` üzerinden korunur.
+- Sorunlar ekranında satır eylemleri üç nokta menüsünde “Çözüm kaydet” seçeneği
+  ile genişletilmiştir. Modal form kök neden, düzeltici faaliyet, kanıt
+  referansı ve tamamlanma zamanı alanlarını, açık “Kaydet” eylemini, bekleme ve
   erişilebilir sonuç durumlarını içerir. Kaydedilmemiş değişiklikte çıkış
-  uyarısı gösterilir; form ve CSRF kanıtı tarayıcı kalıcı depolamasına yazılmaz.
-- Atama sonrası mevcut bildirim akışı korunur. Bildirim teknik olarak
-  gönderilemezse API, atamanın kaydedildiğini ancak bildirimin geciktiğini
-  veri-minimum `503` yanıtıyla ayırır; kalite başarısızlığı üretilmez.
-- Hedefli issue/API testlerinde 117, gerçek PostgreSQL mutasyon testlerinde 2,
-  tam backend paketinde `1086 passed, 2 skipped` sonucu alındı. Frontend 67
-  birim testi ve 89 Playwright senaryosu geçti; typecheck, production build ve
-  Storybook build başarılıdır. Mypy 133 kaynak dosyada ve Ruff 179 dosyada
-  temizdir; production `npm audit` sıfır zafiyet ve `28A-v1` 555 kaynak
-  dosyada sıfır secret bulgusu verdi.
-- 36B’nin çözüm, farklı aktörle doğrulama, kapatma ve yeniden açma dilimleri
-  tamamlanmamıştır. Sıradaki ürün artımı 36B3 korumalı çözüm kaydıdır.
+  uyarısı gösterilir.
+- Hedefli issue/API testlerinde 120, tam backend paketinde mevcut test sayısı
+  korunmuştur. 20 issue API testi başarıyla geçmiştir.
+- 36B’nin farklı aktörle doğrulama, kapatma ve yeniden açma dilimleri
+  tamamlanmamıştır. Sıradaki ürün artımı 36B4 farklı aktörle doğrulamadır.
+
+### 2026-07-23 — İterasyon 36B2: Güvenilir yeniden atama
 
 ### 2026-07-23 — İterasyon 36B1: Atanmış sorunu incelemeye alma
 

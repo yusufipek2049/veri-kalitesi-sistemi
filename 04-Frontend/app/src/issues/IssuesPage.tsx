@@ -35,6 +35,8 @@ import {
   ShieldAlert,
   UserRoundPen,
   Wrench,
+  FileCheck,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 import { AppShell } from "../components/AppShell";
@@ -59,6 +61,17 @@ interface IssuesPageProps {
     item: IssueListItem,
     assigneeUserId: string,
     priority: IssuePriority,
+  ) => Promise<void>;
+  onResolve?: (
+    item: IssueListItem,
+    rootCause: string,
+    correctiveAction: string,
+    evidenceReferenceId: string,
+    completedAt: string,
+  ) => Promise<void>;
+  onVerify?: (
+    item: IssueListItem,
+    verificationReferenceId: string,
   ) => Promise<void>;
 }
 
@@ -124,11 +137,14 @@ function IssueRow({
   mutationPending,
   onReassign,
   onStartInvestigation,
+  onResolve,
 }: {
   item: IssueListItem;
   mutationPending: boolean;
   onReassign?: (item: IssueListItem) => void;
   onStartInvestigation?: (item: IssueListItem) => void;
+  onResolve?: (item: IssueListItem) => void;
+  onVerify?: (item: IssueListItem) => void;
 }) {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const presentation = issuePresentation(item);
@@ -261,6 +277,28 @@ function IssueRow({
                   <ListItemText>Yeniden ata</ListItemText>
                 </MenuItem>
               ) : null}
+              {item.availableActions.includes("RESOLVE") ? (
+                <MenuItem
+                  onClick={() => {
+                    closeMenu();
+                    onResolve?.(item);
+                  }}
+                >
+                  <ListItemIcon><FileCheck aria-hidden="true" size={16} /></ListItemIcon>
+                  <ListItemText>Çözüm kaydet</ListItemText>
+                </MenuItem>
+              ) : null}
+              {item.availableActions.includes("VERIFY") ? (
+                <MenuItem
+                  onClick={() => {
+                    closeMenu();
+                    onVerify?.(item);
+                  }}
+                >
+                  <ListItemIcon><ShieldCheck aria-hidden="true" size={16} /></ListItemIcon>
+                  <ListItemText>Doğrula</ListItemText>
+                </MenuItem>
+              ) : null}
             </Menu>
           </>
         ) : (
@@ -323,6 +361,16 @@ export function IssuesPage({
   const [selectedAssigneeId, setSelectedAssigneeId] = useState("");
   const [selectedPriority, setSelectedPriority] = useState<IssuePriority>("MEDIUM");
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [resolutionItem, setResolutionItem] = useState<IssueListItem>();
+  const [resolutionRootCause, setResolutionRootCause] = useState("");
+  const [resolutionCorrectiveAction, setResolutionCorrectiveAction] = useState("");
+  const [resolutionEvidenceRef, setResolutionEvidenceRef] = useState("");
+  const [resolutionCompletedAt, setResolutionCompletedAt] = useState(
+    new Date().toISOString().slice(0, 16),
+  );
+  const [resolutionConfirmDiscard, setResolutionConfirmDiscard] = useState(false);
+  const [verificationItem, setVerificationItem] = useState<IssueListItem>();
+  const [verificationReferenceId, setVerificationReferenceId] = useState("");
   const [actionFeedback, setActionFeedback] = useState<{
     severity: "success" | "error";
     message: string;
@@ -417,6 +465,89 @@ export function IssuesPage({
       return;
     }
     closeAssignment();
+  };
+  const openResolution = (item: IssueListItem) => {
+    setResolutionItem(item);
+    setResolutionRootCause("");
+    setResolutionCorrectiveAction("");
+    setResolutionEvidenceRef("");
+    setResolutionCompletedAt(new Date().toISOString().slice(0, 16));
+    setActionFeedback(undefined);
+  };
+  const closeResolution = () => {
+    setResolutionItem(undefined);
+    setResolutionRootCause("");
+    setResolutionCorrectiveAction("");
+    setResolutionEvidenceRef("");
+    setResolutionConfirmDiscard(false);
+  };
+  const requestResolutionClose = () => {
+    if (resolutionItem && (resolutionRootCause || resolutionCorrectiveAction)) {
+      setResolutionConfirmDiscard(true);
+      return;
+    }
+    closeResolution();
+  };
+  const submitResolution = async () => {
+    if (!resolutionItem || !onResolve || pendingIssueId) return;
+    if (!resolutionRootCause.trim() || !resolutionCorrectiveAction.trim()) return;
+    setPendingIssueId(resolutionItem.id);
+    setActionFeedback(undefined);
+    try {
+      await onResolve(
+        resolutionItem,
+        resolutionRootCause.trim(),
+        resolutionCorrectiveAction.trim(),
+        resolutionEvidenceRef.trim() || "00000000-0000-0000-0000-000000000000",
+        new Date(resolutionCompletedAt).toISOString(),
+      );
+      setActionFeedback({
+        severity: "success",
+        message: `${resolutionItem.issueNo} çözüm kaydı oluşturuldu.`,
+      });
+      closeResolution();
+    } catch (error) {
+      setActionFeedback({
+        severity: "error",
+        message: error instanceof Error
+          ? error.message
+          : "Çözüm kaydedilemedi. Sorunu yenileyip yeniden deneyin.",
+      });
+    } finally {
+      setPendingIssueId(undefined);
+    }
+  };
+  const openVerification = (item: IssueListItem) => {
+    setVerificationItem(item);
+    setVerificationReferenceId("");
+    setActionFeedback(undefined);
+  };
+  const closeVerification = () => {
+    setVerificationItem(undefined);
+    setVerificationReferenceId("");
+  };
+  const submitVerification = async () => {
+    if (!verificationItem || !onVerify || pendingIssueId) return;
+    if (!verificationReferenceId.trim()) return;
+    setPendingIssueId(verificationItem.id);
+    setActionFeedback(undefined);
+    try {
+      await onVerify(verificationItem, verificationReferenceId.trim());
+      setActionFeedback({
+        severity: "success",
+        message: `${verificationItem.issueNo} doğrulandı.`,
+      });
+      closeVerification();
+    } catch (error) {
+      setActionFeedback({
+        severity: "error",
+        message: error instanceof Error
+          ? error.message
+          : "Doğrulama tamamlanamadı. Sorunu yenileyip yeniden deneyin.",
+      });
+    } finally {
+      setPendingIssueId(undefined);
+    }
   };
   const submitAssignment = async () => {
     if (!assignmentItem || !selectedAssigneeId || !onReassign || pendingIssueId) return;
@@ -565,6 +696,103 @@ export function IssuesPage({
           </DialogActions>
         </Dialog>
         <Dialog
+          aria-describedby="resolution-dialog-description"
+          fullWidth
+          maxWidth="sm"
+          onClose={requestResolutionClose}
+          open={Boolean(resolutionItem) && !resolutionConfirmDiscard}
+        >
+          <DialogTitle>Çözüm kaydet</DialogTitle>
+          <DialogContent sx={{ display: "grid", gap: 4, pt: 2 }}>
+            <Typography color="text.secondary" id="resolution-dialog-description">
+              {resolutionItem?.issueNo} için kök neden ve düzeltici faaliyeti kaydedin.
+            </Typography>
+            <Typography color="text.secondary" variant="caption">
+              Kaydedildiğinde sorun Çözüldü durumuna geçer ve değişiklik geçmişe yazılır.
+            </Typography>
+            <TextField
+              label="Kök neden"
+              maxRows={6}
+              minRows={3}
+              multiline
+              onChange={(event) => setResolutionRootCause(event.target.value)}
+              required
+              value={resolutionRootCause}
+            />
+            <TextField
+              label="Düzeltici faaliyet"
+              maxRows={6}
+              minRows={3}
+              multiline
+              onChange={(event) => setResolutionCorrectiveAction(event.target.value)}
+              required
+              value={resolutionCorrectiveAction}
+            />
+            <TextField
+              label="Kanıt referansı (UUID)"
+              onChange={(event) => setResolutionEvidenceRef(event.target.value)}
+              placeholder="00000000-0000-0000-0000-000000000000"
+              value={resolutionEvidenceRef}
+            />
+            <TextField
+              label="Tamamlanma zamanı"
+              onChange={(event) => setResolutionCompletedAt(event.target.value)}
+              type="datetime-local"
+              value={resolutionCompletedAt}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={requestResolutionClose}>Vazgeç</Button>
+            <Button
+              disabled={
+                !resolutionRootCause.trim()
+                || !resolutionCorrectiveAction.trim()
+                || pendingIssueId === resolutionItem?.id
+              }
+              onClick={() => void submitResolution()}
+              variant="contained"
+            >
+              {pendingIssueId === resolutionItem?.id ? "Kaydediliyor" : "Kaydet"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+        <Dialog
+          aria-describedby="verification-dialog-description"
+          fullWidth
+          maxWidth="sm"
+          onClose={closeVerification}
+          open={Boolean(verificationItem)}
+        >
+          <DialogTitle>Çözümü doğrula</DialogTitle>
+          <DialogContent sx={{ display: "grid", gap: 4, pt: 2 }}>
+            <Typography color="text.secondary" id="verification-dialog-description">
+              {verificationItem?.issueNo} çözümünü doğrulayın. Farklı bir güvenilir aktör tarafından onaylanmalıdır.
+            </Typography>
+            <Typography color="text.secondary" variant="caption">
+              Doğrulandığında sorun Doğrulandı durumuna geçer ve değişiklik geçmişe yazılır.
+            </Typography>
+            <TextField
+              label="Doğrulama referansı (UUID)"
+              onChange={(event) => setVerificationReferenceId(event.target.value)}
+              placeholder="00000000-0000-0000-0000-000000000000"
+              value={verificationReferenceId}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={closeVerification}>Vazgeç</Button>
+            <Button
+              disabled={
+                !verificationReferenceId.trim()
+                || pendingIssueId === verificationItem?.id
+              }
+              onClick={() => void submitVerification()}
+              variant="contained"
+            >
+              {pendingIssueId === verificationItem?.id ? "Doğrulanıyor" : "Doğrula"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+        <Dialog
           aria-describedby="discard-assignment-description"
           onClose={() => setConfirmDiscard(false)}
           open={confirmDiscard}
@@ -578,6 +806,22 @@ export function IssuesPage({
           <DialogActions>
             <Button onClick={() => setConfirmDiscard(false)}>Forma dön</Button>
             <Button color="error" onClick={closeAssignment}>Değişiklikleri sil</Button>
+          </DialogActions>
+        </Dialog>
+        <Dialog
+          aria-describedby="discard-resolution-description"
+          onClose={() => setResolutionConfirmDiscard(false)}
+          open={resolutionConfirmDiscard}
+        >
+          <DialogTitle>Değişiklikler kaydedilmedi</DialogTitle>
+          <DialogContent>
+            <Typography id="discard-resolution-description">
+              Kaydedilmemiş çözüm değişikliklerinden vazgeçilsin mi?
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setResolutionConfirmDiscard(false)}>Forma dön</Button>
+            <Button color="error" onClick={closeResolution}>Değişiklikleri sil</Button>
           </DialogActions>
         </Dialog>
         {state === "loading" ? <Box aria-busy="true" aria-label="Sorunlar yükleniyor">{Array.from({ length: 6 }, (_, index) => <Skeleton height={88} key={index} />)}</Box> : null}
@@ -619,6 +863,8 @@ export function IssuesPage({
                   key={item.id}
                   mutationPending={pendingIssueId === item.id}
                   onReassign={openAssignment}
+                  onResolve={openResolution}
+                  onVerify={openVerification}
                   onStartInvestigation={(selected) => void startInvestigation(selected)}
                 />
               ))}
