@@ -23,15 +23,15 @@ tags:
 | ADR-009 | Merkezi audit için hash zinciri, PostgreSQL transactional outbox, kurumsal SIEM veya immutable object storage ve salt okunur/idempotent legacy aktarım | KararAlındı; üretim adaptörü ve operasyon kanıtı bekleniyor |
 | ADR-010 | Kişisel veri işleme envanterinin DataField'e bağlı değişmez sürümler ve redakte transactional audit ile tutulması | Teknik olarak doğrulandı; eşlenmeyen banka referans kodu fail-closed kalır |
 | ADR-011 | Kritik kural aktivasyonunun sürümlü politika, güvenilir ActorContext ve RuleVersion'a bağlı atomik maker-checker kararıyla yapılması | Teknik olarak doğrulandı; banka rol eşlemesi yoksa işlem reddedilir |
-| ADR-012 | Token tabanlı kurumsal görsel dil; marka rengi ile semantik durum renklerinin ayrılması | Tasarım baseline'ı kabul edildi; frontend uygulaması bekliyor |
-| ADR-013 | Storybook component doğrulaması ve Playwright görsel regression süreci | Kabul edildi; frontend uygulaması bekliyor |
+| ADR-012 | Token tabanlı kurumsal görsel dil; marka rengi ile semantik durum renklerinin ayrılması | Kabul edildi; teknik tema/token uygulaması mevcut, banka marka/uyum onayı açık |
+| ADR-013 | Storybook component doğrulaması ve Playwright görsel regression süreci | Kabul edildi; teknik kurulum mevcut, üretim erişilebilirlik/marka kanıtı açık |
 | ADR-014 | OPEN-001–OPEN-018 karar paketinin kapasite, politika, güvenlik, yaşam döngüsü ve hibrit dağıtım sınırı | KararAlındı; değişken değerlerde aktif sürümlü politika zorunlu |
 | ADR-015 | Açıklanabilir, sürümlü ve riskten ayrılmış veri kalitesi skorlama mimarisi (`DQ-SCR-001`–`DQ-SCR-033`) | KararAlındı; eksik politika olumlu sonuç üretmez |
 | ADR-016 | Politika kontrollü, deterministik ve bağımsız ground truth'lu sentetik veri hedef mimarisi | KararAlındı; eksik eşik/tolerans doğrulamayı `BLOCKED` yapar |
-| ADR-017 | React + TypeScript + Vite, MUI, ECharts, Storybook ve Playwright frontend teknoloji yığını | Kabul edildi; paket kurulumu ve frontend uygulaması bekliyor |
+| ADR-017 | React + TypeScript + Vite, MUI, ECharts, Storybook ve Playwright frontend teknoloji yığını | Kabul edildi; teknik uygulama mevcut, üretim IdP/veri bağlantısı açık |
 | ADR-018 | Değişken üretim değerlerinde sürümlü ve fail-closed politika çözümleme | KararAlındı; açık karar yerine uygulama/konfigürasyon kapısı |
 | ADR-019 | Kanıta dayalı, politika farkındalıklı karar desteği ve üretim verisini değiştirmeyen öneri/remediation sınırı | KararAlındı; `OPEN-026–OPEN-036` yönleri kesin, runtime ve banka incelemeleri açık |
-| ADR-020 | PostgreSQL-only uygulama kalıcılığı ve güvenlik bağımlılık sıralı yazılabilir arayüz geçişi | KararAlındı; 36A–36F uygulama backlogunda |
+| ADR-020 | PostgreSQL-only uygulama kalıcılığı ve güvenlik bağımlılık sıralı yazılabilir arayüz geçişi | KararAlındı; issue/rule/data-source teknik geçişleri mevcut, execution cutover ve 36F açık |
 
 ## ADR-020 — PostgreSQL-only Kalıcılık ve Yazılabilir Arayüz Geçişi
 
@@ -71,6 +71,8 @@ onayı, kaynak aktivasyon önkoşulları, politika kontrollü çalıştırma ve
 sınıflandırma kontrollü rapor indirme `PG-MIG-001–005` ile
 `UI-WRITE-001–007` kararlarına uyar.
 
+**ADR-020 güncellik notu (2026-07-24):** Issue, rule ve data-source PostgreSQL teknik dikeyleri mevcuttur. Execution migration/repository kodu da vardır; ancak production composition root hâlâ geliştirme execution store'una bağlı olduğundan çalıştırma cutover'ı tamamlanmış kabul edilmez.
+
 ## ADR-019 — Kanıta Dayalı ve Politika Farkındalıklı Karar Desteği
 
 **Bağlam:** Mevcut sistem açıklanabilir skor, ölçüm yeterliliği, issue ve
@@ -108,7 +110,7 @@ doğrulanacaktır.
 **Sonuç:** Bu araçlar için yeniden teknoloji veya dependency onayı beklenmez.
 Paket sürümleri ve lock dosyası kurulum iterasyonunda mevcut güvenli SDLC
 kurallarına göre oluşturulur. Karar paketlerin kurulduğu, frontend'in uygulandığı
-veya banka marka/uyum onayının alındığı anlamına gelmez.
+veya banka marka/uyum onayının alındığı anlamına gelmez. 30B–30D ve 35A–35F teknik frontend artımları uygulanmıştır; üretim IdP/veri bağlantısı hâlâ ayrıdır.
 
 ## ADR-014 — Bağlayıcı Karar Paketi
 
@@ -212,7 +214,7 @@ Renk her zaman ikon ve yazılı etiketle desteklenir.
 **Sonuç:** Component dosyalarında ham görsel değerler yasaktır; açık/koyu tema aynı
 semantik token sözleşmesini kullanır. Ayrıntılar
 [Görsel Tasarım Sistemi](../04-Frontend/Gorsel-Tasarim-Sistemi.md) içindedir. Bu karar
-frontend runtime veya component kütüphanesinin uygulandığı anlamına gelmez.
+frontend runtime veya component kütüphanesinin uygulandığı anlamına gelmez. Teknik token/theme uygulaması artık mevcuttur; banka marka/uyum onayı ayrıca gereklidir.
 
 ## ADR-013 — Storybook ve Playwright Görsel Doğrulaması
 
@@ -226,7 +228,7 @@ görünümleri de korunur. Referans karşılaştırmasında en az iki belgeli iy
 turu yapılır.
 
 **Sonuç:** Frontend Definition of Done görsel ve erişilebilirlik kanıtı gerektirir.
-Storybook ve Playwright seçimi kabul edilmiştir; kurulum 30F artımında yapılır.
+Storybook ve Playwright seçimi kabul edilmiştir; kurulum ve teknik doğrulama 30B–30D artımlarında yapılmıştır. Üretim erişilebilirlik/marka onayı ayrı kapıdır.
 Ayrıntılar
 [Görsel Doğrulama Stratejisi](../06-Testler/03-Uctan-Uca/Gorsel-Dogrulama-Stratejisi.md)
 içindedir.

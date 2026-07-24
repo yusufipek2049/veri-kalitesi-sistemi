@@ -25,7 +25,6 @@ from veri_kalitesi.audit import (
     build_default_redaction_policy,
 )
 from veri_kalitesi.audit.models import AuditEventInput, AuditResult
-from veri_kalitesi.audit.outbox import PreparedAuditRepository
 from veri_kalitesi.data_sources.models import (
     ConnectionRevisionStatus,
     ConnectionTestResult,
@@ -34,6 +33,7 @@ from veri_kalitesi.data_sources.models import (
     DataSourceActivationStatus,
     DataSourceConnectionRevision,
     DataSourceStatus,
+    ErrorClass,
     SourceType,
 )
 from veri_kalitesi.data_sources.postgresql_repository import (
@@ -102,8 +102,10 @@ def repository(session_factory: type) -> PostgreSQLDataSourceRepository:
 
 @pytest.fixture
 def audit_outbox(session_factory: type) -> PostgreSQLTransactionalAudit:
+    from conftest import FakePreparedAuditRepository  # type: ignore[import-untyped]
+
     redactor = AuditRedactor(build_default_redaction_policy())
-    repo = PreparedAuditRepository(session_factory)
+    repo = FakePreparedAuditRepository()
     return PostgreSQLTransactionalAudit(
         session_factory=session_factory,
         redactor=redactor,
@@ -129,6 +131,7 @@ def _prepare_event(
 ) -> PreparedAuditEvent:
     event = AuditEventInput(
         actor_id="test-actor",
+        actor_type="USER",
         correlation_id=str(uuid4()),
         action=action,
         object_type="DataSource",
@@ -151,7 +154,7 @@ def test_add_and_get_data_source(
     prepared = _prepare_event(audit_outbox, "DATA_SOURCE_CREATED")
     stored = repository.add_data_source(sample_data_source, audit_event=prepared, audit_outbox=audit_outbox)
     assert stored.data_source_id == sample_data_source.data_source_id
-    assert stored.status is DataSourceStatus.PASSIVE
+    assert stored.status is DataSourceStatus.TEST_PENDING
 
     retrieved = repository.get_data_source(sample_data_source.data_source_id)
     assert retrieved.name == sample_data_source.name
@@ -214,6 +217,16 @@ def test_activation_request_lifecycle(
     """FR-010: Aktivasyon istegi olusturma, karar verme ve okuma."""
     prepared = _prepare_event(audit_outbox, "DATA_SOURCE_CREATED")
     repository.add_data_source(sample_data_source, audit_event=prepared, audit_outbox=audit_outbox)
+
+    # Source must be TEST_SUCCEEDED before activation
+    test_result = ConnectionTestResult(
+        data_source_id=sample_data_source.data_source_id,
+        succeeded=True,
+        duration_ms=100,
+        tested_at=datetime.now(timezone.utc),
+    )
+    test_prepared = _prepare_event(audit_outbox, "CONNECTION_TEST_SUCCEEDED")
+    repository.update_connection_test(test_result, audit_event=test_prepared, audit_outbox=audit_outbox)
 
     request = DataSourceActivationRequest(
         data_source_id=sample_data_source.data_source_id,

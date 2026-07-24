@@ -15,7 +15,7 @@ Durum: `TechnicallyVerified`
 - Başlangıç kanıtı secret referansını taşımayan allowlist alanlarla sınırlıdır.
 - Teknik kaynak arızası politika ihlalinden ayrı ve fail-closed ele alınır.
 
-Kanıt: [İterasyon 27A](../08-Uyum-Kanitlari/Yedek-Geri-Yukleme/Iterasyon-27A-Fail-Closed-Ortam-Kimligi-Kaniti.md)
+Kanıt: [İterasyon 27A](../../../08-Uyum-Kanitlari/Yedek-Geri-Yukleme/Iterasyon-27A-Fail-Closed-Ortam-Kimligi-Kaniti.md)
 
 ## Kalan Dilimler
 

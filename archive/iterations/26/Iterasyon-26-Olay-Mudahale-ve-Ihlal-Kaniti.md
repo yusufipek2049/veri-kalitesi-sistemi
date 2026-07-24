@@ -28,7 +28,7 @@ Durum: `TechnicallyVerified`
 - HTTP/UI ve kanıt içeriği depolama
 - Banka onaylı rol eşlemesi, saklama/imha ve hukuk/uyum kararı
 
-Kanıt: [Iterasyon-26A-Veri-Minimum-Ihlal-Suphesi-Kaniti](../08-Uyum-Kanitlari/Olay-Mudahale/Iterasyon-26A-Veri-Minimum-Ihlal-Suphesi-Kaniti.md)
+Kanıt: [Iterasyon-26A-Veri-Minimum-Ihlal-Suphesi-Kaniti](../../../08-Uyum-Kanitlari/Olay-Mudahale/Iterasyon-26A-Veri-Minimum-Ihlal-Suphesi-Kaniti.md)
 
 ## 26B — Yetki filtreli ihlal zaman çizelgesi inceleme
 
@@ -42,7 +42,7 @@ Durum: `TechnicallyVerified`
 - Başarılı görüntüleme veri-minimum auditlenir; audit-stage arızası fail-closed davranır.
 - Gecikme veya karar hiçbir dış bildirim adaptörünü çağırmaz.
 
-Kanıt: [Iterasyon-26B-Yetki-Filtreli-Ihlal-Zaman-Cizelgesi-Kaniti](../08-Uyum-Kanitlari/Olay-Mudahale/Iterasyon-26B-Yetki-Filtreli-Ihlal-Zaman-Cizelgesi-Kaniti.md)
+Kanıt: [Iterasyon-26B-Yetki-Filtreli-Ihlal-Zaman-Cizelgesi-Kaniti](../../../08-Uyum-Kanitlari/Olay-Mudahale/Iterasyon-26B-Yetki-Filtreli-Ihlal-Zaman-Cizelgesi-Kaniti.md)
 
 ## Kalan Dilim
 

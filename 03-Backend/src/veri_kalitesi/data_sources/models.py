@@ -30,6 +30,7 @@ class SourceType(str, Enum):
 
 class DataSourceStatus(str, Enum):
     TEST_PENDING = "TEST_PENDING"
+    PASSIVE = "PASSIVE"
     TEST_SUCCEEDED = "TEST_SUCCEEDED"
     TEST_FAILED = "TEST_FAILED"
     ACTIVE = "ACTIVE"

@@ -18,12 +18,12 @@ from veri_kalitesi.audit import (
 )
 from veri_kalitesi.data_sources import Dataset
 from veri_kalitesi.data_sources.models import Criticality
+from veri_kalitesi.executions.repository import SQLiteExecutionRepository
 from veri_kalitesi.executions import (
     ExecutionStatus,
     MeasurementStatus,
     RuleExecution,
     RuleExecutionResult,
-    SQLiteExecutionRepository,
 )
 from veri_kalitesi.identity import ActorContext, ActorContextIssuer, ActorType
 from veri_kalitesi.rules import (
