@@ -82,4 +82,4 @@
 - [İterasyon 35E - Güvenli Rapor Önizleme Ekranı Kanıtı](Raporlama/Iterasyon-35E-Guvenli-Rapor-Onizleme-Ekrani-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 35F - Salt Okunur Denetim Ekranı Kanıtı](Audit/Iterasyon-35F-Salt-Okunur-Denetim-Ekrani-Kaniti.md) - `TechnicallyVerified`
 
-Kanıt üretmek için [Kanıt Paketi Şablonu](Kan%C4%B1t-Paketi-Sablonu.md) kullanılır.
+Kanıt üretmek için [Kanıt Paketi Şablonu](Kanit-Paketi-Sablonu.md) kullanılır.

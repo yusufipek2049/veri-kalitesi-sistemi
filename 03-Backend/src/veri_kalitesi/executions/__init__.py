@@ -34,7 +34,16 @@ from veri_kalitesi.executions.postgresql_repository import (
     PostgreSQLExecutionRepository,
     execution_tables,
 )
-from veri_kalitesi.executions.repository import SQLiteExecutionRepository
+from veri_kalitesi.executions.postgresql_scheduling import (
+    PostgreSQLScheduleRepository,
+    ScheduleTables,
+    schedule_tables,
+)
+from veri_kalitesi.executions.postgresql_source_usage import (
+    PostgreSQLSourceUsagePolicyRepository,
+    SourceUsageTables,
+    source_usage_tables,
+)
 from veri_kalitesi.executions.query import (
     ExecutionQueryAuthorizationError,
     ExecutionQueryError,
@@ -43,9 +52,10 @@ from veri_kalitesi.executions.query import (
 )
 from veri_kalitesi.executions.scheduling import (
     Schedule,
+    ScheduleRepository,
+    ScheduleTransactionalAudit,
     ScheduleType,
     SchedulingService,
-    SQLiteScheduleRepository,
     preview_runs,
 )
 from veri_kalitesi.executions.service import (
@@ -57,7 +67,6 @@ from veri_kalitesi.executions.service import (
 )
 from veri_kalitesi.executions.source_usage_policies import (
     ResolvedSourceUsagePolicy,
-    SQLiteSourceUsagePolicyRepository,
     SourceRuntimePolicy,
     SourceUsagePolicy,
     SourceUsagePolicyResolver,
@@ -90,28 +99,33 @@ __all__ = [
     "MeasurementStatus",
     "ExecutionValidationError",
     "IdempotencyConflictError",
+    "PostgreSQLExecutionRepository",
+    "PostgreSQLScheduleRepository",
+    "PostgreSQLSourceUsagePolicyRepository",
     "RetryPolicy",
     "ResolvedSourceUsagePolicy",
-    "Schedule",
-    "ScheduleType",
-    "SchedulingService",
     "RuleExecution",
     "RuleExecutionResult",
     "RuleResultComputation",
-    "SQLiteExecutionRepository",
-    "SQLiteScheduleRepository",
-    "SQLiteSourceUsagePolicyRepository",
+    "Schedule",
+    "ScheduleRepository",
+    "ScheduleTables",
+    "ScheduleTransactionalAudit",
+    "ScheduleType",
+    "SchedulingService",
+    "SourceRuntimePolicy",
     "SourceUsagePolicy",
     "SourceUsagePolicyConflictError",
     "SourceUsagePolicyResolver",
     "SourceUsagePolicyStatus",
     "SourceUsagePolicyTechnicalError",
     "SourceUsagePolicyUnavailableError",
+    "SourceUsageTables",
     "SourceUsageWindow",
-    "SourceRuntimePolicy",
     "WorkloadClass",
     "WorkloadClassifier",
     "execution_tables",
     "preview_runs",
-    "PostgreSQLExecutionRepository",
+    "schedule_tables",
+    "source_usage_tables",
 ]

@@ -1,6 +1,6 @@
 ---
 iteration: 36
-status: planned
+status: in_progress
 completed_at: null
 decision_reference: USER-DECLARATION-2026-07-23-POSTGRESQL-WRITABLE-UI
 ---
@@ -9,133 +9,31 @@ decision_reference: USER-DECLARATION-2026-07-23-POSTGRESQL-WRITABLE-UI
 
 ## Amaç
 
-SQLite kalıcılığını domain bazlı olarak tamamen kaldırmak ve 35A–35F salt
-okunur alan ekranlarını güvenilir mutasyon sınırlarıyla kullanılabilir iş
-akışlarına dönüştürmek.
+SQLite kalıcılığını domain bazlı kaldırmak ve uygulamanın sahip olduğu metadata,
+politika, iş akışı, sonuç ve audit kayıtlarını güvenilir mutasyon sınırlarıyla
+yönetmek. Kaynak sistemler salt okunur kalır.
 
-Kaynak sistemlere salt okunur erişim değişmez. Yazma işlemleri yalnız
-uygulamanın sahip olduğu metadata, politika, iş akışı ve sonuç kayıtlarını
-etkiler. Audit olayları değişmez ve salt okunur kalır.
+## Konsolide Durum
 
-## 36A — PostgreSQL-only Kalıcılık Temeli
+| Alan | Durum | Kalan sınır |
+| --- | --- | --- |
+| Issue PostgreSQL temeli ve aktarımı | `TechnicallyVerified` | Üretim banka/altyapı onayı ayrı. |
+| Issue inceleme, atama, çözüm, doğrulama | `TechnicallyVerified` | Gerçek IdP/dizin bağlantısı açık. |
+| Issue kapatma ve yeniden açma | `VerificationPending` | Kod/test kanıtı mevcut; güncel hedefli ve PostgreSQL koşusu kayda bağlanmalı. |
+| Kural ve veri kaynağı yazımları | Uygulama yüzeyi mevcut | Production composition root ve kurumsal politika/rol kanıtı ayrıca doğrulanmalı. |
+| Çalıştırma PostgreSQL cutover | `TechnicallyVerified` | PostgreSQL migration/repository, API adaptörleri ve testler tamamlandı. `SQLiteExecutionRepository` runtime export'tan çıkarıldı. |
+| Güvenli rapor üretimi/indirme | `Blocked` | DLP, watermark, gerekçe, maker-checker ve kurumsal karar kapıları açık. |
 
-Durum: **TechnicallyVerified — 36A1/36A2a/36A2b tamamlandı**
+## Değişmez Tamamlama Koşulları
 
-36A tek iterasyon boyutunu aştığı için iki dikey dilime ayrılmıştır:
+- Mutasyonlar güvenilir aktör, rol/scope, BFF/CSRF ve sayısal sürüm kontrolünden geçer.
+- Kritik yazım audit/outbox ile atomiktir; audit üretilemezse fail-closed sonuçlanır.
+- Teknik hata veri kalitesi ihlali olarak sunulmaz.
+- PostgreSQL'e taşınan production domaininde SQLite fallback bırakılmaz.
+- Gerçek banka verisi, kimliği veya secret'ı geliştirme/test ortamına yazılmaz.
 
-- `36A1`: ortak SQLAlchemy/Alembic temel, SQLite envanteri, issue baseline ve
-  PostgreSQL-only salt okunur issue repository'si; `TechnicallyVerified`.
-- `36A2a`: issue mutasyonları, geçmiş ve atomik audit outbox;
-  `TechnicallyVerified`.
-- `36A2b`: idempotent seçici aktarım, bütünlük doğrulaması ve issue SQLite
-  runtime yolunun kaldırılması; `TechnicallyVerified`.
+## Sıradaki İş
 
-### Gereksinim Bağlantıları
-
-- `NFR-MNT-001`
-- `NFR-MNT-004`
-- `NFR-MNT-006`
-- `NFR-REL-006`
-- `FR-064–FR-070`
-- `UC-013`, `UC-014`
-
-### Çıkış Kriterleri
-
-- SQLite repository, tablo, migration ve test kullanımları envanterlenir.
-- Ortak SQLAlchemy 2 session/transaction sınırı oluşturulur.
-- `data_quality.dq` için Alembic baseline hazırlanır.
-- Migration'lar yalnız ileri çalışır; hata düzeltici yeni migration üretir.
-- Repository testleri PostgreSQL transaction rollback, migration/eşzamanlılık
-  testleri benzersiz geçici şema kullanır.
-- Audit, issue, onay, politika, kural sürümü ve iş geçmişi seçici/idempotent
-  taşınır; yeniden üretilebilir sentetik/cache verisi yeniden oluşturulur.
-- İlk domain olarak issue kalıcılığı PostgreSQL'e taşınır.
-- Taşınan issue yolunda SQLite fallback bulunmaz.
-- Secret veya bağlantı parolası repository'ye yazılmaz.
-
-## 36B — Yazılabilir Sorunlar
-
-Durum: **InProgress — 36B1, 36B2 ve 36B3 TechnicallyVerified**
-
-- Gereksinimler: `FR-064–FR-070`, `UC-013`, `UC-014`.
-- `36B1`: kendisine atanmış sorunu backend eylem yetkisi, BFF/CSRF ve sayısal
-  optimistic locking ile incelemeye alma; `TechnicallyVerified`.
-- `36B2`: güvenilir kullanıcı sağlayıcısı, aktiflik/kapsam doğrulaması,
-  BFF/CSRF, sayısal optimistic locking ve açık kaydetmeyle yeniden atama;
-  `TechnicallyVerified`.
-- `36B3`: korumalı çözüm kaydetme, zorunlu kanıt ve sayısal optimistic
-  locking; `TechnicallyVerified`.
-- `36B4`: farklı aktörle doğrulama; `Ready`.
-- Kapatma.
-- Aynı başarısızlıkta yeniden açma.
-- Sayısal `version` ile optimistic locking ve çakışmada `409 Conflict`.
-- Açık kaydetme, kaydedilmemiş değişiklikte çıkış uyarısı ve hassas taslağı
-  tarayıcı kalıcı depolamasına yazmama.
-- Güvenilir aktör, rol/kapsam, BFF/CSRF ve veri-minimum audit.
-
-## 36C — Yazılabilir Kurallar
-
-Durum: **TechnicallyVerified — 36C0, 36C1a ve 36C1b tamamlandı**
-
-- Gereksinimler: `FR-023–FR-035`, `UC-005`, `UC-006`, `RULE-001`.
-- **36C0**: PostgreSQLRuleRepository, rule_tables(), Alembic migration, contracts ve RuleService Protocol geçişi `TechnicallyVerified`
-- Taslak oluşturma ve düzenleme.
-- Kural testi.
-- Onaya gönderme ve geri çekme.
-- Düşük riskli taslakta tek yetkili; kritik değişikliklerde maker-checker.
-- Aktivasyon ve kontrollü pasifleştirme.
-
-## 36D — Yazılabilir Veri Kaynakları
-
-Durum: **TechnicallyVerified — 36D0 ve 36D1 tamamlandı**
-
-- Gereksinimler: `FR-007–FR-014`, `UC-002`, `UC-003`.
-- **36D0**: DataSourceRepository protocol, PostgreSQLDataSourceRepository, Alembic migration, DataSourceService generic dönüşümü, 9 birim ve 11 PostgreSQL entegrasyon testi; `TechnicallyVerified`.
-- **36D1**: Veri kaynağı mutasyonları API yüzeyi; `TechnicallyVerified`.
-  - `POST /api/v1/data-sources` — kaynak oluşturma
-  - `POST /api/v1/data-sources/{id}/test` — bağlantı testi
-  - `POST /api/v1/data-sources/{id}/activation` — maker-checker kontrollü aktivasyon
-  - `POST /api/v1/data-sources/{id}/passivation` — kontrollü pasifleştirme
-  - Secret değerini frontend, API payload'ı, log, audit veya veritabanında
-    tutmayan referans modeli.
-  - Geliştirme ortamında `DevelopmentDataSourceStore` bellek içi depo.
-
-## 36E — Çalıştırma İşlemleri
-
-Durum: **TechnicallyVerified — API yüzeyi tamamlandı**
-
-- Gereksinimler: `FR-036–FR-053`, `UC-007`, `UC-008`.
-- **36E API yüzeyi**:
-  - `POST /api/v1/executions` — manuel çalıştırma başlatma
-  - `POST /api/v1/executions/{id}/cancel` — çalıştırma iptali
-  - `ExecutionConflictError` ve `ExecutionNotFoundError` hata sınıfları
-  - Geliştirme ortamında `DevelopmentExecutionStore` bellek içi depo
-- Execution/queue PostgreSQL geçişine bağlı kalan işler:
-  - Doğrudan worker başlatmadan kaynak kullanım politikası, kota, çalışma
-    penceresi ve idempotency kontrolü sonrası kuyruğa alma.
-  - Yeniden deneme (retry).
-
-## 36F — Rapor İşlemleri ve Denetim Sınırı
-
-Durum: **Planned — dışa aktarma kontrollerine bağlı**
-
-- Gereksinimler: `FR-072–FR-079`, `UC-015`, `UC-016`.
-- Rapor üretim talebi.
-- Asenkron durum izleme ve güvenli indirme.
-- Sentetik/düşük hassasiyetli raporda yetkili kapsam; hassas raporda DLP,
-  watermark, gerekçe ve gerekli maker-checker kapısı.
-- Gereken banka kararı yoksa dışa aktarmanın fail-closed kalması.
-- Audit kayıtları için yalnız sorgu, filtre, bütünlük ve arşiv inceleme; kayıt
-  düzeltme veya silme yoktur.
-
-## Ortak Tamamlama Koşulları
-
-- Her mutasyon güvenilir `ActorContext` üzerinden yetkilendirilir.
-- Cookie tabanlı BFF mutasyonlarında CSRF kontrolü zorunludur.
-- Yetkisiz, ayrıcalıklı ve servis hesabı negatifleri test edilir.
-- Teknik hata ile veri kalitesi başarısızlığı ayrılır.
-- Kritik yazımlarda audit kaydı veya kalıcı outbox oluşturulamazsa işlem
-  fail-closed sonuçlanır.
-- Gerçek banka verisi, LDAP kimliği veya üretim secret'ı geliştirme/test
-  ortamına yazılmaz.
-- PostgreSQL'e taşınan domain için SQLite compatibility/fallback bırakılmaz.
+[Execution politika ve worker dayanıklılığı](../NEXT_STEP.md) — kota, pencere,
+timeout, retry, iptal ve idempotency sürümlü politikadan/kalıcı kuyruktan
+çözülmesi. 36B5 doğrulama kaydı paralel dokümantasyon/test borcudur.

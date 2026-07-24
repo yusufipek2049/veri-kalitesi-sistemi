@@ -2,31 +2,45 @@
 type: implementation-index
 area: backend
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-created_at: 2026-07-16
-tags:
-  - backend
-  - index
+updated_at: 2026-07-24
 ---
 
 # Backend Modül Haritası
 
-| Bileşen | Gereksinim Kaynağı | Temel Veri Varlıkları |
-| --- | --- | --- |
-| Kimlik ve RBAC | [04.01-Kullanici-ve-Yetki](../01-SRS/04-Fonksiyonel-Gereksinimler/04.01-Kullanici-ve-Yetki.md) | User, Role, Permission |
-| Bağlayıcı katmanı | [04.02-Veri-Kaynagi-Yonetimi](../01-SRS/04-Fonksiyonel-Gereksinimler/04.02-Veri-Kaynagi-Yonetimi.md) | DataSource, Dataset, DataField |
-| Profilleme motoru | [04.03-Metadata-ve-Profilleme](../01-SRS/04-Fonksiyonel-Gereksinimler/04.03-Metadata-ve-Profilleme.md) | DataProfile |
-| Kural yönetimi | [04.04-Kural-Yonetimi](../01-SRS/04-Fonksiyonel-Gereksinimler/04.04-Kural-Yonetimi.md) | QualityRule, RuleVersion |
-| Scheduler ve worker | [04.05-Calistirma-ve-Zamanlama](../01-SRS/04-Fonksiyonel-Gereksinimler/04.05-Calistirma-ve-Zamanlama.md) | Schedule, RuleExecution, RuleResult |
-| Skorlama ve ölçüm yeterliliği | [04.06-Skorlama](../01-SRS/04-Fonksiyonel-Gereksinimler/04.06-Skorlama.md), [kanonik tasarım](../02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md) | QualityScore, QualityDimension, ScoreMeasurementSummary, MeasurementQualificationResult, ScoringPolicy |
-| Bildirim servisi | [04.08-Bildirim](../01-SRS/04-Fonksiyonel-Gereksinimler/04.08-Bildirim.md) | Notification |
-| Issue servisi | [04.09-Sorun-Yonetimi](../01-SRS/04-Fonksiyonel-Gereksinimler/04.09-Sorun-Yonetimi.md) | DataQualityIssue, IssueComment |
-| Raporlama | [04.10-Raporlama](../01-SRS/04-Fonksiyonel-Gereksinimler/04.10-Raporlama.md) | Report |
-| Audit | [04.11-Audit](../01-SRS/04-Fonksiyonel-Gereksinimler/04.11-Audit.md) | AuditLog |
-| API ve entegrasyon | [04.12-API-ve-Entegrasyon](../01-SRS/04-Fonksiyonel-Gereksinimler/04.12-API-ve-Entegrasyon.md) | Tüm servis sözleşmeleri |
-| Olay müdahale | [17.02-Bankacilik-Kontrol-Gereksinimleri](../01-SRS/17-Bankacilik-Uyum/17.02-Bankacilik-Kontrol-Gereksinimleri.md) | SecurityIncident, PersonalDataBreachSuspicion, IncidentTimeline |
-| Güvenli SDLC yerel kontrolleri | [17.02-Bankacilik-Kontrol-Gereksinimleri](../01-SRS/17-Bankacilik-Uyum/17.02-Bankacilik-Kontrol-Gereksinimleri.md) | SecretScanPolicy, PythonProjectInventory, SastReleaseGate, DependencyVulnerabilityReleaseGate, PentestFindingTracker, TechnicalEvidenceManifestBuilder, TechnicalEvidenceManifestGate, LocalReleasePreflight |
-| Kanıta dayalı karar desteği (hedef) | [04.14-Kanita-Dayali-Karar-Destegi](../01-SRS/04-Fonksiyonel-Gereksinimler/04.14-Kanita-Dayali-Karar-Destegi.md), [kanonik mimari](../02-Mimari/Kanita-Dayali-Karar-Sistemi.md) | UseCaseScoreProfile, RunManifest, EvidenceItem/Link, LineageSnapshot, Diagnosis, Recommendation, RemediationAction, ImpactAssessment, DataContract, QualityDebtItem, ChaosExperiment, EvidencePackage |
+## Kanonik Uygulama Durumu
 
-## Çapraz NFR
+| Alan | Gereksinim | Kod odağı | Durum |
+| --- | --- | --- | --- |
+| Kimlik, oturum ve RBAC | [Kullanıcı ve Yetki](../01-SRS/04-Fonksiyonel-Gereksinimler/04.01-Kullanici-ve-Yetki.md) | `veri_kalitesi/identity`, `api/` | Teknik sınırlar mevcut; gerçek LDAP/IdP ve üretim session altyapısı açık. |
+| Veri kaynakları | [Veri Kaynağı Yönetimi](../01-SRS/04-Fonksiyonel-Gereksinimler/04.02-Veri-Kaynagi-Yonetimi.md) | `veri_kalitesi/data_sources` | API ve PostgreSQL repository/migration mevcut; secret yalnız referansla taşınır. |
+| Profilleme | [Metadata ve Profilleme](../01-SRS/04-Fonksiyonel-Gereksinimler/04.03-Metadata-ve-Profilleme.md) | `veri_kalitesi/profiling` | Domain uygulaması mevcut; üretim bağlayıcıları açık. |
+| Kural yönetimi | [Kural Yönetimi](../01-SRS/04-Fonksiyonel-Gereksinimler/04.04-Kural-Yonetimi.md) | `veri_kalitesi/rules` | API, PostgreSQL repository ve migration mevcut. |
+| Çalıştırma/zamanlama | [Çalıştırma ve Zamanlama](../01-SRS/04-Fonksiyonel-Gereksinimler/04.05-Calistirma-ve-Zamanlama.md) | `veri_kalitesi/executions`, `api/postgresql_execution.py` | API, PostgreSQL repository ve migration mevcut; `PostgreSQLExecutionStartService`/`PostgreSQLExecutionCancelService` adaptörleri ile üretim cutover tamamlandı. `SQLiteExecutionRepository` runtime export'tan çıkarıldı. |
+| Skorlama | [Skorlama](../01-SRS/04-Fonksiyonel-Gereksinimler/04.06-Skorlama.md) | `veri_kalitesi/scoring` | Çekirdek ve politika modelleri mevcut; sürümlü kurumsal politika/üretim kalıcılığı kısmi. |
+| Dashboard | [Dashboard](../01-SRS/04-Fonksiyonel-Gereksinimler/04.07-Dashboard.md) | `veri_kalitesi/dashboard`, `api/app.py` | Güvenli özet API mevcut; gerçek üretim veri/IdP adaptörleri açık. |
+| Bildirim | [Bildirim](../01-SRS/04-Fonksiyonel-Gereksinimler/04.08-Bildirim.md) | `veri_kalitesi/notifications` | Sistem içi akış mevcut; kurumsal kanal kararları/adaptörleri açık. |
+| Sorun yönetimi | [Sorun Yönetimi](../01-SRS/04-Fonksiyonel-Gereksinimler/04.09-Sorun-Yonetimi.md) | `veri_kalitesi/issues`, issue API | PostgreSQL-only issue yolu ile inceleme/atama/çözüm/doğrulama/kapatma ve yeniden açma davranışları mevcut; `36B5` güncel doğrulama koşusu bekler. |
+| Raporlama | [Raporlama](../01-SRS/04-Fonksiyonel-Gereksinimler/04.10-Raporlama.md) | `veri_kalitesi/reporting`, report API | Liste/önizleme/üretim talebi yüzeyi kısmi; güvenli dosya üretimi/indirme ve DLP kapıları açık. |
+| Audit | [Audit](../01-SRS/04-Fonksiyonel-Gereksinimler/04.11-Audit.md) | `veri_kalitesi/audit`, audit API | Veri-minimum audit ve bütünlük görünümü mevcut; kurumsal WORM/imza ürünü açık. |
+| ServiceNow | [API ve Entegrasyon](../01-SRS/04-Fonksiyonel-Gereksinimler/04.12-API-ve-Entegrasyon.md) | `veri_kalitesi/servicenow` | Domain dayanıklılık modeli mevcut; gerçek kurumsal adaptör açık. |
+| Olay müdahale | [Bankacılık Kontrolleri](../01-SRS/17-Bankacilik-Uyum/17.02-Bankacilik-Kontrol-Gereksinimleri.md) | `veri_kalitesi/incident_response` | Teknik akış ve kanıt modeli mevcut; kurum rolleri/ürün entegrasyonu açık. |
+| Güvenli SDLC | [Bankacılık Kontrolleri](../01-SRS/17-Bankacilik-Uyum/17.02-Bankacilik-Kontrol-Gereksinimleri.md) | `veri_kalitesi/secure_sdlc` | Yerel tarama/manifest/preflight mevcut; CI zorlaması ve kurumsal araçlar açık. |
+| Kanıta dayalı karar desteği | [FR-097–111](../01-SRS/04-Fonksiyonel-Gereksinimler/04.14-Kanita-Dayali-Karar-Destegi.md) | Hedef mimari | Gereksinim ve mimari hedef; genel runtime uygulaması değildir. |
 
-[Performans](../01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.01-Performans.md) · [Güvenilirlik](../01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.04-Guvenilirlik-ve-Hata-Toleransi.md) · [Güvenlik](../01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.05-Guvenlik.md) · [Gözlemlenebilirlik](../01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.09-Gozlemlenebilirlik.md)
+## API ve Kalıcılık Notları
+
+- API sözleşmesinin kanonik gereksinim kaynağı SRS'dir; gerçek route yüzeyi
+  `03-Backend/src/veri_kalitesi/api/app.py` ile birlikte doğrulanır.
+- PostgreSQL'e taşınan bir domain için migration/repository bulunması tek başına
+  runtime composition root'unun taşındığını kanıtlamaz.
+- Kaynak sistem erişimi salt okunurdur. Yazımlar yalnız uygulamanın sahip olduğu
+  metadata, politika, sonuç, iş akışı ve audit alanlarına yapılır.
+- Secret, parola veya ham hassas veri log/audit/payload içinde tutulmaz.
+
+## Çapraz Kaynaklar
+
+[Performans](../01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.01-Performans.md) ·
+[Güvenilirlik](../01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.04-Guvenilirlik-ve-Hata-Toleransi.md) ·
+[Güvenlik](../01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.05-Guvenlik.md) ·
+[Gözlemlenebilirlik](../01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.09-Gozlemlenebilirlik.md) ·
+[İterasyon 36](../09-Iterasyonlar/Iterasyon-36-PostgreSQL-ve-Yazilabilir-Alan-Ekranlari.md)

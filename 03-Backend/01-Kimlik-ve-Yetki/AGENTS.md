@@ -1,43 +1,29 @@
 # AGENTS.md — Kimlik ve Yetki
 
-## Zorunlu bağlam
+Önce kök [AGENTS.md](../../AGENTS.md) kurallarını uygula. Bu dosya yalnız
+kimlik/yetki modülüne özgü ek bağlamı tanımlar.
+
+## Zorunlu Bağlam
 
 1. `01-SRS/04-Fonksiyonel-Gereksinimler/04.01-Kullanici-ve-Yetki.md`
 2. `01-SRS/05-Kullanim-Senaryolari/UC-001-Sisteme-giris-yapilmasi.md`
-2. `01-SRS/05-Kullanim-Senaryolari/UC-016-Audit-kayitlarinin-incelenmesi.md`
-3. `01-SRS/07-Veri-Modeli/Kimlik-ve-Yetki-Varliklari.md`
-4. `01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.05-Guvenlik.md`
-4. `01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.06-Gizlilik-ve-KVKK.md`
+3. `01-SRS/05-Kullanim-Senaryolari/UC-016-Audit-kayitlarinin-incelenmesi.md`
+4. `01-SRS/07-Veri-Modeli/Kimlik-ve-Yetki-Varliklari.md`
+5. `01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.05-Guvenlik.md`
+6. `01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.06-Gizlilik-ve-KVKK.md`
 
-Yalnız görev gerektiriyorsa ayrıca `01-SRS/06-Is-Kurallari.md` ve `01-SRS/10-Kabul-Kriterleri.md` içinden ilgili ID/bölümü oku.
+## Modül Kuralları
 
-## Uygulama kuralları
+- LDAP/IdP erişimini adaptör arkasında tut.
+- `ActorContext` yalnız güvenilir identity/session adaptöründen üretilir ve
+  değişmezdir; istek actor/rol/scope alanları yetki kanıtı değildir.
+- Her endpoint ve nesne erişiminde RBAC kapsamını deny-by-default doğrula.
+- Oturum, başarısız giriş, ayrıcalıklı ve break-glass kararlarını veri-minimum
+  audit et; parola veya LDAP kimlik bilgisi saklama.
+- MFA/PAM ürününü tahmin etme; destek noktalarını modelle, açık banka kaydına bağla.
 
-- LDAP erişimini adaptör arkasında tut.
-- Her endpoint ve nesne erişiminde RBAC kapsamını doğrula.
-- Oturum, başarısız giriş ve yetki kararlarını güvenli biçimde audit et.
-- Parola veya LDAP kimlik bilgisini uygulama deposunda saklama.
+## Negatif Testler
 
-## Test beklentisi
-
-- En az bir başarılı akış, bir doğrulama/iş kuralı hatası ve bir teknik hata testi ekle.
-- Test adında veya açıklamasında ilgili FR/UC kimliğini belirt.
-- Kabul kriteri ölçülebilir süre veya oran içeriyorsa uygun otomatik ya da tekrarlanabilir performans testi tanımla.
-- Modül dışı davranışı değiştirmek gerekiyorsa önce etkilenen komşu modülün `AGENTS.md` dosyasını oku.
-
-## Bankacılık ek kuralları
-
-- `ActorContext` güvenilir identity adapter tarafından üretilmeli ve değişmez olmalıdır.
-- İstekten gelen actor, rol veya scope listesi yetki kaynağı değildir.
-- Varsayılan karar deny-by-default olmalıdır.
-- LDAP grup-rol-scope eşlemesi sürümlü politika olmalı; eşlenmeyen grup yetki üretmemelidir.
-- Ayrıcalıklı ve break-glass erişimi süreli, gerekçeli ve ayrı audit olaylarıyla izlenmelidir.
-- MFA/PAM uygulanma biçimi banka kararıdır; destek noktalarını modelle, ürünü tahmin etme.
-
-## Bankacılık test beklentisi
-
-- Sahte actor_id ile yetki yükseltme reddi.
-- Güvenilir context olmadan erişim reddi.
-- Süresi dolmuş context reddi.
-- LDAP erişilemez/eşleme bulunamaz fail-closed.
-- Servis hesabı ile kullanıcı hesabı kapsam ayrımı.
+Sahte actor ile yetki yükseltme, güvenilir context yokluğu/süresi dolması,
+LDAP kesintisi veya eşleme yokluğu, servis-kullanıcı hesabı ayrımı, scope
+manipülasyonu ve audit yazma hatasını kapsa.

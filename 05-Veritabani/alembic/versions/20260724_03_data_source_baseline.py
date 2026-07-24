@@ -39,7 +39,7 @@ def upgrade() -> None:
             name="ck_data_sources_source_type",
         ),
         sa.CheckConstraint(
-            "status IN ('PASSIVE', 'TEST_SUCCEEDED', 'TEST_FAILED', 'ACTIVE', 'INACTIVE', 'ARCHIVED')",
+            "status IN ('TEST_PENDING', 'TEST_SUCCEEDED', 'TEST_FAILED', 'ACTIVE', 'INACTIVE', 'ARCHIVED')",
             name="ck_data_sources_status",
         ),
         sa.UniqueConstraint("name", name="uq_data_sources_name"),
@@ -237,7 +237,7 @@ def upgrade() -> None:
 
     op.create_table(
         "data_source_connection_revisions",
-        sa.Column("connection_revision_id", sa.String(36), primary_key=True),
+        sa.Column("connection_revision_id", sa.String(64), primary_key=True),
         sa.Column("data_source_id", sa.String(36), nullable=False),
         sa.Column("revision", sa.Integer(), nullable=False),
         sa.Column("base_revision", sa.Integer(), nullable=False),

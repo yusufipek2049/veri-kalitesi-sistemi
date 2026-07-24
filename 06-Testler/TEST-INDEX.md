@@ -137,25 +137,27 @@ toleransı eşikleri aktif sürümlü doğrulama politikasından çözülür; po
 testi `AC/TS-008` kapsamındaki anonimleştirilmiş üretim örneği kabulinin yerine
 geçmez.
 
-## Güncel Otomasyon Baseline'ı
+## Belgelenmiş Otomasyon Baseline'ı
 
-- 1029 test geçmektedir; iki gerçek PostgreSQL entegrasyon testi opt-in koşuda
-  ayrıca geçmektedir.
-- Tam statik tip kontrolü `python3 -m mypy 03-Backend/src 06-Testler` komutuyla
-  159 kaynak dosyada sıfır hata vermektedir.
-- `incident_response` hedef grubu, güvenlik olayı/ihlal ayrımı, 72 saat hedefi, veri işleyen kanıtı, maker-checker kararı, yetki/scope redleri, veri-minimum timeline görünümü, audit minimizasyonu ve rollback için 39 sentetik vaka içerir.
-- `secure_sdlc` hedef grubu; gerçek pozitif/yanlış pozitif, binary/büyük/dışlanan
-  dosya, sembolik bağlantı, salt okunurluk, deterministik sıra, teknik hata ve
-  veri-minimum CLI çıktısına ek olarak PEP 621 bağımlılık beyanı, tam sürüm pini,
-  dinamik/URL/yinelenen bağımlılık redleri, salt okunurluk ve deterministik
-  CycloneDX 1.5 çıktısı, veri-minimum SAST ve doğrudan bağımlılık zafiyet sürüm
-  kapıları, sızma testi bulgu yaşam döngüsü/tekrar test kanıtı ve teknik kanıt
-  manifesti, byte düzeyinde drift kapısı ve altı kontrollü birleşik yerel preflight
-  için toplam 204 sentetik vaka içerir.
-- İterasyon 30B/30C frontend runtime, Storybook ve Playwright otomasyonunu kurdu.
-  Frontend için 13 Vitest birim testi ve 14 Playwright testi geçmektedir; Storybook
-  normal, loading, empty, teknik hata, yetkisiz ve uzun içerik dashboard
-  durumları ile altı semantik durum rozeti üretmektedir. Beş zorunlu masaüstü
-  viewport'unda yatay taşma, grafik/tablo eşliği ve görünür klavye odağı
-  doğrulanmıştır. Görseller yalnız sentetik veri içerir; üretim API'si veya
-  banka verisi doğrulaması değildir.
+- Son proje hafızası kaydı backend için `1125 passed, 27 skipped`, frontend için
+  95 Vitest testi; TypeScript type-check ve production build için temiz sonuç
+  bildirir.
+- Bu sayılar tarihsel kanıttır. 24 Temmuz 2026 dokümantasyon denetiminde Python
+  bağımlılık kurulumu paket kaynağındaki HTTP 503 nedeniyle tamamlanamadığı için
+  test/mypy baseline'ı bağımsız yeniden çalıştırılamamıştır.
+- Test sayıları README, iterasyon ve teknik snapshot dosyalarında kopyalanmaz;
+  yeni tam koşu sonucunda bu bölüm ve ilgili kanıt paketi birlikte güncellenir.
+- PostgreSQL entegrasyon testleri ortam değişkeni/veritabanı gerektirebilir;
+  skipped sonucu başarı gibi sunulmaz ve opt-in koşu ayrı raporlanır.
+- Frontend için `npm test`, `npm run typecheck`, `npm run build`, görsel akışlar
+  için `npm run test:e2e` ve Storybook build çıktısı ayrı kanıtlanır.
+
+
+## Aktif Doğrulama Açıkları
+
+| Kapsam | Mevcut kanıt | Kapanış koşulu |
+| --- | --- | --- |
+| `36B5` kapatma/yeniden açma | Servis, API, PostgreSQL repository, frontend ve birim/entegrasyon testleri mevcut; 1134 birim testi başarılı. | `TechnicallyVerified` — birim testleri tamam, PostgreSQL entegrasyon testleri için `DATA_QUALITY_POSTGRES_TEST_URL` gerekli. |
+| `36E` execution cutover | Migration, PostgreSQL repository, entegrasyon testleri ve `PostgreSQLExecutionStartService`/`PostgreSQLExecutionCancelService` adaptörleri mevcut. | `TechnicallyVerified` — production composition root PostgreSQL kullanabilir; `create_development_app(session_factory=...)` ile çalışır. |
+
+Sıradaki doğrulama paketi [NEXT_STEP.md](../NEXT_STEP.md) içinde tanımlıdır.

@@ -25,7 +25,6 @@ from veri_kalitesi.audit import (
     build_default_redaction_policy,
 )
 from veri_kalitesi.audit.models import AuditEventInput, AuditResult
-from veri_kalitesi.audit.outbox import PreparedAuditRepository
 from veri_kalitesi.executions.models import (
     ConcurrencyPolicy,
     ExecutionAttempt,
@@ -95,8 +94,10 @@ def repository(session_factory: type) -> PostgreSQLExecutionRepository:
 
 @pytest.fixture
 def audit_outbox(session_factory: type) -> PostgreSQLTransactionalAudit:
+    from conftest import FakePreparedAuditRepository  # type: ignore[import-untyped]
+
     redactor = AuditRedactor(build_default_redaction_policy())
-    repo = PreparedAuditRepository(session_factory)
+    repo = FakePreparedAuditRepository()
     return PostgreSQLTransactionalAudit(
         session_factory=session_factory,
         redactor=redactor,
@@ -133,6 +134,7 @@ def _prepare_event(
 ) -> PreparedAuditEvent:
     event = AuditEventInput(
         actor_id="test-actor",
+        actor_type="USER",
         correlation_id=str(uuid4()),
         action=action,
         object_type="RuleExecution",
@@ -433,9 +435,10 @@ def test_list_executions_for_sources(
     execution1 = _sample_execution(source_ids=("src-001",))
     execution2 = _sample_execution(source_ids=("src-002",))
 
-    prepared = _prepare_event(audit_outbox, "EXECUTION_CREATED")
-    repository.create_or_get(execution1, audit_event=prepared, audit_outbox=audit_outbox)
-    repository.create_or_get(execution2, audit_event=prepared, audit_outbox=audit_outbox)
+    prepared1 = _prepare_event(audit_outbox, "EXECUTION_CREATED")
+    repository.create_or_get(execution1, audit_event=prepared1, audit_outbox=audit_outbox)
+    prepared2 = _prepare_event(audit_outbox, "EXECUTION_CREATED")
+    repository.create_or_get(execution2, audit_event=prepared2, audit_outbox=audit_outbox)
 
     # Only src-001
     result = repository.list_executions_for_sources(frozenset({"src-001"}))

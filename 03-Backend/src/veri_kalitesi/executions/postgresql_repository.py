@@ -208,7 +208,7 @@ class PostgreSQLExecutionRepository:
         # Filtreleme: yalnız tamamı yetkili kaynaklara bağlı çalıştırmalar
         result: list[RuleExecution] = []
         for row in rows:
-            exec_source_ids = set(json.loads(row["source_ids"]))
+            exec_source_ids = set(_from_json(row["source_ids"]))
             if exec_source_ids and exec_source_ids.issubset(allowed_source_ids):
                 result.append(_row_to_execution(row))
         return result
@@ -291,11 +291,11 @@ class PostgreSQLExecutionRepository:
                         status=execution.status.value,
                         idempotency_key_hash=execution.idempotency_key_hash,
                         payload_hash=execution.payload_hash,
-                        rule_version_ids=json.dumps(execution.rule_version_ids, sort_keys=True),
-                        scope=json.dumps(dict(execution.scope), sort_keys=True),
+                        rule_version_ids=list(execution.rule_version_ids),
+                        scope=dict(execution.scope),
                         triggered_by=execution.triggered_by,
                         correlation_id=execution.correlation_id,
-                        source_ids=json.dumps(execution.source_ids, sort_keys=True),
+                        source_ids=list(execution.source_ids),
                         workload_class=execution.workload_class.value,
                         error_class=execution.error_class,
                         attempt_count=execution.attempt_count,
@@ -456,7 +456,7 @@ class PostgreSQLExecutionRepository:
                             if result.measurement_status is not None
                             else None
                         ),
-                        completed_partitions=json.dumps(result.completed_partitions, sort_keys=True),
+                        completed_partitions=list(result.completed_partitions),
                         eligible_for_official_scoring=1 if result.eligible_for_official_scoring else 0,
                     )
                 )
@@ -511,7 +511,7 @@ class PostgreSQLExecutionRepository:
                             if result.measurement_status is not None
                             else None
                         ),
-                        completed_partitions=json.dumps(result.completed_partitions, sort_keys=True),
+                        completed_partitions=list(result.completed_partitions),
                         eligible_for_official_scoring=0,
                     )
                 )
@@ -645,7 +645,18 @@ class PostgreSQLExecutionRepository:
                 finished_at=cancelled_at,
             )
         )
-        return self.get(execution_id)
+        row = (
+            session.execute(
+                select(self._tables.executions).where(
+                    self._tables.executions.c.execution_id == execution_id
+                )
+            )
+            .mappings()
+            .one_or_none()
+        )
+        if row is None:
+            raise ExecutionNotFoundError("RuleExecution not found.")
+        return _row_to_execution(row)
 
 
 # ------------------------------------------------------------------
@@ -664,6 +675,17 @@ _ACTIVE_STATUSES = frozenset({
 })
 
 
+def _from_json(value: object) -> object:
+    """JSON column değerini Python objesine dönüştürür.
+
+    SQLAlchemy JSON sütunları otomatik deserialize eder (list/dict döner).
+    Eski string formatıyla da uyumludur.
+    """
+    if isinstance(value, str):
+        return json.loads(value)
+    return value
+
+
 def _row_to_execution(row: RowMapping) -> RuleExecution:
     return RuleExecution(
         execution_id=row["execution_id"],
@@ -671,11 +693,11 @@ def _row_to_execution(row: RowMapping) -> RuleExecution:
         status=ExecutionStatus(row["status"]),
         idempotency_key_hash=row["idempotency_key_hash"],
         payload_hash=row["payload_hash"],
-        rule_version_ids=tuple(json.loads(row["rule_version_ids"])),
-        scope=json.loads(row["scope"]),
+        rule_version_ids=tuple(_from_json(row["rule_version_ids"])),
+        scope=dict(_from_json(row["scope"])),
         triggered_by=row["triggered_by"],
         correlation_id=row["correlation_id"],
-        source_ids=tuple(json.loads(row["source_ids"])),
+        source_ids=tuple(_from_json(row["source_ids"])),
         workload_class=WorkloadClass(row["workload_class"]),
         error_class=row["error_class"],
         attempt_count=row["attempt_count"],
@@ -719,7 +741,7 @@ def _row_to_result(row: RowMapping) -> RuleExecutionResult:
             if row["measurement_status"] is not None
             else None
         ),
-        completed_partitions=tuple(json.loads(row["completed_partitions"])),
+        completed_partitions=tuple(_from_json(row["completed_partitions"])),
         eligible_for_official_scoring=bool(row["eligible_for_official_scoring"]),
     )
 
