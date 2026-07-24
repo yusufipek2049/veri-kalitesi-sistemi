@@ -93,6 +93,37 @@ tags:
 - 36C0, 36C (Yazılabilir Kurallar) için ön koşuldur. Sıradaki ürün artımı
   36C1 PostgreSQL kural mutasyonlarıdır.
 
+### 2026-07-24 — İterasyon 36C1b: Kural düzenleme/onay frontend formları
+
+- `FR-023–FR-035`, `UC-005`, `UC-006`, `RULE-001` ve `RULE-007` kapsamında
+  kural mutasyonları frontend formları tamamlandı.
+- `_rule_actions()` fonksiyonu backend API katmanına eklendi: kural durumu,
+  kritiklik, aktör rolü ve dataset kapsamına göre `CREATE_VERSION`, `TEST_RULE`,
+  `ACTIVATE`, `REQUEST_APPROVAL`, `DECIDE_APPROVAL`, `WITHDRAW_APPROVAL` ve
+  `PASSIVATE` eylemlerini hesaplar.
+- `RuleListItemResponse` modeline `available_actions` ve `pending_approval_request_id`
+  alanları eklendi; liste API'si kullanılabilir eylemleri döndürür.
+- Frontend RulesPage'de tüm mutasyon dialog'ları uygulandı:
+  - Sürüm oluşturma (eşik, ağırlık, kritiklik)
+  - Test sonucu görüntüleme (sayaçlar, başarı oranı, önizleme skoru)
+  - Aktivasyon onay dialogu (kritik kural uyarısı)
+  - Onay isteği gönderme
+  - Onay kararı (onayla/reddet + gerekçe kodu)
+  - Onay geri çekme (gerekçe kodu)
+  - Pasifleştirme (geri alınamaz uyarı + vazgeç seçeneği)
+- Her dialog için loading, hata ve iptal durumları uygulandı.
+- `App.tsx` RulesRoute'u tüm callback'lerle API'ye bağlandı:
+  `handleCreateVersion`, `handleTestRule`, `handleActivateRule`,
+  `handleRequestApproval`, `handleDecideApproval`, `handleWithdrawApproval`,
+  `handlePassivateRule`.
+- 7 yeni frontend birim testi (sürüm oluşturma, test sonucu, aktivasyon, onay
+  isteği, onay kararı, geri çekme, pasifleştirme) ve 2 hata durumu testi
+  (pasifleştirme hatası, vazgeç) eklendi.
+- 15 backend API testi (kural listesi, sürüm, test, aktivasyon, onay isteği,
+  onay kararı, pasifleştirme, CSRF koruması, servis dışı) eklendi.
+- Tam pytest: `1116 passed, 18 skipped`. Frontend 95 Vitest testi, TypeScript
+  type-check, mypy, Ruff lint/format ve production build temizdir.
+
 ### 2026-07-23 — İterasyon 36C1a: Kural mutasyonları API yüzeyi ve passivate_rule
 
 - `FR-023–FR-035`, `UC-005`, `UC-006`, `RULE-001` ve `RULE-007` kapsamında
