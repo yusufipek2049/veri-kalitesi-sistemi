@@ -58,9 +58,18 @@ class RuleListItemResponse(BaseModel):
     rule_type: str
     criticality: str
     created_at: datetime
+    available_actions: tuple[str, ...] = ()
+    pending_approval_request_id: str | None = None
 
     @classmethod
-    def from_domain(cls, rule: QualityRule, version: RuleVersion) -> "RuleListItemResponse":
+    def from_domain(
+        cls,
+        rule: QualityRule,
+        version: RuleVersion,
+        *,
+        available_actions: tuple[str, ...] = (),
+        pending_approval_request_id: str | None = None,
+    ) -> "RuleListItemResponse":
         return cls(
             quality_rule_id=rule.quality_rule_id,
             code=rule.code,
@@ -73,6 +82,8 @@ class RuleListItemResponse(BaseModel):
             rule_type=version.rule_type.value,
             criticality=version.criticality.value,
             created_at=version.created_at,
+            available_actions=available_actions,
+            pending_approval_request_id=pending_approval_request_id,
         )
 
 
