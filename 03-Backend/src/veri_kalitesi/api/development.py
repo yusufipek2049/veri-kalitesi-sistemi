@@ -9,7 +9,11 @@ from threading import RLock
 from uuid import UUID, uuid4
 
 from veri_kalitesi.api.app import create_dashboard_api
-from veri_kalitesi.api.identity import DevelopmentActorContextResolver
+from veri_kalitesi.api.identity import (
+    DevelopmentActorContextResolver,
+    DevelopmentUserRegistry,
+    build_default_development_users,
+)
 from veri_kalitesi.api.models import IssueAssigneeOptionResponse
 from veri_kalitesi.audit import (
     AuditAccessPolicy,
@@ -22,6 +26,14 @@ from veri_kalitesi.audit import (
     AuditService,
     SQLiteAuditRepository,
     build_default_redaction_policy,
+)
+from veri_kalitesi.executions import (
+    ExecutionConflictError,
+    ExecutionNotFoundError,
+    ExecutionStatus,
+    ExecutionType,
+    RuleExecution,
+    WorkloadClass,
 )
 from veri_kalitesi.dashboard import DashboardQueryService
 from veri_kalitesi.data_sources import (
@@ -834,7 +846,174 @@ class DevelopmentRuleStore:
             return rule, version
 
 
-def create_development_app():  # type: ignore[no-untyped-def]
+class DevelopmentDataSourceStore:
+    """Geliştirme ortamında veri kaynağı mutasyonları için bellek içi depo."""
+
+    def __init__(self) -> None:
+        self._sources = {source.data_source_id: source for source in DEVELOPMENT_SOURCES}
+        self._lock = RLock()
+
+    def create(
+        self,
+        *,
+        name: str,
+        source_type: str,
+        owner_user_id: str,
+        host: str = "",
+        port: int = 0,
+        database_name: str = "",
+        username: str = "",
+        file_path: str = "",
+        connection_parameters: dict | None = None,
+    ) -> DataSource:
+        with self._lock:
+            data_source_id = f"source-{uuid4().hex[:12]}"
+            st = SourceType(source_type) if source_type else SourceType.POSTGRESQL
+            conn_config: dict[str, object] = {}
+            if host:
+                conn_config["host"] = host
+            if port:
+                conn_config["port"] = port
+            if database_name:
+                conn_config["database"] = database_name
+            if username:
+                conn_config["username"] = username
+            if file_path:
+                conn_config["file_path"] = file_path
+            if connection_parameters:
+                conn_config.update(connection_parameters)
+            source = DataSource(
+                data_source_id=data_source_id,
+                name=name,
+                source_type=st,
+                connection_config=conn_config,
+                secret_reference="development-reference-only",
+                status=DataSourceStatus.TEST_PENDING,
+                owner_user_id=owner_user_id,
+                revision=1,
+            )
+            self._sources[data_source_id] = source
+            return source
+
+    def test_connection(self, data_source_id: str) -> DataSource:
+        with self._lock:
+            source = self._sources.get(data_source_id)
+            if source is None:
+                raise ValueError(f"Development data source {data_source_id} not found.")
+            updated = replace(
+                source,
+                status=DataSourceStatus.TEST_SUCCEEDED,
+                last_test_at=datetime.now(timezone.utc),
+                last_test_result="SUCCESS",
+                revision=source.revision + 1,
+            )
+            self._sources[data_source_id] = updated
+            return updated
+
+    def activate(self, data_source_id: str) -> DataSource:
+        with self._lock:
+            source = self._sources.get(data_source_id)
+            if source is None:
+                raise ValueError(f"Development data source {data_source_id} not found.")
+            if source.status is not DataSourceStatus.TEST_SUCCEEDED:
+                raise ValueError(f"Cannot activate source in status {source.status.value}.")
+            updated = replace(
+                source,
+                status=DataSourceStatus.ACTIVE,
+                revision=source.revision + 1,
+            )
+            self._sources[data_source_id] = updated
+            return updated
+
+    def passivate(self, data_source_id: str) -> DataSource:
+        with self._lock:
+            source = self._sources.get(data_source_id)
+            if source is None:
+                raise ValueError(f"Development data source {data_source_id} not found.")
+            if source.status is not DataSourceStatus.ACTIVE:
+                raise ValueError(f"Cannot passivate source in status {source.status.value}.")
+            updated = replace(
+                source,
+                status=DataSourceStatus.INACTIVE,
+                revision=source.revision + 1,
+            )
+            self._sources[data_source_id] = updated
+            return updated
+
+
+class DevelopmentExecutionStore:
+    """Geliştirme ortamında çalıştırma işlemleri için bellek içi depo."""
+
+    def __init__(self) -> None:
+        self._executions = {execution.execution_id: execution for execution in DEVELOPMENT_EXECUTIONS}
+        self._lock = RLock()
+
+    def start_manual(
+        self,
+        *,
+        rule_version_ids: tuple[str, ...],
+        source_ids: tuple[str, ...],
+        triggered_by: str,
+    ) -> RuleExecution:
+        with self._lock:
+            execution_id = f"execution-{uuid4().hex[:12]}"
+            now = datetime.now(timezone.utc)
+            execution = RuleExecution(
+                execution_id=execution_id,
+                idempotency_key_hash=f"dev-manual-{execution_id}",
+                payload_hash=f"dev-manual-payload-{execution_id}",
+                rule_version_ids=rule_version_ids,
+                scope={},
+                triggered_by=triggered_by,
+                correlation_id=execution_id,
+                source_ids=source_ids,
+                workload_class=WorkloadClass.LIGHT,
+                execution_type=ExecutionType.MANUAL,
+                status=ExecutionStatus.QUEUED,
+                created_at=now,
+            )
+            self._executions[execution_id] = execution
+            return execution
+
+    def cancel(self, execution_id: str, *, reason: str, requested_by: str) -> RuleExecution:
+        with self._lock:
+            execution = self._executions.get(execution_id)
+            if execution is None:
+                raise ExecutionNotFoundError(f"Execution {execution_id} not found.")
+            if execution.status in {ExecutionStatus.SUCCESS, ExecutionStatus.FAILED,
+                                     ExecutionStatus.TECHNICAL_ERROR, ExecutionStatus.CANCELLED,
+                                     ExecutionStatus.TIMEOUT}:
+                raise ExecutionConflictError(
+                    f"Cannot cancel execution in {execution.status.value} status."
+                )
+            now = datetime.now(timezone.utc)
+            if execution.status is ExecutionStatus.QUEUED:
+                updated = replace(
+                    execution,
+                    status=ExecutionStatus.CANCELLED,
+                    cancelled_at=now,
+                    cancel_reason=reason,
+                    finished_at=now,
+                    cancel_requested_by=requested_by,
+                )
+            else:
+                updated = replace(
+                    execution,
+                    status=ExecutionStatus.CANCEL_REQUESTED,
+                    cancel_requested_at=now,
+                    cancel_reason=reason,
+                    cancel_requested_by=requested_by,
+                )
+            self._executions[execution_id] = updated
+            return updated
+
+
+DEVELOPMENT_USER_REGISTRY = DevelopmentUserRegistry(build_default_development_users())
+
+
+def create_development_app(  # type: ignore[no-untyped-def]
+    user_registry: DevelopmentUserRegistry | None = None,
+):
     """Sentetik skorlarla yerel gösterim uygulaması üretir; üretimde kullanılmaz."""
 
     now = datetime.now(timezone.utc)
@@ -992,6 +1171,7 @@ def create_development_app():  # type: ignore[no-untyped-def]
         clock=lambda: datetime.now(timezone.utc),
     )
     development_origins = frozenset({"http://127.0.0.1:5173", "http://localhost:5173"})
+    effective_registry = user_registry or DEVELOPMENT_USER_REGISTRY
     resolver = DevelopmentActorContextResolver(
         runtime_environment="development",
         policy_version=POLICY_VERSION,
@@ -1000,9 +1180,12 @@ def create_development_app():  # type: ignore[no-untyped-def]
         roles=frozenset({"DATA_VIEWER", "DATA_STEWARD", "AUDIT_VIEWER"}),
         allowed_origins=development_origins,
         can_view_enterprise=True,
+        user_registry=effective_registry,
     )
     issue_store = DevelopmentIssueStore()
     rule_store = DevelopmentRuleStore()
+    data_source_store = DevelopmentDataSourceStore()
+    execution_store = DevelopmentExecutionStore()
     return create_dashboard_api(
         service,
         rule_creator_service=rule_store,
@@ -1021,6 +1204,10 @@ def create_development_app():  # type: ignore[no-untyped-def]
         issue_resolution_service=issue_store,
         issue_verification_service=issue_store,
         issue_closure_service=issue_store,
+        data_source_mutation_service=data_source_store,
+        execution_start_service=execution_store,
+        execution_cancel_service=execution_store,
+        development_user_registry=effective_registry,
         report_preview_service=ReportPreviewService(
             SQLiteReportPreviewReader(repository.connection),
             audit_service,

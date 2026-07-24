@@ -2,7 +2,7 @@
 type: project-memory
 status: draft
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-last_updated: 2026-07-23
+last_updated: 2026-07-24
 tags:
   - proje
   - mevcut-durum
@@ -107,6 +107,59 @@ tags:
   - Sürüm oluşturma (eşik, ağırlık, kritiklik)
   - Test sonucu görüntüleme (sayaçlar, başarı oranı, önizleme skoru)
   - Aktivasyon onay dialogu (kritik kural uyarısı)
+
+#### 2026-07-24 — İterasyon 36D1: Veri kaynağı mutasyonları API yüzeyi ve çalıştırma işlemleri
+
+- `FR-007–FR-014`, `FR-036`, `FR-040`, `FR-042`, `UC-002`, `UC-003`, `UC-008`
+  kapsamında veri kaynağı mutasyonları ve çalıştırma işlemleri API yüzeyi tamamlandı.
+- **Çok kullanıcılı geliştirme modu**: `DevelopmentUserRegistry` ve 8 varsayılan
+  geliştirme kullanıcısı (DATA_VIEWER, DATA_STEWARD, DATA_OWNER,
+  DATA_GOVERNANCE_SPECIALIST, DATA_ENGINEER, AUDIT_VIEWER, sınırlı kapsamlı
+  kullanıcı, ayrıcalıklı kullanıcı) oluşturuldu. Kullanıcı seçimi `X-Development-User-Id`
+  header'ı ile yapılır. Frontend'de geliştirme giriş ekranı ve kullanıcı değiştirme
+  çubuğu eklendi.
+- **Veri kaynağı mutasyonları**: `POST /api/v1/data-sources` (oluşturma),
+  `POST /api/v1/data-sources/{id}/test` (bağlantı testi),
+  `POST /api/v1/data-sources/{id}/activation` (aktivasyon),
+  `POST /api/v1/data-sources/{id}/passivation` (pasifleştirme) endpoint'leri eklendi.
+  Geliştirme ortamında bellek içi `DevelopmentDataSourceStore` kullanılır.
+- **Çalıştırma işlemleri**: `POST /api/v1/executions` (manuel başlatma),
+  `POST /api/v1/executions/{id}/cancel` (iptal) endpoint'leri eklendi.
+  `ExecutionConflictError` ve `ExecutionNotFoundError` hata sınıfları tanımlandı.
+- `DataSourceMutationService`, `ExecutionStartService`, `ExecutionCancelService`
+  protokolleri tanımlandı.
+- Frontend API çağrıları `developmentFetch` wrapper'ı üzerinden `X-Development-User-Id`
+  header'ını taşır.
+- Tam pytest: `1125 passed, 27 skipped`. Frontend 95 Vitest testi, TypeScript
+  type-check ve production build temizdir.
+
+### 2026-07-24 — İterasyon 36D0: Veri kaynakları PostgreSQL repository geçişi
+
+- `FR-007–FR-014`, `UC-002`, `UC-003` kapsamında veri kaynakları domain'inin
+  PostgreSQL kalıcılık katmanı tamamlandı.
+- `data_sources/contracts.py` içinde `DataSourceRepository[AuditRepoT]` ve
+  `DataSourceTransactionalAudit` protokolleri tanımlandı; `DataSourceService`
+  generic `_RepoT` tip parametresine dönüştürüldü.
+- `data_sources/postgresql_repository.py` içinde `PostgreSQLDataSourceRepository`,
+  SQLAlchemy Core `data_source_tables()` fabrika fonksiyonuyla `SessionFactory`
+  enjeksiyonu ve `transactional_session` bağlam yöneticisi üzerinden çalışır.
+  Dokuz tablo (data_sources, connection_test_results, datasets, data_fields,
+  metadata_discovery_results, data_profiles, data_processing_inventory_versions,
+  data_source_connection_revisions, data_source_activation_requests) için
+  tam CRUD ve audit outbox ile atomik yazma desteği sağlanmıştır.
+- `05-Veritabani/alembic/versions/20260724_03_data_source_baseline.py` migration'ı
+  dokuz tabloyu CheckConstraint, UniqueConstraint, ForeignKey, indeks ve
+  partial unique index ile `dq` şemasında kurar.
+- `DataSourceQueryService` hem SQLite hem SQLAlchemy hata sınıflarını yakalayacak
+  şekilde genişletildi (`sqlite3.Error`, `SQLAlchemyError`, `OSError`).
+- Mevcut `SQLiteDataSourceRepository` ve tüm 81 test korunmuştur; `DataSourceService`
+  her iki repository tipiyle çalışır.
+- 9 yeni birim testi (tablo şeması doğrulama) ve 11 PostgreSQL entegrasyon testi
+  (veri kaynağı CRUD, bağlantı revizyonu, aktivasyon yaşam döngüsü, bağlantı testi)
+  eklendi.
+- Tam pytest: `1125 passed, 27 skipped`. Mevcut test baseline'ı korunmuştur.
+- 36D0, 36D (Yazılabilir Veri Kaynakları) için ön koşuldur. Sıradaki ürün artımı
+  36D1 veri kaynağı mutasyonları API yüzeyidir.
   - Onay isteği gönderme
   - Onay kararı (onayla/reddet + gerekçe kodu)
   - Onay geri çekme (gerekçe kodu)

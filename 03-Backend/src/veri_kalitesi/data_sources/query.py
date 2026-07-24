@@ -5,6 +5,8 @@ from __future__ import annotations
 import sqlite3
 from typing import Protocol
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from veri_kalitesi.data_sources.models import DataSource
 from veri_kalitesi.identity import ActorContext, AuthorizationService, IdentityError
 
@@ -48,7 +50,7 @@ class DataSourceQueryService:
             ) from exc
         try:
             return tuple(self.reader.list_data_sources(decision.permitted_source_ids))
-        except (sqlite3.Error, OSError) as exc:
+        except (sqlite3.Error, SQLAlchemyError, OSError) as exc:
             raise DataSourceQueryTechnicalError(
                 "Data source query could not be completed.", correlation_id
             ) from exc
