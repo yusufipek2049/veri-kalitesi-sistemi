@@ -226,7 +226,7 @@ foreign key enforcement ve orphan doğrulaması iptal edilmiştir**.
    indirme. DLP/watermark/maker-checker hazır değilse hassas dışa aktarma
    fail-closed kalır; audit kayıtlarına yazma/düzeltme özelliği eklenmez.
 
-Sıradaki hazır ürün artımı **36D** (Yazılabilir Veri Kaynakları). Önceki iterasyon 36C1b tamamlandı. Bir önceki hazır ürün artımı **36C1b** (kural düzenleme/onay frontend formları). Hiçbir dilimde geçici SQLite mutation
+Sıradaki hazır ürün artımı **36D1** (Yazılabilir Veri Kaynakları API yüzeyi) — **TechnicallyVerified**. 36D1, veri kaynağı mutasyonları API yüzeyini (oluşturma, test, aktivasyon, pasifleştirme), çalıştırma işlemleri API yüzeyini (manuel başlatma, iptal) ve çok kullanıcılı geliştirme modunu içerir. Önceki iterasyon 36D0 tamamlandı. Bir önceki hazır ürün artımı **36D0** (veri kaynakları PostgreSQL repository geçişi). Hiçbir dilimde geçici SQLite mutation
 API'si veya SQLite fallback oluşturulmayacaktır. Birim testleri fake domain
 double kullanabilir; kalıcı entegrasyon testleri yalnız PostgreSQL üzerinde
 çalışacaktır. `PG-MIG-001–005` ve `UI-WRITE-001–007` uygulama kararları

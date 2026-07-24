@@ -12,7 +12,10 @@ from veri_kalitesi.api.errors import (
 from veri_kalitesi.api.identity import (
     ActorContextResolver,
     DevelopmentActorContextResolver,
+    DevelopmentUser,
+    DevelopmentUserRegistry,
     UnavailableActorContextResolver,
+    build_default_development_users,
 )
 from veri_kalitesi.api.models import (
     AuditEventListResponse,
@@ -32,8 +35,11 @@ __all__ = [
     "CSRF_HEADER_NAME",
     "DashboardSummaryResponse",
     "DevelopmentActorContextResolver",
+    "DevelopmentUser",
+    "DevelopmentUserRegistry",
     "SESSION_COOKIE_NAME",
     "ReportSummaryResponse",
     "UnavailableActorContextResolver",
+    "build_default_development_users",
     "create_dashboard_api",
 ]

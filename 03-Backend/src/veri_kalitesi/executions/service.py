@@ -7,10 +7,11 @@ import json
 from collections.abc import Callable, Mapping
 from datetime import timedelta
 from time import sleep
-from typing import Any, Protocol
+from typing import Any, Generic, Protocol, TypeVar
 from uuid import uuid4
 
 from veri_kalitesi.data_sources.models import DataSourceStatus
+from veri_kalitesi.executions.contracts import ExecutionRepository
 from veri_kalitesi.executions.errors import (
     ExecutionTechnicalError,
     ExecutionTimeoutError,
@@ -30,9 +31,10 @@ from veri_kalitesi.executions.models import (
     WorkloadClass,
     utc_now,
 )
-from veri_kalitesi.executions.repository import SQLiteExecutionRepository
 from veri_kalitesi.executions.source_usage_policies import SourceUsagePolicyResolver
 from veri_kalitesi.rules.models import RuleStatus, RuleVersion
+
+_RepoT = TypeVar("_RepoT", bound=ExecutionRepository[Any])
 
 
 _FORBIDDEN_SCOPE_KEYS = {
@@ -95,10 +97,10 @@ class DefaultWorkloadClassifier:
         return WorkloadClass.LIGHT
 
 
-class ExecutionService:
+class ExecutionService(Generic[_RepoT]):
     def __init__(
         self,
-        repository: SQLiteExecutionRepository,
+        repository: _RepoT,
         rule_catalog: RuleCatalog,
         source_catalog: SourceCatalog,
         executor: ExecutionExecutor,

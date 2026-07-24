@@ -1,4 +1,5 @@
 import type { AuditEventListApiResponse, AuditQueryFilters } from "./model";
+import { developmentFetch } from "../development/fetch";
 
 export class AuditApiError extends Error {
   constructor(
@@ -30,7 +31,7 @@ export async function fetchAuditEvents(
   if (options.throughSequenceNo !== undefined) {
     params.set("through_sequence_no", String(options.throughSequenceNo));
   }
-  const response = await fetch(`/api/v1/audit/events?${params.toString()}`, {
+  const response = await developmentFetch(`/api/v1/audit/events?${params.toString()}`, {
     credentials: "same-origin",
     headers: { Accept: "application/json" },
     signal: options.signal,

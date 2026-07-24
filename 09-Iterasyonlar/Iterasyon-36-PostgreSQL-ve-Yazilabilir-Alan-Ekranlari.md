@@ -87,26 +87,33 @@ Durum: **TechnicallyVerified — 36C0, 36C1a ve 36C1b tamamlandı**
 
 ## 36D — Yazılabilir Veri Kaynakları
 
-Durum: **Planned — secret manager ve PostgreSQL geçişine bağlı**
+Durum: **TechnicallyVerified — 36D0 ve 36D1 tamamlandı**
 
 - Gereksinimler: `FR-007–FR-014`, `UC-002`, `UC-003`.
-- Kaynak tanımlama.
-- Değişmez bağlantı revizyonu.
-- Kaynakta salt okunur bağlantı testi.
-- Maker-checker kontrollü aktivasyon ve pasifleştirme.
-- Secret değerini frontend, API payload'ı, log, audit veya veritabanında
-  tutmayan referans modeli.
+- **36D0**: DataSourceRepository protocol, PostgreSQLDataSourceRepository, Alembic migration, DataSourceService generic dönüşümü, 9 birim ve 11 PostgreSQL entegrasyon testi; `TechnicallyVerified`.
+- **36D1**: Veri kaynağı mutasyonları API yüzeyi; `TechnicallyVerified`.
+  - `POST /api/v1/data-sources` — kaynak oluşturma
+  - `POST /api/v1/data-sources/{id}/test` — bağlantı testi
+  - `POST /api/v1/data-sources/{id}/activation` — maker-checker kontrollü aktivasyon
+  - `POST /api/v1/data-sources/{id}/passivation` — kontrollü pasifleştirme
+  - Secret değerini frontend, API payload'ı, log, audit veya veritabanında
+    tutmayan referans modeli.
+  - Geliştirme ortamında `DevelopmentDataSourceStore` bellek içi depo.
 
 ## 36E — Çalıştırma İşlemleri
 
-Durum: **Planned — execution/queue PostgreSQL geçişine bağlı**
+Durum: **TechnicallyVerified — API yüzeyi tamamlandı**
 
 - Gereksinimler: `FR-036–FR-053`, `UC-007`, `UC-008`.
-- Manuel başlatma.
-- İptal.
-- Yeniden deneme.
-- Doğrudan worker başlatmadan kaynak kullanım politikası, kota, çalışma
-  penceresi ve idempotency kontrolü sonrası kuyruğa alma.
+- **36E API yüzeyi**:
+  - `POST /api/v1/executions` — manuel çalıştırma başlatma
+  - `POST /api/v1/executions/{id}/cancel` — çalıştırma iptali
+  - `ExecutionConflictError` ve `ExecutionNotFoundError` hata sınıfları
+  - Geliştirme ortamında `DevelopmentExecutionStore` bellek içi depo
+- Execution/queue PostgreSQL geçişine bağlı kalan işler:
+  - Doğrudan worker başlatmadan kaynak kullanım politikası, kota, çalışma
+    penceresi ve idempotency kontrolü sonrası kuyruğa alma.
+  - Yeniden deneme (retry).
 
 ## 36F — Rapor İşlemleri ve Denetim Sınırı
 

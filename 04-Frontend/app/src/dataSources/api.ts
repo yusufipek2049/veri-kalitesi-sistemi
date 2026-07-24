@@ -1,4 +1,5 @@
 import type { DataSourceListApiResponse } from "./model";
+import { developmentFetch } from "../development/fetch";
 
 export class DataSourceApiError extends Error {
   constructor(
@@ -10,7 +11,7 @@ export class DataSourceApiError extends Error {
 }
 
 export async function fetchDataSources(signal?: AbortSignal): Promise<DataSourceListApiResponse> {
-  const response = await fetch("/api/v1/data-sources", {
+  const response = await developmentFetch("/api/v1/data-sources", {
     credentials: "same-origin",
     headers: { Accept: "application/json" },
     signal,

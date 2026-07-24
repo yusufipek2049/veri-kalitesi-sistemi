@@ -5,14 +5,13 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import replace
 from datetime import datetime, timezone
-from typing import Any, Callable, Protocol
+from typing import Any, Callable, Protocol, TypeVar
 from uuid import uuid4
 
 from veri_kalitesi.audit import (
     AuditEventInput,
     AuditResult,
     AuditSink,
-    SQLiteTransactionalAudit,
 )
 from veri_kalitesi.data_protection import (
     ClassificationValidationError,
@@ -59,7 +58,7 @@ from veri_kalitesi.data_sources.models import (
 )
 from veri_kalitesi.identity import ActorContext, ActorType, is_trusted_actor_context
 from veri_kalitesi.data_sources.postgresql import is_read_only_sql
-from veri_kalitesi.data_sources.repository import SQLiteDataSourceRepository
+from veri_kalitesi.data_sources.contracts import DataSourceRepository, DataSourceTransactionalAudit
 from veri_kalitesi.data_sources.secrets import EmptySecretResolver, SecretResolver
 from veri_kalitesi.data_sources.postgresql import (
     AuthenticationConnectionError,
@@ -82,15 +81,18 @@ class BusinessCalendar(Protocol):
     def add_business_days(self, start_at: datetime, business_days: int) -> datetime: ...
 
 
+_RepoT = TypeVar("_RepoT", bound=DataSourceTransactionalAudit)
+
+
 class DataSourceService:
     def __init__(
         self,
-        repository: SQLiteDataSourceRepository,
+        repository: DataSourceRepository[_RepoT],
         registry: ConnectorRegistry,
         secret_resolver: SecretResolver | None = None,
         *,
         audit_sink: AuditSink,
-        transactional_audit: SQLiteTransactionalAudit,
+        transactional_audit: _RepoT,
         classification_policy: ClassificationPolicy | None = None,
         masking_policy: MaskingPolicy | None = None,
         activation_policy: DataSourceActivationPolicy | None = None,

@@ -20,14 +20,25 @@ from veri_kalitesi.api.errors import (
 from veri_kalitesi.api.identity import (
     ActorContextResolver,
     DevelopmentActorContextResolver,
+    DevelopmentUserRegistry,
     UnavailableActorContextResolver,
 )
 from veri_kalitesi.api.models import (
     AuditEventListResponse,
     DashboardSummaryResponse,
+    DataSourceCreateRequest,
+    DataSourceDetailResponse,
     DataSourceListItemResponse,
     DataSourceListResponse,
+    DataSourceMutationResponse,
+    DevelopmentUserInfoResponse,
+    DevelopmentUserListResponse,
+    ExecutionCancelRequest,
     ExecutionListItemResponse,
+    ExecutionListResponse,
+    ExecutionStartRequest,
+    ExecutionStartResponse,
+    IssueAssigneeOptionResponse,
     ExecutionListResponse,
     IssueListItemResponse,
     IssueListResponse,
@@ -61,6 +72,7 @@ from veri_kalitesi.audit import (
     AuditResult,
 )
 from veri_kalitesi.data_sources import (
+    DataSource,
     DataSourceQueryAuthorizationError,
     DataSourceQueryService,
     DataSourceQueryTechnicalError,
@@ -72,6 +84,8 @@ from veri_kalitesi.dashboard import (
     DashboardValidationError,
 )
 from veri_kalitesi.executions import (
+    ExecutionConflictError,
+    ExecutionNotFoundError,
     ExecutionQueryAuthorizationError,
     ExecutionQueryService,
     ExecutionQueryTechnicalError,
@@ -257,6 +271,50 @@ class StateChangeBoundary(Protocol):
     def protect_state_changing(self, request: Request) -> ActorContext | None: ...
 
 
+class DataSourceMutationService(Protocol):
+    """Veri kaynağı mutasyonları için protokol."""
+
+    def create(
+        self,
+        *,
+        name: str,
+        source_type: str,
+        owner_user_id: str,
+        host: str = "",
+        port: int = 0,
+        database_name: str = "",
+        username: str = "",
+        file_path: str = "",
+        connection_parameters: dict | None = None,
+    ) -> DataSource: ...
+
+    def test_connection(self, data_source_id: str) -> DataSource: ...
+
+    def activate(self, data_source_id: str) -> DataSource: ...
+
+    def passivate(self, data_source_id: str) -> DataSource: ...
+
+
+class ExecutionStartService(Protocol):
+    def start_manual(
+        self,
+        *,
+        rule_version_ids: tuple[str, ...],
+        source_ids: tuple[str, ...],
+        triggered_by: str,
+    ) -> RuleExecution: ...
+
+
+class ExecutionCancelService(Protocol):
+    def cancel(
+        self,
+        execution_id: str,
+        *,
+        reason: str,
+        requested_by: str,
+    ) -> RuleExecution: ...
+
+
 def create_dashboard_api(
     dashboard_service: DashboardQueryService,
     *,
@@ -265,6 +323,10 @@ def create_dashboard_api(
     allowed_origins: Sequence[str] = (),
     data_origin: str = "runtime",
     data_source_query_service: DataSourceQueryService | None = None,
+    data_source_mutation_service: DataSourceMutationService | None = None,
+    execution_start_service: ExecutionStartService | None = None,
+    execution_cancel_service: ExecutionCancelService | None = None,
+    development_user_registry: DevelopmentUserRegistry | None = None,
     rule_query_service: RuleQueryService | None = None,
     execution_query_service: ExecutionQueryService | None = None,
     issue_query_service: IssueQueryService | None = None,
@@ -446,6 +508,31 @@ def create_dashboard_api(
             title="Executions temporarily unavailable",
             detail="The execution query could not be completed.",
             correlation_id=error.correlation_id,
+        )
+
+
+    @app.exception_handler(ExecutionNotFoundError)
+    async def handle_execution_not_found_error(
+        request: Request, error: ExecutionNotFoundError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=404,
+            title="Execution not found",
+            detail="The requested execution is not available.",
+            correlation_id=request.state.correlation_id,
+        )
+
+    @app.exception_handler(ExecutionConflictError)
+    async def handle_execution_conflict_error(
+        request: Request, error: ExecutionConflictError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=409,
+            title="Execution conflict",
+            detail="The execution is no longer in a state that allows this action.",
+            correlation_id=request.state.correlation_id,
         )
 
     @app.exception_handler(IssueQueryAuthorizationError)
@@ -1346,6 +1433,196 @@ def create_dashboard_api(
         response.status_code = 204
         return response
 
+# ██████ Geliştirme Kullanıcıları ██████
+
+    @app.get(
+        "/api/v1/development/users",
+        response_model=DevelopmentUserListResponse,
+        tags=["development"],
+    )
+    async def list_development_users(request: Request) -> DevelopmentUserListResponse:
+        if development_user_registry is None:
+            return DevelopmentUserListResponse(
+                correlation_id=request.state.correlation_id,
+                items=(),
+            )
+        users = development_user_registry.available_users()
+        return DevelopmentUserListResponse(
+            correlation_id=request.state.correlation_id,
+            items=tuple(
+                DevelopmentUserInfoResponse(
+                    user_id=u["user_id"],
+                    display_name=u["display_name"],
+                    roles=u["roles"],
+                )
+                for u in users
+            ),
+        )
+
+    # ██████ Veri Kaynağı Mutasyonları ██████
+
+    @app.post(
+        "/api/v1/data-sources",
+        response_model=DataSourceMutationResponse,
+        status_code=201,
+        tags=["data-sources"],
+    )
+    async def create_data_source(
+        payload: DataSourceCreateRequest,
+        request: Request,
+        response: Response,
+    ) -> DataSourceMutationResponse:
+        if data_source_mutation_service is None:
+            raise DataSourceQueryTechnicalError(
+                "Data source mutation service is unavailable.", request.state.correlation_id
+            )
+        source = data_source_mutation_service.create(
+            name=payload.name,
+            source_type=payload.source_type,
+            owner_user_id=payload.owner_user_id,
+            host=payload.host,
+            port=payload.port,
+            database_name=payload.database_name,
+            username=payload.username,
+            file_path=payload.file_path,
+            connection_parameters=dict(payload.connection_parameters) if payload.connection_parameters else None,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return DataSourceMutationResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=DataSourceListItemResponse.from_domain(source),
+        )
+
+    @app.post(
+        "/api/v1/data-sources/{data_source_id}/test",
+        response_model=DataSourceMutationResponse,
+        tags=["data-sources"],
+    )
+    async def test_data_source(
+        data_source_id: str,
+        request: Request,
+        response: Response,
+    ) -> DataSourceMutationResponse:
+        if data_source_mutation_service is None:
+            raise DataSourceQueryTechnicalError(
+                "Data source mutation service is unavailable.", request.state.correlation_id
+            )
+        source = data_source_mutation_service.test_connection(data_source_id)
+        response.headers["Cache-Control"] = "no-store"
+        return DataSourceMutationResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=DataSourceListItemResponse.from_domain(source),
+        )
+
+    @app.post(
+        "/api/v1/data-sources/{data_source_id}/activation",
+        response_model=DataSourceMutationResponse,
+        tags=["data-sources"],
+    )
+    async def activate_data_source(
+        data_source_id: str,
+        request: Request,
+        response: Response,
+    ) -> DataSourceMutationResponse:
+        if data_source_mutation_service is None:
+            raise DataSourceQueryTechnicalError(
+                "Data source mutation service is unavailable.", request.state.correlation_id
+            )
+        source = data_source_mutation_service.activate(data_source_id)
+        response.headers["Cache-Control"] = "no-store"
+        return DataSourceMutationResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=DataSourceListItemResponse.from_domain(source),
+        )
+
+    @app.post(
+        "/api/v1/data-sources/{data_source_id}/passivation",
+        response_model=DataSourceMutationResponse,
+        tags=["data-sources"],
+    )
+    async def passivate_data_source(
+        data_source_id: str,
+        request: Request,
+        response: Response,
+    ) -> DataSourceMutationResponse:
+        if data_source_mutation_service is None:
+            raise DataSourceQueryTechnicalError(
+                "Data source mutation service is unavailable.", request.state.correlation_id
+            )
+        source = data_source_mutation_service.passivate(data_source_id)
+        response.headers["Cache-Control"] = "no-store"
+        return DataSourceMutationResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=DataSourceListItemResponse.from_domain(source),
+        )
+
+    # ██████ Çalıştırma İşlemleri ██████
+
+    @app.post(
+        "/api/v1/executions",
+        response_model=ExecutionStartResponse,
+        status_code=201,
+        tags=["executions"],
+    )
+    async def start_manual_execution(
+        payload: ExecutionStartRequest,
+        request: Request,
+        response: Response,
+    ) -> ExecutionStartResponse:
+        if execution_start_service is None:
+            raise ExecutionQueryTechnicalError(
+                "Execution start service is unavailable.", request.state.correlation_id
+            )
+        actor_context = getattr(request.state, "actor_context", None)
+        if actor_context is None:
+            actor_context = resolver.resolve(request)
+        execution = execution_start_service.start_manual(
+            rule_version_ids=payload.rule_version_ids,
+            source_ids=payload.source_ids,
+            triggered_by=actor_context.actor_id if actor_context else "unknown",
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return ExecutionStartResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=ExecutionListItemResponse.from_domain(execution),
+        )
+
+    @app.post(
+        "/api/v1/executions/{execution_id}/cancel",
+        response_model=ExecutionStartResponse,
+        tags=["executions"],
+    )
+    async def cancel_execution(
+        execution_id: str,
+        payload: ExecutionCancelRequest,
+        request: Request,
+        response: Response,
+    ) -> ExecutionStartResponse:
+        if execution_cancel_service is None:
+            raise ExecutionQueryTechnicalError(
+                "Execution cancel service is unavailable.", request.state.correlation_id
+            )
+        actor_context = getattr(request.state, "actor_context", None)
+        if actor_context is None:
+            actor_context = resolver.resolve(request)
+        execution = execution_cancel_service.cancel(
+            execution_id,
+            reason=payload.reason,
+            requested_by=actor_context.actor_id if actor_context else "unknown",
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return ExecutionStartResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=ExecutionListItemResponse.from_domain(execution),
+        )
+
+
     return app
 
 
@@ -1476,3 +1753,192 @@ def _problem(
         },
         headers={"X-Correlation-ID": correlation_id, "Cache-Control": "no-store"},
     )
+
+    # ██████ Geliştirme Kullanıcıları ██████
+
+    @app.get(
+        "/api/v1/development/users",
+        response_model=DevelopmentUserListResponse,
+        tags=["development"],
+    )
+    async def list_development_users(request: Request) -> DevelopmentUserListResponse:
+        if development_user_registry is None:
+            return DevelopmentUserListResponse(
+                correlation_id=request.state.correlation_id,
+                items=(),
+            )
+        users = development_user_registry.available_users()
+        return DevelopmentUserListResponse(
+            correlation_id=request.state.correlation_id,
+            items=tuple(
+                DevelopmentUserInfoResponse(
+                    user_id=u["user_id"],
+                    display_name=u["display_name"],
+                    roles=u["roles"],
+                )
+                for u in users
+            ),
+        )
+
+    # ██████ Veri Kaynağı Mutasyonları ██████
+
+    @app.post(
+        "/api/v1/data-sources",
+        response_model=DataSourceMutationResponse,
+        status_code=201,
+        tags=["data-sources"],
+    )
+    async def create_data_source(
+        payload: DataSourceCreateRequest,
+        request: Request,
+        response: Response,
+    ) -> DataSourceMutationResponse:
+        if data_source_mutation_service is None:
+            raise DataSourceQueryTechnicalError(
+                "Data source mutation service is unavailable.", request.state.correlation_id
+            )
+        source = data_source_mutation_service.create(
+            name=payload.name,
+            source_type=payload.source_type,
+            owner_user_id=payload.owner_user_id,
+            host=payload.host,
+            port=payload.port,
+            database_name=payload.database_name,
+            username=payload.username,
+            file_path=payload.file_path,
+            connection_parameters=dict(payload.connection_parameters) if payload.connection_parameters else None,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return DataSourceMutationResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=DataSourceListItemResponse.from_domain(source),
+        )
+
+    @app.post(
+        "/api/v1/data-sources/{data_source_id}/test",
+        response_model=DataSourceMutationResponse,
+        tags=["data-sources"],
+    )
+    async def test_data_source(
+        data_source_id: str,
+        request: Request,
+        response: Response,
+    ) -> DataSourceMutationResponse:
+        if data_source_mutation_service is None:
+            raise DataSourceQueryTechnicalError(
+                "Data source mutation service is unavailable.", request.state.correlation_id
+            )
+        source = data_source_mutation_service.test_connection(data_source_id)
+        response.headers["Cache-Control"] = "no-store"
+        return DataSourceMutationResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=DataSourceListItemResponse.from_domain(source),
+        )
+
+    @app.post(
+        "/api/v1/data-sources/{data_source_id}/activation",
+        response_model=DataSourceMutationResponse,
+        tags=["data-sources"],
+    )
+    async def activate_data_source(
+        data_source_id: str,
+        request: Request,
+        response: Response,
+    ) -> DataSourceMutationResponse:
+        if data_source_mutation_service is None:
+            raise DataSourceQueryTechnicalError(
+                "Data source mutation service is unavailable.", request.state.correlation_id
+            )
+        source = data_source_mutation_service.activate(data_source_id)
+        response.headers["Cache-Control"] = "no-store"
+        return DataSourceMutationResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=DataSourceListItemResponse.from_domain(source),
+        )
+
+    @app.post(
+        "/api/v1/data-sources/{data_source_id}/passivation",
+        response_model=DataSourceMutationResponse,
+        tags=["data-sources"],
+    )
+    async def passivate_data_source(
+        data_source_id: str,
+        request: Request,
+        response: Response,
+    ) -> DataSourceMutationResponse:
+        if data_source_mutation_service is None:
+            raise DataSourceQueryTechnicalError(
+                "Data source mutation service is unavailable.", request.state.correlation_id
+            )
+        source = data_source_mutation_service.passivate(data_source_id)
+        response.headers["Cache-Control"] = "no-store"
+        return DataSourceMutationResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=DataSourceListItemResponse.from_domain(source),
+        )
+
+    # ██████ Çalıştırma İşlemleri ██████
+
+    @app.post(
+        "/api/v1/executions",
+        response_model=ExecutionStartResponse,
+        status_code=201,
+        tags=["executions"],
+    )
+    async def start_manual_execution(
+        payload: ExecutionStartRequest,
+        request: Request,
+        response: Response,
+    ) -> ExecutionStartResponse:
+        if execution_start_service is None:
+            raise ExecutionQueryTechnicalError(
+                "Execution start service is unavailable.", request.state.correlation_id
+            )
+        actor_context = getattr(request.state, "actor_context", None)
+        if actor_context is None:
+            actor_context = resolver.resolve(request)
+        execution = execution_start_service.start_manual(
+            rule_version_ids=payload.rule_version_ids,
+            source_ids=payload.source_ids,
+            triggered_by=actor_context.actor_id if actor_context else "unknown",
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return ExecutionStartResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=ExecutionListItemResponse.from_domain(execution),
+        )
+
+    @app.post(
+        "/api/v1/executions/{execution_id}/cancel",
+        response_model=ExecutionStartResponse,
+        tags=["executions"],
+    )
+    async def cancel_execution(
+        execution_id: str,
+        payload: ExecutionCancelRequest,
+        request: Request,
+        response: Response,
+    ) -> ExecutionStartResponse:
+        if execution_cancel_service is None:
+            raise ExecutionQueryTechnicalError(
+                "Execution cancel service is unavailable.", request.state.correlation_id
+            )
+        actor_context = getattr(request.state, "actor_context", None)
+        if actor_context is None:
+            actor_context = resolver.resolve(request)
+        execution = execution_cancel_service.cancel(
+            execution_id,
+            reason=payload.reason,
+            requested_by=actor_context.actor_id if actor_context else "unknown",
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return ExecutionStartResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=ExecutionListItemResponse.from_domain(execution),
+        )

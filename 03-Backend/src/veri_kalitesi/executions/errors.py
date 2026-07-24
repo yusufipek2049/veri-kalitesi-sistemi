@@ -32,6 +32,10 @@ class ExecutionNotFoundError(ExecutionError):
     """İstenen çalıştırma bulunamadı."""
 
 
+class ExecutionConflictError(ExecutionError):
+    """Çalıştırma durumu işleme izin vermiyor (çakışma)."""
+
+
 class IdempotencyConflictError(ExecutionError):
     """Aynı idempotency anahtarı farklı bir payload ile kullanıldı."""
 
