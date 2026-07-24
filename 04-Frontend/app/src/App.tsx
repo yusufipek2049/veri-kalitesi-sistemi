@@ -36,8 +36,19 @@ import {
   type IssuePriority,
   type IssueState,
 } from "./issues/model";
-import { RuleApiError, fetchRules } from "./rules/api";
-import { rulesFromApi, syntheticRules, type RuleListItem, type RuleState } from "./rules/model";
+import {
+  RuleApiError,
+  createRule,
+  createRuleVersion,
+  decideRuleApproval,
+  fetchRules,
+  passivateRule,
+  requestRuleApproval,
+  testRule,
+  withdrawRuleApproval,
+  activateRule,
+} from "./rules/api";
+import { rulesFromApi, syntheticRules, type RuleCreateRequest, type RuleListItem, type RuleState, type RuleTestResult, type RuleVersionCreateRequest } from "./rules/model";
 import { fetchReportSummary, ReportApiError } from "./reports/api";
 import { reportSummaryFromApi, syntheticReportSummary, type ReportState, type ReportSummary } from "./reports/model";
 import {
@@ -165,7 +176,102 @@ function RulesRoute() {
     void load(controller.signal);
     return () => controller.abort();
   }, [load]);
-  return <RulesPage correlationId={correlationId} items={items} onRefresh={() => void load()} state={fixtureState ?? state} />;
+
+  const handleCreateRule = useCallback(async (payload: RuleCreateRequest) => {
+    const response = await createRule(payload);
+    const updated = rulesFromApi(response);
+    setItems((current) => [...current, ...updated]);
+    setCorrelationId(response.correlation_id);
+  }, []);
+
+  const handleCreateVersion = useCallback(
+    async (item: RuleListItem, data: RuleVersionCreateRequest) => {
+      const response = await createRuleVersion(item.id, data);
+      const updated = rulesFromApi(response);
+      setItems((current) => current.map((candidate) =>
+        candidate.id === updated[0].id ? updated[0] : candidate,
+      ));
+      setCorrelationId(response.correlation_id);
+    },
+    [],
+  );
+
+  const handleTestRule = useCallback(
+    async (item: RuleListItem, ruleVersionId: string): Promise<RuleTestResult> => {
+      const result = await testRule(item.id, { rule_version_id: ruleVersionId, limit: 10000 });
+      setCorrelationId(result.rule_test_result_id);
+      return result;
+    },
+    [],
+  );
+
+  const handleActivateRule = useCallback(async (item: RuleListItem) => {
+    const response = await activateRule(item.id);
+    const updated = rulesFromApi(response);
+    setItems((current) => current.map((candidate) =>
+      candidate.id === updated[0].id ? updated[0] : candidate,
+    ));
+    setCorrelationId(response.correlation_id);
+  }, []);
+
+  const handleRequestApproval = useCallback(async (item: RuleListItem) => {
+    const response = await requestRuleApproval(item.id);
+    const updated = rulesFromApi(response);
+    setItems((current) => current.map((candidate) =>
+      candidate.id === updated[0].id ? updated[0] : candidate,
+    ));
+    setCorrelationId(response.correlation_id);
+  }, []);
+
+  const handleDecideApproval = useCallback(
+    async (item: RuleListItem, approvalRequestId: string, decision: "APPROVE" | "REJECT", reasonCode: string) => {
+      const response = await decideRuleApproval(approvalRequestId, { approval_request_id: approvalRequestId, decision, reason_code: reasonCode });
+      const updated = rulesFromApi(response);
+      setItems((current) => current.map((candidate) =>
+        candidate.id === updated[0].id ? updated[0] : candidate,
+      ));
+      setCorrelationId(response.correlation_id);
+    },
+    [],
+  );
+
+  const handleWithdrawApproval = useCallback(
+    async (item: RuleListItem, approvalRequestId: string, reasonCode: string) => {
+      const response = await withdrawRuleApproval(approvalRequestId, { approval_request_id: approvalRequestId, reason_code: reasonCode });
+      const updated = rulesFromApi(response);
+      setItems((current) => current.map((candidate) =>
+        candidate.id === updated[0].id ? updated[0] : candidate,
+      ));
+      setCorrelationId(response.correlation_id);
+    },
+    [],
+  );
+
+  const handlePassivateRule = useCallback(async (item: RuleListItem) => {
+    const response = await passivateRule(item.id);
+    const updated = rulesFromApi(response);
+    setItems((current) => current.map((candidate) =>
+      candidate.id === updated[0].id ? updated[0] : candidate,
+    ));
+    setCorrelationId(response.correlation_id);
+  }, []);
+
+  return (
+    <RulesPage
+      correlationId={correlationId}
+      items={items}
+      onRefresh={() => void load()}
+      state={fixtureState ?? state}
+      onCreateRule={handleCreateRule}
+      onCreateVersion={handleCreateVersion}
+      onTestRule={handleTestRule}
+      onActivateRule={handleActivateRule}
+      onRequestApproval={handleRequestApproval}
+      onDecideApproval={handleDecideApproval}
+      onWithdrawApproval={handleWithdrawApproval}
+      onPassivateRule={handlePassivateRule}
+    />
+  );
 }
 
 const executionStates: ExecutionState[] = ["normal", "loading", "empty", "error", "unauthorized", "long-content"];

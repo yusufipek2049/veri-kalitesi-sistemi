@@ -726,7 +726,14 @@ def create_dashboard_api(
         return RuleListResponse(
             data_origin=data_origin,
             correlation_id=request.state.correlation_id,
-            items=tuple(RuleListItemResponse.from_domain(rule, version) for rule, version in rules),
+            items=tuple(
+                RuleListItemResponse.from_domain(
+                    rule,
+                    version,
+                    available_actions=_rule_actions(rule, actor_context),
+                )
+                for rule, version in rules
+            ),
         )
 
     @app.get(
@@ -1111,7 +1118,7 @@ def create_dashboard_api(
         return RuleMutationResponse(
             data_origin=data_origin,
             correlation_id=request.state.correlation_id,
-            item=RuleListItemResponse.from_domain(rule, version),
+            item=RuleListItemResponse.from_domain(rule, version, available_actions=()),
         )
 
     @app.post(
@@ -1146,7 +1153,7 @@ def create_dashboard_api(
         return RuleMutationResponse(
             data_origin=data_origin,
             correlation_id=request.state.correlation_id,
-            item=RuleListItemResponse.from_domain(rule, version),
+            item=RuleListItemResponse.from_domain(rule, version, available_actions=()),
         )
 
     @app.post(
@@ -1205,7 +1212,7 @@ def create_dashboard_api(
         return RuleMutationResponse(
             data_origin=data_origin,
             correlation_id=request.state.correlation_id,
-            item=RuleListItemResponse.from_domain(rule, version),
+            item=RuleListItemResponse.from_domain(rule, version, available_actions=()),
         )
 
     @app.post(
@@ -1235,7 +1242,7 @@ def create_dashboard_api(
         return RuleMutationResponse(
             data_origin=data_origin,
             correlation_id=request.state.correlation_id,
-            item=RuleListItemResponse.from_domain(rule, version),
+            item=RuleListItemResponse.from_domain(rule, version, available_actions=()),
         )
 
     @app.post(
@@ -1266,7 +1273,7 @@ def create_dashboard_api(
         return RuleMutationResponse(
             data_origin=data_origin,
             correlation_id=request.state.correlation_id,
-            item=RuleListItemResponse.from_domain(rule, version),
+            item=RuleListItemResponse.from_domain(rule, version, available_actions=()),
         )
 
     @app.post(
@@ -1296,7 +1303,7 @@ def create_dashboard_api(
         return RuleMutationResponse(
             data_origin=data_origin,
             correlation_id=request.state.correlation_id,
-            item=RuleListItemResponse.from_domain(rule, version),
+            item=RuleListItemResponse.from_domain(rule, version, available_actions=()),
         )
 
     @app.post(
@@ -1325,7 +1332,7 @@ def create_dashboard_api(
         return RuleMutationResponse(
             data_origin=data_origin,
             correlation_id=request.state.correlation_id,
-            item=RuleListItemResponse.from_domain(rule, version),
+            item=RuleListItemResponse.from_domain(rule, version, available_actions=()),
         )
 
     @app.post("/api/v1/session/logout", status_code=204, tags=["session"])
@@ -1388,6 +1395,63 @@ def _issue_actions(
         and not actor_context.privileged
     ):
         actions.append("CLOSE")
+    return tuple(actions)
+
+
+def _rule_actions(
+    rule: QualityRule,
+    actor_context: ActorContext,
+    *,
+    pending_approval_request_id: str | None = None,
+) -> tuple[str, ...]:
+    """Kuralin mevcut durumu ve aktor yetkisine gore kullanilabilir eylemleri hesaplar."""
+    has_dataset_scope = rule.dataset_id in actor_context.permitted_dataset_ids
+    is_steward_or_governance = bool(
+        actor_context.roles.intersection({"DATA_STEWARD", "DATA_GOVERNANCE_SPECIALIST"})
+    )
+    is_owner = bool(actor_context.roles.intersection({"DATA_OWNER"}))
+    is_normal = not actor_context.privileged
+    status = rule.status.value
+    criticality = rule.criticality.value if hasattr(rule, "criticality") else "LOW"
+
+    actions: list[str] = []
+
+    if status in {"DRAFT", "ACTIVE", "PASSIVE"} and has_dataset_scope and is_normal:
+        actions.append("CREATE_VERSION")
+
+    if status == "DRAFT" and has_dataset_scope and is_normal:
+        actions.append("TEST_RULE")
+
+    if status == "DRAFT" and criticality != "CRITICAL" and has_dataset_scope and is_normal:
+        actions.append("ACTIVATE")
+
+    if (
+        status == "DRAFT"
+        and criticality == "CRITICAL"
+        and is_steward_or_governance
+        and has_dataset_scope
+        and is_normal
+    ):
+        actions.append("REQUEST_APPROVAL")
+
+    if (
+        status == "REVIEW_REQUIRED"
+        and pending_approval_request_id is not None
+        and (is_steward_or_governance or is_owner)
+        and has_dataset_scope
+        and is_normal
+    ):
+        actions.append("DECIDE_APPROVAL")
+        actions.append("WITHDRAW_APPROVAL")
+
+    if (
+        status == "ACTIVE"
+        and (is_steward_or_governance or is_owner)
+        and has_dataset_scope
+        and is_normal
+    ):
+        actions.append("PASSIVATE")
+
     return tuple(actions)
 
 
