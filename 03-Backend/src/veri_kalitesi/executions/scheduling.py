@@ -7,7 +7,7 @@ from dataclasses import dataclass, field, replace
 from datetime import date, datetime, time, timedelta, timezone
 from enum import Enum
 from threading import RLock
-from typing import Any, Protocol
+from typing import Any, Protocol, TypeVar
 from uuid import uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -20,6 +20,44 @@ from veri_kalitesi.audit import (
 from veri_kalitesi.executions.errors import ExecutionValidationError
 from veri_kalitesi.executions.models import RuleExecution
 from veri_kalitesi.executions.service import ExecutionService
+
+
+class ScheduleTransactionalAudit(Protocol):
+    """Schedule domaini için transactional audit outbox sözleşmesi."""
+
+    def prepare(self, event: AuditEventInput) -> PreparedAuditEvent: ...
+
+    def publish_pending(self, *, limit: int = 100) -> Any: ...
+
+
+_AuditT = TypeVar("_AuditT", bound=ScheduleTransactionalAudit, contravariant=True)
+
+
+class ScheduleRepository(Protocol[_AuditT]):
+    """Schedule domaini için repository sözleşmesi."""
+
+    def add(
+        self,
+        schedule: Schedule,
+        *,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: _AuditT,
+    ) -> Schedule: ...
+
+    def due(self, now: datetime) -> list[Schedule]: ...
+
+    def advance(
+        self,
+        schedule_id: str,
+        *,
+        triggered_at: datetime,
+        next_run_at: datetime | None,
+        is_active: bool,
+    ) -> Schedule: ...
+
+    def get(self, schedule_id: str) -> Schedule: ...
+
+    def list_all(self) -> list[Schedule]: ...
 
 
 class ScheduleType(str, Enum):
@@ -180,10 +218,10 @@ class SQLiteScheduleRepository:
 class SchedulingService:
     def __init__(
         self,
-        repository: SQLiteScheduleRepository,
+        repository: ScheduleRepository[Any],
         execution_service: ExecutionService,
         *,
-        transactional_audit: SQLiteTransactionalAudit,
+        transactional_audit: ScheduleTransactionalAudit,
         technical_event_sink: ScheduleTechnicalEventSink | None = None,
         clock: Any = lambda: datetime.now(timezone.utc),
     ) -> None:

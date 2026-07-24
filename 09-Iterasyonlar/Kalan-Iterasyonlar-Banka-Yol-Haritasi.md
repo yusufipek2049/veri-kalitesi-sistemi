@@ -1,22 +1,12 @@
-# Kalan İterasyonlar — Banka Yol Haritası
+# Aktif Yol Haritası
 
-| İterasyon | Ürün artımı | Ana bağımlılık |
-| --- | --- | --- |
-| 21 | Güvenilir scope ile dashboard trend (`21A` tamamlandı) ve HTTP read API (`21B` engelli) | 16, 20 |
-| 22 | Sistem içi bildirim (`22A`), temel issue (`22B`), yeniden atama (`22C`) ve çözüm kaydı (`22D`) tamamlandı; doğrulama dilimi sırada | 17, 18 |
-| 23 | ServiceNow allowlist/idempotency adaptörü | 22 |
-| 24 | Kontrollü rapor/audit dışa aktarma | 18, 20 |
-| 25 | Saklama dry-run (`25A`), legal hold (`25B`), imha kanıtı (`25C`) ve arşiv geri çağırma talep/kararı (`25D`) tamamlandı; gerçek adaptörler açık | Hukuk/uyum kararı |
-| 26 | Güvenlik olayı ve KVKK ihlal kanıt akışı (`26A–26B` tamamlandı); gerçek SIEM/SOC engelli | 17, `OPEN-BNK-010` |
-| 27 | Fail-closed ortam kimliği (`27A` tamamlandı); backup/restore ve DR tatbikatı engelli | `OPEN-BNK-011`, `OPEN-BNK-012` |
-| 28 | Güvenli SDLC, SBOM, taramalar ve pentest hazırlığı (`28A`–`28E` yerel teknik sözleşmeleri tamamlandı) | CI/CD ve banka pentest kararı |
-| 29 | Teknik kontrol ve banka kabul kanıt paketi (`29A` deterministik manifest ve eksik kontrol raporu tamamlandı) | Tümü |
-| 30 | Frontend tasarım sistemi ve kurumsal dashboard (`30A` dokümantasyon tabanı tamamlandı) | Geçiş kapısı, 21B güvenli API ve frontend toolchain kararı |
+| Öncelik | Çalışma paketi | Durum | Çıkış kapısı |
+| --- | --- | --- | --- |
+| P0 | [Execution PostgreSQL production cutover](../NEXT_STEP.md) | Sıradaki | Production composition root PostgreSQL repository kullanır; runtime SQLite fallback/export kalkar veya yalnız test double olarak açıkça sınırlandırılır; transaction/politika/test kanıtı geçer. |
+| P1 | [36B5 doğrulama kaydı](Iterasyon-36B5-Kapatma-ve-Yeniden-Acma.md) | Kanıt bekliyor | Hedefli birim/API ve gerçek PostgreSQL mutasyon koşusu kaydedilir. |
+| P2 | Execution politika/worker tamamlama | P0 sonrası | Kota, pencere, timeout, retry, iptal ve idempotency aktif sürümlü politikadan ve kalıcı kuyruktan çözülür. |
+| P3 | 36F güvenli rapor üretimi/indirme | Blokeli | DLP, watermark, gerekçe, süreli indirme ve gerekli maker-checker kurumsal kararlarla açılır; eksikte fail-closed. |
+| P4 | Kurumsal adaptör ve production readiness | Harici bağımlı | IdP/SSO-MFA, secret manager/PAM, HA veri/session, broker, SIEM/WORM, ServiceNow ve DR kanıtı. |
 
-## Pilot Kapısı
-
-İterasyon 16–20 tamamlanmadan banka pilotu veya hassas veri UAT'si yapılmaz.
-
-## Üretim Kapısı
-
-İterasyon 25–29 ve banka onayları tamamlanmadan üretim uygunluğu ilan edilmez.
+Tamamlanmış eski yol haritası anlatıları aktif bağlamda tutulmaz; tarihsel
+iterasyonlar [arşiv indeksindedir](../archive/iterations/README.md).

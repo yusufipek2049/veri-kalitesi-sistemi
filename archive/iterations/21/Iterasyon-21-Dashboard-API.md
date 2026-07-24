@@ -34,7 +34,7 @@ completed_at: 2026-07-22
   allowlist'ini kullanır. API yanıtı aktör, rol, session, SQL, stack trace veya
   secret içermez; yalnız sunucu üretimli correlation ID taşır.
 - **Kanıt yolları:**
-  [21B erişim kanıtı](../08-Uyum-Kanitlari/Erisim/Iterasyon-21B-Guvenli-Dashboard-API-Kaniti.md),
+  [21B erişim kanıtı](../../../08-Uyum-Kanitlari/Erisim/Iterasyon-21B-Guvenli-Dashboard-API-Kaniti.md),
   `06-Testler/01-Birim/test_dashboard_api.py`,
   `04-Frontend/app/e2e/dashboard.spec.ts`
 - **Teknik durum:** `TechnicallyVerified`
@@ -73,7 +73,7 @@ completed_at: 2026-07-22
   sürmektedir. `28A-v1` secret taraması 465 dosyada sıfır bulgudur.
 - **Migration/config:** Şema ve yeni bağımlılık yoktur.
 - **Kanıt:**
-  [21C erişim kanıtı](../08-Uyum-Kanitlari/Erisim/Iterasyon-21C-Dashboard-Operasyonel-Gosterge-API-Kaniti.md).
+  [21C erişim kanıtı](../../../08-Uyum-Kanitlari/Erisim/Iterasyon-21C-Dashboard-Operasyonel-Gosterge-API-Kaniti.md).
 - **Teknik durum:** `TechnicallyVerified`.
 - **Banka onayı:** Üretilmemiştir; gerçek IdP, HA session store ve PostgreSQL
   skor deposu üretim bağlantısı için açık kalır.

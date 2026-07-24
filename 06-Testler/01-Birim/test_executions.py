@@ -18,6 +18,7 @@ from veri_kalitesi.audit import (
     build_default_redaction_policy,
 )
 from veri_kalitesi.data_sources import DataSource, DataSourceStatus, Dataset, SourceType
+from veri_kalitesi.executions.repository import SQLiteExecutionRepository
 from veri_kalitesi.executions import (
     ConcurrencyPolicy,
     ExecutionService,
@@ -35,9 +36,6 @@ from veri_kalitesi.executions import (
     ScheduleType,
     SchedulingService,
     RuleResultComputation,
-    SQLiteExecutionRepository,
-    SQLiteScheduleRepository,
-    SQLiteSourceUsagePolicyRepository,
     SourceUsagePolicy,
     SourceUsagePolicyStatus,
     SourceUsagePolicyUnavailableError,
@@ -45,6 +43,8 @@ from veri_kalitesi.executions import (
     WorkloadClass,
     preview_runs,
 )
+from veri_kalitesi.executions.scheduling import SQLiteScheduleRepository
+from veri_kalitesi.executions.source_usage_policies import SQLiteSourceUsagePolicyRepository
 from veri_kalitesi.rules import (
     QualityDimension,
     QualityRule,

@@ -1,3 +1,10 @@
+> [!WARNING]
+> **Tarihsel snapshot — 22 Temmuz 2026.** Bu klasör güncel uygulama durumu,
+> endpoint envanteri, test baseline'ı veya production readiness için kanonik
+> kaynak değildir. Güncel yönlendirme için
+> [Dokümantasyon İndeksi](../../DOCUMENTATION_INDEX.md) ve
+> [Mevcut Durum](../../00-Proje-Hafizasi/Mevcut-Durum.md) kullanılır.
+
 # Teknik Mimari ve Sistem Analizi
 
 Bu belge seti, Veri Kalitesi İzleme ve Skorlama Sistemi'nin 22 Temmuz 2026

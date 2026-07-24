@@ -56,7 +56,7 @@ Yetki kararları serbest `actor_id` veya çağıranın oluşturduğu `DashboardA
 - **Regresyon sonucu:** 139 test geçti.
 - **Negatif testler:** Eksik/sahte/süresi dolmus/eski policy context, sahte scope, servis hesabı ve audit hatası fail-closed reddedildi.
 - **Audit/redaksiyon:** Authorization karar özeti ham rol, session veya source/dataset kimliği taşımıyor.
-- **Kanıt:** [Iterasyon-16-Guvenilir-Aktor-Kaniti](../08-Uyum-Kanitlari/Erisim/Iterasyon-16-Guvenilir-Aktor-Kaniti.md)
+- **Kanıt:** [Iterasyon-16-Guvenilir-Aktor-Kaniti](../../../08-Uyum-Kanitlari/Erisim/Iterasyon-16-Guvenilir-Aktor-Kaniti.md)
 - **Banka onayı:** ComplianceReviewRequired
 - **Geri alma:** Yeni HTTP yüzeyi bulunmadığından güvenli pasifleştirme composition katmanında dashboard servisinin bağlanmaması ile yapılır; ınternal legacy adapter yalnız kontrollü geçiş testleri içindir.
 - **Sonraki iterasyon:** İterasyon 17 - Merkezi Audit Bütünlüğü

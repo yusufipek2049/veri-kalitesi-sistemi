@@ -5,11 +5,10 @@ from datetime import datetime, time, timedelta, timezone
 
 import pytest
 
+from veri_kalitesi.executions.repository import SQLiteExecutionRepository
 from veri_kalitesi.executions import (
     ExecutionValidationError,
     ExecutionStatus,
-    SQLiteExecutionRepository,
-    SQLiteSourceUsagePolicyRepository,
     SourceUsagePolicy,
     SourceUsagePolicyStatus,
     SourceUsagePolicyTechnicalError,
@@ -17,6 +16,7 @@ from veri_kalitesi.executions import (
     SourceUsageWindow,
     WorkloadClass,
 )
+from veri_kalitesi.executions.source_usage_policies import SQLiteSourceUsagePolicyRepository
 from veri_kalitesi.executions.models import RuleExecution
 
 

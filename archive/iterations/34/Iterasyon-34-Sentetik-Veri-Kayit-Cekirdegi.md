@@ -232,7 +232,7 @@
   uçtan uca çalıştırılmadı; ayrıntılı kusur alt türleri, tüm senaryoların gerçek
   DB ölçümü ve `OPEN-014` nihai performans kabulü ayrıdır.
 - **Kanıt:**
-  [PostgreSQL Sentetik Dataset Kanıtı](../08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-34F-PostgreSQL-Sentetik-Dataset-Kaniti.md)
+  [PostgreSQL Sentetik Dataset Kanıtı](../../../08-Uyum-Kanitlari/Veri-Koruma/Iterasyon-34F-PostgreSQL-Sentetik-Dataset-Kaniti.md)
 - **Geri alma yaklaşımı:** CLI devreden çıkarılır ve yalnız sabit
   `synthetic_source`/`synthetic_control` şemaları güvenli reset ile kaldırılır;
   kapsam dışı şemalara dokunulmaz.

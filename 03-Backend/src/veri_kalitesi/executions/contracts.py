@@ -33,7 +33,8 @@ AuditRepoT = TypeVar("AuditRepoT", bound=ExecutionTransactionalAudit, contravari
 class ExecutionRepository(Protocol[AuditRepoT]):
     """Execution domaini için repository sözleşmesi (generic audit outbox ile).
 
-    SQLiteExecutionRepository ve PostgreSQLExecutionRepository bu sözleşmeyi uygular.
+    PostgreSQLExecutionRepository bu sözleşmeyi uygular. SQLiteExecutionRepository
+    (test double) yalnız doğrudan import ile kullanılır, runtime export'ta değildir.
     """
 
     # --- Read methods ---

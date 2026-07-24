@@ -86,9 +86,12 @@ def _repo(pg: PgFixture) -> PostgreSQLRuleRepository:
 
 
 def _audit(pg: PgFixture) -> PostgreSQLTransactionalAudit:
+    from conftest import FakePreparedAuditRepository  # type: ignore[import-untyped]
+
     return PostgreSQLTransactionalAudit(
         pg.session_factory,
         AuditRedactor(build_default_redaction_policy()),
+        FakePreparedAuditRepository(),
         policy_version="TEST_V1",
         schema=pg.schema,
     )
@@ -136,9 +139,9 @@ def _make_version(rule_id: str, **overrides: Any) -> RuleVersion:
         version_no=overrides.get("version_no", 1),
         rule_type=RuleType.REQUIRED,
         definition={"field_id": "test-field"},
-        threshold=80.0,
-        weight=1.0,
-        criticality=RuleCriticality.LOW,
+        threshold=overrides.get("threshold", 80.0),
+        weight=overrides.get("weight", 1.0),
+        criticality=overrides.get("criticality", RuleCriticality.LOW),
         prepared_by_actor_id=overrides.get("prepared_by", "test-maker"),
         rule_version_id=overrides.get("rule_version_id", str(uuid4())),
         created_at=_now(),

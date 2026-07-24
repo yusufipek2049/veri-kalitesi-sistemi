@@ -8,11 +8,19 @@ from decimal import Decimal
 from threading import RLock
 from uuid import UUID, uuid4
 
-from veri_kalitesi.api.app import create_dashboard_api
+from veri_kalitesi.api.app import (
+    ExecutionCancelService,
+    ExecutionStartService,
+    create_dashboard_api,
+)
 from veri_kalitesi.api.identity import (
     DevelopmentActorContextResolver,
     DevelopmentUserRegistry,
     build_default_development_users,
+)
+from veri_kalitesi.api.postgresql_execution import (
+    PostgreSQLExecutionCancelService,
+    PostgreSQLExecutionStartService,
 )
 from veri_kalitesi.api.models import IssueAssigneeOptionResponse
 from veri_kalitesi.audit import (
@@ -35,6 +43,11 @@ from veri_kalitesi.executions import (
     RuleExecution,
     WorkloadClass,
 )
+from veri_kalitesi.executions.postgresql_repository import (
+    PostgreSQLExecutionRepository,
+)
+from veri_kalitesi.audit.postgresql_outbox import PostgreSQLTransactionalAudit
+from veri_kalitesi.persistence import SessionFactory
 from veri_kalitesi.dashboard import DashboardQueryService
 from veri_kalitesi.data_sources import (
     DataSource,
@@ -1013,8 +1026,15 @@ DEVELOPMENT_USER_REGISTRY = DevelopmentUserRegistry(build_default_development_us
 
 def create_development_app(  # type: ignore[no-untyped-def]
     user_registry: DevelopmentUserRegistry | None = None,
+    session_factory: SessionFactory | None = None,
+    transactional_audit: PostgreSQLTransactionalAudit | None = None,
 ):
-    """Sentetik skorlarla yerel gösterim uygulaması üretir; üretimde kullanılmaz."""
+    """Sentetik skorlarla yerel gösterim uygulaması üretir; üretimde kullanılmaz.
+
+    session_factory verilirse PostgreSQLExecutionRepository kullanarak
+    gerçek kalıcılıkla çalışır; verilmezse DevelopmentExecutionStore
+    (bellek içi) kullanır.
+    """
 
     now = datetime.now(timezone.utc)
     repository = SQLiteScoreRepository()
@@ -1185,7 +1205,20 @@ def create_development_app(  # type: ignore[no-untyped-def]
     issue_store = DevelopmentIssueStore()
     rule_store = DevelopmentRuleStore()
     data_source_store = DevelopmentDataSourceStore()
-    execution_store = DevelopmentExecutionStore()
+    if session_factory is not None:
+        pg_repository = PostgreSQLExecutionRepository(session_factory)
+        execution_start_service: ExecutionStartService = PostgreSQLExecutionStartService(
+            pg_repository,
+            transactional_audit=transactional_audit,
+        )
+        execution_cancel_service: ExecutionCancelService = PostgreSQLExecutionCancelService(
+            pg_repository,
+            transactional_audit=transactional_audit,
+        )
+    else:
+        execution_store = DevelopmentExecutionStore()
+        execution_start_service = execution_store  # type: ignore[assignment]
+        execution_cancel_service = execution_store  # type: ignore[assignment]
     return create_dashboard_api(
         service,
         rule_creator_service=rule_store,
@@ -1205,8 +1238,8 @@ def create_development_app(  # type: ignore[no-untyped-def]
         issue_verification_service=issue_store,
         issue_closure_service=issue_store,
         data_source_mutation_service=data_source_store,
-        execution_start_service=execution_store,
-        execution_cancel_service=execution_store,
+        execution_start_service=execution_start_service,
+        execution_cancel_service=execution_cancel_service,
         development_user_registry=effective_registry,
         report_preview_service=ReportPreviewService(
             SQLiteReportPreviewReader(repository.connection),

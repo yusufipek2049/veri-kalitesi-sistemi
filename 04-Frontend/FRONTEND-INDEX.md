@@ -2,27 +2,17 @@
 type: implementation-index
 area: frontend
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-created_at: 2026-07-16
-tags:
-  - frontend
-  - index
+updated_at: 2026-07-24
 ---
 
 # Frontend Ekran Haritası
 
 ## Onaylı Teknoloji Yığını
 
-- Uygulama: React + TypeScript + Vite
-- Component sistemi: MUI
-- Grafik: ECharts
-- Component doğrulama: Storybook
-- Ekran, akış ve görsel regression: Playwright
-
-Bu seçimler `ADR-017` ile kabul edilmiştir; yeniden teknoloji veya dependency
-onayı beklenmez. İterasyon 30B ile paketler ve sentetik dashboard çalışma
-iskeleti, İterasyon 30C ile gruplandırılmış ikonlu navigasyon ve açık/koyu tema
-`04-Frontend/app/` altında kurulmuştur. Bu çalışma üretim API'si, kurumsal
-IdP/oturum veya banka verisine bağlı bir dashboard değildir.
+React + TypeScript + Vite, MUI, ECharts, Storybook ve Playwright kullanılır.
+Seçim [ADR-017](../02-Mimari/Mimari-Kararlar.md#adr-017--frontend-teknoloji-yığını)
+ile kesindir. Paket sürümleri `04-Frontend/app/package.json` ve lock dosyasından
+okunur; bu indeksde kopyalanmaz.
 
 ## Çalıştırma
 
@@ -32,53 +22,38 @@ npm install
 npm run dev
 ```
 
-Storybook için `npm run storybook`, birim testleri için `npm test`, zorunlu
-masaüstü görsel kontrolleri için `npm run test:e2e` kullanılır.
+Doğrulama komutları: `npm test`, `npm run typecheck`, `npm run build`,
+`npm run test:e2e`, `npm run build-storybook`.
 
-## Tasarım ve Uygulama Kaynakları
+## Uygulama Durumu
+
+| Route/alan | Salt okunur ekran | Yazılabilir akış | Durum/not |
+| --- | --- | --- | --- |
+| Dashboard | Var | Yok | Özet ve trend ekranı; üretim IdP/veri adaptörü açık. |
+| Veri kaynakları | Var | Oluşturma, test, aktivasyon/pasifleştirme | Teknik UI/API mevcut; secret değeri UI/payload/log/audit/DB'de tutulmaz. |
+| Kurallar | Var | Taslak, düzenleme, test, onay akışları | Teknik UI/API ve PostgreSQL repository mevcut. |
+| Çalıştırmalar | Var | Manuel başlatma ve iptal | Teknik UI/API mevcut; backend runtime PostgreSQL cutover'ı kanıtlanmış değil. |
+| Sorunlar | Var | İnceleme, atama, çözüm, doğrulama ve kapatma | Kapatma UI/API akışı mevcut; yeniden açma event-driven backend davranışıdır. `36B5` güncel doğrulama koşusu bekler. |
+| Raporlar | Var | Rapor talebi kısmi | Güvenli dışa aktarma, DLP/watermark ve indirme kapıları açık. |
+| Denetim | Var | Değişiklik yok | Salt okunur, rol/scope kontrollü bütünlük görünümü. |
+| Kanıtlı karar/olay inceleme | Hedef | Hedef | `FR-097–FR-111`; ikinci faz, üretim route'u değildir. |
+
+## Uygulanmış Tasarım Kuralları
+
+- Açık/koyu semantik token sistemi; marka rengi semantik durum rengi değildir.
+- Renk, ikon ve yazılı etiket birlikte kullanılır.
+- ECharts görünümü erişilebilir tabloyla aynı view-model'i kullanır.
+- Loading, empty, teknik hata, yetkisiz ve uzun içerik durumları Storybook'ta
+  ayrı gösterilir.
+- Hassas taslak tarayıcı kalıcı depolamasına yazılmaz; mutasyonlarda BFF/CSRF,
+  güvenilir aktör ve optimistic locking sözleşmeleri korunur.
+
+## Kaynaklar
 
 - [Görsel Tasarım Sistemi](Gorsel-Tasarim-Sistemi.md)
 - [Dashboard Ekran Sözleşmesi](03-Dashboard/Dashboard-Ekran-Sozlesmesi.md)
-- [Kanıtlı Olay İnceleme Ekran Sözleşmesi](04-Sorun-ve-Bildirim/Kanitli-Olay-Inceleme-Ekran-Sozlesmesi.md)
-- [Veri Kalitesi Skorlama ve Ölçüm Yeterliliği](../02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md)
-- [Kurumsal dashboard referansı](references/reference-dashboard.png)
 - [Görsel Doğrulama Stratejisi](../06-Testler/03-Uctan-Uca/Gorsel-Dogrulama-Stratejisi.md)
-- [Frontend Teknoloji Yığını Kararı](../02-Mimari/Mimari-Kararlar.md#adr-017--frontend-teknoloji-yığını)
-
-## Uygulanan Artımlar
-
-- Açık/koyu semantik token kaynakları ve MUI tema üreticisi.
-- İlk açılışta açık tema; yalnız `light`/`dark` değerini saklayan kullanıcı
-  seçimi ve depolama hatasında güvenli açık tema varsayılanı.
-- `ANALİZ`/`OPERASYON` navigasyon grupları ve sabit kutularda hizalı Lucide
-  ikonları.
-- Sentetik genel bakış uygulama kabuğu, KPI kartları, durum rozeti, alarm akışı.
-- ECharts resmî skor trendi ve aynı view-model'i kullanan erişilebilir tablo.
-- Normal, loading, empty, teknik hata, yetkisiz ve uzun içerik Storybook durumları.
-- `1440×900`, `1280×800`, `1024×768`, `1366×768` ve `1920×1080`
-  viewport'larının açık/koyu tema Playwright kontrolleri.
-
-Menüde görünen alan adları 30C'de görsel uygulama kabuğudur; ilgili route ve
-ekranlar 35A–35F artımlarında güvenli API sınırlarıyla ayrı ayrı açılacaktır.
-Kanıtlı olay inceleme ekranı ikinci faz hedefidir; `FR-097–FR-111` backend/API,
-IAM ve açık kararları tamamlanmadan üretim route'u açılmaz.
-
-## Ekranlar
-
-- Giriş ve oturum: [04.01-Kullanici-ve-Yetki](../01-SRS/04-Fonksiyonel-Gereksinimler/04.01-Kullanici-ve-Yetki.md)
-- Veri kaynağı listesi, formu ve bağlantı testi: [04.02-Veri-Kaynagi-Yonetimi](../01-SRS/04-Fonksiyonel-Gereksinimler/04.02-Veri-Kaynagi-Yonetimi.md)
-- Metadata keşfi ve profil sonuçları: [04.03-Metadata-ve-Profilleme](../01-SRS/04-Fonksiyonel-Gereksinimler/04.03-Metadata-ve-Profilleme.md)
-- Kural oluşturma, test, sürüm ve onay: [04.04-Kural-Yonetimi](../01-SRS/04-Fonksiyonel-Gereksinimler/04.04-Kural-Yonetimi.md)
-- Çalıştırma, zamanlama ve geçmiş: [04.05-Calistirma-ve-Zamanlama](../01-SRS/04-Fonksiyonel-Gereksinimler/04.05-Calistirma-ve-Zamanlama.md)
-- Dashboard ve drill-down: [04.07-Dashboard](../01-SRS/04-Fonksiyonel-Gereksinimler/04.07-Dashboard.md)
-- Bildirim merkezi: [04.08-Bildirim](../01-SRS/04-Fonksiyonel-Gereksinimler/04.08-Bildirim.md)
-- Sorun yönetimi: [04.09-Sorun-Yonetimi](../01-SRS/04-Fonksiyonel-Gereksinimler/04.09-Sorun-Yonetimi.md)
-- Rapor ve dışa aktarma: [04.10-Raporlama](../01-SRS/04-Fonksiyonel-Gereksinimler/04.10-Raporlama.md)
-- Audit inceleme: [04.11-Audit](../01-SRS/04-Fonksiyonel-Gereksinimler/04.11-Audit.md)
-- Kanıtlı karar/olay inceleme: [04.14-Kanita-Dayali-Karar-Destegi](../01-SRS/04-Fonksiyonel-Gereksinimler/04.14-Kanita-Dayali-Karar-Destegi.md)
-
-## UI Kuralları
-
+- [Tarihsel İterasyon 35](../archive/iterations/35/Iterasyon-35-Frontend-Alan-Ekranlari.md)
+- [İterasyon 36](../09-Iterasyonlar/Iterasyon-36-PostgreSQL-ve-Yazilabilir-Alan-Ekranlari.md)
 - [Harici Arayüz Gereksinimleri](../01-SRS/08-Harici-Arayuzler.md)
-- [Kullanıcı Deneyimi NFR](../01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.07-Kullanici-Deneyimi.md)
 - [Frontend Güvenliği](../01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.05-Guvenlik.md)

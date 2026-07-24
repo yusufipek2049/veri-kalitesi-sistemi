@@ -1,32 +1,24 @@
-# AGENTS.md — Testler Geneli
+# AGENTS.md — Testler
 
-- Önce test edilen modülün `AGENTS.md` dosyasını ve ilgili kabul kriterlerini oku.
-- Testleri FR/UC kimlikleriyle izlenebilir kıl.
-- Mutlu yol kadar doğrulama, yetki, teknik hata, timeout, retry ve idempotency yollarını kapsa.
-- Harici LDAP, veritabanı ve ServiceNow bağımlılıklarını sözleşme/entegrasyon sınırında taklit et; tüm domain testlerini dış servise bağlama.
-- Performans testlerinde veri hacmi, örnekleme yöntemi ve donanım koşulunu kaydet.
-- Test verisinde gerçek kişisel veri, token, parola veya kurum bilgisi kullanma.
-- Bankacılık kontrol işlerinde güvenilir context yokluğu, rol yükseltme, scope manipülasyonu, maker=checker, audit yazma hatası, redaksiyon ve dışa aktarma sızıntısı için negatif test ekle.
-- Teknik kontrolü `TechnicallyVerified` yapmadan önce test dosyası, test adı, çalışma komutu ve kanıt yolunu kaydet.
-- KVKK ihlal testinde gerçek bildirim göndermeyen fake adapter kullan.
-- ServiceNow/SIEM sözleşme testlerinde yalnız sentetik ve allowlist alanları kullan.
+Önce kök [AGENTS.md](../AGENTS.md) ve test edilen modülün yerel talimatlarını
+uygula. Bu dosya test katmanına özgü ek kuralları tanımlar.
 
-## Sentetik Veri Test Kuralları
+- Testleri ilgili FR/UC/AC kimlikleriyle izlenebilir kıl.
+- Mutlu yolun yanında doğrulama, yetki, teknik hata, timeout, retry,
+  idempotency, rollback ve fail-closed yollarını kapsa.
+- LDAP, PostgreSQL, ServiceNow, SIEM ve diğer harici bağımlılıkları uygun
+  sözleşme/entegrasyon sınırında taklit et; domain testlerini dış servise bağlama.
+- Gerçek kişisel veri, token, parola veya kurum bilgisi kullanma.
+- Teknik hata ile veri kalitesi başarısızlığını farklı beklenen sonuçlarla test et.
+- `TechnicallyVerified` öncesi test dosyası, test adı, komut, sonuç ve kanıt
+  yolunu kaydet.
 
-- Sentetik dataset üretimini etkin `SyntheticDatasetPolicy`, üretici/şema/politika
-  sürümü ve random seed olmadan başlatma.
-- Gerçek müşteri verisini üretme, kopyalama veya yalnız kimliğini değiştirerek
-  sentetik/anonim diye etiketleme.
-- Sentetik köken metadata'sını kaldırma; ground truth'u iş verisi veya runtime
-  çıktısıyla karıştırma.
-- Beklenen kural/skor sonucunu test edilen kural veya skor motorundan türetme;
-  bağımsız oracle ve expected-versus-actual karşılaştırma kullan.
-- Geçerli nadir/sınır değerleri kusurdan, teknik hatayı kalite başarısızlığından
-  ayrı test et.
-- Karar verilmemiş gizlilik, benzerlik, kusur yoğunluğu veya skor toleransı
-  eşiklerini uydurma; sürümlü politika gereken alanda aktif politika yokluğu ve
-  fail-closed davranışı test et.
-- Sentetik olay testlerini gerçek kullanıcı, üretim ServiceNow veya üretim SIEM
-  hedeflerine gönderme; yalnız doğrulanmış fake/sandbox adaptör kullan.
-- Yeni sentetik veri davranışında `FR-088–FR-096`, `UC-017`, `RULE-016/017` ve
-  `AC/TS-048–056` izlenebilirliğini güncelle.
+## Sentetik Veri
+
+- Etkin `SyntheticDatasetPolicy`, üretici/şema/politika sürümü ve seed olmadan
+  üretim başlatma.
+- Gerçek veriyi kopyalayıp yalnız kimliğini değiştirerek sentetik sayma.
+- Ground truth'u test edilen kural/skor motorundan türetme; bağımsız oracle kullan.
+- Kusur, geçerli sınır değer ve teknik hatayı ayrı test et.
+- Karar verilmemiş eşikleri uydurma; politika yokluğunu ve fail-closed davranışı test et.
+- Olayları yalnız fake/sandbox adaptörlere gönder.

@@ -45,6 +45,7 @@ from veri_kalitesi.rules.models import (
     RuleTestStatus,
     RuleType,
     RuleVersion,
+    thaw,
 )
 
 
@@ -531,7 +532,7 @@ class PostgreSQLRuleRepository:
                 quality_rule_id=version.quality_rule_id,
                 version_no=version.version_no,
                 rule_type=version.rule_type.value,
-                definition=json.loads(json.dumps(version.definition, sort_keys=True)),
+                definition=thaw(version.definition),
                 threshold=version.threshold,
                 weight=version.weight,
                 criticality=version.criticality.value,
