@@ -40,6 +40,12 @@ from veri_kalitesi.data_sources.postgresql import (
     is_read_only_sql,
 )
 from veri_kalitesi.data_sources.postgresql_driver import SQLAlchemyPostgreSQLDriver
+from veri_kalitesi.data_sources.contracts import DataSourceRepository, DataSourceTransactionalAudit
+from veri_kalitesi.data_sources.postgresql_repository import (
+    DataSourceTables,
+    PostgreSQLDataSourceRepository,
+    data_source_tables,
+)
 from veri_kalitesi.data_sources.query import (
     DataSourceQueryAuthorizationError,
     DataSourceQueryError,
@@ -75,8 +81,11 @@ __all__ = [
     "DataSourceQueryError",
     "DataSourceQueryService",
     "DataSourceQueryTechnicalError",
+    "DataSourceRepository",
     "DataSourceService",
     "DataSourceStatus",
+    "DataSourceTables",
+    "DataSourceTransactionalAudit",
     "DataField",
     "DataProfile",
     "DataProcessingInventory",
@@ -97,6 +106,7 @@ __all__ = [
     "MetadataFieldCandidate",
     "NetworkConnectionError",
     "PermissionConnectionError",
+    "PostgreSQLDataSourceRepository",
     "ProfileComputationResult",
     "ProfileMethod",
     "ProfileOptions",
@@ -108,5 +118,6 @@ __all__ = [
     "SourceType",
     "TLSConnectionError",
     "TimeoutConnectionError",
+    "data_source_tables",
     "is_read_only_sql",
 ]

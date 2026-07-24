@@ -1,6 +1,8 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
-import { Route, Routes, useNavigate } from "react-router-dom";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Route, Routes } from "react-router-dom";
 import { Alert, Box, Button, Typography } from "@mui/material";
+import { DevelopmentLoginPage, DevelopmentUserSwitcher } from "./development/DevelopmentLoginPage";
+import { DevelopmentUserProvider, useDevelopmentUser } from "./development/UserContext";
 import { AuditApiError, fetchAuditEvents } from "./audit/api";
 import {
   auditPageFromApi,
@@ -528,6 +530,29 @@ function RouteBoundary({ unauthorized = false }: { unauthorized?: boolean }) {
 }
 
 export default function App() {
+  return (
+    <DevelopmentUserProvider>
+      <AppContent />
+      <DevelopmentUserSwitcher />
+    </DevelopmentUserProvider>
+  );
+}
+
+function AppContent() {
+  const { currentUser, isLoading } = useDevelopmentUser();
+
+  const showLogin = !isLoading && !currentUser;
+
+  if (isLoading) {
+    return (
+      <Box aria-busy="true" aria-label="Yükleniyor" sx={{ minHeight: "100vh" }} />
+    );
+  }
+
+  if (showLogin) {
+    return <DevelopmentLoginPage />;
+  }
+
   return (
     <Suspense fallback={<Box aria-busy="true" aria-label="Sayfa yükleniyor" sx={{ minHeight: "100vh" }} />}>
       <Routes>

@@ -1,4 +1,5 @@
 import type { ReportSummaryApiResponse } from "./model";
+import { developmentFetch } from "../development/fetch";
 
 export class ReportApiError extends Error {
   constructor(
@@ -12,7 +13,7 @@ export class ReportApiError extends Error {
 export async function fetchReportSummary(
   signal?: AbortSignal,
 ): Promise<ReportSummaryApiResponse> {
-  const response = await fetch("/api/v1/reports/summary", {
+  const response = await developmentFetch("/api/v1/reports/summary", {
     credentials: "same-origin",
     headers: { Accept: "application/json" },
     signal,

@@ -1,4 +1,5 @@
 import type { DashboardSummaryApiResponse } from "./model";
+import { developmentFetch } from "../development/fetch";
 
 export type DashboardApiErrorKind = "unauthorized" | "technical" | "invalid-response";
 
@@ -12,7 +13,7 @@ export class DashboardApiError extends Error {
 }
 
 export async function fetchDashboardSummary(signal?: AbortSignal): Promise<DashboardSummaryApiResponse> {
-  const response = await fetch("/api/v1/dashboard/summary", {
+  const response = await developmentFetch("/api/v1/dashboard/summary", {
     credentials: "include",
     headers: { Accept: "application/json" },
     method: "GET",

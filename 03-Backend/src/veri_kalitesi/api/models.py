@@ -652,3 +652,96 @@ class DashboardSummaryResponse(BaseModel):
                 ),
             ),
         )
+
+
+class DataSourceCreateRequest(BaseModel):
+    """Veri kaynağı oluşturma için girdi modeli."""
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str = Field(min_length=1, max_length=250)
+    source_type: str = Field(min_length=1)
+    owner_user_id: str = Field(min_length=1, max_length=120)
+    host: str = Field(default="", max_length=500)
+    port: int = Field(default=0, ge=0, le=65535)
+    database_name: str = Field(default="", max_length=250)
+    username: str = Field(default="", max_length=120)
+    file_path: str = Field(default="", max_length=1000)
+    connection_parameters: dict = Field(default_factory=dict)
+
+
+class DataSourceMutationResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    item: DataSourceListItemResponse
+
+
+class DataSourceDetailResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    data_source_id: str
+    name: str
+    source_type: str
+    status: str
+    owner_user_id: str | None
+    last_test_at: datetime | None
+    last_test_result: str | None
+    revision: int
+
+    @classmethod
+    def from_domain(cls, source: DataSource) -> "DataSourceDetailResponse":
+        return cls(
+            data_source_id=source.data_source_id,
+            name=source.name,
+            source_type=source.source_type.value,
+            status=source.status.value,
+            owner_user_id=source.owner_user_id,
+            last_test_at=source.last_test_at,
+            last_test_result=source.last_test_result,
+            revision=source.revision,
+        )
+
+
+class ExecutionStartRequest(BaseModel):
+    """Manuel çalıştırma başlatma için girdi modeli."""
+
+    model_config = ConfigDict(frozen=True)
+
+    rule_version_ids: tuple[str, ...] = Field(min_length=1)
+    source_ids: tuple[str, ...] = Field(default_factory=tuple)
+
+
+class ExecutionStartResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    item: ExecutionListItemResponse
+
+
+class ExecutionCancelRequest(BaseModel):
+    """Çalıştırma iptali için girdi modeli."""
+
+    model_config = ConfigDict(frozen=True)
+
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class DevelopmentUserInfoResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    user_id: str
+    display_name: str
+    roles: str
+
+
+class DevelopmentUserListResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    correlation_id: str
+    items: tuple[DevelopmentUserInfoResponse, ...]

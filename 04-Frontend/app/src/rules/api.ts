@@ -1,3 +1,4 @@
+import { developmentFetch } from '../development/fetch';
 import type {
   RuleApprovalDecisionRequest,
   RuleApprovalRequestPayload,
@@ -39,7 +40,7 @@ function ruleApiError(response: Response): RuleApiError {
 }
 
 export async function fetchRules(signal?: AbortSignal): Promise<RuleListApiResponse> {
-  const response = await fetch("/api/v1/rules", {
+  const response = await developmentFetch("/api/v1/rules", {
     credentials: "same-origin",
     headers: { Accept: "application/json" },
     signal,
@@ -60,7 +61,7 @@ export async function createRule(
   payload: RuleCreateRequest,
 ): Promise<RuleMutationApiResponse> {
   if (!csrfProof) throw new RuleApiError("unauthorized");
-  const response = await fetch("/api/v1/rules", {
+  const response = await developmentFetch("/api/v1/rules", {
     method: "POST",
     credentials: "same-origin",
     headers: {
@@ -79,7 +80,7 @@ export async function createRuleVersion(
   payload: RuleVersionCreateRequest,
 ): Promise<RuleMutationApiResponse> {
   if (!csrfProof) throw new RuleApiError("unauthorized");
-  const response = await fetch(
+  const response = await developmentFetch(
     `/api/v1/rules/${encodeURIComponent(qualityRuleId)}/versions`,
     {
       method: "POST",
@@ -101,7 +102,7 @@ export async function testRule(
   payload: RuleTestRequest,
 ): Promise<RuleTestResult> {
   if (!csrfProof) throw new RuleApiError("unauthorized");
-  const response = await fetch(
+  const response = await developmentFetch(
     `/api/v1/rules/${encodeURIComponent(qualityRuleId)}/test`,
     {
       method: "POST",
@@ -122,7 +123,7 @@ export async function activateRule(
   qualityRuleId: string,
 ): Promise<RuleMutationApiResponse> {
   if (!csrfProof) throw new RuleApiError("unauthorized");
-  const response = await fetch(
+  const response = await developmentFetch(
     `/api/v1/rules/${encodeURIComponent(qualityRuleId)}/activation`,
     {
       method: "POST",
@@ -143,7 +144,7 @@ export async function requestRuleApproval(
   qualityRuleId: string,
 ): Promise<RuleMutationApiResponse> {
   if (!csrfProof) throw new RuleApiError("unauthorized");
-  const response = await fetch(
+  const response = await developmentFetch(
     `/api/v1/rules/${encodeURIComponent(qualityRuleId)}/approval`,
     {
       method: "POST",
@@ -165,7 +166,7 @@ export async function decideRuleApproval(
   payload: RuleApprovalDecisionRequest,
 ): Promise<RuleMutationApiResponse> {
   if (!csrfProof) throw new RuleApiError("unauthorized");
-  const response = await fetch(
+  const response = await developmentFetch(
     `/api/v1/rules/approval/${encodeURIComponent(approvalRequestId)}/decide`,
     {
       method: "POST",
@@ -187,7 +188,7 @@ export async function withdrawRuleApproval(
   payload: RuleApprovalWithdrawRequest,
 ): Promise<RuleMutationApiResponse> {
   if (!csrfProof) throw new RuleApiError("unauthorized");
-  const response = await fetch(
+  const response = await developmentFetch(
     `/api/v1/rules/approval/${encodeURIComponent(approvalRequestId)}/withdraw`,
     {
       method: "POST",
@@ -208,7 +209,7 @@ export async function passivateRule(
   qualityRuleId: string,
 ): Promise<RuleMutationApiResponse> {
   if (!csrfProof) throw new RuleApiError("unauthorized");
-  const response = await fetch(
+  const response = await developmentFetch(
     `/api/v1/rules/${encodeURIComponent(qualityRuleId)}/passivation`,
     {
       method: "POST",

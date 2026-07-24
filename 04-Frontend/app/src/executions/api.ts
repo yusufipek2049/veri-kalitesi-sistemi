@@ -1,4 +1,5 @@
 import type { ExecutionListApiResponse } from "./model";
+import { developmentFetch } from "../development/fetch";
 
 export class ExecutionApiError extends Error {
   constructor(
@@ -10,7 +11,7 @@ export class ExecutionApiError extends Error {
 }
 
 export async function fetchExecutions(signal?: AbortSignal): Promise<ExecutionListApiResponse> {
-  const response = await fetch("/api/v1/executions", {
+  const response = await developmentFetch("/api/v1/executions", {
     credentials: "same-origin",
     headers: { Accept: "application/json" },
     signal,

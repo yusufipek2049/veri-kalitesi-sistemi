@@ -1,3 +1,4 @@
+import { developmentFetch } from '../development/fetch';
 import type {
   IssueAssigneeOptionsApiResponse,
   IssueListApiResponse,
@@ -21,7 +22,7 @@ export class IssueApiError extends Error {
 }
 
 export async function fetchIssues(signal?: AbortSignal): Promise<IssueListApiResponse> {
-  const response = await fetch("/api/v1/issues", {
+  const response = await developmentFetch("/api/v1/issues", {
     credentials: "same-origin",
     headers: { Accept: "application/json" },
     signal,
@@ -48,7 +49,7 @@ export async function startIssueInvestigation(
   item: IssueListApiResponse["items"][number];
 }> {
   if (!csrfProof) throw new IssueApiError("unauthorized");
-  const response = await fetch(
+  const response = await developmentFetch(
     `/api/v1/issues/${encodeURIComponent(issueId)}/investigation`,
     {
       method: "POST",
@@ -79,7 +80,7 @@ export async function fetchIssueAssignmentOptions(
   issueId: string,
   signal?: AbortSignal,
 ): Promise<IssueAssigneeOptionsApiResponse> {
-  const response = await fetch(
+  const response = await developmentFetch(
     `/api/v1/issues/${encodeURIComponent(issueId)}/assignment-options`,
     {
       credentials: "same-origin",
@@ -103,7 +104,7 @@ export async function reassignIssue(
   item: IssueListApiResponse["items"][number];
 }> {
   if (!csrfProof) throw new IssueApiError("unauthorized");
-  const response = await fetch(
+  const response = await developmentFetch(
     `/api/v1/issues/${encodeURIComponent(issueId)}/assignment`,
     {
       method: "POST",
@@ -138,7 +139,7 @@ export async function resolveIssue(
   item: IssueListApiResponse["items"][number];
 }> {
   if (!csrfProof) throw new IssueApiError("unauthorized");
-  const response = await fetch(
+  const response = await developmentFetch(
     `/api/v1/issues/${encodeURIComponent(issueId)}/resolution`,
     {
       method: "POST",
@@ -172,7 +173,7 @@ export async function verifyIssue(
   item: IssueListApiResponse["items"][number];
 }> {
   if (!csrfProof) throw new IssueApiError("unauthorized");
-  const response = await fetch(
+  const response = await developmentFetch(
     `/api/v1/issues/${encodeURIComponent(issueId)}/verification`,
     {
       method: "POST",
@@ -202,7 +203,7 @@ export async function closeIssue(
   item: IssueListApiResponse["items"][number];
 }> {
   if (!csrfProof) throw new IssueApiError("unauthorized");
-  const response = await fetch(
+  const response = await developmentFetch(
     `/api/v1/issues/${encodeURIComponent(issueId)}/closure`,
     {
       method: "POST",
