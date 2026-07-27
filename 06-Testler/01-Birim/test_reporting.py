@@ -1,487 +1,764 @@
+"""Raporlama domain birim testleri — 36G guvenli rapor uretimi/indirme."""
+
 from __future__ import annotations
 
-from dataclasses import asdict, replace
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
-from time import perf_counter
+from unittest.mock import MagicMock
 
 import pytest
 
-from veri_kalitesi.audit import (
-    AuditFailureMode,
-    AuditFailurePolicy,
-    AuditRedactor,
-    AuditService,
-    SQLiteAuditRepository,
-    build_default_redaction_policy,
+from veri_kalitesi.reporting.errors import (
+    ReportExportDeniedError,
+    ReportNotFoundError,
 )
-from veri_kalitesi.identity import ActorContext, ActorContextIssuer, ActorType
-from veri_kalitesi.reporting import (
-    ReportAuthorizationError,
-    ReportPreviewAccessPolicy,
-    ReportPreviewRequest,
-    ReportPreviewService,
-    ReportScoreObservation,
-    ReportTechnicalError,
-    ReportValidationError,
-    SQLiteReportPreviewReader,
+from veri_kalitesi.reporting.export import GeneratedFile, generate_report
+from veri_kalitesi.reporting.models import (
+    Report,
+    ReportExportPolicy,
+    ReportFormat,
+    ReportRequest,
+    ReportStatus,
+    ReportType,
 )
-from veri_kalitesi.scoring import (
-    QualityScore,
-    ScoreLevel,
-    ScoreScopeType,
-    ScoreStatus,
-    SQLiteScoreRepository,
+from veri_kalitesi.reporting.policies import (
+    ReportExportPolicyRepository,
+    check_download_access,
+    evaluate_export,
 )
+from veri_kalitesi.reporting.scheduling import (
+    ReportSchedule,
+    ReportScheduleCreateRequest,
+    ReportScheduleService,
+    ReportingError,
+)
+from veri_kalitesi.executions.scheduling import ScheduleType
 
 
-NOW = datetime(2026, 7, 20, 12, 0, tzinfo=timezone.utc)
-ACTOR_POLICY_VERSION = "BANK_ACTOR_V1"
-REPORT_POLICY_VERSION = "REPORT_PREVIEW_V1"
-SOURCE_A = "source-a"
-SOURCE_B = "source-b"
-
-
-def test_fr_072_uc_015_summary_preview_uses_latest_authorized_aggregate() -> None:
-    fixture = _fixture(source_ids={SOURCE_A})
-    fixture.score_repository.add_or_get(
-        _score(SOURCE_A, "70.00", NOW - timedelta(days=2), execution_id="execution-a-old")
-    )
-    latest = _score(
-        SOURCE_A,
-        "90.00",
-        NOW - timedelta(days=1),
-        execution_id="execution-a-latest",
-    )
-    fixture.score_repository.add_or_get(latest)
-    fixture.score_repository.add_or_get(
-        _score(SOURCE_B, "99.00", NOW, execution_id="execution-b-forbidden")
-    )
-
-    preview = fixture.service.preview_summary(_request(), fixture.context)
-
-    assert preview.filters.start_at == NOW - timedelta(days=30)
-    assert preview.filters.end_at == NOW
-    assert preview.filters.source_ids == (SOURCE_A,)
-    assert preview.source_count == 1
-    assert preview.calculated_source_count == 1
-    assert preview.average_score == Decimal("90.00")
-    assert preview.rows[0].source_id == SOURCE_A
-    assert preview.rows[0].score_value == Decimal("90.00")
-    assert preview.rows[0].calculated_at == latest.calculated_at
-    assert set(asdict(preview.rows[0])) == {
-        "source_id",
-        "score_value",
-        "score_status",
-        "level",
-        "calculated_at",
+def _make_policy(**overrides: object) -> ReportExportPolicy:
+    defaults = {
+        "version": "POLICY_V1",
+        "policy_name": "test",
+        "sensitivity_level": None,
+        "max_file_size": 1024 * 1024,
+        "online_duration_seconds": 3600,
+        "require_justification": False,
+        "require_maker_checker": False,
+        "watermark_enabled": True,
+        "dlp_enabled": False,
+        "allowed_formats": frozenset({ReportFormat.CSV}),
     }
-    assert SOURCE_B not in repr(preview)
+    merged = {**defaults, **overrides}
+    return ReportExportPolicy(**merged)  # type: ignore[arg-type]
 
 
-def test_fr_048_fr_072_provisional_partial_does_not_replace_latest_official_score() -> None:
-    fixture = _fixture(source_ids={SOURCE_A})
-    official = _score(
-        SOURCE_A,
-        "80.00",
-        NOW - timedelta(days=1),
-        execution_id="execution-official-old",
-    )
-    fixture.score_repository.add_or_get(official)
-    fixture.score_repository.add_or_get(
-        _score(
-            SOURCE_A,
+class TestReportModels:
+    def test_report_status_values(self) -> None:
+        assert ReportStatus.QUEUED.value == "QUEUED"
+        assert ReportStatus.RUNNING.value == "RUNNING"
+        assert ReportStatus.READY.value == "READY"
+        assert ReportStatus.FAILED.value == "FAILED"
+        assert ReportStatus.EXPIRED.value == "EXPIRED"
+
+    def test_report_format_values(self) -> None:
+        assert ReportFormat.PDF.value == "PDF"
+        assert ReportFormat.XLSX.value == "XLSX"
+        assert ReportFormat.CSV.value == "CSV"
+
+    def test_report_type_values(self) -> None:
+        assert ReportType.SUMMARY.value == "SUMMARY"
+        assert ReportType.DETAIL.value == "DETAIL"
+
+    def test_report_creation(self) -> None:
+        report = Report(
+            report_id="test-id",
+            report_type=ReportType.SUMMARY,
+            format=ReportFormat.PDF,
+            requested_by="test-user",
+            parameters={"source_ids": ["src-1"]},
+            status=ReportStatus.QUEUED,
+            version=1,
+        )
+        assert report.report_id == "test-id"
+        assert report.status == ReportStatus.QUEUED
+        assert report.format == ReportFormat.PDF
+
+    def test_report_request_creation(self) -> None:
+        request = ReportRequest(
+            report_type=ReportType.SUMMARY,
+            format=ReportFormat.CSV,
+            parameters={"days": 30},
+            reason_code="TEST_REPORT",
+        )
+        assert request.report_type == ReportType.SUMMARY
+        assert request.format == ReportFormat.CSV
+
+
+class TestExportPolicy:
+    def test_evaluate_export_allows_valid(self) -> None:
+        policy = ReportExportPolicy(
+            version="POLICY_V1",
+            policy_name="test",
+            sensitivity_level=None,
+            max_file_size=1024 * 1024,
+            online_duration_seconds=3600,
+            require_justification=False,
+            require_maker_checker=False,
+            watermark_enabled=True,
+            dlp_enabled=False,
+            allowed_formats=frozenset({ReportFormat.CSV}),
+        )
+        request = ReportRequest(
+            report_type=ReportType.SUMMARY,
+            format=ReportFormat.CSV,
+            parameters={},
+            reason_code="",
+        )
+        decision = evaluate_export(request, policy, "corr-1")
+        assert decision.allowed
+        assert decision.reason_code == "EXPORT_ALLOWED"
+
+    def test_evaluate_export_fail_closed_no_policy(self) -> None:
+        request = ReportRequest(
+            report_type=ReportType.SUMMARY,
+            format=ReportFormat.CSV,
+            parameters={},
+            reason_code="",
+        )
+        with pytest.raises(ReportExportDeniedError) as exc_info:
+            evaluate_export(request, None, "corr-1")
+        assert exc_info.value.reason_code == "NO_EXPORT_POLICY"
+
+    def test_evaluate_export_blocked_format(self) -> None:
+        policy = ReportExportPolicy(
+            version="POLICY_V1",
+            policy_name="test",
+            sensitivity_level=None,
+            max_file_size=1024 * 1024,
+            online_duration_seconds=3600,
+            require_justification=False,
+            require_maker_checker=False,
+            watermark_enabled=True,
+            dlp_enabled=False,
+            allowed_formats=frozenset({ReportFormat.CSV}),
+        )
+        request = ReportRequest(
+            report_type=ReportType.SUMMARY,
+            format=ReportFormat.PDF,
+            parameters={},
+            reason_code="",
+        )
+        with pytest.raises(ReportExportDeniedError) as exc_info:
+            evaluate_export(request, policy, "corr-1")
+        assert exc_info.value.reason_code == "FORMAT_NOT_ALLOWED"
+
+    def test_evaluate_export_requires_justification(self) -> None:
+        policy = ReportExportPolicy(
+            version="POLICY_V1",
+            policy_name="test",
+            sensitivity_level="HIGH",
+            max_file_size=1024 * 1024,
+            online_duration_seconds=3600,
+            require_justification=True,
+            require_maker_checker=False,
+            watermark_enabled=True,
+            dlp_enabled=False,
+            allowed_formats=frozenset({ReportFormat.CSV}),
+        )
+        request = ReportRequest(
+            report_type=ReportType.SUMMARY,
+            format=ReportFormat.CSV,
+            parameters={},
+            reason_code="",
+        )
+        with pytest.raises(ReportExportDeniedError) as exc_info:
+            evaluate_export(request, policy, "corr-1")
+        assert exc_info.value.reason_code == "JUSTIFICATION_REQUIRED"
+
+    def test_evaluate_export_requires_maker_checker(self) -> None:
+        policy = ReportExportPolicy(
+            version="POLICY_V1",
+            policy_name="test",
+            sensitivity_level="HIGH",
+            max_file_size=1024 * 1024,
+            online_duration_seconds=3600,
+            require_justification=False,
+            require_maker_checker=True,
+            watermark_enabled=True,
+            dlp_enabled=False,
+            allowed_formats=frozenset({ReportFormat.CSV}),
+        )
+        request = ReportRequest(
+            report_type=ReportType.SUMMARY,
+            format=ReportFormat.CSV,
+            parameters={},
+            reason_code="",
+        )
+        with pytest.raises(ReportExportDeniedError) as exc_info:
+            evaluate_export(request, policy, "corr-1")
+        assert exc_info.value.reason_code == "MAKER_CHECKER_REQUIRED"
+
+    def test_evaluate_export_maker_checker_approved(self) -> None:
+        policy = ReportExportPolicy(
+            version="POLICY_V1",
+            policy_name="test",
+            sensitivity_level="HIGH",
+            max_file_size=1024 * 1024,
+            online_duration_seconds=3600,
+            require_justification=False,
+            require_maker_checker=True,
+            watermark_enabled=True,
+            dlp_enabled=False,
+            allowed_formats=frozenset({ReportFormat.CSV}),
+        )
+        request = ReportRequest(
+            report_type=ReportType.SUMMARY,
+            format=ReportFormat.CSV,
+            parameters={},
+            reason_code="",
+        )
+        decision = evaluate_export(request, policy, "corr-1", has_maker_checker_approval=True)
+        assert decision.allowed
+
+    def test_check_download_access_expired(self) -> None:
+        policy = ReportExportPolicy(
+            version="POLICY_V1",
+            policy_name="test",
+            sensitivity_level=None,
+            max_file_size=1024 * 1024,
+            online_duration_seconds=3600,
+            require_justification=False,
+            require_maker_checker=False,
+            watermark_enabled=True,
+            dlp_enabled=False,
+            allowed_formats=frozenset({ReportFormat.CSV}),
+        )
+        expires_at = datetime.now(timezone.utc) - timedelta(hours=1)
+        with pytest.raises(ReportExportDeniedError) as exc_info:
+            check_download_access(policy, expires_at, "corr-1")
+        assert exc_info.value.reason_code == "DOWNLOAD_EXPIRED"
+
+    def test_check_download_access_valid(self) -> None:
+        policy = ReportExportPolicy(
+            version="POLICY_V1",
+            policy_name="test",
+            sensitivity_level=None,
+            max_file_size=1024 * 1024,
+            online_duration_seconds=3600,
+            require_justification=False,
+            require_maker_checker=False,
+            watermark_enabled=True,
+            dlp_enabled=False,
+            allowed_formats=frozenset({ReportFormat.CSV}),
+        )
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+        check_download_access(policy, expires_at, "corr-1")
+
+    def test_check_download_access_no_policy(self) -> None:
+        with pytest.raises(ReportExportDeniedError) as exc_info:
+            check_download_access(None, None, "corr-1")
+        assert exc_info.value.reason_code == "NO_EXPORT_POLICY"
+
+
+class TestExport:
+    def test_generate_csv(self) -> None:
+        class _Provider:
+            def fetch_report_data(self, report_type, parameters):
+                return ("Col1", "Col2"), (("a", "1"), ("b", "2"))
+
+        result = generate_report(
+            ReportType.SUMMARY,
+            ReportFormat.CSV,
+            {},
+            _Provider(),
             None,
-            NOW,
-            execution_id="execution-provisional-new",
-            status=ScoreStatus.PARTIAL,
-            level=None,
-            official=False,
+            watermark_text="Test Watermark",
         )
-    )
+        assert isinstance(result, GeneratedFile)
+        assert result.mime_type == "text/csv; charset=utf-8"
+        assert result.size_bytes > 0
+        text = result.content.decode("utf-8-sig")
+        assert "Col1" in text
+        assert "a" in text
+        assert "1" in text
+        assert "Test Watermark" in text
 
-    preview = fixture.service.preview_summary(_request(), fixture.context)
 
-    assert preview.source_count == 1
-    assert preview.rows[0].score_value == Decimal("80.00")
-    assert preview.rows[0].calculated_at == official.calculated_at
+class TestReportRepository:
+    """PostgreSQLReportRepository birim testleri (in-memory SQLite ile)."""
 
+    @pytest.fixture
+    def repo(self):
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from sqlalchemy.orm import Session as SaSession
+        from veri_kalitesi.reporting.repository import PostgreSQLReportRepository, report_tables
 
-def test_fr_048_fr_072_official_partial_is_included_in_report_summary() -> None:
-    fixture = _fixture(source_ids={SOURCE_A})
-    fixture.score_repository.add_or_get(
-        _score(
-            SOURCE_A,
-            "85.00",
-            NOW,
-            execution_id="execution-official-partial",
-            status=ScoreStatus.PARTIAL,
-            level=ScoreLevel.ACCEPTABLE,
-            official=True,
+        engine = create_engine("sqlite://", echo=False)
+        tables = report_tables(schema="")
+        tables.reports.create(engine, checkfirst=True)
+        sf = sessionmaker(bind=engine, class_=SaSession)
+        return PostgreSQLReportRepository(sf, schema="")
+
+    def test_create_and_get_report(self, repo) -> None:
+        request = ReportRequest(
+            report_type=ReportType.SUMMARY,
+            format=ReportFormat.PDF,
+            parameters={"src": "test"},
+            reason_code="TEST",
         )
-    )
+        report = repo.create_report(request, "test-user")
+        assert report.status == ReportStatus.QUEUED
+        assert report.requested_by == "test-user"
 
-    preview = fixture.service.preview_summary(_request(), fixture.context)
+        fetched = repo.get_report(report.report_id)
+        assert fetched.report_id == report.report_id
+        assert fetched.report_type == ReportType.SUMMARY
 
-    assert preview.rows[0].score_status is ScoreStatus.PARTIAL
-    assert preview.calculated_source_count == 1
-    assert preview.average_score == Decimal("85.00")
+    def test_get_report_not_found(self, repo) -> None:
+        with pytest.raises(ReportNotFoundError):
+            repo.get_report("nonexistent")
 
-
-def test_fr_072_bfr_aud_005_preview_audit_is_data_minimum() -> None:
-    fixture = _fixture(source_ids={SOURCE_A})
-    fixture.score_repository.add_or_get(_score(SOURCE_A, "80.00", NOW, execution_id="execution-a"))
-
-    fixture.service.preview_summary(_request(), fixture.context)
-
-    event = fixture.audit_repository.list_events()[-1]
-    assert event.action == "REPORT_PREVIEW_VIEWED"
-    assert event.new_value_summary == {
-        "calculated_source_count": 1,
-        "masking_mode": "AGGREGATED_ONLY",
-        "policy_version": REPORT_POLICY_VERSION,
-        "query_reason_code": "QUALITY_REVIEW",
-        "report_type": "SUMMARY",
-        "requested_source_count": 1,
-        "returned_source_count": 1,
-        "window_days": 30,
-    }
-    serialized = repr(event)
-    assert SOURCE_A not in serialized
-    assert "execution-a" not in serialized
-
-
-def test_ac_021_scope_expansion_is_rejected_before_reader_query() -> None:
-    reader = CountingReader()
-    fixture = _fixture(source_ids={SOURCE_A}, reader=reader)
-
-    with pytest.raises(ReportAuthorizationError) as exc_info:
-        fixture.service.preview_summary(
-            _request(requested_source_ids={SOURCE_A, SOURCE_B}),
-            fixture.context,
+    def test_update_report_status(self, repo) -> None:
+        request = ReportRequest(
+            report_type=ReportType.SUMMARY,
+            format=ReportFormat.CSV,
+            parameters={},
+            reason_code="TEST",
         )
+        report = repo.create_report(request, "test-user")
 
-    assert exc_info.value.reason_code == "SOURCE_SCOPE_DENIED"
-    assert reader.calls == 0
-    denied = fixture.audit_repository.list_events()[-1]
-    assert denied.result.value == "DENIED"
-    assert SOURCE_A not in repr(denied)
-    assert SOURCE_B not in repr(denied)
-
-
-@pytest.mark.parametrize(
-    ("context_kind", "reason_code"),
-    [
-        ("missing", "UNTRUSTED_CONTEXT"),
-        ("forged", "UNTRUSTED_CONTEXT"),
-        ("roles-missing", "REPORT_ROLE_REQUIRED"),
-        ("privileged", "PRIVILEGED_CONTEXT_NOT_ALLOWED"),
-        ("service", "ACTOR_TYPE_NOT_ALLOWED"),
-    ],
-)
-def test_nfr_sec_001_brule_001_untrusted_report_access_is_denied_and_audited(
-    context_kind: str,
-    reason_code: str,
-) -> None:
-    fixture = _fixture(source_ids={SOURCE_A})
-    contexts = {
-        "missing": None,
-        "forged": replace(fixture.context, _trust_marker=object()),
-        "roles-missing": _context({SOURCE_A}, roles=frozenset()),
-        "privileged": _context({SOURCE_A}, privileged=True),
-        "service": _context({SOURCE_A}, actor_type=ActorType.SERVICE),
-    }
-
-    with pytest.raises(ReportAuthorizationError) as exc_info:
-        fixture.service.preview_summary(_request(), contexts[context_kind])
-
-    assert exc_info.value.reason_code == reason_code
-    denied = fixture.audit_repository.list_events()[-1]
-    assert denied.action == "REPORT_PREVIEW_AUTHORIZATION"
-    assert denied.reason_code == reason_code
-    assert denied.new_value_summary == {
-        "policy_version": REPORT_POLICY_VERSION,
-        "reason_code": reason_code,
-    }
-
-
-@pytest.mark.parametrize(
-    "invalid_kind",
-    ["window", "order", "reason", "source"],
-)
-def test_fr_072_uc_015_invalid_preview_filter_is_rejected(invalid_kind: str) -> None:
-    fixture = _fixture(source_ids={SOURCE_A})
-    requests = {
-        "window": _request(start_at=NOW - timedelta(days=32)),
-        "order": _request(start_at=NOW, end_at=NOW - timedelta(days=1)),
-        "reason": _request(reason_code="free text reason"),
-        "source": _request(requested_source_ids={" "}),
-    }
-
-    with pytest.raises(ReportValidationError):
-        fixture.service.preview_summary(requests[invalid_kind], fixture.context)
-
-
-def test_nfr_prv_002_no_data_and_technical_statuses_are_never_zero_filled() -> None:
-    fixture = _fixture(source_ids={SOURCE_A, SOURCE_B})
-    fixture.score_repository.add_or_get(
-        _score(
-            SOURCE_A,
-            None,
-            NOW,
-            execution_id="execution-no-data",
-            status=ScoreStatus.NO_DATA,
-            level=None,
+        updated = repo.update_report_status(
+            report.report_id,
+            ReportStatus.READY,
+            online_file_reference="/tmp/test.csv",
+            file_size=100,
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
         )
-    )
-    fixture.score_repository.add_or_get(
-        _score(
-            SOURCE_B,
-            None,
-            NOW,
-            execution_id="execution-technical",
-            status=ScoreStatus.NOT_CALCULATED_TECHNICAL_ERROR,
-            level=None,
+        assert updated.status == ReportStatus.READY
+        assert updated.online_file_reference == "/tmp/test.csv"
+        assert updated.file_size == 100
+        assert updated.version == 2
+
+    def test_update_report_status_version_bumps(self, repo) -> None:
+        """Her guncelleme version sayisini artirir."""
+        request = ReportRequest(
+            report_type=ReportType.SUMMARY,
+            format=ReportFormat.CSV,
+            parameters={},
+            reason_code="TEST",
         )
-    )
+        report = repo.create_report(request, "test-user")
+        assert report.version == 1
 
-    preview = fixture.service.preview_summary(_request(), fixture.context)
+        r1 = repo.update_report_status(report.report_id, ReportStatus.RUNNING)
+        assert r1.version == 2
 
-    assert preview.source_count == 2
-    assert preview.calculated_source_count == 0
-    assert preview.average_score is None
-    assert all(row.score_value is None for row in preview.rows)
+        r2 = repo.update_report_status(
+            r1.report_id, ReportStatus.READY,
+            online_file_reference="/tmp/test.csv",
+            file_size=100,
+        )
+        assert r2.version == 3
 
-
-def test_nfr_prv_003_score_preview_reader_executes_only_read_statements() -> None:
-    fixture = _fixture(source_ids={SOURCE_A})
-    fixture.score_repository.add_or_get(
-        _score(SOURCE_A, "80.00", NOW, execution_id="execution-read-only")
-    )
-    statements: list[str] = []
-    fixture.score_repository.connection.set_trace_callback(statements.append)
-
-    fixture.service.preview_summary(_request(), fixture.context)
-
-    assert statements
-    assert all(
-        statement.lstrip().upper().startswith(("SELECT", "WITH")) for statement in statements
-    )
-
-
-def test_uc_015_reader_failure_is_redacted_technical_error() -> None:
-    fixture = _fixture(source_ids={SOURCE_A}, reader=FailingReader())
-
-    with pytest.raises(ReportTechnicalError) as exc_info:
-        fixture.service.preview_summary(_request(), fixture.context)
-
-    assert exc_info.value.correlation_id == "correlation-report"
-    assert "customer secret" not in str(exc_info.value)
-
-
-def test_nfr_sec_001_reader_scope_leak_fails_closed() -> None:
-    fixture = _fixture(source_ids={SOURCE_A}, reader=LeakingReader())
-
-    with pytest.raises(ReportTechnicalError):
-        fixture.service.preview_summary(_request(), fixture.context)
-
-
-def test_bfr_aud_005_preview_audit_failure_returns_no_result() -> None:
-    score_repository = SQLiteScoreRepository()
-    service = ReportPreviewService(
-        SQLiteReportPreviewReader(score_repository.connection),
-        FailingAuditSink(),
-        _policy(),
-        clock=lambda: NOW,
-    )
-
-    with pytest.raises(ReportTechnicalError):
-        service.preview_summary(_request(), _context({SOURCE_A}))
-
-
-def test_nfr_perf_002_summary_preview_p95_is_under_one_second_for_500_sources() -> None:
-    """Local guard: 500 latest SOURCE scores, in-memory SQLite, no sampling."""
-    source_ids = {f"source-{index:03d}" for index in range(500)}
-    fixture = _fixture(source_ids=source_ids)
-    for index, source_id in enumerate(sorted(source_ids)):
-        fixture.score_repository.add_or_get(
-            _score(
-                source_id,
-                "90.00",
-                NOW,
-                execution_id=f"execution-{index:03d}",
-            )
+    def test_list_reports_by_user(self, repo) -> None:
+        r1 = repo.create_report(
+            ReportRequest(ReportType.SUMMARY, ReportFormat.PDF, {}, "T1"), "user1"
+        )
+        r2 = repo.create_report(
+            ReportRequest(ReportType.DETAIL, ReportFormat.CSV, {}, "T2"), "user1"
+        )
+        repo.create_report(
+            ReportRequest(ReportType.SUMMARY, ReportFormat.PDF, {}, "T3"), "user2"
         )
 
-    durations = []
-    for _ in range(20):
-        started_at = perf_counter()
-        preview = fixture.service.preview_summary(_request(), fixture.context)
-        durations.append(perf_counter() - started_at)
+        user1_reports = repo.list_reports_by_user("user1")
+        assert len(user1_reports) == 2
+        assert user1_reports[0].requested_by == "user1"
 
-    assert len(preview.rows) == 500
-    assert sorted(durations)[18] < 1.0
+        user2_reports = repo.list_reports_by_user("user2")
+        assert len(user2_reports) == 1
 
+    def test_delete_report(self, repo) -> None:
+        request = ReportRequest(
+            report_type=ReportType.SUMMARY,
+            format=ReportFormat.PDF,
+            parameters={},
+            reason_code="TEST",
+        )
+        report = repo.create_report(request, "test-user")
+        repo.delete_report(report.report_id)
 
-class ReportingFixture:
-    def __init__(
-        self,
-        service: ReportPreviewService,
-        score_repository: SQLiteScoreRepository,
-        audit_repository: SQLiteAuditRepository,
-        context: ActorContext,
-    ) -> None:
-        self.service = service
-        self.score_repository = score_repository
-        self.audit_repository = audit_repository
-        self.context = context
+        with pytest.raises(ReportNotFoundError):
+            repo.get_report(report.report_id)
 
 
-class CountingReader:
-    def __init__(self) -> None:
-        self.calls = 0
+class TestReportSchedule:
+    """ReportScheduleService birim testleri."""
 
-    def latest_source_scores(
-        self,
-        start_at: datetime,
-        end_at: datetime,
-        allowed_source_ids: frozenset[str],
-    ) -> tuple[ReportScoreObservation, ...]:
-        self.calls += 1
-        return ()
+    @pytest.fixture
+    def repo(self):
+        class _MemoryRepo:
+            def __init__(self):
+                self._schedules: dict[str, ReportSchedule] = {}
+                self._order: list[str] = []
+
+            def add(self, schedule: ReportSchedule) -> ReportSchedule:
+                self._schedules[schedule.schedule_id] = schedule
+                self._order.append(schedule.schedule_id)
+                return schedule
+
+            def list_all(self) -> tuple[ReportSchedule, ...]:
+                return tuple(self._schedules[sid] for sid in self._order)
+
+            def get(self, schedule_id: str) -> ReportSchedule:
+                if schedule_id not in self._schedules:
+                    raise ReportNotFoundError(schedule_id)
+                return self._schedules[schedule_id]
+
+            def delete(self, schedule_id: str) -> None:
+                if schedule_id not in self._schedules:
+                    raise ReportNotFoundError(schedule_id)
+                del self._schedules[schedule_id]
+                self._order.remove(schedule_id)
+
+            def due(self, now: datetime) -> tuple[ReportSchedule, ...]:
+                result = []
+                for sid in self._order:
+                    s = self._schedules[sid]
+                    if s.is_active and s.next_run_at is not None and s.next_run_at <= now:
+                        result.append(s)
+                return tuple(result)
+
+            def advance(self, schedule_id: str, *, triggered_at: datetime, next_run_at: datetime | None, is_active: bool):
+                old = self._schedules[schedule_id]
+                new = ReportSchedule(
+                    schedule_id=old.schedule_id,
+                    name=old.name,
+                    report_type=old.report_type,
+                    format=old.format,
+                    parameters=old.parameters,
+                    sensitivity_level=old.sensitivity_level,
+                    recipients=old.recipients,
+                    schedule_type=old.schedule_type,
+                    timezone_name=old.timezone_name,
+                    local_time=old.local_time,
+                    once_at=old.once_at,
+                    day_of_week=old.day_of_week,
+                    day_of_month=old.day_of_month,
+                    is_active=is_active,
+                    next_run_at=next_run_at,
+                    created_by=old.created_by,
+                    created_at=old.created_at,
+                    last_triggered_at=triggered_at,
+                )
+                self._schedules[schedule_id] = new
+                return new
+
+        return _MemoryRepo()
+
+    @pytest.fixture
+    def service(self, repo):
+        from veri_kalitesi.reporting.service import ReportService
+        from veri_kalitesi.reporting.scheduling import ReportScheduleService
+
+        report_service = MagicMock(spec=ReportService)
+        return ReportScheduleService(repo, report_service)
+
+    def test_create_daily_schedule(self, service, repo):
+        request = ReportScheduleCreateRequest(
+            name="Daily Report",
+            report_type=ReportType.SUMMARY,
+            format=ReportFormat.CSV,
+            parameters={},
+            sensitivity_level=None,
+            recipients=("user-1",),
+            schedule_type="DAILY",
+            timezone_name="UTC",
+            local_time="08:00",
+        )
+        schedule, preview = service.create_schedule(request, created_by="test-user")
+        assert schedule.name == "Daily Report"
+        assert schedule.schedule_type == ScheduleType.DAILY
+        assert schedule.is_active
+        assert schedule.created_by == "test-user"
+        assert len(preview) == 5
+        assert schedule.next_run_at is not None
+
+    def test_create_once_schedule(self, service, repo):
+        future = datetime.now(timezone.utc) + timedelta(hours=2)
+        request = ReportScheduleCreateRequest(
+            name="One-time Report",
+            report_type=ReportType.DETAIL,
+            format=ReportFormat.PDF,
+            parameters={"source_ids": ("src-1",)},
+            sensitivity_level="INTERNAL",
+            recipients=("user-1", "user-2"),
+            schedule_type="ONCE",
+            timezone_name="UTC",
+            once_at=future,
+        )
+        schedule, preview = service.create_schedule(request, created_by="test-user")
+        assert schedule.name == "One-time Report"
+        assert schedule.schedule_type == ScheduleType.ONCE
+        assert schedule.parameters == {"source_ids": ("src-1",)}
+        assert schedule.recipients == ("user-1", "user-2")
+        assert len(preview) == 1
+
+    def test_create_schedule_past_raises(self, service, repo):
+        past = datetime.now(timezone.utc) - timedelta(hours=1)
+        request = ReportScheduleCreateRequest(
+            name="Past Report",
+            report_type=ReportType.SUMMARY,
+            format=ReportFormat.CSV,
+            parameters={},
+            sensitivity_level=None,
+            recipients=(),
+            schedule_type="ONCE",
+            timezone_name="UTC",
+            once_at=past,
+        )
+        with pytest.raises(ReportingError, match="must have a future trigger"):
+            service.create_schedule(request, created_by="test-user")
+
+    def test_list_schedules(self, service, repo):
+        request = ReportScheduleCreateRequest(
+            name="List Test",
+            report_type=ReportType.SUMMARY,
+            format=ReportFormat.CSV,
+            parameters={},
+            sensitivity_level=None,
+            recipients=(),
+            schedule_type="DAILY",
+            timezone_name="UTC",
+            local_time="09:00",
+        )
+        service.create_schedule(request, created_by="user-1")
+        schedules = service.list_schedules()
+        assert len(schedules) == 1
+        assert schedules[0].name == "List Test"
+
+    def test_delete_schedule(self, service, repo):
+        request = ReportScheduleCreateRequest(
+            name="Delete Test",
+            report_type=ReportType.SUMMARY,
+            format=ReportFormat.CSV,
+            parameters={},
+            sensitivity_level=None,
+            recipients=(),
+            schedule_type="DAILY",
+            timezone_name="UTC",
+            local_time="10:00",
+        )
+        schedule, _ = service.create_schedule(request, created_by="user-1")
+        service.delete_schedule(schedule.schedule_id)
+        assert len(service.list_schedules()) == 0
+
+    def test_trigger_due_generates_report(self, service, repo):
+        from veri_kalitesi.reporting.models import Report as ReportModel
+
+        future = datetime.now(timezone.utc) + timedelta(minutes=5)
+        request = ReportScheduleCreateRequest(
+            name="Trigger Test",
+            report_type=ReportType.SUMMARY,
+            format=ReportFormat.CSV,
+            parameters={},
+            sensitivity_level=None,
+            recipients=(),
+            schedule_type="ONCE",
+            timezone_name="UTC",
+            once_at=future,
+        )
+        schedule, _ = service.create_schedule(request, created_by="user-1")
+
+        # Simulate the schedule being due by advancing to past
+        repo.advance(
+            schedule.schedule_id,
+            triggered_at=datetime.now(timezone.utc),
+            next_run_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+            is_active=True,
+        )
+
+        service._report_service.request_report.return_value = ReportModel(
+            report_id="generated-rpt-1",
+            report_type=ReportType.SUMMARY,
+            format=ReportFormat.CSV,
+            requested_by="scheduler",
+            parameters={},
+            status=ReportStatus.QUEUED,
+            version=1,
+        )
+
+        triggered = service.trigger_due()
+        assert len(triggered) == 1
+        assert triggered[0] == "generated-rpt-1"
+        service._report_service.request_report.assert_called_once()
 
 
-class FailingReader:
-    def latest_source_scores(
-        self,
-        start_at: datetime,
-        end_at: datetime,
-        allowed_source_ids: frozenset[str],
-    ) -> tuple[ReportScoreObservation, ...]:
-        raise OSError("customer secret")
+class TestReportWorker:
+    """ReportWorker dayaniklilik (retry, timeout, hata siniflandirmasi) testleri."""
 
+    @pytest.fixture
+    def repo(self):
+        """In-memory SQLite repository fixture."""
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from sqlalchemy.orm import Session as SaSession
+        from veri_kalitesi.reporting.repository import PostgreSQLReportRepository, report_tables
 
-class LeakingReader:
-    def latest_source_scores(
-        self,
-        start_at: datetime,
-        end_at: datetime,
-        allowed_source_ids: frozenset[str],
-    ) -> tuple[ReportScoreObservation, ...]:
-        return (
-            ReportScoreObservation(
-                source_id=SOURCE_B,
-                score_value=Decimal("99.00"),
-                score_status=ScoreStatus.CALCULATED,
-                level=ScoreLevel.GOOD,
-                calculated_at=NOW,
+        engine = create_engine("sqlite://", echo=False)
+        tables = report_tables(schema="")
+        tables.reports.create(engine, checkfirst=True)
+        sf = sessionmaker(bind=engine, class_=SaSession)
+
+        class _TestRepo(PostgreSQLReportRepository):
+            def create_report(self, request, requested_by, **kwargs):
+                return super().create_report(request, requested_by)
+
+        return PostgreSQLReportRepository(sf, schema="")
+
+    @pytest.fixture
+    def policy_repo(self):
+        class _Repo:
+            def get_active_policy(self, sensitivity_level):
+                return None
+        return _Repo()
+
+    @pytest.fixture
+    def worker(self, repo, policy_repo):
+        from veri_kalitesi.reporting.worker import ReportWorker, ReportWorkerSettings
+
+        class _GoodProvider:
+            def fetch_report_data(self, report_type, parameters):
+                return ("Col1",), (("val1",),)
+
+        return ReportWorker(
+            repo, policy_repo, _GoodProvider(),
+            settings=ReportWorkerSettings(
+                storage_path="/tmp/reports_test",
+                max_retry_attempts=3,
+                retry_delay_seconds=0.01,
+                generation_timeout_seconds=60,
             ),
         )
 
+    def _create_queued_report(self, repo, fmt=ReportFormat.CSV):
+        request = ReportRequest(
+            report_type=ReportType.SUMMARY,
+            format=fmt,
+            parameters={},
+            reason_code="WORKER_TEST",
+        )
+        return repo.create_report(request, "test-user")
 
-class FailingAuditSink:
-    def append(self, event: object) -> None:
-        raise OSError("synthetic audit outage")
+    def test_retry_success_after_failure(self, repo, worker):
+        """Ilk denemede basarisiz, ikincide basarili -> READY."""
+        attempt = [0]
 
+        class _FailingThenOkProvider:
+            def fetch_report_data(self, report_type, parameters):
+                attempt[0] += 1
+                if attempt[0] == 1:
+                    raise RuntimeError("Simulated transient failure")
+                return ("Col1",), (("val1",),)
 
-def _fixture(
-    *,
-    source_ids: set[str],
-    reader: CountingReader | FailingReader | LeakingReader | None = None,
-) -> ReportingFixture:
-    score_repository = SQLiteScoreRepository()
-    audit_repository = SQLiteAuditRepository()
-    audit_service = AuditService(
-        audit_repository,
-        AuditRedactor(build_default_redaction_policy()),
-        AuditFailurePolicy(
-            version="AUDIT_FAILURE_V1",
-            default_mode=AuditFailureMode.FAIL_CLOSED,
-        ),
-    )
-    service = ReportPreviewService(
-        reader or SQLiteReportPreviewReader(score_repository.connection),
-        audit_service,
-        _policy(),
-        clock=lambda: NOW,
-    )
-    return ReportingFixture(
-        service,
-        score_repository,
-        audit_repository,
-        _context(source_ids),
-    )
+        from veri_kalitesi.reporting.worker import ReportWorker, ReportWorkerSettings
+        retry_worker = ReportWorker(
+            repo, worker._policy_repo, _FailingThenOkProvider(),
+            settings=ReportWorkerSettings(
+                storage_path="/tmp/reports_test",
+                max_retry_attempts=3,
+                retry_delay_seconds=0.01,
+            ),
+        )
 
+        report = self._create_queued_report(repo)
+        result = retry_worker.process_report(report.report_id)
+        assert result.status == ReportStatus.READY
+        assert attempt[0] == 2
 
-def _policy() -> ReportPreviewAccessPolicy:
-    return ReportPreviewAccessPolicy(
-        version=REPORT_POLICY_VERSION,
-        actor_policy_version=ACTOR_POLICY_VERSION,
-    )
+    def test_retry_exhausted(self, repo, worker):
+        """Tum denemeler basarisiz -> FAILED."""
+        class _AlwaysFailingProvider:
+            def fetch_report_data(self, report_type, parameters):
+                raise RuntimeError("Simulated persistent failure")
 
+        from veri_kalitesi.reporting.worker import ReportWorker, ReportWorkerSettings
+        fail_worker = ReportWorker(
+            repo, worker._policy_repo, _AlwaysFailingProvider(),
+            settings=ReportWorkerSettings(
+                storage_path="/tmp/reports_test",
+                max_retry_attempts=2,
+                retry_delay_seconds=0.01,
+            ),
+        )
 
-def _request(
-    *,
-    start_at: datetime = NOW - timedelta(days=30),
-    end_at: datetime = NOW,
-    reason_code: str = "QUALITY_REVIEW",
-    requested_source_ids: set[str] | None = None,
-) -> ReportPreviewRequest:
-    return ReportPreviewRequest(
-        start_at=start_at,
-        end_at=end_at,
-        reason_code=reason_code,
-        requested_source_ids=(
-            frozenset(requested_source_ids) if requested_source_ids is not None else None
-        ),
-    )
+        report = self._create_queued_report(repo)
+        result = fail_worker.process_report(report.report_id)
+        assert result.status == ReportStatus.FAILED
+        assert result.failure_reason is not None
+        assert "attempts=2" in result.failure_reason
 
+    def test_non_retryable_error(self, repo, worker):
+        """Non-retryable hata -> direkt FAILED, retry yok."""
+        class _BadProvider:
+            def fetch_report_data(self, report_type, parameters):
+                raise ValueError("Invalid parameter — non-retryable")
 
-def _context(
-    source_ids: set[str],
-    *,
-    roles: frozenset[str] = frozenset({"DATA_OWNER"}),
-    privileged: bool = False,
-    actor_type: ActorType = ActorType.USER,
-) -> ActorContext:
-    return ActorContextIssuer().issue(
-        actor_id="report-user",
-        actor_type=actor_type,
-        authentication_source="synthetic-identity-adapter",
-        session_id="synthetic-report-session",
-        roles=roles,
-        permitted_source_ids=frozenset(source_ids),
-        permitted_dataset_ids=frozenset(),
-        can_view_enterprise=False,
-        privileged=privileged,
-        issued_at=NOW - timedelta(minutes=5),
-        expires_at=NOW + timedelta(hours=1),
-        policy_version=ACTOR_POLICY_VERSION,
-        correlation_id="correlation-report",
-    )
+        from veri_kalitesi.reporting.worker import ReportWorker, ReportWorkerSettings
+        fail_worker = ReportWorker(
+            repo, worker._policy_repo, _BadProvider(),
+            settings=ReportWorkerSettings(
+                storage_path="/tmp/reports_test",
+                max_retry_attempts=3,
+                retry_delay_seconds=0.01,
+            ),
+        )
 
+        report = self._create_queued_report(repo)
+        result = fail_worker.process_report(report.report_id)
+        assert result.status == ReportStatus.FAILED
+        assert result.failure_reason is not None
+        assert "ValueError" in result.failure_reason
+        # Non-retryable hatada attempts bilgisi eklenmez
+        assert "attempts" not in result.failure_reason
 
-def _score(
-    source_id: str,
-    value: str | None,
-    calculated_at: datetime,
-    *,
-    execution_id: str,
-    status: ScoreStatus = ScoreStatus.CALCULATED,
-    level: ScoreLevel | None = ScoreLevel.GOOD,
-    official: bool | None = None,
-) -> QualityScore:
-    details: dict[str, object] = {"aggregate": True}
-    if official is not None:
-        details["included_in_official_aggregation"] = official
-    return QualityScore(
-        execution_id=execution_id,
-        rule_version_id=None,
-        scope_id=source_id,
-        score_status=status,
-        calculation_details=details,
-        score_value=Decimal(value) if value is not None else None,
-        level=level,
-        scope_type=ScoreScopeType.SOURCE,
-        calculated_at=calculated_at,
-    )
+    def test_timeout_enforcement(self, repo, worker):
+        """Timeout asimi -> FAILED."""
+        class _SlowProvider:
+            def fetch_report_data(self, report_type, parameters):
+                import time
+                time.sleep(5.0)  # timeout'tan cok daha uzun
+                return ("Col1",), (("val1",),)
+
+        from veri_kalitesi.reporting.worker import ReportWorker, ReportWorkerSettings
+        timeout_worker = ReportWorker(
+            repo, worker._policy_repo, _SlowProvider(),
+            settings=ReportWorkerSettings(
+                storage_path="/tmp/reports_test",
+                max_retry_attempts=1,
+                retry_delay_seconds=0.01,
+                generation_timeout_seconds=0.2,  # 200ms — thread'in baslamasi icin yeterli
+            ),
+        )
+
+        report = self._create_queued_report(repo)
+        result = timeout_worker.process_report(report.report_id)
+        assert result.status == ReportStatus.FAILED
+        assert result.failure_reason is not None
+        assert "timed out" in result.failure_reason.lower() or "Timeout" in result.failure_reason
+
+    def test_retryable_error_classification(self, worker):
+        """_is_retryable dogru siniflandirma yapiyor."""
+        from veri_kalitesi.reporting.errors import ReportRetryableError
+
+        assert worker._is_retryable(RuntimeError("transient"))
+        assert worker._is_retryable(ConnectionError("connection lost"))
+        assert worker._is_retryable(TimeoutError("timed out"))
+        assert worker._is_retryable(MemoryError("oom"))
+        assert worker._is_retryable(ReportRetryableError("transient"))
+
+        assert not worker._is_retryable(ValueError("invalid"))
+        assert not worker._is_retryable(TypeError("bad type"))
+        assert not worker._is_retryable(KeyError("missing"))
+        assert not worker._is_retryable(AttributeError("no attr"))
+        assert not worker._is_retryable(OSError())

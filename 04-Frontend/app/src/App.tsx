@@ -51,8 +51,8 @@ import {
   activateRule,
 } from "./rules/api";
 import { rulesFromApi, syntheticRules, type RuleCreateRequest, type RuleListItem, type RuleState, type RuleTestResult, type RuleVersionCreateRequest } from "./rules/model";
-import { fetchReportSummary, ReportApiError } from "./reports/api";
-import { reportSummaryFromApi, syntheticReportSummary, type ReportState, type ReportSummary } from "./reports/model";
+import { createReport, createSchedule, deleteSchedule, fetchReportSummary, fetchSchedules, listReports, ReportApiError, triggerDownload } from "./reports/api";
+import { reportSummaryFromApi, syntheticReportSummary, type ReportItem, type ReportRequest, type ReportSchedule, type ReportScheduleCreateRequest, type ReportState, type ReportSummary } from "./reports/model";
 import {
   dashboardViewModelFromApi,
   syntheticDashboardViewModel,
@@ -439,15 +439,20 @@ function ReportsRoute() {
   const fixtureState = import.meta.env.DEV && requestedState && reportStates.includes(requestedState) ? requestedState : null;
   const [state, setState] = useState<ReportState>(fixtureState ?? "loading");
   const [summary, setSummary] = useState<ReportSummary>(syntheticReportSummary);
+  const [reportItems, setReportItems] = useState<ReportItem[]>([]);
   const [correlationId, setCorrelationId] = useState<string>();
   const load = useCallback(async (signal?: AbortSignal) => {
     if (fixtureState) return;
     setState("loading");
     try {
-      const response = await fetchReportSummary(signal);
-      const nextSummary = reportSummaryFromApi(response);
+      const [summaryResponse, listResponse] = await Promise.all([
+        fetchReportSummary(signal),
+        listReports(50, 0, signal),
+      ]);
+      const nextSummary = reportSummaryFromApi(summaryResponse);
       setSummary(nextSummary);
-      setCorrelationId(response.correlation_id);
+      setReportItems(listResponse.items);
+      setCorrelationId(summaryResponse.correlation_id);
       setState(nextSummary.rows.length ? "normal" : "empty");
     } catch (error) {
       if (signal?.aborted) return;
@@ -462,7 +467,28 @@ function ReportsRoute() {
     void load(controller.signal);
     return () => controller.abort();
   }, [load]);
-  return <ReportsPage correlationId={correlationId} onRefresh={() => void load()} state={fixtureState ?? state} summary={summary} />;
+
+  const handleCreateReport = useCallback(async (request: ReportRequest) => {
+    const response = await createReport(request);
+    setReportItems((current) => [response.report, ...current]);
+    setCorrelationId(response.correlation_id);
+  }, []);
+
+  const handleDownloadReport = useCallback(async (reportId: string, filename: string) => {
+    await triggerDownload(reportId, filename);
+  }, []);
+
+  return (
+    <ReportsPage
+      correlationId={correlationId}
+      onRefresh={() => void load()}
+      onCreateReport={handleCreateReport}
+      onDownloadReport={handleDownloadReport}
+      reportItems={reportItems}
+      state={fixtureState ?? state}
+      summary={summary}
+    />
+  );
 }
 
 const auditStates: AuditState[] = ["normal", "loading", "empty", "error", "unauthorized", "long-content"];

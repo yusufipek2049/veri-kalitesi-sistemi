@@ -43,7 +43,7 @@ yazılabilir UI yönünün depo etkisi konsolide edildi:
 | `PG-MIG-001–005` issue geçişi | Seçici aktarım ve issue PostgreSQL-only runtime yolu uygulanmış | Son yedi iterasyonda kısa kanıt kaydı; eski ayrıntı arşivde |
 | `UI-WRITE-001–003` issue akışları | İnceleme, atama, çözüm, doğrulama, kapatma ve yeniden açma yüzeyi mevcut | Backlogdaki “özellik geliştir” ifadesi doğrulama borcuna çevrildi |
 | `UI-WRITE-006` execution | API, migration ve repository var; 36E ile production cutover tamamlandı, SQLite runtime export kaldırıldı. | Çözüldü — 36E kapanış kaydı oluşturuldu |
-| `UI-WRITE-007` dışa aktarma | Kurumsal DLP/watermark/maker-checker kapıları açık | `Blocked` ve fail-closed tutuldu |
+| `UI-WRITE-007` dışa aktarma | 36G kapsamında uygulanıyor; DLP/watermark/maker-checker framework'ü fail-closed kuruluyor | `Active` |
 
 Durum özeti karar kaydına eklendi; kesin kararın kendisi veya gerekçesi
 değiştirilmedi.
@@ -69,7 +69,7 @@ Gerekçe sırası:
 1. Execution cutover HIGH uyumsuzluk olarak çözülmüştür.
 2. Worker dayanıklılığı (kota, pencere, retry, kalıcı kuyruk) bir sonraki
    uygulanabilir pakettir.
-3. 36F (güvenli rapor) kurumsal DLP/watermark/maker-checker kapıları açık
+3. 36G (güvenli rapor) DLP/watermark/maker-checker framework'ü kuruluyor
    olduğundan blokeli kalır.
 
 `NEXT_STEP.md`; adım, amaç, gerekçe ve tamamlama ölçütlerini içerir.
@@ -116,7 +116,7 @@ korunur.
 - Execution politika/worker dayanıklılığı; teknik uygulama gerektirir, yeni iş kuralı kararı gerektirmez.
 - Açık bankacılık/uyum kayıtlarındaki IdP grup-rol-scope, saklama/fiziksel imha,
   ServiceNow, RPO/RTO, BCBS 239 ve kurumsal ürün kararları yetkili sahiplerde kalır.
-- DLP/watermark ve hassas rapor maker-checker kapıları çözülmeden 36F açılmaz.
+- 36G kapsamında DLP/watermark/maker-checker framework'ü kuruluyor; kurumsal adaptörler ayrı kapıdır.
 
 ## Bütünlüğe Etki
 

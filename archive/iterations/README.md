@@ -27,5 +27,6 @@ karar kayıtları ve aktif durum belgelerinde korunmuştur.
 | `36A1` | 2026-07-23 | [İterasyon 36A1 — PostgreSQL Kalıcılık Temeli](36/Iterasyon-36A1-PostgreSQL-Kaliclilik-Temeli.md) | `TechnicallyVerified` | Bağlayıcı içerik SRS/ADR/karar kayıtlarında; bu dosya tarihsel kapanış ve gerekçe kanıtıdır. | [Dokümantasyon İndeksi](../../DOCUMENTATION_INDEX.md) |
 | `36A2a` | 2026-07-24 | [İterasyon 36A2a — PostgreSQL Issue Mutasyon ve Audit](36/Iterasyon-36A2a-PostgreSQL-Issue-Mutasyon-Audit.md) | `TechnicallyVerified` | Bağlayıcı içerik SRS/ADR/karar kayıtlarında; bu dosya tarihsel kapanış ve gerekçe kanıtıdır. | [Dokümantasyon İndeksi](../../DOCUMENTATION_INDEX.md) |
 | `36A2b` | 2026-07-24 | [İterasyon 36A2b — Seçici Issue Aktarımı](36/Iterasyon-36A2b-Secici-Issue-Aktarimi.md) | `TechnicallyVerified` | Bağlayıcı içerik SRS/ADR/karar kayıtlarında; bu dosya tarihsel kapanış ve gerekçe kanıtıdır. | [Dokümantasyon İndeksi](../../DOCUMENTATION_INDEX.md) |
+| `36B1` | 2026-07-24 | [İterasyon 36B1 — Sorunu İncelemeye Alma](36/Iterasyon-36B1-Sorunu-Incelemeye-Alma.md) | `TechnicallyVerified` | Bağlayıcı içerik SRS/ADR/karar kayıtlarında; bu dosya tarihsel kapanış ve gerekçe kanıtıdır. | [Dokümantasyon İndeksi](../../DOCUMENTATION_INDEX.md) |
 
 Aktif çalışma kayıtları: [09-Iterasyonlar/ITERASYON-INDEX.md](../../09-Iterasyonlar/ITERASYON-INDEX.md).

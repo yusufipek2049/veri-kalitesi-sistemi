@@ -91,11 +91,21 @@ from veri_kalitesi.rules import (
     RuleVersion,
     RuleValidationError,
 )
+from veri_kalitesi.persistence import SessionFactory, transactional_session
 from veri_kalitesi.reporting import (
+    ReportExportPolicy,
+    ReportFormat,
     ReportPreviewAccessPolicy,
     ReportPreviewService,
+    ReportService,
+    ReportWorker,
+    ReportWorkerSettings,
     SQLiteReportPreviewReader,
 )
+from veri_kalitesi.reporting.export import ReportDataProvider
+from veri_kalitesi.reporting.models import ReportType
+from veri_kalitesi.reporting.policies import ReportExportPolicyRepository
+from veri_kalitesi.reporting.repository import PostgreSQLReportRepository
 from veri_kalitesi.scoring import (
     QualityScore,
     ScoreLevel,
@@ -1024,6 +1034,64 @@ class DevelopmentExecutionStore:
 DEVELOPMENT_USER_REGISTRY = DevelopmentUserRegistry(build_default_development_users())
 
 
+def _create_development_report_repository(
+    session_factory: SessionFactory | None,
+) -> PostgreSQLReportRepository:
+    if session_factory is not None:
+        return PostgreSQLReportRepository(session_factory)
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.orm import Session as SaSession
+    from veri_kalitesi.reporting.repository import report_tables
+    engine = create_engine("sqlite://", echo=False)
+    tables = report_tables(schema="")
+    tables.reports.create(engine, checkfirst=True)
+    sf: SessionFactory = sessionmaker(bind=engine, class_=SaSession)  # type: ignore[assignment]
+    return PostgreSQLReportRepository(sf, schema="")
+
+
+def _create_development_policy_repository() -> ReportExportPolicyRepository:
+    class _DevPolicyRepo:
+        def get_active_policy(
+            self, sensitivity_level: str | None
+        ) -> ReportExportPolicy | None:
+            if sensitivity_level and sensitivity_level.upper() in {"HIGH", "CRITICAL", "CONFIDENTIAL"}:
+                return None
+            return ReportExportPolicy(
+                version="DEVELOPMENT_EXPORT_POLICY_V1",
+                policy_name="development-export",
+                sensitivity_level=sensitivity_level,
+                max_file_size=50 * 1024 * 1024,
+                online_duration_seconds=3600,
+                require_justification=False,
+                require_maker_checker=False,
+                watermark_enabled=True,
+                dlp_enabled=False,
+                allowed_formats=frozenset(ReportFormat),
+            )
+
+    return _DevPolicyRepo()  # type: ignore[return-value]
+
+
+def _create_development_data_provider() -> ReportDataProvider:
+    class _DevDataProvider:
+        def fetch_report_data(
+            self,
+            report_type: ReportType,
+            parameters: dict,
+        ) -> tuple[tuple[str, ...], tuple[tuple[str, ...], ...]]:
+            headers = ("Source ID", "Score", "Status", "Level", "Calculated At")
+            rows = (
+                ("source-core-banking", "91.80", "CALCULATED", "GOOD", "2026-07-24 12:00 UTC"),
+                ("source-customer-file", "82.40", "PARTIAL", "ACCEPTABLE", "2026-07-24 11:00 UTC"),
+                ("source-risk-mart", "", "NO_DATA", "", "2026-07-24 10:00 UTC"),
+                ("source-regulatory-api", "", "NOT_CALCULATED_TECHNICAL_ERROR", "", "2026-07-24 09:00 UTC"),
+            )
+            return headers, rows
+
+    return _DevDataProvider()  # type: ignore[return-value]
+
+
 def create_development_app(  # type: ignore[no-untyped-def]
     user_registry: DevelopmentUserRegistry | None = None,
     session_factory: SessionFactory | None = None,
@@ -1249,6 +1317,17 @@ def create_development_app(  # type: ignore[no-untyped-def]
                 actor_policy_version=POLICY_VERSION,
             ),
             clock=lambda: datetime.now(timezone.utc),
+        ),
+        report_service=ReportService(
+            _create_development_report_repository(session_factory),
+            _create_development_policy_repository(),
+            ReportWorker(
+                _create_development_report_repository(session_factory),
+                _create_development_policy_repository(),
+                _create_development_data_provider(),
+                ReportWorkerSettings(storage_path="/tmp/reports-dev"),
+            ),
+            audit_service,
         ),
         audit_query_service=AuditQueryService(
             audit_repository,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Annotated, Any, Protocol
 from uuid import uuid4
 
@@ -49,6 +50,16 @@ from veri_kalitesi.api.models import (
     IssueReassignmentRequest,
     IssueResolutionDraftRequest,
     IssueVerificationRequest,
+    ReportCreateRequest,
+    ReportCreateResponse,
+    ReportListResponse,
+    ReportRequestResponse,
+    ReportScheduleCreateRequest as ApiReportScheduleCreateRequest,
+    ReportScheduleCreateResponse,
+    ReportScheduleDeleteResponse,
+    ReportScheduleItemResponse,
+    ReportScheduleListResponse,
+    ReportScheduleTriggerResponse,
     ReportSummaryResponse,
     RuleActivationRequest,
     RuleApprovalDecisionRequest,
@@ -117,11 +128,20 @@ from veri_kalitesi.rules import (
 )
 from veri_kalitesi.reporting import (
     ReportAuthorizationError,
+    ReportExportDeniedError,
+    ReportExpiredError,
+    ReportNotFoundError,
+    ReportNotReadyError,
     ReportPreviewRequest,
     ReportPreviewService,
+    ReportRequest,
+    ReportScheduleCreateRequest,
+    ReportScheduleService,
+    ReportService,
     ReportTechnicalError,
     ReportValidationError,
 )
+from veri_kalitesi.reporting.models import ReportFormat, ReportType
 
 
 class IssueInvestigationService(Protocol):
@@ -339,6 +359,8 @@ def create_dashboard_api(
     rule_creator_service: RuleCreatorService | None = None,
     rule_mutation_service: RuleMutationService | None = None,
     report_preview_service: ReportPreviewService | None = None,
+    report_service: ReportService | None = None,
+    report_schedule_service: ReportScheduleService | None = None,
     audit_query_service: AuditQueryService | None = None,
     clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
 ) -> FastAPI:
@@ -688,6 +710,54 @@ def create_dashboard_api(
             status=503,
             title="Reports temporarily unavailable",
             detail="The report preview could not be completed.",
+            correlation_id=request.state.correlation_id,
+        )
+
+    @app.exception_handler(ReportNotFoundError)
+    async def handle_report_not_found(
+        request: Request, error: ReportNotFoundError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=404,
+            title="Report not found",
+            detail="The requested report does not exist.",
+            correlation_id=request.state.correlation_id,
+        )
+
+    @app.exception_handler(ReportExportDeniedError)
+    async def handle_report_export_denied(
+        request: Request, error: ReportExportDeniedError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=403,
+            title="Export denied",
+            detail="Report export denied by policy.",
+            correlation_id=request.state.correlation_id,
+        )
+
+    @app.exception_handler(ReportExpiredError)
+    async def handle_report_expired(
+        request: Request, error: ReportExpiredError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=410,
+            title="Report expired",
+            detail="The report download link has expired.",
+            correlation_id=request.state.correlation_id,
+        )
+
+    @app.exception_handler(ReportNotReadyError)
+    async def handle_report_not_ready(
+        request: Request, error: ReportNotReadyError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=409,
+            title="Report not ready",
+            detail=f"The report is {error.status}.",
             correlation_id=request.state.correlation_id,
         )
 
@@ -1106,6 +1176,227 @@ def create_dashboard_api(
             preview,
             correlation_id=request.state.correlation_id,
             data_origin=data_origin,
+        )
+
+    @app.post(
+        "/api/v1/reports/",
+        response_model=ReportCreateResponse,
+        status_code=202,
+        tags=["reports"],
+    )
+    async def create_report(
+        request: Request,
+        response: Response,
+        body: ReportCreateRequest,
+    ) -> ReportCreateResponse:
+        if report_service is None:
+            raise ReportTechnicalError(request.state.correlation_id)
+        actor_context = resolver.resolve(request)
+        domain_request = ReportRequest(
+            report_type=ReportType(body.report_type),
+            format=ReportFormat(body.format),
+            parameters=body.parameters,
+            reason_code=body.reason_code,
+            sensitivity_level=body.sensitivity_level,
+        )
+        report = report_service.request_report(domain_request, actor_context)
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Report-ID"] = report.report_id
+        return ReportCreateResponse(
+            api_version="v1",
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            report=ReportRequestResponse.from_domain(report),
+        )
+
+    @app.get(
+        "/api/v1/reports/",
+        response_model=ReportListResponse,
+        tags=["reports"],
+    )
+    async def list_reports(
+        request: Request,
+        response: Response,
+        limit: Annotated[int, FastApiQuery(ge=1, le=100)] = 50,
+        offset: Annotated[int, FastApiQuery(ge=0)] = 0,
+    ) -> ReportListResponse:
+        if report_service is None:
+            raise ReportTechnicalError(request.state.correlation_id)
+        actor_context = resolver.resolve(request)
+        reports = report_service.list_reports(actor_context, limit=limit, offset=offset)
+        response.headers["Cache-Control"] = "no-store"
+        return ReportListResponse(
+            api_version="v1",
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            items=tuple(ReportRequestResponse.from_domain(r) for r in reports),
+        )
+
+    @app.get(
+        "/api/v1/reports/{report_id}",
+        response_model=ReportCreateResponse,
+        tags=["reports"],
+    )
+    async def get_report(
+        request: Request,
+        response: Response,
+        report_id: str,
+    ) -> ReportCreateResponse:
+        if report_service is None:
+            raise ReportTechnicalError(request.state.correlation_id)
+        actor_context = resolver.resolve(request)
+        report = report_service.get_report(report_id, actor_context)
+        response.headers["Cache-Control"] = "no-store"
+        return ReportCreateResponse(
+            api_version="v1",
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            report=ReportRequestResponse.from_domain(report),
+        )
+
+    @app.get(
+        "/api/v1/reports/{report_id}/download",
+        tags=["reports"],
+    )
+    async def download_report(
+        request: Request,
+        response: Response,
+        report_id: str,
+    ) -> JSONResponse:
+        if report_service is None:
+            raise ReportTechnicalError(request.state.correlation_id)
+        actor_context = resolver.resolve(request)
+        report = report_service.download_report(report_id, actor_context)
+        if report.online_file_reference is None:
+            raise ReportTechnicalError(request.state.correlation_id)
+        file_path = Path(report.online_file_reference)
+        if not file_path.exists():
+            raise ReportTechnicalError(request.state.correlation_id)
+        content = file_path.read_bytes()
+        mime_map = {
+            "PDF": "application/pdf",
+            "XLSX": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "CSV": "text/csv; charset=utf-8",
+        }
+        media_type = mime_map.get(report.format.value, "application/octet-stream")
+        filename = f"report-{report.report_id[:8]}.{report.format.value.lower()}"
+        return Response(
+            content=content,
+            media_type=media_type,
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Content-Length": str(len(content)),
+                "Cache-Control": "no-store",
+            },
+        )
+
+    @app.get(
+        "/api/v1/report-schedules",
+        response_model=ReportScheduleListResponse,
+        tags=["reports"],
+    )
+    async def list_report_schedules(
+        request: Request,
+        response: Response,
+    ) -> ReportScheduleListResponse:
+        if report_schedule_service is None:
+            raise ReportTechnicalError(request.state.correlation_id)
+        schedules = report_schedule_service.list_schedules()
+        response.headers["Cache-Control"] = "no-store"
+        return ReportScheduleListResponse(
+            api_version="v1",
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            items=tuple(
+                ReportScheduleItemResponse.from_domain(s) for s in schedules
+            ),
+        )
+
+    @app.post(
+        "/api/v1/report-schedules",
+        response_model=ReportScheduleCreateResponse,
+        status_code=201,
+        tags=["reports"],
+    )
+    async def create_report_schedule(
+        request: Request,
+        response: Response,
+        body: ApiReportScheduleCreateRequest,
+    ) -> ReportScheduleCreateResponse:
+        if report_schedule_service is None:
+            raise ReportTechnicalError(request.state.correlation_id)
+        actor_context = getattr(request.state, "actor_context", None)
+        if actor_context is None:
+            actor_context = resolver.resolve(request)
+        from veri_kalitesi.reporting.models import ReportFormat, ReportType
+        from veri_kalitesi.reporting.scheduling import ReportScheduleCreateRequest as DomainRequest
+
+        domain_request = DomainRequest(
+            name=body.name,
+            report_type=ReportType(body.report_type),
+            format=ReportFormat(body.format),
+            parameters=body.parameters,
+            sensitivity_level=body.sensitivity_level,
+            recipients=body.recipients,
+            schedule_type=body.schedule_type,
+            timezone_name=body.timezone_name,
+            local_time=body.local_time,
+            once_at=body.once_at,
+            day_of_week=body.day_of_week,
+            day_of_month=body.day_of_month,
+        )
+        schedule, preview = report_schedule_service.create_schedule(
+            domain_request,
+            created_by=actor_context.actor_id if actor_context else "system",
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return ReportScheduleCreateResponse(
+            api_version="v1",
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=ReportScheduleItemResponse.from_domain(schedule),
+            preview=tuple(p.isoformat() for p in preview),
+        )
+
+    @app.delete(
+        "/api/v1/report-schedules/{schedule_id}",
+        response_model=ReportScheduleDeleteResponse,
+        tags=["reports"],
+    )
+    async def delete_report_schedule(
+        schedule_id: str,
+        request: Request,
+        response: Response,
+    ) -> ReportScheduleDeleteResponse:
+        if report_schedule_service is None:
+            raise ReportTechnicalError(request.state.correlation_id)
+        report_schedule_service.delete_schedule(schedule_id)
+        response.headers["Cache-Control"] = "no-store"
+        return ReportScheduleDeleteResponse(
+            api_version="v1",
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+        )
+
+    @app.post(
+        "/api/v1/report-schedules/trigger-due",
+        response_model=ReportScheduleTriggerResponse,
+        tags=["reports"],
+    )
+    async def trigger_due_report_schedules(
+        request: Request,
+        response: Response,
+    ) -> ReportScheduleTriggerResponse:
+        if report_schedule_service is None:
+            raise ReportTechnicalError(request.state.correlation_id)
+        triggered = report_schedule_service.trigger_due()
+        response.headers["Cache-Control"] = "no-store"
+        return ReportScheduleTriggerResponse(
+            api_version="v1",
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            triggered_report_ids=triggered,
+            triggered_count=len(triggered),
         )
 
     @app.get(

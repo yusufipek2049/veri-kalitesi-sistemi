@@ -20,7 +20,7 @@ updated_at: 2026-07-24
 | Dashboard | [Dashboard](../01-SRS/04-Fonksiyonel-Gereksinimler/04.07-Dashboard.md) | `veri_kalitesi/dashboard`, `api/app.py` | Güvenli özet API mevcut; gerçek üretim veri/IdP adaptörleri açık. |
 | Bildirim | [Bildirim](../01-SRS/04-Fonksiyonel-Gereksinimler/04.08-Bildirim.md) | `veri_kalitesi/notifications` | Sistem içi akış mevcut; kurumsal kanal kararları/adaptörleri açık. |
 | Sorun yönetimi | [Sorun Yönetimi](../01-SRS/04-Fonksiyonel-Gereksinimler/04.09-Sorun-Yonetimi.md) | `veri_kalitesi/issues`, issue API | PostgreSQL-only issue yolu ile inceleme/atama/çözüm/doğrulama/kapatma ve yeniden açma davranışları mevcut; `36B5` güncel doğrulama koşusu bekler. |
-| Raporlama | [Raporlama](../01-SRS/04-Fonksiyonel-Gereksinimler/04.10-Raporlama.md) | `veri_kalitesi/reporting`, report API | Liste/önizleme/üretim talebi yüzeyi kısmi; güvenli dosya üretimi/indirme ve DLP kapıları açık. |
+| Raporlama | [Raporlama](../01-SRS/04-Fonksiyonel-Gereksinimler/04.10-Raporlama.md) | `veri_kalitesi/reporting`, report API | Liste/önizleme/üretim talebi yüzeyi kısmi; 36G kapsamında güvenli dosya üretimi/indirme başlatıldı. |
 | Audit | [Audit](../01-SRS/04-Fonksiyonel-Gereksinimler/04.11-Audit.md) | `veri_kalitesi/audit`, audit API | Veri-minimum audit ve bütünlük görünümü mevcut; kurumsal WORM/imza ürünü açık. |
 | ServiceNow | [API ve Entegrasyon](../01-SRS/04-Fonksiyonel-Gereksinimler/04.12-API-ve-Entegrasyon.md) | `veri_kalitesi/servicenow` | Domain dayanıklılık modeli mevcut; gerçek kurumsal adaptör açık. |
 | Olay müdahale | [Bankacılık Kontrolleri](../01-SRS/17-Bankacilik-Uyum/17.02-Bankacilik-Kontrol-Gereksinimleri.md) | `veri_kalitesi/incident_response` | Teknik akış ve kanıt modeli mevcut; kurum rolleri/ürün entegrasyonu açık. |

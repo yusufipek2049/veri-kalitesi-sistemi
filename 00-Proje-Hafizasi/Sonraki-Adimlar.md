@@ -15,7 +15,7 @@ Tek uygulanabilir sıradaki paket: [Execution Politika ve Worker Dayanıklılı�
 | --- | --- | --- | --- |
 | 1 | Execution politika ve worker dayanıklılığı | `Next` | Kota, pencere, timeout, retry, iptal ve idempotency sürümlü politikadan/kalıcı kuyruktan çözülür; SQLite scheduling/policy repository runtime export'tan çıkarılır. |
 | 2 | 36B5 kapatma/yeniden açma doğrulama kaydı | `Completed` | PostgreSQL issue mutasyon testleri (2/2) ve tüm entegrasyon paketi (44/44) gerçek PostgreSQL 16.13 üzerinde çalıştırıldı; iterasyon kaydı güncellendi. |
-| 3 | Güvenli rapor üretimi ve indirme | `Blocked` | DLP, watermark, gerekçe, süreli indirme ve gerektiğinde maker-checker tamamdır; kontrol yokluğunda fail-closed. |
+| 3 | Güvenli rapor üretimi ve indirme (36G) | `Next` | PDF/XLSX/CSV dışa aktarma (FR-075), zamanlanmış rapor (FR-076), sınıflandırma bazlı indirme (UI-WRITE-007), DLP/watermark/maker-checker/gerekçe/süre framework'ü, asenkron iş, audit kaydı; kontrol yokluğunda fail-closed. |
 | 4 | Kurumsal production adaptörleri | `ExternalDependency` | IdP, PAM/secret manager, HA veri/session, broker, SIEM/WORM, ServiceNow ve DR kanıtları. |
 
 ## Son Yedi İterasyonun Konsolide Çıktısı

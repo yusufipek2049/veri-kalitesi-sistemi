@@ -61,4 +61,4 @@ yolundan çıkararak yalnız test double rolüne indirgemek.
 
 - [İterasyon 36 ana planı](Iterasyon-36-PostgreSQL-ve-Yazilabilir-Alan-Ekranlari.md)
 - [Bir önceki: 36B5 — Kapatma ve Yeniden Açma](Iterasyon-36B5-Kapatma-ve-Yeniden-Acma.md)
-- [Sonraki: 36F — Güvenli Rapor Üretimi/İndirme (planlı)](Kalan-Iterasyonlar-Banka-Yol-Haritasi.md)
+- [Sonraki: 36F — Execution Politika ve Worker Dayanıklılığı](Iterasyon-36F-Execution-Politika-Worker-Dayanikliligi.md)

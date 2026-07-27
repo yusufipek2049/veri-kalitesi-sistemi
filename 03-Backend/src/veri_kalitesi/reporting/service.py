@@ -10,6 +10,19 @@ from typing import Callable, Protocol
 
 from veri_kalitesi.audit import AuditEventInput, AuditResult, AuditSink
 from veri_kalitesi.identity import ActorContext, ActorType, is_trusted_actor_context
+from veri_kalitesi.reporting.errors import ReportExportDeniedError
+from veri_kalitesi.reporting.models import (
+    Report,
+    ReportRequest,
+    ReportStatus,
+    ReportType,
+)
+from veri_kalitesi.reporting.policies import (
+    ReportExportPolicyRepository,
+    check_download_access,
+    evaluate_export,
+)
+from veri_kalitesi.reporting.worker import ReportRepository, ReportWorker
 from veri_kalitesi.reporting.errors import (
     ReportAuthorizationError,
     ReportTechnicalError,
@@ -320,3 +333,124 @@ def _observations_are_valid(
         elif item.score_value is not None or item.level is not None:
             return False
     return True
+
+
+class ReportService:
+    """Guvenli rapor talep ve indirme servisi.
+
+    DLP, watermark, maker-checker, gerekce ve sureli indirme kontrollerini
+    uygular. Politika yoksa veya kontroller gecmezse fail-closed.
+    """
+
+    def __init__(
+        self,
+        report_repository: ReportRepository,
+        policy_repository: ReportExportPolicyRepository,
+        worker: ReportWorker,
+        audit_sink: AuditSink,
+    ) -> None:
+        self._repo = report_repository
+        self._policy_repo = policy_repository
+        self._worker = worker
+        self._audit = audit_sink
+
+    def _resolve_actor(self, actor_context: ActorContext | None) -> ActorContext:
+        if not is_trusted_actor_context(actor_context):
+            raise ReportExportDeniedError("UNTRUSTED_CONTEXT", "unknown")
+        assert actor_context is not None
+        return actor_context
+
+    def request_report(
+        self,
+        request: ReportRequest,
+        actor_context: ActorContext | None,
+    ) -> Report:
+        """Rapor talebi olusturur ve worker'a gonderir."""
+        context = self._resolve_actor(actor_context)
+        policy = self._policy_repo.get_active_policy(request.sensitivity_level)
+        decision = evaluate_export(request, policy, context.correlation_id)
+        report = self._repo.create_report(request, context.actor_id)
+        self._worker.process_report(report.report_id)
+        event = AuditEventInput(
+            actor_id=context.actor_id,
+            actor_type=context.actor_type.value,
+            correlation_id=context.correlation_id,
+            action="REPORT_REQUESTED",
+            object_type="Report",
+            object_id=report.report_id,
+            result=AuditResult.SUCCESS,
+            reason_code=decision.reason_code,
+            old_values={},
+            new_values={
+                "report_type": request.report_type.value,
+                "format": request.format.value,
+                "policy_version": decision.policy_version,
+            },
+            occurred_at=datetime.now(timezone.utc),
+            session_id=context.session_id,
+        )
+        self._audit.append(event)
+        return report
+
+    def get_report(
+        self,
+        report_id: str,
+        actor_context: ActorContext | None,
+    ) -> Report:
+        """Rapor durumunu getirir."""
+        self._resolve_actor(actor_context)
+        return self._repo.get_report(report_id)
+
+    def list_reports(
+        self,
+        actor_context: ActorContext | None,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[Report, ...]:
+        """Kullanicinin raporlarini listeler."""
+        context = self._resolve_actor(actor_context)
+        return self._repo.list_reports_by_user(
+            context.actor_id, limit=limit, offset=offset
+        )
+
+    def download_report(
+        self,
+        report_id: str,
+        actor_context: ActorContext | None,
+    ) -> Report:
+        """Raporu indirmek icin erisim ve sure kontrolu yapar.
+
+        Fail-closed: politika yoksa veya sure dolmussa reddedilir.
+        """
+        context = self._resolve_actor(actor_context)
+        report = self._repo.get_report(report_id)
+
+        if report.status != ReportStatus.READY:
+            raise ReportExportDeniedError(
+                f"REPORT_NOT_READY:{report.status.value}",
+                context.correlation_id,
+            )
+
+        policy = self._policy_repo.get_active_policy(report.sensitivity_level)
+        check_download_access(policy, report.expires_at, context.correlation_id)
+
+        event = AuditEventInput(
+            actor_id=context.actor_id,
+            actor_type=context.actor_type.value,
+            correlation_id=context.correlation_id,
+            action="REPORT_DOWNLOADED",
+            object_type="Report",
+            object_id=report_id,
+            result=AuditResult.SUCCESS,
+            reason_code="DOWNLOAD_ALLOWED",
+            old_values={},
+            new_values={
+                "file_size": report.file_size,
+                "policy_version": policy.version if policy else "none",
+            },
+            occurred_at=datetime.now(timezone.utc),
+            session_id=context.session_id,
+        )
+        self._audit.append(event)
+        return report
