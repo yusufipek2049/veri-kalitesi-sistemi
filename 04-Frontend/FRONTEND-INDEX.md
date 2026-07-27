@@ -34,7 +34,7 @@ Doğrulama komutları: `npm test`, `npm run typecheck`, `npm run build`,
 | Kurallar | Var | Taslak, düzenleme, test, onay akışları | Teknik UI/API ve PostgreSQL repository mevcut. |
 | Çalıştırmalar | Var | Manuel başlatma ve iptal | Teknik UI/API mevcut; backend runtime PostgreSQL cutover'ı kanıtlanmış değil. |
 | Sorunlar | Var | İnceleme, atama, çözüm, doğrulama ve kapatma | Kapatma UI/API akışı mevcut; yeniden açma event-driven backend davranışıdır. `36B5` güncel doğrulama koşusu bekler. |
-| Raporlar | Var | Rapor talebi kısmi | Güvenli dışa aktarma, DLP/watermark ve indirme kapıları açık. |
+| Raporlar | Var | Rapor talebi kısmi | 36G kapsamında güvenli dışa aktarma/indirme geliştiriliyor. |
 | Denetim | Var | Değişiklik yok | Salt okunur, rol/scope kontrollü bütünlük görünümü. |
 | Kanıtlı karar/olay inceleme | Hedef | Hedef | `FR-097–FR-111`; ikinci faz, üretim route'u değildir. |
 

@@ -31,6 +31,6 @@ Bu dosya yalnız gerçek açık kararları, kurumsal incelemeleri ve dış bağ�
 | Entegrasyon ve operasyon | ServiceNow alan/durum eşlemesi, kalıcı publisher worker, SIEM/WORM ve alarm politikaları | `OPEN-BNK-005/006/009/010/016` karar yönleri + kurumsal uygulama |
 | Yaşam döngüsü ve DR | fiziksel imha/arşiv adaptörü, legal-hold işletimi, yedek/restore ve DR tatbikatı | `OPEN-BNK-008`, `011`, `012` |
 | Skorlama/yeterlilik | banka onaylı sürümlü politika kayıtları, tarihsel replay/backfill ve kullanım kararı runtime'ı | `DQ-SCR-*`, `OPEN-BNK-013/017/021` |
-| Dışa aktarma | DLP, watermark, gerekçe, maker-checker ve süreli indirme altyapısı | `OPEN-BNK-014` karar yönü |
+| Dışa aktarma | DLP, watermark, gerekçe, maker-checker ve süreli indirme altyapısı | `OPEN-BNK-014` — `ApprovedByBank`, 36G kapsamında uygulanıyor |
 
 Belirsizlik güvenlik, uyum veya iş kuralını etkiliyorsa otomatik karar verilmez; ilgili kayıt güncellenir ve işlem fail-closed kalır.

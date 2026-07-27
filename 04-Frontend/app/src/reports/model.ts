@@ -6,6 +6,44 @@ export type ReportState =
   | "unauthorized"
   | "long-content";
 
+export type ReportFormat = "PDF" | "XLSX" | "CSV";
+export type ReportType = "SUMMARY" | "DETAIL" | "TREND" | "UNIT" | "OWNER" | "CRITICAL_DATA" | "ISSUE_PERFORMANCE";
+export type ReportStatus = "QUEUED" | "RUNNING" | "READY" | "FAILED" | "EXPIRED";
+
+export interface ReportRequest {
+  report_type: ReportType;
+  format: ReportFormat;
+  parameters: Record<string, unknown>;
+  reason_code: string;
+  sensitivity_level: string | null;
+}
+
+export interface ReportItem {
+  report_id: string;
+  report_type: string;
+  format: string;
+  status: ReportStatus;
+  file_size: number | null;
+  expires_at: string | null;
+  created_at: string | null;
+  completed_at: string | null;
+  failure_reason: string | null;
+}
+
+export interface ReportCreateApiResponse {
+  api_version: "v1";
+  data_origin: string;
+  correlation_id: string;
+  report: ReportItem;
+}
+
+export interface ReportListApiResponse {
+  api_version: "v1";
+  data_origin: string;
+  correlation_id: string;
+  items: ReportItem[];
+}
+
 export interface ReportSummaryRow {
   sourceId: string;
   scoreValue: number | null;
@@ -48,6 +86,129 @@ export interface ReportSummaryApiResponse {
     calculated_at: string;
   }>;
 }
+
+// ── Schedule types ──
+
+export interface ReportSchedule {
+  schedule_id: string;
+  name: string;
+  report_type: string;
+  format: string;
+  schedule_type: string;
+  timezone_name: string;
+  is_active: boolean;
+  next_run_at: string | null;
+  created_by: string;
+  created_at: string | null;
+  last_triggered_at: string | null;
+}
+
+export interface ReportScheduleCreateRequest {
+  name: string;
+  report_type: string;
+  format: string;
+  schedule_type: string;
+  timezone_name: string;
+  parameters: Record<string, unknown>;
+  sensitivity_level: string | null;
+  recipients: string[];
+  local_time: string | null;
+  once_at: string | null;
+  day_of_week: number | null;
+  day_of_month: number | null;
+}
+
+export interface ReportScheduleListResponse {
+  api_version: "v1";
+  data_origin: string;
+  correlation_id: string;
+  items: ReportSchedule[];
+}
+
+export interface ReportScheduleCreateResponse {
+  api_version: "v1";
+  data_origin: string;
+  correlation_id: string;
+  item: ReportSchedule;
+  preview: string[];
+}
+
+export interface ReportScheduleDeleteResponse {
+  api_version: "v1";
+  data_origin: string;
+  correlation_id: string;
+  deleted: boolean;
+}
+
+export function reportScheduleFromApi(item: {
+  schedule_id: string;
+  name: string;
+  report_type: string;
+  format: string;
+  schedule_type: string;
+  timezone_name: string;
+  is_active: boolean;
+  next_run_at: string | null;
+  created_by: string;
+  created_at: string | null;
+  last_triggered_at: string | null;
+}): ReportSchedule {
+  return {
+    schedule_id: item.schedule_id,
+    name: item.name,
+    report_type: item.report_type,
+    format: item.format,
+    schedule_type: item.schedule_type,
+    timezone_name: item.timezone_name,
+    is_active: item.is_active,
+    next_run_at: item.next_run_at,
+    created_by: item.created_by,
+    created_at: item.created_at,
+    last_triggered_at: item.last_triggered_at,
+  };
+}
+
+export const syntheticSchedules: ReportSchedule[] = [
+  {
+    schedule_id: "sched-daily-1",
+    name: "Günlük Özet Raporu",
+    report_type: "SUMMARY",
+    format: "PDF",
+    schedule_type: "DAILY",
+    timezone_name: "Europe/Istanbul",
+    is_active: true,
+    next_run_at: "2026-07-25T08:00:00Z",
+    created_by: "test-user",
+    created_at: "2026-07-24T10:00:00Z",
+    last_triggered_at: "2026-07-24T08:00:00Z",
+  },
+  {
+    schedule_id: "sched-weekly-1",
+    name: "Haftalık Detay Raporu",
+    report_type: "DETAIL",
+    format: "XLSX",
+    schedule_type: "WEEKLY",
+    timezone_name: "Europe/Istanbul",
+    is_active: true,
+    next_run_at: "2026-07-28T09:00:00Z",
+    created_by: "test-user",
+    created_at: "2026-07-20T10:00:00Z",
+    last_triggered_at: "2026-07-21T09:00:00Z",
+  },
+  {
+    schedule_id: "sched-monthly-1",
+    name: "Aylık Kritik Veri Raporu",
+    report_type: "CRITICAL_DATA",
+    format: "PDF",
+    schedule_type: "MONTHLY",
+    timezone_name: "Europe/Istanbul",
+    is_active: false,
+    next_run_at: null,
+    created_by: "test-user",
+    created_at: "2026-07-01T10:00:00Z",
+    last_triggered_at: "2026-07-01T08:00:00Z",
+  },
+];
 
 export const syntheticReportSummary: ReportSummary = {
   reportType: "SUMMARY",

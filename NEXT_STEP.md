@@ -1,23 +1,32 @@
 ---
 type: next-step
-status: completed
+status: active
 updated_at: 2026-07-24
-work_package: 36F-WORKER-RESILIENCE
+work_package: 36G-SECURE-REPORTING
 ---
 
-# Sıradaki Adım — Execution Politika ve Worker Dayanıklılığı — TAMAMLANDI
+# Sıradaki Adım — Güvenli Rapor Üretimi ve İndirme (36G)
 
-36F ile execution domain PostgreSQL-only hale getirildi:
+## Kapsam
 
-- `ScheduleRepository` protocol tanımlandı, `SchedulingService` gevşetildi
-- `PostgreSQLScheduleRepository` ve `PostgreSQLSourceUsagePolicyRepository` oluşturuldu
-- `schedules` ve `source_usage_policies` tabloları için migration çalıştırıldı
-- `SQLiteScheduleRepository` ve `SQLiteSourceUsagePolicyRepository` runtime export'tan çıkarıldı
-- 1134 birim testi, 44 entegrasyon testi geçiyor
+Güvenli rapor üretimi ve indirme: PDF/XLSX/CSV dışa aktarma (FR-075),
+zamanlanmış rapor (FR-076), sınıflandırma bazlı indirme (UI-WRITE-007),
+DLP/watermark/maker-checker framework'ü, asenkron iş, gerekçe, süreli indirme.
+Kontrol yokluğunda fail-closed.
 
-## Sıradaki Paket
+## Bağımlılıklar
 
-Güvenli rapor üretimi ve indirme (36G) — DLP, watermark, gerekçe, süreli indirme
-ve gerektiğinde maker-checker. Kontrol yokluğunda fail-closed.
+- `OPEN-BNK-014` — `ApprovedByBank`, 36G kapsamında uygulanıyor
+- `UI-WRITE-007` — KararAlındı, 36G kapsamında uygulanıyor
+- Mevcut `reporting/` modülü (önizleme) üzerine inşa edilecek
 
-**Blokaj:** Kurumsal DLP/watermark/maker-checker kapıları çözülmeden açılmaz.
+## Teslimat Ölçütleri
+
+1. Report domain modeli, durum makinesi, PostgreSQL repository
+2. PDF/XLSX/CSV üretim servisi (politika kontrollü)
+3. Asenkron rapor işi — kuyruk protocol + worker + API
+4. DLP/watermark/maker-checker/gerekçe/süre framework'ü (fail-closed)
+5. Rapor indirme API'si ve audit kaydı
+6. Zamanlanmış rapor üretimi
+7. Frontend rapor talebi/indirme ekranı
+8. Migration ve testler

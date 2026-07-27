@@ -87,7 +87,7 @@ gelmez.
 | `UI-WRITE-004` | Düşük riskli kural taslağı yetkili tek kullanıcı tarafından düzenlenebilir; kritik kural, aktivasyon/pasifleştirme, eşik ve ağırlık değişikliği maker-checker gerektirir. | KararAlındı |
 | `UI-WRITE-005` | Veri kaynağı aktivasyonu Data Owner, farklı checker ve aynı bağlantı revizyonuna ait başarılı salt okunur bağlantı testi gerektirir. | KararAlındı |
 | `UI-WRITE-006` | Manuel çalıştırma doğrudan worker başlatmaz; kaynak politikası, kota, çalışma penceresi ve idempotency kontrolünden sonra kuyruğa alınır. | KararAlındı |
-| `UI-WRITE-007` | Rapor indirme sınıflandırma bazlı açılır: sentetik/düşük hassasiyetli raporlar yetkili kapsamda; hassas raporlar DLP, watermark, gerekçe ve gerektiğinde maker-checker tamamlanınca. Eksik kontrolde işlem fail-closed kalır. | KararAlındı |
+| `UI-WRITE-007` | Rapor indirme sınıflandırma bazlı açılır: sentetik/düşük hassasiyetli raporlar yetkili kapsamda; hassas raporlar DLP, watermark, gerekçe ve gerektiğinde maker-checker tamamlanınca. Eksik kontrolde işlem fail-closed kalır. | KararAlındı — 36G kapsamında uygulanıyor |
 
 Karar referansı:
 `USER-DECLARATION-2026-07-23-PG-MIG-004-FORWARD-ONLY-OTHERS-RECOMMENDED`.
@@ -115,5 +115,6 @@ Bu bölüm yeni karar değildir; yukarıdaki kesin kararların kod/doküman etki
   `PostgreSQLExecutionStartService`/`PostgreSQLExecutionCancelService` adaptörleri
   ile production composition root cutover'ı tamamlanmıştır;
   `SQLiteExecutionRepository` runtime export'tan çıkarılmıştır. Karar uygulanmıştır.
-- `UI-WRITE-007` kurumsal DLP/watermark/maker-checker kapıları çözülmeden
-  fail-closed ve blokeli kalır.
+- `UI-WRITE-007` 36G kapsamında uygulanmaktadır. DLP/watermark/maker-checker
+  kontrolleri fail-closed varsayılanla framework olarak kurulur; kurumsal
+  adaptörler ayrı kapıdır.
