@@ -43,11 +43,11 @@ yolundan çıkarmak.
 ## Kalan Sınırlar
 
 - Gerçek üretim IdP/secret manager/HA altyapısı ayrı kapıdır.
-- Güvenli rapor üretimi/indirme (36G) DLP/watermark/maker-checker kapıları
-  açık olduğundan blokeli kalır.
+- Güvenli rapor üretimi/indirme (36G) DLP/watermark/maker-checker framework'ü
+  ile başlatılmıştır; kurumsal adaptörler ayrı kapıdır.
 
 ## Bağlantılar
 
 - [İterasyon 36 ana planı](Iterasyon-36-PostgreSQL-ve-Yazilabilir-Alan-Ekranlari.md)
 - [Bir önceki: 36E — Çalıştırma PostgreSQL Cutover](Iterasyon-36E-Calisma-PostgreSQL-Cutover.md)
-- [Sonraki: 36G — Güvenli Rapor Üretimi/İndirme (planlı)](Kalan-Iterasyonlar-Banka-Yol-Haritasi.md)
+- [Sonraki: 36G — Güvenli Rapor Üretimi/İndirme (aktif)](../NEXT_STEP.md)

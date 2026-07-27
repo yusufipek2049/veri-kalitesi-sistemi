@@ -26,7 +26,7 @@ gelmez; kalan onay ve ürün ayrıntıları sonuç sütununda korunur.
 | OPEN-BNK-007 | Eşlenmeyen sınıflandırmada fail-closed davranış | `KararAlındı` | Banka sözlüğü ve müşteri/banka sırrı kod eşlemesi |
 | OPEN-BNK-010 | SIEM entegrasyonu ve 72 saatlik ihlal değerlendirme akışı | `KararAlındı` | Ürün, olay sözlüğü, alarm seviyesi ve SOC eskalasyon eşlemesi |
 | OPEN-BNK-012 | Pilot VM; üretimde kurumsal konteyner platformu, yüksek erişilebilir PostgreSQL, broker ve secret manager yönü | `KararAlındı` | Kurumsal ürün adları ve altyapı kurul onayı |
-| OPEN-BNK-014 | Asenkron dışa aktarma, gerekçe, maker-checker, DLP, watermark ve süreli indirme modeli | `KararAlındı` | Banka veri sahibi ve bilgi güvenliği onayı |
+| OPEN-BNK-014 | Asenkron dışa aktarma, gerekçe, maker-checker, DLP, watermark ve süreli indirme modeli | `ApprovedByBank` | Karar kesinleşti. 36G kapsamında uygulanacak; eksik kontrolde fail-closed. |
 | OPEN-BNK-015 | `ActorContext` yalnız güvenilir identity/session adaptöründen üretilecek | `KararAlındı` | Issuer sahipliği ve session assertion doğrulaması |
 | OPEN-BNK-016 | PostgreSQL transactional outbox ve ayrı publisher worker | `KararAlındı` | Şifreleme, sahiplik, replay ve operasyon prosedürü |
 | OPEN-BNK-017 | Onay hedefi 3 iş günü, otomatik sona erme 10 iş günü | `KararAlındı` | Banka iş takvimi ve rol sahibi onayı |

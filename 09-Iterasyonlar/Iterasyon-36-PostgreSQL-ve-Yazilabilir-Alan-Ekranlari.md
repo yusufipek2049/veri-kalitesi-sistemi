@@ -22,7 +22,7 @@ yönetmek. Kaynak sistemler salt okunur kalır.
 | Issue kapatma ve yeniden açma | `VerificationPending` | Kod/test kanıtı mevcut; güncel hedefli ve PostgreSQL koşusu kayda bağlanmalı. |
 | Kural ve veri kaynağı yazımları | Uygulama yüzeyi mevcut | Production composition root ve kurumsal politika/rol kanıtı ayrıca doğrulanmalı. |
 | Çalıştırma PostgreSQL cutover | `TechnicallyVerified` | PostgreSQL migration/repository, API adaptörleri ve testler tamamlandı. `SQLiteExecutionRepository` runtime export'tan çıkarıldı. |
-| Güvenli rapor üretimi/indirme | `Blocked` | DLP, watermark, gerekçe, maker-checker ve kurumsal karar kapıları açık. |
+| Güvenli rapor üretimi/indirme | `TechnicallyVerified` | 36G ile PDF/XLSX/CSV, DLP/watermark/maker-checker, zamanlanmış rapor, PostgreSQL repository ve frontend UI tamamlandı. Worker dayanıklılığı ayrı pakettir. |
 
 ## Değişmez Tamamlama Koşulları
 
@@ -34,6 +34,5 @@ yönetmek. Kaynak sistemler salt okunur kalır.
 
 ## Sıradaki İş
 
-[Execution politika ve worker dayanıklılığı](../NEXT_STEP.md) — kota, pencere,
-timeout, retry, iptal ve idempotency sürümlü politikadan/kalıcı kuyruktan
-çözülmesi. 36B5 doğrulama kaydı paralel dokümantasyon/test borcudur.
+[Worker dayanıklılığı](../NEXT_STEP.md) — retry, timeout, kalıcı kuyruk,
+dead letter queue. 36G güvenli rapor üretimi/indirme tamamlanmıştır.

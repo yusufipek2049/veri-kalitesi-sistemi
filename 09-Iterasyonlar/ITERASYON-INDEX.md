@@ -11,7 +11,7 @@ dahil değildir.
 
 | Sıra | İterasyon | Durum | Sonuç |
 | --- | --- | --- | --- |
-| 1 | [36B1](Iterasyon-36B1-Sorunu-Incelemeye-Alma.md) | `TechnicallyVerified` | İncelemeye alma akışı. |
+| 1 | [36G](Iterasyon-36G-Guvenli-Rapor-Uretimi-ve-Indirme.md) | `TechnicallyVerified` | Güvenli rapor üretimi/indirme: PDF/XLSX/CSV, DLP/watermark/maker-checker, zamanlanmış rapor, PostgreSQL repository, frontent UI. |
 | 2 | [36B2](Iterasyon-36B2-Guvenilir-Yeniden-Atama.md) | `TechnicallyVerified` | Güvenilir yeniden atama. |
 | 3 | [36B3](Iterasyon-36B3-Korumali-Cozum-Kaydi.md) | `TechnicallyVerified` | Korumalı çözüm kaydı. |
 | 4 | [36B4](Iterasyon-36B4-Farkli-Aktorle-Dogrulama.md) | `TechnicallyVerified` | Farklı aktörle doğrulama. |

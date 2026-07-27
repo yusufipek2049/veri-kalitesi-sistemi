@@ -11,7 +11,7 @@ from veri_kalitesi.dashboard import DashboardOverview
 from veri_kalitesi.data_sources import DataSource
 from veri_kalitesi.executions import RuleExecution
 from veri_kalitesi.issues import DataQualityIssue, IssuePriority
-from veri_kalitesi.reporting import ReportPreview, ReportSummaryRow
+from veri_kalitesi.reporting import ReportPreview, ReportSummaryRow, Report, ReportSchedule, ReportStatus, ReportFormat, ReportType
 from veri_kalitesi.rules import QualityRule, RuleTestResult, RuleVersion
 
 
@@ -745,3 +745,144 @@ class DevelopmentUserListResponse(BaseModel):
     api_version: str = "v1"
     correlation_id: str
     items: tuple[DevelopmentUserInfoResponse, ...]
+
+
+class ReportRequestResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    report_id: str
+    report_type: str
+    format: str
+    status: str
+    file_size: int | None
+    expires_at: datetime | None
+    created_at: datetime | None
+    completed_at: datetime | None
+    failure_reason: str | None
+
+    @classmethod
+    def from_domain(cls, report: Report) -> "ReportRequestResponse":
+        return cls(
+            report_id=report.report_id,
+            report_type=report.report_type.value,
+            format=report.format.value,
+            status=report.status.value,
+            file_size=report.file_size,
+            expires_at=report.expires_at,
+            created_at=report.created_at,
+            completed_at=report.completed_at,
+            failure_reason=report.failure_reason,
+        )
+
+
+class ReportListResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    items: tuple[ReportRequestResponse, ...]
+
+
+class ReportCreateRequest(BaseModel):
+    report_type: str
+    format: str
+    parameters: dict = {}
+    reason_code: str = ""
+    sensitivity_level: str | None = None
+
+
+class ReportCreateResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    report: ReportRequestResponse
+
+
+class ReportScheduleItemResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    schedule_id: str
+    name: str
+    report_type: str
+    format: str
+    schedule_type: str
+    timezone_name: str
+    is_active: bool
+    next_run_at: datetime | None
+    created_by: str
+    created_at: datetime | None
+    last_triggered_at: datetime | None
+
+    @classmethod
+    def from_domain(cls, schedule: ReportSchedule) -> "ReportScheduleItemResponse":
+        return cls(
+            schedule_id=schedule.schedule_id,
+            name=schedule.name,
+            report_type=schedule.report_type.value,
+            format=schedule.format.value,
+            schedule_type=schedule.schedule_type.value,
+            timezone_name=schedule.timezone_name,
+            is_active=schedule.is_active,
+            next_run_at=schedule.next_run_at,
+            created_by=schedule.created_by,
+            created_at=schedule.created_at,
+            last_triggered_at=schedule.last_triggered_at,
+        )
+
+
+class ReportScheduleListResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    items: tuple[ReportScheduleItemResponse, ...]
+
+
+class ReportScheduleCreateRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    report_type: str
+    format: str
+    schedule_type: str
+    timezone_name: str
+    parameters: dict = {}
+    sensitivity_level: str | None = None
+    recipients: tuple[str, ...] = ()
+    local_time: str | None = None
+    once_at: datetime | None = None
+    day_of_week: int | None = None
+    day_of_month: int | None = None
+
+
+class ReportScheduleCreateResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    item: ReportScheduleItemResponse
+    preview: tuple[str, ...]
+
+
+class ReportScheduleTriggerResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    triggered_report_ids: tuple[str, ...]
+    triggered_count: int
+
+
+class ReportScheduleDeleteResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    deleted: bool = True

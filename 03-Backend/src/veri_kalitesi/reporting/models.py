@@ -1,4 +1,4 @@
-"""Yetki filtreli ve veri-minimum rapor onizleme modelleri."""
+"""Yetki filtreli ve veri-minimum rapor onizleme ve guvenli rapor modelleri."""
 
 from __future__ import annotations
 
@@ -12,6 +12,76 @@ from veri_kalitesi.scoring.models import ScoreLevel, ScoreStatus
 
 class ReportType(str, Enum):
     SUMMARY = "SUMMARY"
+    DETAIL = "DETAIL"
+    TREND = "TREND"
+    UNIT = "UNIT"
+    OWNER = "OWNER"
+    CRITICAL_DATA = "CRITICAL_DATA"
+    ISSUE_PERFORMANCE = "ISSUE_PERFORMANCE"
+
+
+class ReportStatus(str, Enum):
+    QUEUED = "QUEUED"
+    RUNNING = "RUNNING"
+    READY = "READY"
+    FAILED = "FAILED"
+    EXPIRED = "EXPIRED"
+
+
+class ReportFormat(str, Enum):
+    PDF = "PDF"
+    XLSX = "XLSX"
+    CSV = "CSV"
+
+
+@dataclass(frozen=True)
+class Report:
+    report_id: str
+    report_type: ReportType
+    format: ReportFormat
+    requested_by: str
+    parameters: dict
+    status: ReportStatus
+    sensitivity_level: str | None = None
+    retention_policy_id: str | None = None
+    online_file_reference: str | None = None
+    file_size: int | None = None
+    expires_at: datetime | None = None
+    created_at: datetime | None = None
+    completed_at: datetime | None = None
+    failure_reason: str | None = None
+    version: int = 1
+
+
+@dataclass(frozen=True)
+class ReportRequest:
+    report_type: ReportType
+    format: ReportFormat
+    parameters: dict
+    reason_code: str
+    sensitivity_level: str | None = None
+
+
+@dataclass(frozen=True)
+class ReportExportPolicy:
+    version: str
+    policy_name: str
+    sensitivity_level: str | None
+    max_file_size: int
+    online_duration_seconds: int
+    require_justification: bool
+    require_maker_checker: bool
+    watermark_enabled: bool
+    dlp_enabled: bool
+    allowed_formats: frozenset[ReportFormat]
+
+
+@dataclass(frozen=True)
+class ExportDecision:
+    allowed: bool
+    reason_code: str
+    require_maker_checker: bool
+    policy_version: str
 
 
 @dataclass(frozen=True)

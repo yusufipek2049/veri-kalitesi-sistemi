@@ -34,6 +34,7 @@ aktif işlerde yeni koşu sonucu ayrıca kaydedilmelidir.
 
 ## Sıradaki Adım
 
-[Execution politika ve worker dayanıklılığı](../NEXT_STEP.md) — kota, pencere,
-timeout, retry, iptal ve idempotency sürümlü politikadan/kalıcı kuyruktan
-çözülmesi.
+[Güvenli rapor üretimi ve indirme (36G)](../NEXT_STEP.md) — PDF/XLSX/CSV dışa
+aktarma (FR-075), zamanlanmış rapor (FR-076), sınıflandırma bazlı indirme
+(UI-WRITE-007), DLP/watermark/maker-checker/gerekçe/süre framework'ü, asenkron
+iş, audit kaydı; kontrol yokluğunda fail-closed.
