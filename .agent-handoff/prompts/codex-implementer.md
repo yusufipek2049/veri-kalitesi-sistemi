@@ -37,3 +37,22 @@ Ardından şu başlıkları kullan:
 - `## Scope Check`
 
 Her komut için komutu, çıkış kodunu ve kısa sonucu yaz. Başarısız test varken SUCCESS verme.
+
+## Sonuç raporunun aktarılması
+
+`.agent-handoff/CODEX_RESULT.md` dosyasını kendin oluşturma veya düzenleme.
+
+Görev sonunda raporu yalnızca son cevabın olarak üret. Pipeline scripti,
+Codex CLI `-o` seçeneğiyle bu son cevabı `CODEX_RESULT.md` dosyasına kaydeder.
+
+Bu shell yönlendirmesi:
+
+- `allowed_write_paths` kapsamına girmez.
+- Repository dosyası değişikliği değildir.
+- `.agent-handoff/**` yasağının ihlali değildir.
+
+İlk satır tam olarak şu üç değerden biri olmalıdır:
+
+STATUS: SUCCESS
+STATUS: FAILED
+STATUS: BLOCKED

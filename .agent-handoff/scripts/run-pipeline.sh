@@ -12,7 +12,7 @@ mkdir -p "$LOGS"
 need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing command: $1" >&2; exit 10; }; }
 need git; need jq; need sha256sum; need claude; need codex
 [[ -f "$H/REQUEST.md" ]] || { echo "Missing $H/REQUEST.md" >&2; exit 11; }
-[[ -z "$(git status --porcelain=v1 | grep -v '^?? \.agent-handoff/' || true)" ]] || {
+[[ -z "$(git status --porcelain=v1 --untracked-files=all -- . ':(exclude).agent-handoff' ':(exclude).agent-handoff/**')" ]] || {
   echo "Worktree already has production changes. Use a clean task worktree or review them manually." >&2
   exit 12
 }
@@ -75,9 +75,9 @@ run_implementer() {
       printf 'Apply only the remediations in: `%s`\n' "$H/ARCHITECT_REVIEW.md"
     fi
   } > "$input"
-  local args=(codex exec -C "$ROOT" --sandbox workspace-write --ask-for-approval never -o "$H/CODEX_RESULT.md")
+  local args=(codex --ask-for-approval never --sandbox workspace-write -C "$ROOT")
   [[ -n "${CODEX_IMPLEMENTER_MODEL:-}" ]] && args+=(-m "$CODEX_IMPLEMENTER_MODEL")
-  args+=(-)
+  args+=(exec -o "$H/CODEX_RESULT.md" -)
   "${args[@]}" < "$input"
   grep -qx 'STATUS: SUCCESS' <(head -n 1 "$H/CODEX_RESULT.md") || {
     echo "Implementer gate failed." >&2; exit 21;
@@ -95,9 +95,9 @@ run_tester() {
     cat "$PROMPTS/codex-tester.md"
     printf '\nRepository root: `%s`\n' "$ROOT"
   } > "$input"
-  local args=(codex exec -C "$ROOT" --sandbox workspace-write --ask-for-approval never -o "$H/TEST_REPORT.md")
+  local args=(codex --ask-for-approval never --sandbox workspace-write -C "$ROOT")
   [[ -n "${CODEX_TESTER_MODEL:-}" ]] && args+=(-m "$CODEX_TESTER_MODEL")
-  args+=(-)
+  args+=(exec -o "$H/TEST_REPORT.md" -)
   "${args[@]}" < "$input"
   make_change_artifacts
   sha256sum "$H/GIT_DIFF.patch" | awk '{print $1}' > "$H/DIFF_AFTER_TESTER.sha256"
@@ -139,7 +139,16 @@ Read the six input files listed above from this worktree."
   printf '%s\n' "$decision"
 }
 
-run_architect
+if [[ "${REUSE_CURRENT_TASK:-0}" == "1" && -f "$H/CURRENT_TASK.json" ]]; then
+  echo "[1/4] Existing Claude architect contract reused"
+  check_contract || {
+    echo "Existing architect contract violates hard gates." >&2
+    exit 20
+  }
+else
+  run_architect
+fi
+
 run_implementer initial
 run_tester initial
 DECISION="$(run_reviewer initial | tail -n 1)"

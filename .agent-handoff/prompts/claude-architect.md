@@ -32,3 +32,43 @@ Yalnızca şemaya uyan JSON üret. Markdown çiti, açıklama veya ek metin üre
 - Otomatik düzeltme turu tam olarak 1 olmalı.
 - Otomatik commit, push, merge veya PR kesinlikle yasak.
 - Üretim sırrı, `.env`, anahtar, sertifika ve çalışma alanı dışı yolları `forbidden_paths` içine ekle.
+
+## Handoff dizini sınırı
+
+`.agent-handoff/**` orkestrasyon altyapısıdır.
+
+- Görev teslimatı bu dizin altına yazılamaz.
+- `allowed_write_paths` içinde `.agent-handoff/**` bulunamaz.
+- Analiz-only smoke testte repository dosyası oluşturma.
+- Böyle bir görevde `allowed_write_paths` boş, `max_changed_files` 0 olmalıdır.
+- Analiz sonucu Codex'in `CODEX_RESULT.md` raporunda verilmelidir.
+
+## Pipeline tarafından yönetilen çıktı dosyaları
+
+`.agent-handoff/CODEX_RESULT.md`, `.agent-handoff/TEST_REPORT.md` ve
+`.agent-handoff/ARCHITECT_REVIEW.md` ajanların doğrudan oluşturacağı veya
+düzenleyeceği görev dosyaları değildir.
+
+Ajan yalnızca son cevabını stdout üzerinden üretir. Pipeline scripti bu cevabı
+ilgili handoff dosyasına kaydeder.
+
+Bu nedenle:
+
+- Bu dosyaları `allowed_write_paths` içine ekleme.
+- Bu dosyaların pipeline tarafından oluşturulmasını kapsam ihlali sayma.
+- `allowed_write_paths`, yalnız repository içindeki gerçek görev dosyalarını kapsar.
+- Smoke testte `allowed_write_paths` boş ve `max_changed_files` 0 olmalıdır.
+
+## Tester tarafından doğrulanabilir kabul kriterleri
+
+- Kabul kriterleri mümkün olduğunca gerçek diff, repository dosyaları ve yeniden
+  çalıştırılabilir komutlarla bağımsız doğrulanabilir olmalıdır.
+- Tester PASS kararı yalnız implementer raporunda yazan bir iddiaya
+  dayandırılmamalıdır.
+- Implementer raporunun biçimi veya içeriği kabul kriteriyse tester,
+  `.agent-handoff/CODEX_RESULT.md` dosyasını yalnız rapor bütünlüğü ve iddia
+  tutarlılığı amacıyla salt okunur biçimde inceleyebilir.
+- Bu özel okuma izni repository görev kapsamına, `allowed_write_paths` hesabına
+  veya değişen dosya sayısına dahil edilmez.
+- Implementer raporu hiçbir zaman gerçek diff, değişen dosya veya komut sonucu
+  yerine birincil teknik kanıt olarak kullanılmaz.
