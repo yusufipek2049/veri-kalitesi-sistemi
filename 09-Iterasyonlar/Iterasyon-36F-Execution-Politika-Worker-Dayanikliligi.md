@@ -50,4 +50,4 @@ yolundan çıkarmak.
 
 - [İterasyon 36 ana planı](Iterasyon-36-PostgreSQL-ve-Yazilabilir-Alan-Ekranlari.md)
 - [Bir önceki: 36E — Çalıştırma PostgreSQL Cutover](Iterasyon-36E-Calisma-PostgreSQL-Cutover.md)
-- [Sonraki: 36G — Güvenli Rapor Üretimi/İndirme (aktif)](../NEXT_STEP.md)
+- [Sonraki: 36G — Güvenli Rapor Üretimi/İndirme](Iterasyon-36G-Guvenli-Rapor-Uretimi-ve-Indirme.md)
