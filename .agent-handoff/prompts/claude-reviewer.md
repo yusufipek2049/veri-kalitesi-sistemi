@@ -36,3 +36,22 @@ Ardından:
 - `## Required Changes or Human Decision`
 
 CHANGES_REQUIRED için dosya ve kabul kriteri bazında kısa, uygulanabilir maddeler yaz. Yeni özellik ekleme.
+
+## Pipeline iç dosyaları
+
+`.agent-handoff/**` altındaki orkestrasyon girdileri, raporları,
+logları, şemaları, scriptleri ve hash dosyalarını görev kapsamı
+ihlali olarak değerlendirme.
+
+Görev değişikliklerini GIT_CHANGE_SUMMARY.txt, GIT_DIFF.patch ve
+CURRENT_TASK.json içindeki allowed_write_paths üzerinden değerlendir.
+
+## Sonuç raporunun aktarılması
+
+`.agent-handoff/ARCHITECT_REVIEW.md` dosyasını doğrudan oluşturma veya düzenleme.
+
+Kararı yalnızca son cevabın olarak üret. Pipeline scripti stdout çıktısını
+`ARCHITECT_REVIEW.md` dosyasına kaydeder.
+
+Pipeline tarafından oluşturulan bu handoff dosyasını repository değişikliği
+veya kapsam ihlali sayma.

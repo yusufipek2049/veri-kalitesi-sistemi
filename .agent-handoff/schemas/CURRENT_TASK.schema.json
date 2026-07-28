@@ -1,6 +1,4 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://local.invalid/agent-handoff/CURRENT_TASK.schema.json",
   "title": "Hermes Agent Task Contract",
   "type": "object",
   "additionalProperties": false,
@@ -465,44 +463,5 @@
       },
       "uniqueItems": true
     }
-  },
-  "allOf": [
-    {
-      "if": {
-        "properties": {
-          "contract_status": {
-            "const": "BLOCKED"
-          }
-        }
-      },
-      "then": {
-        "required": [
-          "blocked_reason"
-        ],
-        "properties": {
-          "human_questions": {
-            "minItems": 1
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "contract_status": {
-            "const": "READY"
-          }
-        }
-      },
-      "then": {
-        "properties": {
-          "blocked_reason": {
-            "type": [
-              "null"
-            ]
-          }
-        }
-      }
-    }
-  ]
+  }
 }
