@@ -157,7 +157,9 @@ geçmez.
 
 | Kapsam | Mevcut kanıt | Kapanış koşulu |
 | --- | --- | --- |
-| `36B5` kapatma/yeniden açma | Servis, API, PostgreSQL repository, frontend ve birim/entegrasyon testleri mevcut; 1134 birim testi başarılı. | `TechnicallyVerified` — birim testleri tamam, PostgreSQL entegrasyon testleri için `DATA_QUALITY_POSTGRES_TEST_URL` gerekli. |
-| `36E` execution cutover | Migration, PostgreSQL repository, entegrasyon testleri ve `PostgreSQLExecutionStartService`/`PostgreSQLExecutionCancelService` adaptörleri mevcut. | `TechnicallyVerified` — production composition root PostgreSQL kullanabilir; `create_development_app(session_factory=...)` ile çalışır. |
+| `36B5` kapatma/yeniden açma | Servis, API, PostgreSQL repository, frontend ve birim/entegrasyon kanıtı iterasyon kaydında tamamlanmıştır. | `TechnicallyVerified`; yeni bir açık olarak izlenmez. |
+| `36E` execution cutover | Migration, PostgreSQL repository, entegrasyon testleri ve `PostgreSQLExecutionStartService`/`PostgreSQLExecutionCancelService` adaptörleri mevcut. | `TechnicallyVerified`; production composition root PostgreSQL kullanabilir ve SQLite repository runtime export'ta değildir. |
+| `36F` scheduling/policy kalıcılığı | PostgreSQL scheduling/source-usage policy repository'leri, `20260724_05` migration'ı ve runtime export temizliği mevcut. | `TechnicallyVerified`; PostgreSQL entegrasyon kanıtının yeniden koşulması için `DATA_QUALITY_POSTGRES_TEST_URL` gerekir. |
+| `36G` güvenli raporlama | Birim testleri; report/report schedule repository'leri; `20260724_06/07` migration'ları ve PostgreSQL yaşam döngüsü entegrasyon testi mevcut. | `TechnicallyVerified`; PostgreSQL entegrasyon kanıtının yeniden koşulması için `DATA_QUALITY_POSTGRES_TEST_URL` gerekir. Kalıcı queue/worker dayanıklılığı ayrı pakettir. |
 
 Sıradaki doğrulama paketi [NEXT_STEP.md](../NEXT_STEP.md) içinde tanımlıdır.

@@ -2,7 +2,7 @@
 type: open-decision-register
 status: active
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-last_updated: 2026-07-24
+last_updated: 2026-07-27
 ---
 
 # Açık Konular
@@ -26,11 +26,11 @@ Bu dosya yalnız gerçek açık kararları, kurumsal incelemeleri ve dış bağ�
 
 | Alan | Açık bağımlılık | İlgili kayıt |
 | --- | --- | --- |
-| PostgreSQL geçişi | execution runtime cutover tamamlandı (`PostgreSQLExecutionStartService`/`PostgreSQLExecutionCancelService` adaptörleri); kalan SQLite repository'lerin bağımlılık sırasıyla kaldırılması | `ADR-020`, `36E-PG-CUTOVER` |
+| PostgreSQL geçişi | 36E execution cutover ile 36F scheduling/source-usage policy kalıcılığı tamamlandı; açık teknik sınır kalıcı queue lease/heartbeat, worker kaybı toparlama ve dead-letter yaşam döngüsüdür | `ADR-020`, `36E`, `36F`, [NEXT_STEP](../NEXT_STEP.md) |
 | Kimlik ve yetki | gerçek IdP callback/state/nonce, banka grup-rol-scope eşlemesi, PAM/break-glass ve HA session store | `OPEN-BNK-002`, `018`, `019` |
 | Entegrasyon ve operasyon | ServiceNow alan/durum eşlemesi, kalıcı publisher worker, SIEM/WORM ve alarm politikaları | `OPEN-BNK-005/006/009/010/016` karar yönleri + kurumsal uygulama |
 | Yaşam döngüsü ve DR | fiziksel imha/arşiv adaptörü, legal-hold işletimi, yedek/restore ve DR tatbikatı | `OPEN-BNK-008`, `011`, `012` |
 | Skorlama/yeterlilik | banka onaylı sürümlü politika kayıtları, tarihsel replay/backfill ve kullanım kararı runtime'ı | `DQ-SCR-*`, `OPEN-BNK-013/017/021` |
-| Dışa aktarma | DLP, watermark, gerekçe, maker-checker ve süreli indirme altyapısı | `OPEN-BNK-014` — `ApprovedByBank`, 36G kapsamında uygulanıyor |
+| Dışa aktarma | 36G güvenli üretim/indirme ve fail-closed politika framework'ü uygulandı; kurumsal DLP/watermark ürün entegrasyonu açık | `OPEN-BNK-014` — `ApprovedByBank`; `36G` teknik kapanış |
 
 Belirsizlik güvenlik, uyum veya iş kuralını etkiliyorsa otomatik karar verilmez; ilgili kayıt güncellenir ve işlem fail-closed kalır.

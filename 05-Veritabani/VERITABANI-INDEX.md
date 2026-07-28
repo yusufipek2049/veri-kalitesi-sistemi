@@ -2,7 +2,7 @@
 type: implementation-index
 area: database
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-updated_at: 2026-07-24
+updated_at: 2026-07-27
 ---
 
 # Veritabanı ve Veri Modeli Haritası
@@ -25,6 +25,8 @@ updated_at: 2026-07-24
 | Kural yönetimi | `20260723_02_rule_baseline.py` | Var | API/service sözleşmesi mevcut; teknik geçiş tamamlanmış olarak kaydedilmiş. |
 | Veri kaynakları | `20260724_03_data_source_baseline.py` | Var | API/service sözleşmesi mevcut; teknik geçiş tamamlanmış olarak kaydedilmiş. |
 | Çalıştırmalar | `20260724_04_execution_baseline.py` | Var | Repository ve testler mevcut; `PostgreSQLExecutionStartService`/`PostgreSQLExecutionCancelService` adaptörleri ile üretim cutover'ı tamamlandı. `create_development_app(session_factory=...)` ile PostgreSQL kullanılabilir. |
+| Zamanlama/kaynak kullanım politikası | `20260724_05_scheduling_and_policy_baseline.py` | Var | 36F ile scheduling/source-usage policy repository'leri PostgreSQL'e taşındı; SQLite eşleri runtime export'tan çıkarılıp test double olarak sınırlandı. |
+| Raporlama | `20260724_06_reporting_baseline.py`, `20260724_07_report_schedules.py` | Var | 36G report ve report schedule PostgreSQL repository'leri runtime'a bağlandı; süreçten bağımsız kalıcı queue/worker yaşam döngüsü ayrı pakettir. |
 
 Migration/repository varlığı, uygulamanın gerçek production wiring'inin taşındığı
 anlamına gelmez. Her domain için composition root, transaction sınırı, retry,
@@ -49,8 +51,9 @@ operasyon ve rollback/ileri düzeltme kanıtı ayrıca doğrulanır.
 SQLite geçmiş iterasyonlarda yerel teknik prototip ve bazı domain test double'ı
 olarak kullanılmıştır. `SQLite-Kaliclilik-Envanteri.md` kalan yolları bulmak için
 kanıttır; üretim hedefi değildir. PostgreSQL'e taşınan domainde SQLite
-compatibility/fallback bırakılmamalıdır. Çalıştırma domainindeki kalan export ve
-test kullanımları açık uyumsuzluk olarak izlenir.
+compatibility/fallback bırakılmamalıdır. Execution, scheduling ve source-usage
+policy SQLite repository'leri runtime export'tan çıkarılmıştır; yalnız doğrudan
+modül import'uyla kullanılan test double rolleri korunur.
 
 ## İzlenebilirlik
 

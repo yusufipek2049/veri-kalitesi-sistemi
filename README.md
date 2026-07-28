@@ -18,11 +18,14 @@ güvenilir sınırlar içinde yazılabilir; kaynak üretim verisi değiştirilem
 
 - Issue domaini PostgreSQL-only yola taşınmış; seçici SQLite aktarımı ve güvenilir
   yazılabilir yaşam döngüsü akışları uygulanmıştır.
-- Kapatma/yeniden açma davranışı kod ve testlerde vardır; `36B5` güncel doğrulama
-  koşusu bekler.
-- Execution migration/repository mevcut olsa da runtime composition root hâlâ
-  geliştirme store'u kullanır. Bu nedenle [execution PostgreSQL cutover](NEXT_STEP.md)
-  sıradaki ve en yüksek öncelikli çalışma paketidir.
+- Kapatma/yeniden açma davranışı ve `36B5` kapanış kanıtı
+  `TechnicallyVerified` olarak kaydedilmiştir.
+- `36E` execution PostgreSQL cutover, `36F` scheduling/policy PostgreSQL
+  kalıcılığı ve `36G` güvenli rapor üretimi/indirme teknik olarak
+  doğrulanmıştır.
+- [Kalıcı iş kuyruğu ve worker dayanıklılığı](NEXT_STEP.md), süreç kaybı
+  toparlama, lease/heartbeat ve dead-letter sınırlarını kapatacak tek sıradaki
+  çalışma paketidir.
 - Üretim hazır değildir; kurumsal IdP, PAM/secret, HA veri/session, broker,
   SIEM/WORM, ServiceNow, DR ve banka onayları ayrıdır.
 
