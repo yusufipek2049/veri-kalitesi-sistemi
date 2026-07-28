@@ -5,7 +5,7 @@
 | [README](README.md) | Başlangıç ve kısa durum | Proje özeti, ana yönlendirme | Tüm indeksler | Aktif | Proje |
 | [AGENTS](AGENTS.md) | Ajan davranışı | Değişmez sınırlar, bağlam/doğrulama kuralları | Aktif iterasyon ve next step | Aktif | Depo yönetişimi |
 | [Mevcut Durum](00-Proje-Hafizasi/Mevcut-Durum.md) | Uygulama durumu | Uygulanan/kısmi/açık alanlar | İndeks, backlog, next step | Aktif | Proje durumu |
-| [NEXT_STEP](NEXT_STEP.md) | Tek sıradaki çalışma paketi | Execution PostgreSQL cutover | Kod, migration, test | Aktif | Teslimat |
+| [NEXT_STEP](NEXT_STEP.md) | Tek sıradaki çalışma paketi | Kalıcı iş kuyruğu ve worker dayanıklılığı | Kod, migration, test | Aktif | Teslimat |
 | [Sonraki Adımlar](00-Proje-Hafizasi/Sonraki-Adimlar.md) | Backlog | Öncelik, durum ve çıkış kriteri | NEXT_STEP, yol haritası | Aktif | Teslimat |
 | [SRS](01-SRS/SRS-INDEX.md) | Gereksinim ve kabul | BR/FR/UC/RULE/NFR/AC/TS | Mimari, veri modeli, test | Kanonik | Ürün/analiz |
 | [Mimari](02-Mimari/MIMARI-INDEX.md) | Mimari yapı | Bileşen, veri akışı ve güvenlik sınırı | ADR, SRS | Kanonik | Mimari |
