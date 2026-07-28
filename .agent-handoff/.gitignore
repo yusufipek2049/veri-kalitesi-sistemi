@@ -1,0 +1,14 @@
+REQUEST.md
+CURRENT_TASK.json
+CODEX_RESULT.md
+TEST_REPORT.md
+ARCHITECT_REVIEW.md
+GIT_CHANGE_SUMMARY.txt
+GIT_DIFF.patch
+DIFF_BEFORE_TESTER.sha256
+DIFF_AFTER_TESTER.sha256
+logs/
+analysis/
+*.bak
+*.bak-*
+*.before-*
