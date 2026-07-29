@@ -46,10 +46,17 @@ reviewer `APPROVED` kararıyla kapanmıştır.
 
 ENTERPRISE-LAB-01 fail-closed ortam kapısı ve production/gerçek veri/overclaim
 ile endpoint rol eşleşmesi negatifleri `01-Birim/test_enterprise_lab.py`
-dosyasındadır (`7 passed`).
-Compose runtime doğrulaması sekiz healthy servis, PostgreSQL streaming standby,
-fake ServiceNow idempotency, SIEM kabulü, create-only kanıt deposu ve değer
-yazdırmayan yerel secret çözümlemesini kapsar; sonuç yalnız `PrototypeVerified`dır.
+dosyasındadır. ENTERPRISE-LAB-02 Keycloak, secret manager, fake ServiceNow ve
+SIEM uygulama adaptörlerinin veri-minimum/idempotent ve bağlantı/yetki/secret/
+audit aktarım fail-closed negatifleri
+`01-Birim/test_enterprise_lab_adapters.py` dosyasındadır (iki hedef dosyada
+`24 passed`).
+ENTERPRISE-LAB-03 canlı Compose kapısı sekiz healthy servis ve gerçek container
+ağında 14 Keycloak/secret manager/ServiceNow/SIEM olumlu-negatif adapter
+senaryosunu kapsar. Kesinti, yetki reddi, timeout, 429 ve hatalı payload/yanıt
+sonrası fail-closed toparlanma ile log redaksiyonu doğrulanmıştır. Sonuç yalnız
+`PrototypeVerified`dır; [manifest](../08-Uyum-Kanitlari/Guvenlik-Testleri/ENTERPRISE-LAB-03-Kanit-Manifesti.json)
+production veya banka onayı değildir.
 
 ## Kesinleşen Kararların Doğrulama Kapsamı
 

@@ -2,36 +2,38 @@
 type: next-step
 status: completed
 updated_at: 2026-07-29
-work_package: ENTERPRISE-LAB-01
-predecessor: 36H2
+work_package: ENTERPRISE-LAB-03
+predecessor: ENTERPRISE-LAB-02
 ---
 
-# Son Tamamlanan Çalışma Paketi — Kurumsal Entegrasyon Laboratuvarı
+# Son Tamamlanan Çalışma Paketi — Canlı Compose Uçtan Uca Doğrulama
 
-[ENTERPRISE-LAB-01](09-Iterasyonlar/ENTERPRISE-LAB-01-Prototip-Kurumsal-Entegrasyon-Laboratuvari.md)
-yalnız sentetik ve production olmayan Docker Compose laboratuvarı olarak
+[ENTERPRISE-LAB-03](09-Iterasyonlar/ENTERPRISE-LAB-03-Canli-Compose-Uctan-Uca-Dogrulama.md)
+yalnız sentetik ve production olmayan canlı Compose adapter kabul kapısı olarak
 `PrototypeVerified` sınıfında kapanmıştır.
 
 ## Tamamlanan Kapsam
 
-- Keycloak, yerel prototip secret manager, PostgreSQL primary-standby ve RabbitMQ.
-- Fake ServiceNow, SIEM collector ve create-only kanıt deposu.
-- `27A` sözleşmesini kullanan fail-closed ortam/veri/secret/endpoint kapısı.
-- Runtime secret üretimi; secret değerlerinin repository ve doğrulama çıktısından
-  dışlanması.
+- ENTERPRISE-LAB-01'in sekiz temel servisi healthy durumda çalıştırıldı.
+- ENTERPRISE-LAB-02 adaptörleri gerçek container DNS/ağında doğrulandı.
+- Keycloak rol/scope, dosya tabanlı secret, ServiceNow idempotency ve
+  veri-minimum SIEM olumlu akışları geçti.
+- Geçersiz kimlik/rol, eksik secret, yetki reddi, kesinti, timeout, 429 ve
+  hatalı SIEM akışları fail-closed olup sonraki istekte kontrollü toparlandı.
 
 ## Doğrulama
 
-- Hedef birim: `7 passed`; lint ve Compose config başarılı.
-- Sekiz servis healthy; PostgreSQL standby `streaming`/recovery modunda.
-- Fake ServiceNow idempotency, SIEM kabulü, create-only kanıt davranışı ve yerel
-  secret çözümleme doğrulandı.
+- Canlı Compose kapısı: sekiz healthy servis ve 14 senaryo `PASSED`.
+- PostgreSQL primary replikasyonu `streaming`; standby recovery `true`.
+- ENTERPRISE-LAB-01/02 hedef birim testleri: `24 passed`.
+- İlgili lint/format, shell syntax, Compose config ve log redaksiyon kapıları
+  başarılı.
 - Ayrıntılı komut ve sonuçlar
-  [kapanış kaydındadır](09-Iterasyonlar/ENTERPRISE-LAB-01-Prototip-Kurumsal-Entegrasyon-Laboratuvari.md).
+  [kapanış kaydındadır](09-Iterasyonlar/ENTERPRISE-LAB-03-Canli-Compose-Uctan-Uca-Dogrulama.md).
 
 ## Sıradaki Durum
 
-Laboratuvar kurumsal ürün veya production readiness kanıtı değildir.
+Canlı sentetik kabul sonucu kurumsal ürün veya production readiness kanıtı değildir.
 `ApprovedByBank` sonucu üretmez. Gerçek IdP/PAM/HA/broker/SIEM/WORM/ServiceNow/DR
 bağımlılıkları kanonik [backlogda](00-Proje-Hafizasi/Sonraki-Adimlar.md)
 `ExternalDependency` olarak açık kalır.

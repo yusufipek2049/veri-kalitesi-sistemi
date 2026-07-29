@@ -28,7 +28,9 @@ x-mock-service: &mock-service
 
 services:
   environment-gate:
-    image: python:3.12.11-alpine3.22
+    build:
+      context: ../..
+      dockerfile: infrastructure/enterprise-lab/e2e/Dockerfile
     command:
       - python
       - -m
@@ -53,7 +55,9 @@ services:
     volumes:
       - ./scripts/keycloak-entrypoint.sh:/lab/keycloak-entrypoint.sh:ro
       - ./config/keycloak-realm.json:/opt/keycloak/data/import/enterprise-lab-realm.json:ro
-    secrets: [keycloak_admin_password]
+    secrets:
+      - keycloak_admin_password
+      - keycloak_lab_user_password
     ports: ["127.0.0.1:18080:8080"]
     healthcheck:
       test:
@@ -141,6 +145,7 @@ services:
     cap_add: [DAC_READ_SEARCH]
     secrets:
       - keycloak_admin_password
+      - lab_fault_control_token
       - local_secret_manager_token
       - postgres_app_password
       - postgres_replication_password
@@ -150,11 +155,15 @@ services:
   fake-servicenow:
     <<: *mock-service
     command: [servicenow]
+    secrets: [lab_fault_control_token]
+    cap_add: [DAC_READ_SEARCH]
     ports: ["127.0.0.1:18081:8080"]
 
   siem-collector:
     <<: *mock-service
     command: [siem]
+    secrets: [lab_fault_control_token]
+    cap_add: [DAC_READ_SEARCH]
     ports: ["127.0.0.1:18082:8080"]
 
   evidence-store:
@@ -164,6 +173,41 @@ services:
     volumes:
       - evidence-data:/var/lib/enterprise-lab/evidence
     ports: ["127.0.0.1:18083:8080"]
+
+  adapter-e2e:
+    <<: *gated-service
+    profiles: [acceptance]
+    build:
+      context: ../..
+      dockerfile: infrastructure/enterprise-lab/e2e/Dockerfile
+    command: [python, /lab-e2e/live_adapters.py]
+    environment:
+      PYTHONPATH: /application
+    volumes:
+      - ../../03-Backend/src:/application:ro
+      - ./config/environment.json:/lab-config/environment.json:ro
+      - ./e2e/live_adapters.py:/lab-e2e/live_adapters.py:ro
+    secrets:
+      - keycloak_lab_user_password
+      - lab_fault_control_token
+      - local_secret_manager_token
+    cap_add: [DAC_READ_SEARCH]
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    restart: "no"
+    depends_on:
+      environment-gate:
+        condition: service_completed_successfully
+      keycloak:
+        condition: service_healthy
+      local-secret-manager:
+        condition: service_healthy
+      fake-servicenow:
+        condition: service_healthy
+      siem-collector:
+        condition: service_healthy
 
 networks:
   enterprise-lab:
@@ -176,6 +220,10 @@ volumes:
 secrets:
   keycloak_admin_password:
     file: ./runtime-secrets/keycloak_admin_password
+  keycloak_lab_user_password:
+    file: ./runtime-secrets/keycloak_lab_user_password
+  lab_fault_control_token:
+    file: ./runtime-secrets/lab_fault_control_token
   local_secret_manager_token:
     file: ./runtime-secrets/local_secret_manager_token
   postgres_admin_password:

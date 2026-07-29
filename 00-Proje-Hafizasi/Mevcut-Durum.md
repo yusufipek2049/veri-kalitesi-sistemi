@@ -18,7 +18,8 @@ last_updated: 2026-07-29
 | Çalıştırmalar | 36E PostgreSQL cutover, 36F kalıcı scheduling/policy, 36H1 kuyruk çekirdeği ve 36H2 iş yürütme yaşam döngüsü `TechnicallyVerified` olarak tamamlanmıştır. | Gerçek üretim IdP, secret manager/PAM, HA PostgreSQL/broker ve SIEM/WORM ayrı kurumsal kapılardır; bağımlılıkları tamamlanmış yeni bir `Next`/`READY` teknik paket yoktur. |
 | Raporlama | 36G güvenli PDF/XLSX/CSV üretimi/indirme yüzeyi 36H2 ile kalıcı `REPORT` kuyruğuna bağlandı; istek-içi worker yalnız açık geliştirme modundadır. | Kurumsal DLP/watermark ürün entegrasyonu ayrıdır. |
 | Frontend | Dashboard ve alan ekranları; güvenilir mutasyon, optimistic locking ve no-persistent-sensitive-draft kuralları uygulanmıştır. Çalıştırma ve rapor ekranları 36E/36G kapanış kanıtlarıyla uyumludur. | Gerçek IdP/üretim API verisi ve kurumsal DLP/watermark adaptörleri açık. |
-| Kurumsal entegrasyon laboratuvarı | ENTERPRISE-LAB-01 sentetik/non-production Compose bileşimi `PrototypeVerified`; sekiz servis ve fail-closed ortam kapısı sağlıklıdır. | Fake/yerel servisler kurumsal ürün, WORM/HA/DR, `ApprovedByBank` veya production-ready kanıtı değildir. |
+| Kurumsal entegrasyon laboratuvarı | ENTERPRISE-LAB-03 ile sentetik Keycloak, yerel secret manager, fake ServiceNow ve SIEM uygulama adaptörleri canlı Compose/container ağında olumlu ve fail-closed negatiflerle `PrototypeVerified`; ENTERPRISE-LAB-01/02 sınırları korunur. | Fake/yerel servisler kurumsal ürün, WORM/HA/DR, `ApprovedByBank` veya production-ready kanıtı değildir. |
+| Ürün yetenek listesi | 29 Temmuz 2026 özellik karşılaştırması ve `DQ-CAP-001–015` prototip yönleri kanonik olarak kaydedildi. | Yalnız kalite boyutları ile teknik hata/kalite ihlali ayrımı çekirdekte bütündür; kalan başlıklar [durum matrisindeki](Urun-Yetenek-Durum-Matrisi.md) kısmi/hedef/harici sınırları korur. |
 | Production readiness | Hazır değil. | IdP/SSO-MFA, PAM/secret, HA veri/session, broker, SIEM/WORM, ServiceNow, DR ve banka onayları gerekir. |
 
 ## Aktif İterasyon Bağlamı
@@ -36,6 +37,6 @@ aktif işlerde yeni koşu sonucu ayrıca kaydedilmelidir.
 
 ## Sıradaki Adım
 
-ENTERPRISE-LAB-01 yalnız prototip olarak kapanmıştır. Bağımlılıkları tamamlanmış
+ENTERPRISE-LAB-03 yalnız prototip olarak kapanmıştır. Bağımlılıkları tamamlanmış
 yeni bir `Next`/`READY` teknik paket yoktur; kalan production readiness başlıkları
 [backlogda](Sonraki-Adimlar.md) `ExternalDependency` durumundadır.

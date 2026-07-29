@@ -29,7 +29,7 @@ Doğrulama komutları: `npm test`, `npm run typecheck`, `npm run build`,
 
 | Route/alan | Salt okunur ekran | Yazılabilir akış | Durum/not |
 | --- | --- | --- | --- |
-| Dashboard | Var | Yok | Özet ve trend ekranı; üretim IdP/veri adaptörü açık. |
+| Dashboard | Var | Yok | Özet ve trend ekranı mevcut; iş alanı/SLA analitiği ve mühendis için dağılım-lineage-teşhis görünümü ile üretim IdP/veri adaptörü açık. |
 | Veri kaynakları | Var | Oluşturma, test, aktivasyon/pasifleştirme | Teknik UI/API mevcut; secret değeri UI/payload/log/audit/DB'de tutulmaz. |
 | Kurallar | Var | Taslak, düzenleme, test, onay akışları | Teknik UI/API ve PostgreSQL repository mevcut. |
 | Çalıştırmalar | Var | Manuel başlatma ve iptal | Teknik UI/API mevcut; backend runtime PostgreSQL cutover 36E ile teknik olarak doğrulanmıştır. |
@@ -37,6 +37,10 @@ Doğrulama komutları: `npm test`, `npm run typecheck`, `npm run build`,
 | Raporlar | Var | Rapor talebi ve indirme | 36G ile ReportsPage, API client/model, rapor geçmişi, talep ve güvenli indirme akışları uygulanmıştır; kurumsal DLP/watermark ürün entegrasyonu ayrıdır. |
 | Denetim | Var | Değişiklik yok | Salt okunur, rol/scope kontrollü bütünlük görünümü. |
 | Kanıtlı karar/olay inceleme | Hedef | Hedef | `FR-097–FR-111`; ikinci faz, üretim route'u değildir. |
+
+Kullanıcı özellik listesinin ekran/runtime karşılaştırması
+[Ürün Yetenek Durum Matrisi](../00-Proje-Hafizasi/Urun-Yetenek-Durum-Matrisi.md)
+içinde tutulur.
 
 ## Uygulanmış Tasarım Kuralları
 

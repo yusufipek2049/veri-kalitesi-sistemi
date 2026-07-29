@@ -12,7 +12,7 @@ from urllib.parse import unquote
 
 LINK_RE = re.compile(r"(?<!!)\[[^\]]*\]\(([^)]+)\)")
 H1_RE = re.compile(r"^#\s+(.+?)\s*$", re.MULTILINE)
-ID_RE = re.compile(r"\b(?:BR-\d{3}|FR-\d{3}|UC-\d{3}|RULE-\d{3}|AC-\d{3}|TS-\d{3}|NFR-[A-Z]+-\d{3}|ADR-\d{3}|OPEN-BNK-\d{3}|OPEN-\d{3}|DQ-SCR-\d{3}|API-\d{3}|FE-(?:DEC|DS)-\d{3}|PG-MIG-\d{3}|UI-WRITE-\d{3})\b")
+ID_RE = re.compile(r"\b(?:BR-\d{3}|FR-\d{3}|UC-\d{3}|RULE-\d{3}|AC-\d{3}|TS-\d{3}|NFR-[A-Z]+-\d{3}|ADR-\d{3}|OPEN-BNK-\d{3}|OPEN-\d{3}|DQ-(?:SCR|CAP)-\d{3}|API-\d{3}|FE-(?:DEC|DS)-\d{3}|PG-MIG-\d{3}|UI-WRITE-\d{3})\b")
 EXCLUDED_DIRS = {'.git', '.venv', 'node_modules', '__pycache__', '.pytest_cache'}
 ARCHIVE_PREFIXES = ('archive/', 'docs/archive/', 'docs/technical/')
 DUPLICATE_SCAN_EXCLUDED_PREFIXES = ('08-Uyum-Kanitlari/', '09-Iterasyonlar/')
@@ -97,7 +97,7 @@ def canonical_id_definitions(root: Path) -> dict[str, list[str]]:
 
     decision_paths = list((root / '00-Proje-Hafizasi/Karar-Kayitlari').glob('*.md'))
     decision_paths.append(root / '00-Proje-Hafizasi/Acik-Konular.md')
-    decision_pattern = re.compile(r'^\|\s*`?((?:OPEN(?:-BNK)?|API|FE-(?:DEC|DS)|PG-MIG|UI-WRITE)-\d{3})`?\s*\|')
+    decision_pattern = re.compile(r'^\|\s*`?((?:OPEN(?:-BNK)?|DQ-CAP|API|FE-(?:DEC|DS)|PG-MIG|UI-WRITE)-\d{3})`?\s*\|')
     for path in decision_paths:
         scan_table(path, decision_pattern)
 
