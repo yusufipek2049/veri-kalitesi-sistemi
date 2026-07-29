@@ -45,6 +45,7 @@ agentloop_init() {
   : "${CODEX_BIN:=codex}"
   : "${UNIT_TEST_DIR:=06-Testler/01-Birim}"
   : "${INTEGRATION_TEST_DIR:=06-Testler/02-Entegrasyon}"
+  : "${OPTIONAL_INTEGRATION_TEST:=$INTEGRATION_TEST_DIR/test_synthetic_postgresql_integration.py}"
 
   # PostgreSQL değişkenleri set -u altında güvenli olsun diye boş default.
   : "${DATA_QUALITY_POSTGRES_TEST_URL:=}"
@@ -136,21 +137,28 @@ discover_changed_files() {
 }
 
 # Görev etkisi PostgreSQL/entegrasyon gerektiriyor mu?
-# Uygulama kaynağı, migration veya entegrasyon testi değiştiyse gerekir.
+# Yalnız uygulama kaynağı, Alembic yapılandırması/migration'ı veya entegrasyon
+# testi değiştiyse gerekir. Backend/veritabanı indeks ve runbook belgeleri
+# PostgreSQL davranış değişikliği değildir.
 integration_required() {
   local files
   files="$(discover_changed_files)"
-  grep -Eq '^(03-Backend/src/|05-Veritabani/|'"$INTEGRATION_TEST_DIR"'/)' <<<"$files"
+  grep -Eq '^(03-Backend/src/|05-Veritabani/alembic|'"$INTEGRATION_TEST_DIR"'/)' <<<"$files"
 }
 
 # Çalıştırılacak entegrasyon hedefleri: değişen entegrasyon testleri, yoksa
-# tüm entegrasyon dizini.
+# zorunlu entegrasyon dizini. Ayrı ortam değişkenleri isteyen opsiyonel suite,
+# geniş kapıda dışlanır; kendisi değiştirildiyse doğrudan hedeflenir ve skip
+# edilmesi yine kapıyı düşürür.
 discover_integration_targets() {
   local changed
   changed="$(discover_changed_files | grep -E '^'"$INTEGRATION_TEST_DIR"'/.*\.py$' || true)"
   if [[ -n "$changed" ]]; then
     printf '%s\n' "$changed"
   else
+    if [[ -n "${OPTIONAL_INTEGRATION_TEST:-}" ]]; then
+      printf '%s\n' "--ignore=$OPTIONAL_INTEGRATION_TEST"
+    fi
     printf '%s\n' "$INTEGRATION_TEST_DIR"
   fi
 }

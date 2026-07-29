@@ -143,6 +143,7 @@ override.tf.json
 *_override.tf.json
 docker-compose.override.yml
 docker-compose.override.yaml
+/infrastructure/enterprise-lab/runtime-secrets/
 
 # Notebook and profiling output
 .ipynb_checkpoints/

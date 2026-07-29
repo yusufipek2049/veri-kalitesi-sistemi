@@ -39,10 +39,17 @@ tags:
 36H2 kalıcı iş yaşam döngüsü kanıtı
 `01-Birim/test_job_queue.py`, `01-Birim/test_persistent_job_worker.py`,
 `01-Birim/test_persistent_job_handlers.py`, `01-Birim/test_source_usage_policies.py` ve
-`02-Entegrasyon/test_postgresql_job_queue.py` dosyalarındadır; son hedefli
-implementer koşusu `42 passed` vermiştir; controller/reviewer kapıları
-beklenmektedir. PostgreSQL kanıtındaki son canlı koşu skipsiz `32 passed`
-sonucudur.
+`02-Entegrasyon/test_postgresql_job_queue.py` dosyalarındadır. 2026-07-29
+controller kapısı tüm birim paketinde `1172 passed`; etkilenen data source ve
+job queue PostgreSQL dosyalarında skip olmadan `41 passed` sonucu vermiş,
+reviewer `APPROVED` kararıyla kapanmıştır.
+
+ENTERPRISE-LAB-01 fail-closed ortam kapısı ve production/gerçek veri/overclaim
+ile endpoint rol eşleşmesi negatifleri `01-Birim/test_enterprise_lab.py`
+dosyasındadır (`7 passed`).
+Compose runtime doğrulaması sekiz healthy servis, PostgreSQL streaming standby,
+fake ServiceNow idempotency, SIEM kabulü, create-only kanıt deposu ve değer
+yazdırmayan yerel secret çözümlemesini kapsar; sonuç yalnız `PrototypeVerified`dır.
 
 ## Kesinleşen Kararların Doğrulama Kapsamı
 
@@ -169,6 +176,6 @@ geçmez.
 | `36E` execution cutover | Migration, PostgreSQL repository, entegrasyon testleri ve `PostgreSQLExecutionStartService`/`PostgreSQLExecutionCancelService` adaptörleri mevcut. | `TechnicallyVerified`; production composition root PostgreSQL kullanabilir ve SQLite repository runtime export'ta değildir. |
 | `36F` scheduling/policy kalıcılığı | PostgreSQL scheduling/source-usage policy repository'leri, `20260724_05` migration'ı ve runtime export temizliği mevcut. | `TechnicallyVerified`; PostgreSQL entegrasyon kanıtının yeniden koşulması için `DATA_QUALITY_POSTGRES_TEST_URL` gerekir. |
 | `36G` güvenli raporlama | Birim testleri; report/report schedule repository'leri; `20260724_06/07` migration'ları ve PostgreSQL yaşam döngüsü entegrasyon testi mevcut. | `TechnicallyVerified`; PostgreSQL entegrasyon kanıtının yeniden koşulması için `DATA_QUALITY_POSTGRES_TEST_URL` gerekir. Kalıcı queue/worker dayanıklılığı ayrı pakettir. |
-| `36H1`/`36H2` kalıcı iş kuyruğu ve yaşam döngüsü | Dört hedefli birim dosyası (`42 passed` implementer koşusu); son canlı PostgreSQL `test_postgresql_job_queue.py` kanıtı (`32 passed`, skip yok); `20260728_08` + `20260729_09` + `20260729_10` migration zinciri. | 36H1 `TechnicallyVerified`; 36H2 bounded timeout/iptal, production reaper ve atomik execution+job iptali kod/test yüzeyine sahiptir ancak controller entegrasyon kapısı ve reviewer `APPROVED` sonucu beklenmektedir. |
+| `36H1`/`36H2` kalıcı iş kuyruğu ve yaşam döngüsü | Controller birim paketi `1172 passed`; etkilenen PostgreSQL dosyaları `41 passed`, skip yok; `20260728_08` + `20260729_09` + `20260729_10` migration zinciri. | 36H1 ve 36H2 `TechnicallyVerified`; bounded timeout/iptal, production reaper ve atomik execution+job iptali reviewer `APPROVED` kararıyla doğrulandı. |
 
-Aktif doğrulama paketi [NEXT_STEP.md](../NEXT_STEP.md) içinde kayıtlıdır.
+Son tamamlanan doğrulama paketi [NEXT_STEP.md](../NEXT_STEP.md) içinde kayıtlıdır.

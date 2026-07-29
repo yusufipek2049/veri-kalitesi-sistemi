@@ -1,0 +1,188 @@
+name: enterprise-lab-01
+
+x-gated-service: &gated-service
+  restart: unless-stopped
+  networks: [enterprise-lab]
+  depends_on:
+    environment-gate:
+      condition: service_completed_successfully
+
+x-mock-service: &mock-service
+  <<: *gated-service
+  build:
+    context: ./services
+  read_only: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop: [ALL]
+  healthcheck:
+    test:
+      - CMD
+      - python
+      - -c
+      - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2)"
+    interval: 10s
+    timeout: 3s
+    retries: 12
+    start_period: 5s
+
+services:
+  environment-gate:
+    image: python:3.12.11-alpine3.22
+    command:
+      - python
+      - -m
+      - veri_kalitesi.enterprise_lab
+      - /lab-config/environment.json
+    environment:
+      PYTHONPATH: /application
+    volumes:
+      - ../../03-Backend/src:/application:ro
+      - ./config/environment.json:/lab-config/environment.json:ro
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    networks: [enterprise-lab]
+    restart: "no"
+
+  keycloak:
+    <<: *gated-service
+    image: quay.io/keycloak/keycloak:26.3.3
+    entrypoint: ["/lab/keycloak-entrypoint.sh"]
+    volumes:
+      - ./scripts/keycloak-entrypoint.sh:/lab/keycloak-entrypoint.sh:ro
+      - ./config/keycloak-realm.json:/opt/keycloak/data/import/enterprise-lab-realm.json:ro
+    secrets: [keycloak_admin_password]
+    ports: ["127.0.0.1:18080:8080"]
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && grep -q '\"status\": \"UP\"' <&3"
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+
+  postgres-primary:
+    <<: *gated-service
+    image: postgres:16.13-alpine3.22
+    entrypoint: ["/lab/postgres-primary-entrypoint.sh"]
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - max_wal_senders=10
+      - -c
+      - max_replication_slots=10
+    environment:
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    secrets:
+      - postgres_admin_password
+      - postgres_app_password
+      - postgres_replication_password
+    volumes:
+      - postgres-primary-data:/var/lib/postgresql/data
+      - ./scripts/postgres-primary-entrypoint.sh:/lab/postgres-primary-entrypoint.sh:ro
+      - ./scripts/postgres-primary-init.sh:/docker-entrypoint-initdb.d/10-enterprise-lab.sh:ro
+    ports: ["127.0.0.1:15432:5432"]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready --username postgres --dbname postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  postgres-standby:
+    <<: *gated-service
+    image: postgres:16.13-alpine3.22
+    entrypoint: ["/lab/postgres-standby-entrypoint.sh"]
+    environment:
+      PGDATA: /var/lib/postgresql/data
+    secrets: [postgres_replication_password]
+    volumes:
+      - postgres-standby-data:/var/lib/postgresql/data
+      - ./scripts/postgres-standby-entrypoint.sh:/lab/postgres-standby-entrypoint.sh:ro
+    ports: ["127.0.0.1:15433:5432"]
+    depends_on:
+      environment-gate:
+        condition: service_completed_successfully
+      postgres-primary:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "pg_isready --username postgres --dbname postgres && test \"$(psql --username postgres --dbname postgres --tuples-only --no-align --command 'select pg_is_in_recovery()')\" = t"
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 15s
+
+  rabbitmq:
+    <<: *gated-service
+    image: rabbitmq:4.1.2-management-alpine
+    entrypoint: ["/lab/rabbitmq-entrypoint.sh"]
+    secrets: [rabbitmq_password]
+    volumes:
+      - ./scripts/rabbitmq-entrypoint.sh:/lab/rabbitmq-entrypoint.sh:ro
+    ports:
+      - "127.0.0.1:15672:15672"
+    healthcheck:
+      test: [CMD, rabbitmq-diagnostics, -q, ping]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  local-secret-manager:
+    <<: *mock-service
+    command: [secret-manager]
+    cap_add: [DAC_READ_SEARCH]
+    secrets:
+      - keycloak_admin_password
+      - local_secret_manager_token
+      - postgres_app_password
+      - postgres_replication_password
+      - rabbitmq_password
+    ports: ["127.0.0.1:18200:8080"]
+
+  fake-servicenow:
+    <<: *mock-service
+    command: [servicenow]
+    ports: ["127.0.0.1:18081:8080"]
+
+  siem-collector:
+    <<: *mock-service
+    command: [siem]
+    ports: ["127.0.0.1:18082:8080"]
+
+  evidence-store:
+    <<: *mock-service
+    command: [evidence]
+    read_only: false
+    volumes:
+      - evidence-data:/var/lib/enterprise-lab/evidence
+    ports: ["127.0.0.1:18083:8080"]
+
+networks:
+  enterprise-lab:
+
+volumes:
+  postgres-primary-data:
+  postgres-standby-data:
+  evidence-data:
+
+secrets:
+  keycloak_admin_password:
+    file: ./runtime-secrets/keycloak_admin_password
+  local_secret_manager_token:
+    file: ./runtime-secrets/local_secret_manager_token
+  postgres_admin_password:
+    file: ./runtime-secrets/postgres_admin_password
+  postgres_app_password:
+    file: ./runtime-secrets/postgres_app_password
+  postgres_replication_password:
+    file: ./runtime-secrets/postgres_replication_password
+  rabbitmq_password:
+    file: ./runtime-secrets/rabbitmq_password

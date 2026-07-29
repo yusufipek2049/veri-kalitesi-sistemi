@@ -7,19 +7,20 @@ last_updated: 2026-07-29
 
 # Sonraki Adımlar
 
-Tek uygulanabilir sıradaki paket: [36H2 iş yürütme yaşam döngüsü doğrulaması](../NEXT_STEP.md)
-— kod yüzeyi mevcut ama review açık correctness bulguları tespit etti; doğrulanana
-kadar tamamlanmış sayılmaz.
+Bağımlılıkları tamamlanmış `Next`/`READY` teknik paket yoktur.
+[ENTERPRISE-LAB-01](../NEXT_STEP.md) sentetik/non-production laboratuvar olarak
+`PrototypeVerified` kapanmıştır. Kalan production başlıkları dış bağımlılıklardır.
 
 ## Aktif Backlog
 
 | Sıra | İş | Durum | Tamamlanma ölçütü |
 | --- | --- | --- | --- |
-| 1 | İş yürütme yaşam döngüsü doğrulaması (36H2 açık bulguları) | `Next` / `VerificationPending` | Timeout/iptalde bounded handler wait, reaper'ın production worker'a bağlanması, atomik execution+job iptali ve eksik entegrasyon testleri [NEXT_STEP](../NEXT_STEP.md) çıkış kapıları geçilip reviewer `APPROVED` verince [36H2](../09-Iterasyonlar/Iterasyon-36H2-Is-Yurutme-Yasam-Dongusu.md) `TechnicallyVerified` olur. |
-| 2 | 36H1 kalıcı iş kuyruğu çekirdeği | `Completed` / `TechnicallyVerified` | `veri_kalitesi/jobs` idempotent enqueue, deterministik lease claim, sahip-only heartbeat, süresi geçen claim toparlama, optimistic version concurrency ve `background_jobs` migration'ı iterasyon kaydındadır. |
-| 3 | 36F scheduling/policy PostgreSQL kalıcılığı | `Completed` / `TechnicallyVerified` | PostgreSQL repository/migration mevcut; SQLite scheduling/policy repository'leri runtime export'tan çıkarılmıştır. |
-| 4 | 36G güvenli rapor üretimi ve indirme | `Completed` / `TechnicallyVerified` | PDF/XLSX/CSV, zamanlanmış rapor, politika framework'ü, PostgreSQL repository, API ve frontend kanıtı kapanış kaydındadır. |
-| 5 | Kurumsal production adaptörleri | `ExternalDependency` | IdP, PAM/secret manager, HA veri/session, broker, SIEM/WORM, ServiceNow ve DR kanıtları. |
+| 1 | ENTERPRISE-LAB-01 prototip entegrasyon laboratuvarı | `Completed` / `PrototypeVerified` | Sentetik/non-production Compose, sekiz healthy servis, fail-closed ortam kapısı ve streaming PostgreSQL standby [kapanış kaydında](../09-Iterasyonlar/ENTERPRISE-LAB-01-Prototip-Kurumsal-Entegrasyon-Laboratuvari.md); production/banka onayı değildir. |
+| 2 | İş yürütme yaşam döngüsü (36H2) | `Completed` / `TechnicallyVerified` | Bounded timeout/iptal, production reaper, atomik execution+job iptali; controller `1172 passed` birim ve skip'siz `41 passed` PostgreSQL kapıları ile reviewer `APPROVED` kararı [36H2 kaydındadır](../09-Iterasyonlar/Iterasyon-36H2-Is-Yurutme-Yasam-Dongusu.md). |
+| 3 | 36H1 kalıcı iş kuyruğu çekirdeği | `Completed` / `TechnicallyVerified` | `veri_kalitesi/jobs` idempotent enqueue, deterministik lease claim, sahip-only heartbeat, süresi geçen claim toparlama, optimistic version concurrency ve `background_jobs` migration'ı iterasyon kaydındadır. |
+| 4 | 36F scheduling/policy PostgreSQL kalıcılığı | `Completed` / `TechnicallyVerified` | PostgreSQL repository/migration mevcut; SQLite scheduling/policy repository'leri runtime export'tan çıkarılmıştır. |
+| 5 | 36G güvenli rapor üretimi ve indirme | `Completed` / `TechnicallyVerified` | PDF/XLSX/CSV, zamanlanmış rapor, politika framework'ü, PostgreSQL repository, API ve frontend kanıtı kapanış kaydındadır. |
+| 6 | Kurumsal production adaptörleri | `ExternalDependency` | Gerçek IdP, PAM/secret manager, HA veri/session, broker, SIEM/WORM, ServiceNow ve DR kanıtları; prototip lab bunların yerine geçmez. |
 
 ## Son Yedi İterasyonun Konsolide Çıktısı
 
@@ -34,9 +35,8 @@ production composition root'unda, `SQLiteExecutionRepository` runtime export'tan
 güvenli rapor üretimi/indirme (36G) de tamamlanmıştır. Kalıcı iş kuyruğu çekirdeği
 (36H1) `veri_kalitesi/jobs` modülünde eklenmiştir.
 
-36H1 çekirdeğinin üstündeki iş yürütme yaşam döngüsü (36H2) kod yüzeyi eklendi
-ancak review açık correctness bulguları tespit etti (bounded handler wait, reaper
-bağlama, atomik iptal, eksik entegrasyon testi). Sıradaki tek iş bu bulguları
-kapatıp controller test kapılarını geçirmektir.
+36H1 çekirdeğinin üstündeki iş yürütme yaşam döngüsü (36H2) bounded handler
+wait, production reaper, atomik iptal ve controller entegrasyon kapsamıyla
+tamamlanmış; reviewer `APPROVED` kararıyla `TechnicallyVerified` olmuştur.
 
 Tamamlanmış eski backlog ayrıntıları [iterasyon arşivindedir](../archive/iterations/README.md).

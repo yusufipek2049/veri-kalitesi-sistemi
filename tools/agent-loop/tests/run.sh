@@ -179,9 +179,34 @@ t_integration_required_detection() {
   # sadece unit test değişikliği -> gerekmez
   echo "x" > "$ROOTX/06-Testler/01-Birim/test_x.py"
   if integration_required; then fail "yalnız unit değişikliği entegrasyon gerektirmemeli"; else ok; fi
+  # backend/veritabanı dokümanı değişikliği -> gerekmez
+  echo "doc" > "$ROOTX/03-Backend/BACKEND-INDEX.md"
+  echo "doc" > "$ROOTX/05-Veritabani/VERITABANI-INDEX.md"
+  if integration_required; then fail "doküman değişikliği entegrasyon gerektirmemeli"; else ok; fi
+  # Alembic değişikliği -> gerekir
+  mkdir -p "$ROOTX/05-Veritabani/alembic/versions"
+  echo "migration" > "$ROOTX/05-Veritabani/alembic/versions/x.py"
+  if integration_required; then ok; else fail "migration değişikliği entegrasyon gerektirmeli"; fi
+  rm -f "$ROOTX/05-Veritabani/alembic/versions/x.py"
   # src değişikliği -> gerekir
   echo "y" > "$ROOTX/03-Backend/src/veri_kalitesi/z.py"
   if integration_required; then ok; else fail "src değişikliği entegrasyon gerektirmeli"; fi
+}
+
+t_optional_integration_target_selection() {
+  local targets
+  echo "y" > "$ROOTX/03-Backend/src/veri_kalitesi/z.py"
+  targets="$(discover_integration_targets)"
+  assert_contains "$targets" "--ignore=$OPTIONAL_INTEGRATION_TEST" \
+    "geniş kapı opsiyonel suite'i dışlamalı"
+  assert_contains "$targets" "$INTEGRATION_TEST_DIR" \
+    "geniş kapı zorunlu entegrasyon dizinini çalıştırmalı"
+
+  mkdir -p "$(dirname "$ROOTX/$OPTIONAL_INTEGRATION_TEST")"
+  echo "test" > "$ROOTX/$OPTIONAL_INTEGRATION_TEST"
+  targets="$(discover_integration_targets)"
+  assert_eq "$OPTIONAL_INTEGRATION_TEST" "$targets" \
+    "opsiyonel suite değişirse doğrudan zorunlu hedef olmalı"
 }
 
 t_pg_preflight_missing_no_fake_pass() {
@@ -344,6 +369,7 @@ run_test "codex-stderr-logged"                t_codex_stderr_logged
 run_test "test-timeout-exit-code"             t_test_timeout_exit_code
 run_test "pg-env-forwarded"                   t_pg_env_forwarded
 run_test "integration-required-detection"     t_integration_required_detection
+run_test "optional-integration-targets"       t_optional_integration_target_selection
 run_test "pg-preflight-missing-no-fake-pass"  t_pg_preflight_missing_no_fake_pass
 run_test "integration-skip-gate-fails"        t_integration_skip_gate_fails
 run_test "changes-required-starts-repair"     t_changes_required_starts_repair

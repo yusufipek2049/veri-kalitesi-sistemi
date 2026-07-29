@@ -1,34 +1,30 @@
 ---
 iteration: 36H2
-status: VerificationPending
+status: TechnicallyVerified
+completed_at: 2026-07-29
 decision_reference: USER-DECLARATION-2026-07-23-POSTGRESQL-WRITABLE-UI
 ---
 
 # İterasyon 36H2 — İş Yürütme Yaşam Döngüsü
 
-> **Durum: VerificationPending.** Kod yüzeyi mevcut, ancak reviewer güncel kod
-> üzerinde açık correctness bulguları tespit etti; paket doğrulanana kadar
-> **tamamlanmış sayılmaz.** Aşağıdaki "Sonuç" bölümü implementer iddiasıdır ve bir
-> kısmı review bulgularıyla çelişir (bkz. Açık İnceleme Bulguları).
+> **Durum: TechnicallyVerified.** Controller birim ve PostgreSQL kapıları
+> başarılıdır; reviewer güncel kod, test ve kanonik dokümanlar üzerinden
+> `APPROVED` kararı vermiştir.
 
-## Açık İnceleme Bulguları (review: CHANGES_REQUIRED)
+## Kapatılan İnceleme Bulguları
 
-1. Worker toplam deadline'da yalnız iptal sinyali verip handler sonucunu süresiz
-   bekliyor ve lease'i yeniliyor; iptali dinlemeyen handler'da iş hiç
-   `TIMEOUT`/`CANCELLED` olmayabilir (`jobs/worker.py`).
-2. Süresi dolan `CANCEL_REQUESTED` işleri kapatan reaper production `run_forever()`
-   yaşam döngüsüne bağlı değil; composition ayrı reaper bağlamıyor.
-3. Execution iptali ile background-job iptali iki ayrı transaction'da; kuyruk
-   hatası/yarışında API başarılı iptal kaydedip çalışan işi iptal etmeyebilir
-   (`api/postgresql_execution.py`).
-4. Değiştirilen execution cancel/repository yolu için ilgili PostgreSQL entegrasyon
-   testi controller raporunda yok; iptali dinlemeyen handler, worker kaybı sonrası
-   iptal kapanışı ve kuyruk-iptal-hatası atomik rollback testleri eksik.
+1. Toplam deadline sonrası handler beklemesi sınırlandırıldı; iptal sinyali,
+   terminal `TIMEOUT`/`CANCELLED`, heartbeat'in durması ve geç yan etkinin
+   engellenmesi birim testleriyle doğrulandı.
+2. Süresi dolan `CANCEL_REQUESTED` reaper'ı production `run_forever()` yaşam
+   döngüsüne bağlandı ve transactional audit ile kapanış doğrulandı.
+3. Execution ve background-job iptali aynı PostgreSQL transaction'ına alındı;
+   kuyruk iptal hatasında execution, job ve audit rollback'i entegrasyon
+   testiyle doğrulandı.
+4. Etkilenen job queue ve data source PostgreSQL testleri controller hedeflerine
+   alındı ve skip olmadan geçti.
 
-Bu bulgular giderilip controller test kapıları (birim + etkilenen PostgreSQL
-entegrasyonu, skip'siz) geçtikten sonra kayıt `TechnicallyVerified` yapılır.
-
-## Sonuç (implementer iddiası — doğrulanmadı)
+## Sonuç
 
 36H1 kalıcı kuyruk çekirdeği; sahip-only terminal geçişler, lease bırakma,
 politika kontrollü retry/backoff/ayrı bağlantı-sorgu-toplam timeoutları,
@@ -43,8 +39,9 @@ composition yalnız PostgreSQL job queue, PostgreSQL kaynak kullanım politikas�
 ve transactional audit bağımlılıklarını kabul eder. Worker handler
 çalışırken lease süresinin üçte birinde (en geç beş saniyede) heartbeat üretir;
 connection/query timeoutlarını bağlayıcıya aktarır ve aktif iptalde sürücü
-cancel çağrısını tetikler. Toplam deadline sonunda cancellation sinyali verir;
-handler durmadan terminal `TIMEOUT` yazmadığı için geç yan etki oluşmaz.
+cancel çağrısını tetikler. Toplam deadline sonunda cancellation sinyali verir,
+sınırlı grace süresinden sonra handler process'ini sonlandırır ve terminal
+`TIMEOUT` yazar; deadline sonrasında lease yenilenmez veya geç yan etki oluşmaz.
 Terminal, iptal ve lease-expiry iptal kapanışları audit/outbox olmadan reddedilir.
 
 ## Kanıt
@@ -52,13 +49,16 @@ Terminal, iptal ve lease-expiry iptal kapanışları audit/outbox olmadan redded
 - Kod: `03-Backend/src/veri_kalitesi/jobs/`
 - Migration: `20260729_09_job_lifecycle.py`,
   `20260729_10_source_policy_deadlines.py`
-- Birim: `test_job_queue.py`, `test_persistent_job_worker.py`,
-  `test_persistent_job_handlers.py`, `test_source_usage_policies.py` —
-  `42 passed` (implementer hedefli koşusu; controller/reviewer kapıları bekleniyor)
-- PostgreSQL: `test_postgresql_job_queue.py` — canlı PostgreSQL üzerinde
-  `32 passed`, skip yok; execution/report atomik enqueue/rollback, eşzamanlı aynı-kaynak
-  kotası, lease'i aşan worker heartbeat'i, audit atomikliği ve üç ayrı policy
-  deadline alanı kapsanır.
+- Controller birim kapısı (2026-07-29):
+  `python3 -m pytest -q -p no:cacheprovider 06-Testler/01-Birim` —
+  `1172 passed in 18.02s`; kanıt:
+  `.agent-handoff/logs/unit-tests-i6.log`.
+- Controller PostgreSQL kapısı (2026-07-29):
+  `python3 -m pytest -q -p no:cacheprovider 06-Testler/02-Entegrasyon/test_postgresql_data_source_persistence.py 06-Testler/02-Entegrasyon/test_postgresql_job_queue.py` —
+  `41 passed in 3.05s`, skip yok; kanıt:
+  `.agent-handoff/logs/integration-tests-i6.log`.
+- Reviewer kararı (2026-07-29): `STATUS: APPROVED`; gerekli değişiklik yok.
+  Kanıt: `.agent-handoff/logs/reviewer-i6-r0.stdout.log`.
 
 ## Kalan Sınır
 

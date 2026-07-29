@@ -27,7 +27,7 @@ updated_at: 2026-07-29
 | Çalıştırmalar | `20260724_04_execution_baseline.py` | Var | Repository ve testler mevcut; `PostgreSQLExecutionStartService`/`PostgreSQLExecutionCancelService` adaptörleri ile üretim cutover'ı tamamlandı. `create_development_app(session_factory=...)` ile PostgreSQL kullanılabilir. |
 | Zamanlama/kaynak kullanım politikası | `20260724_05_scheduling_and_policy_baseline.py`, `20260729_10_source_policy_deadlines.py` | Var | 36F ile scheduling/source-usage policy repository'leri PostgreSQL'e taşındı; ayrı bağlantı/sorgu/toplam deadline alanları eklendi; SQLite eşleri runtime export'tan çıkarılıp test double olarak sınırlandı. |
 | Raporlama | `20260724_06_reporting_baseline.py`, `20260724_07_report_schedules.py` | Var | 36G report ve report schedule PostgreSQL repository'leri runtime'a bağlandı; süreçten bağımsız kalıcı queue/worker yaşam döngüsü ayrı pakettir. |
-| Kalıcı iş kuyruğu | `20260728_08_job_queue.py`, `20260729_09_job_lifecycle.py` | Var (`PostgreSQLJobQueueRepository`) | 36H1 kuyruk/lease çekirdeği tamamlandı. 36H2 terminal yaşam döngüsü, atomik kaynak kotası, ayrı deadline, iptal, retry/dead-letter ve auditli yeniden işleme kalıcılığı kod yüzeyinde mevcuttur; controller/reviewer doğrulaması beklenmektedir. |
+| Kalıcı iş kuyruğu | `20260728_08_job_queue.py`, `20260729_09_job_lifecycle.py` | Var (`PostgreSQLJobQueueRepository`) | 36H1 kuyruk/lease çekirdeği ile 36H2 terminal yaşam döngüsü, atomik kaynak kotası/iptal, ayrı deadline, retry/dead-letter ve auditli yeniden işleme kalıcılığı `TechnicallyVerified` olarak tamamlandı. |
 
 Migration/repository varlığı, uygulamanın gerçek production wiring'inin taşındığı
 anlamına gelmez. Her domain için composition root, transaction sınırı, retry,

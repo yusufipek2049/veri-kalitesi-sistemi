@@ -1,0 +1,18 @@
+{
+  "realm": "enterprise-lab",
+  "enabled": true,
+  "displayName": "Synthetic Enterprise Lab",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "clients": [
+    {
+      "clientId": "veri-kalitesi-lab",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://127.0.0.1:18080/lab-callback"],
+      "webOrigins": ["http://127.0.0.1:18080"]
+    }
+  ]
+}
