@@ -9,6 +9,7 @@ import pytest
 from veri_kalitesi.jobs import (
     BackgroundJob,
     JobLeasePolicy,
+    JobRetryPolicy,
     JobStatus,
     JobValidationError,
     job_tables,
@@ -122,6 +123,7 @@ def test_status_vocabulary_matches_canonical_names() -> None:
     assert {status.value for status in JobStatus} == {
         "QUEUED",
         "RUNNING",
+        "CANCEL_REQUESTED",
         "SUCCESS",
         "TECHNICAL_ERROR",
         "TIMEOUT",
@@ -129,12 +131,23 @@ def test_status_vocabulary_matches_canonical_names() -> None:
     }
 
 
+def test_retry_policy_uses_bounded_exponential_delay() -> None:
+    policy = JobRetryPolicy(retry_count=3, retry_delay_seconds=2.5)
+
+    assert policy.delay_for_attempt(1) == timedelta(seconds=2.5)
+    assert policy.delay_for_attempt(3) == timedelta(seconds=10)
+    with pytest.raises(JobValidationError, match="between zero and three"):
+        JobRetryPolicy(retry_count=4, retry_delay_seconds=1)
+
+
 def test_table_contract_defines_constraints_and_indexes() -> None:
-    table = job_tables().background_jobs
+    tables = job_tables()
+    table = tables.background_jobs
 
     assert {constraint.name for constraint in table.constraints} >= {
         "uq_background_jobs_type_idempotency",
         "ck_background_jobs_status",
+        "ck_background_jobs_completion_outcome",
         "ck_background_jobs_priority",
         "ck_background_jobs_attempt_count",
         "ck_background_jobs_version",
@@ -143,4 +156,8 @@ def test_table_contract_defines_constraints_and_indexes() -> None:
         "ix_dq_background_jobs_claim",
         "ix_dq_background_jobs_lease",
         "ix_dq_background_jobs_job_type",
+    }
+    assert {index.name for index in tables.dead_letters.indexes} == {
+        "ix_dq_job_dead_letters_open",
+        "ix_dq_job_dead_letters_job",
     }

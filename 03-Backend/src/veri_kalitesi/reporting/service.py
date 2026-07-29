@@ -15,7 +15,6 @@ from veri_kalitesi.reporting.models import (
     Report,
     ReportRequest,
     ReportStatus,
-    ReportType,
 )
 from veri_kalitesi.reporting.policies import (
     ReportExportPolicyRepository,
@@ -38,6 +37,9 @@ from veri_kalitesi.reporting.models import (
     ReportType,
 )
 from veri_kalitesi.scoring.models import ScoreStatus
+from veri_kalitesi.jobs import BackgroundJob, PostgreSQLJobQueueRepository
+from veri_kalitesi.audit import PostgreSQLTransactionalAudit
+from veri_kalitesi.persistence import transactional_session
 
 
 _CODE_PATTERN = re.compile(r"[A-Z0-9_.-]{1,120}")
@@ -346,13 +348,28 @@ class ReportService:
         self,
         report_repository: ReportRepository,
         policy_repository: ReportExportPolicyRepository,
-        worker: ReportWorker,
+        worker: ReportWorker | None,
         audit_sink: AuditSink,
+        *,
+        job_queue: PostgreSQLJobQueueRepository | None = None,
+        transactional_audit: PostgreSQLTransactionalAudit | None = None,
+        inline_processing: bool = False,
     ) -> None:
         self._repo = report_repository
         self._policy_repo = policy_repository
         self._worker = worker
         self._audit = audit_sink
+        self._job_queue = job_queue
+        self._transactional_audit = transactional_audit
+        self._inline_processing = inline_processing
+        if inline_processing and worker is None:
+            raise ValueError("Inline report processing requires a report worker.")
+        if not inline_processing and (
+            job_queue is None or transactional_audit is None
+        ):
+            raise ValueError(
+                "Persistent report processing requires a job queue and transactional audit."
+            )
 
     def _resolve_actor(self, actor_context: ActorContext | None) -> ActorContext:
         if not is_trusted_actor_context(actor_context):
@@ -369,27 +386,62 @@ class ReportService:
         context = self._resolve_actor(actor_context)
         policy = self._policy_repo.get_active_policy(request.sensitivity_level)
         decision = evaluate_export(request, policy, context.correlation_id)
-        report = self._repo.create_report(request, context.actor_id)
-        self._worker.process_report(report.report_id)
-        event = AuditEventInput(
-            actor_id=context.actor_id,
-            actor_type=context.actor_type.value,
-            correlation_id=context.correlation_id,
-            action="REPORT_REQUESTED",
-            object_type="Report",
-            object_id=report.report_id,
-            result=AuditResult.SUCCESS,
-            reason_code=decision.reason_code,
-            old_values={},
-            new_values={
-                "report_type": request.report_type.value,
-                "format": request.format.value,
-                "policy_version": decision.policy_version,
-            },
-            occurred_at=datetime.now(timezone.utc),
-            session_id=context.session_id,
-        )
-        self._audit.append(event)
+        def requested_event(report_id: str) -> AuditEventInput:
+            return AuditEventInput(
+                actor_id=context.actor_id,
+                actor_type=context.actor_type.value,
+                correlation_id=context.correlation_id,
+                action="REPORT_REQUESTED",
+                object_type="Report",
+                object_id=report_id,
+                result=AuditResult.SUCCESS,
+                reason_code=decision.reason_code,
+                old_values={},
+                new_values={
+                    "report_type": request.report_type.value,
+                    "format": request.format.value,
+                    "policy_version": decision.policy_version,
+                },
+                occurred_at=datetime.now(timezone.utc),
+                session_id=context.session_id,
+            )
+        if self._inline_processing:
+            report = self._repo.create_report(request, context.actor_id)
+            assert self._worker is not None
+            self._worker.process_report(report.report_id)
+            self._audit.append(requested_event(report.report_id))
+            return report
+
+        assert self._job_queue is not None
+        assert self._transactional_audit is not None
+        with transactional_session(self._job_queue.session_factory) as session:
+            report = self._repo.create_report(
+                request,
+                context.actor_id,
+                session=session,
+            )
+            prepared = self._transactional_audit.prepare(
+                requested_event(report.report_id)
+            )
+            self._job_queue.enqueue(
+                BackgroundJob(
+                    job_id=report.report_id,
+                    job_type="REPORT",
+                    payload={
+                        "report_id": report.report_id,
+                        "source_ids": list(
+                            request.parameters.get("source_ids", ())
+                        ),
+                    },
+                    idempotency_key=report.report_id,
+                    created_at=report.created_at,
+                    updated_at=report.created_at,
+                    available_at=report.created_at,
+                ),
+                audit_event=prepared,
+                audit_outbox=self._transactional_audit,
+                session=session,
+            )
         return report
 
     def get_report(

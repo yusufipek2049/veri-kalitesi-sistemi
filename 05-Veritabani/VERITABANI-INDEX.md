@@ -2,7 +2,7 @@
 type: implementation-index
 area: database
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-updated_at: 2026-07-27
+updated_at: 2026-07-29
 ---
 
 # Veritabanı ve Veri Modeli Haritası
@@ -25,8 +25,9 @@ updated_at: 2026-07-27
 | Kural yönetimi | `20260723_02_rule_baseline.py` | Var | API/service sözleşmesi mevcut; teknik geçiş tamamlanmış olarak kaydedilmiş. |
 | Veri kaynakları | `20260724_03_data_source_baseline.py` | Var | API/service sözleşmesi mevcut; teknik geçiş tamamlanmış olarak kaydedilmiş. |
 | Çalıştırmalar | `20260724_04_execution_baseline.py` | Var | Repository ve testler mevcut; `PostgreSQLExecutionStartService`/`PostgreSQLExecutionCancelService` adaptörleri ile üretim cutover'ı tamamlandı. `create_development_app(session_factory=...)` ile PostgreSQL kullanılabilir. |
-| Zamanlama/kaynak kullanım politikası | `20260724_05_scheduling_and_policy_baseline.py` | Var | 36F ile scheduling/source-usage policy repository'leri PostgreSQL'e taşındı; SQLite eşleri runtime export'tan çıkarılıp test double olarak sınırlandı. |
+| Zamanlama/kaynak kullanım politikası | `20260724_05_scheduling_and_policy_baseline.py`, `20260729_10_source_policy_deadlines.py` | Var | 36F ile scheduling/source-usage policy repository'leri PostgreSQL'e taşındı; ayrı bağlantı/sorgu/toplam deadline alanları eklendi; SQLite eşleri runtime export'tan çıkarılıp test double olarak sınırlandı. |
 | Raporlama | `20260724_06_reporting_baseline.py`, `20260724_07_report_schedules.py` | Var | 36G report ve report schedule PostgreSQL repository'leri runtime'a bağlandı; süreçten bağımsız kalıcı queue/worker yaşam döngüsü ayrı pakettir. |
+| Kalıcı iş kuyruğu | `20260728_08_job_queue.py`, `20260729_09_job_lifecycle.py` | Var (`PostgreSQLJobQueueRepository`) | 36H1 kuyruk/lease çekirdeği ve 36H2 terminal yaşam döngüsü, atomik kaynak kotası, bağlantı/sorgu/toplam deadline, iptal, retry/dead-letter ile auditli yeniden işleme kalıcılığı tamamlandı; production composition PostgreSQL queue/policy/audit kullanır. |
 
 Migration/repository varlığı, uygulamanın gerçek production wiring'inin taşındığı
 anlamına gelmez. Her domain için composition root, transaction sınırı, retry,

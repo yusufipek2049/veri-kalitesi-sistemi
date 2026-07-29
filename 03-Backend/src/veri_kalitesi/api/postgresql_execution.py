@@ -17,7 +17,6 @@ from uuid import uuid4
 from veri_kalitesi.audit import (
     AuditEventInput,
     AuditResult,
-    PreparedAuditEvent,
 )
 from veri_kalitesi.audit.postgresql_outbox import PostgreSQLTransactionalAudit
 from veri_kalitesi.executions import (
@@ -31,6 +30,8 @@ from veri_kalitesi.executions import (
 from veri_kalitesi.executions.postgresql_repository import (
     PostgreSQLExecutionRepository,
 )
+from veri_kalitesi.jobs import BackgroundJob, PostgreSQLJobQueueRepository
+from veri_kalitesi.persistence import transactional_session
 
 
 class PostgreSQLExecutionStartService:
@@ -45,10 +46,13 @@ class PostgreSQLExecutionStartService:
     def __init__(
         self,
         repository: PostgreSQLExecutionRepository,
-        transactional_audit: PostgreSQLTransactionalAudit | None = None,
+        *,
+        job_queue: PostgreSQLJobQueueRepository,
+        transactional_audit: PostgreSQLTransactionalAudit,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ) -> None:
         self._repository = repository
+        self._job_queue = job_queue
         self._transactional_audit = transactional_audit
         self._clock = clock
 
@@ -81,11 +85,9 @@ class PostgreSQLExecutionStartService:
             created_at=now,
         )
 
-        audit_event: PreparedAuditEvent | None = None
         audit_outbox = self._transactional_audit
-        if audit_outbox is not None:
-            audit_event = audit_outbox.prepare(
-                AuditEventInput(
+        audit_event = audit_outbox.prepare(
+            AuditEventInput(
                     actor_id=triggered_by,
                     actor_type="USER",
                     correlation_id=correlation_id,
@@ -101,14 +103,48 @@ class PostgreSQLExecutionStartService:
                         "status": ExecutionStatus.QUEUED.value,
                     },
                     occurred_at=now,
-                )
             )
-
-        stored, _ = self._repository.create_or_get(
-            execution,
-            audit_event=audit_event,
-            audit_outbox=audit_outbox,
         )
+        enqueue_event = audit_outbox.prepare(
+            AuditEventInput(
+                actor_id=triggered_by,
+                actor_type="USER",
+                correlation_id=correlation_id,
+                action="JOB_ENQUEUED",
+                object_type="BackgroundJob",
+                object_id=execution_id,
+                result=AuditResult.SUCCESS,
+                reason_code="EXECUTION_REQUESTED",
+                old_values={},
+                new_values={"job_type": "EXECUTION", "execution_id": execution_id},
+                occurred_at=now,
+            )
+        )
+
+        with transactional_session(self._repository.session_factory) as session:
+            stored, _ = self._repository.create_or_get(
+                execution,
+                audit_event=audit_event,
+                audit_outbox=audit_outbox,
+                session=session,
+            )
+            self._job_queue.enqueue(
+                BackgroundJob(
+                    job_id=execution_id,
+                    job_type="EXECUTION",
+                    payload={
+                        "execution_id": execution_id,
+                        "source_ids": list(source_ids),
+                    },
+                    idempotency_key=execution_id,
+                    available_at=now,
+                    created_at=now,
+                    updated_at=now,
+                ),
+                audit_event=enqueue_event,
+                audit_outbox=audit_outbox,
+                session=session,
+            )
         return stored
 
     @staticmethod
@@ -137,11 +173,13 @@ class PostgreSQLExecutionCancelService:
     def __init__(
         self,
         repository: PostgreSQLExecutionRepository,
-        transactional_audit: PostgreSQLTransactionalAudit | None = None,
+        transactional_audit: PostgreSQLTransactionalAudit,
+        job_queue: PostgreSQLJobQueueRepository,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ) -> None:
         self._repository = repository
         self._transactional_audit = transactional_audit
+        self._job_queue = job_queue
         self._clock = clock
 
     def cancel(
@@ -152,27 +190,45 @@ class PostgreSQLExecutionCancelService:
         requested_by: str,
     ) -> RuleExecution:
         now = self._clock()
-
-        # Mevcut durumu kontrol et
-        try:
-            previous = self._repository.get(execution_id)
-        except ExecutionNotFoundError:
-            raise ExecutionNotFoundError(f"Execution {execution_id} not found.")
-
-        # Terminal durumda iptal reddedilir
-        if previous.status in {
-            ExecutionStatus.SUCCESS,
-            ExecutionStatus.TECHNICAL_ERROR,
-            ExecutionStatus.CANCELLED,
-            ExecutionStatus.TIMEOUT,
-        }:
-            raise ExecutionConflictError(
-                f"Cannot cancel execution in {previous.status.value} status."
-            )
-
-        audit_event: PreparedAuditEvent | None = None
         audit_outbox = self._transactional_audit
-        if audit_outbox is not None:
+        with transactional_session(self._repository.session_factory) as session:
+            try:
+                previous = self._repository.get(
+                    execution_id,
+                    session=session,
+                    for_update=True,
+                )
+            except ExecutionNotFoundError:
+                raise ExecutionNotFoundError(
+                    f"Execution {execution_id} not found."
+                ) from None
+
+            if previous.status in {
+                ExecutionStatus.SUCCESS,
+                ExecutionStatus.TECHNICAL_ERROR,
+                ExecutionStatus.CANCELLED,
+                ExecutionStatus.TIMEOUT,
+            }:
+                raise ExecutionConflictError(
+                    f"Cannot cancel execution in {previous.status.value} status."
+                )
+
+            job = self._job_queue.get_by_idempotency_key(
+                "EXECUTION",
+                execution_id,
+                session=session,
+                for_update=True,
+            )
+            if job is None:
+                raise ExecutionConflictError(
+                    "Execution has no persistent background job."
+                )
+
+            execution_target = (
+                ExecutionStatus.CANCELLED
+                if previous.status is ExecutionStatus.QUEUED
+                else ExecutionStatus.CANCEL_REQUESTED
+            )
             audit_event = audit_outbox.prepare(
                 AuditEventInput(
                     actor_id=requested_by,
@@ -187,18 +243,45 @@ class PostgreSQLExecutionCancelService:
                         "status": previous.status.value,
                     },
                     new_values={
-                        "status": ExecutionStatus.CANCEL_REQUESTED.value,
+                        "status": execution_target.value,
                         "cancel_reason": reason,
                     },
                     occurred_at=now,
                 )
             )
-
-        return self._repository.request_cancel(
-            execution_id,
-            actor_id=requested_by,
-            reason=reason,
-            requested_at=now,
-            audit_event=audit_event,
-            audit_outbox=audit_outbox,
-        )
+            cancelled = self._repository.request_cancel(
+                execution_id,
+                actor_id=requested_by,
+                reason=reason,
+                requested_at=now,
+                audit_event=audit_event,
+                audit_outbox=audit_outbox,
+                session=session,
+            )
+            if job is not None and job.status.value in {"QUEUED", "RUNNING"}:
+                job_audit = audit_outbox.prepare(
+                    AuditEventInput(
+                        actor_id=requested_by,
+                        actor_type="USER",
+                        correlation_id=previous.correlation_id,
+                        action="JOB_CANCEL_REQUESTED",
+                        object_type="BackgroundJob",
+                        object_id=job.job_id,
+                        result=AuditResult.SUCCESS,
+                        reason_code="MANUAL_CANCEL",
+                        old_values={"status": job.status.value},
+                        new_values={"execution_id": execution_id},
+                        occurred_at=now,
+                    )
+                )
+                self._job_queue.request_cancel(
+                    job.job_id,
+                    job.version,
+                    requested_by=requested_by,
+                    reason_code="USER_REQUEST",
+                    now=now,
+                    audit_event=job_audit,
+                    audit_outbox=audit_outbox,
+                    session=session,
+                )
+        return cancelled

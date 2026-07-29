@@ -7,6 +7,8 @@ decision_reference: USER-DECLARATION-2026-07-23-POSTGRESQL-WRITABLE-UI
 
 # İterasyon 36B3 — Korumalı Çözüm Kaydı
 
+> Bu kayıt aktif son yedi iterasyon penceresinden çıkarılmış tarihsel kanıttır.
+
 ## Sonuç
 
 Atanmış ve incelenen sorun; zorunlu kök neden, düzeltici faaliyet, kanıt UUID'si

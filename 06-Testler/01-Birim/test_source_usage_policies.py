@@ -141,7 +141,9 @@ def test_fr_039_fr_040_fr_041_multi_source_runtime_policy_uses_strictest_values(
     resolved = repository.resolve_policy(at=AT)
     runtime = resolved.runtime_policy_for(("source-a", "source-b"))
 
+    assert runtime.connection_timeout_seconds == 15
     assert runtime.query_timeout_seconds == 300
+    assert runtime.total_job_timeout_seconds == 3600
     assert runtime.retry_count == 0
     assert runtime.retry_delay_seconds == 5
 

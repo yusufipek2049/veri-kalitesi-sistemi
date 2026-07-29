@@ -27,3 +27,7 @@ class JobLeaseError(JobConflictError):
 
 class JobConcurrencyError(JobConflictError):
     """İş sürümü optimistic concurrency kontrolünde çakıştı."""
+
+
+class JobAuthorizationError(JobError):
+    """Dead-letter yeniden işleme yetkisi doğrulanamadı."""

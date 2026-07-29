@@ -48,6 +48,7 @@ from veri_kalitesi.executions.postgresql_repository import (
 )
 from veri_kalitesi.audit.postgresql_outbox import PostgreSQLTransactionalAudit
 from veri_kalitesi.persistence import SessionFactory
+from veri_kalitesi.jobs import PostgreSQLJobQueueRepository
 from veri_kalitesi.dashboard import DashboardQueryService
 from veri_kalitesi.data_sources import (
     DataSource,
@@ -74,13 +75,7 @@ from veri_kalitesi.issues import (
     IssueTriggerType,
     IssueValidationError,
 )
-from veri_kalitesi.executions import (
-    ExecutionQueryService,
-    ExecutionStatus,
-    ExecutionType,
-    RuleExecution,
-    WorkloadClass,
-)
+from veri_kalitesi.executions import ExecutionQueryService
 from veri_kalitesi.rules import (
     QualityDimension,
     QualityRule,
@@ -91,7 +86,6 @@ from veri_kalitesi.rules import (
     RuleVersion,
     RuleValidationError,
 )
-from veri_kalitesi.persistence import SessionFactory, transactional_session
 from veri_kalitesi.reporting import (
     ReportExportPolicy,
     ReportFormat,
@@ -1274,14 +1268,21 @@ def create_development_app(  # type: ignore[no-untyped-def]
     rule_store = DevelopmentRuleStore()
     data_source_store = DevelopmentDataSourceStore()
     if session_factory is not None:
+        if transactional_audit is None:
+            raise ValueError(
+                "PostgreSQL execution composition requires transactional audit."
+            )
         pg_repository = PostgreSQLExecutionRepository(session_factory)
+        job_queue = PostgreSQLJobQueueRepository(session_factory)
         execution_start_service: ExecutionStartService = PostgreSQLExecutionStartService(
             pg_repository,
+            job_queue=job_queue,
             transactional_audit=transactional_audit,
         )
         execution_cancel_service: ExecutionCancelService = PostgreSQLExecutionCancelService(
             pg_repository,
             transactional_audit=transactional_audit,
+            job_queue=job_queue,
         )
     else:
         execution_store = DevelopmentExecutionStore()
@@ -1328,6 +1329,7 @@ def create_development_app(  # type: ignore[no-untyped-def]
                 ReportWorkerSettings(storage_path="/tmp/reports-dev"),
             ),
             audit_service,
+            inline_processing=True,
         ),
         audit_query_service=AuditQueryService(
             audit_repository,

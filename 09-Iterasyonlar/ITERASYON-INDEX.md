@@ -11,13 +11,13 @@ dahil değildir.
 
 | Sıra | İterasyon | Durum | Sonuç |
 | --- | --- | --- | --- |
-| 1 | [36G](Iterasyon-36G-Guvenli-Rapor-Uretimi-ve-Indirme.md) | `TechnicallyVerified` | Güvenli rapor üretimi/indirme: PDF/XLSX/CSV, politika framework'ü, zamanlanmış rapor, PostgreSQL repository ve frontend UI; kurumsal ürün adaptörleri ile kalıcı worker dayanıklılığı ayrıdır. |
-| 2 | [36B2](Iterasyon-36B2-Guvenilir-Yeniden-Atama.md) | `TechnicallyVerified` | Güvenilir yeniden atama. |
-| 3 | [36B3](Iterasyon-36B3-Korumali-Cozum-Kaydi.md) | `TechnicallyVerified` | Korumalı çözüm kaydı. |
-| 4 | [36B4](Iterasyon-36B4-Farkli-Aktorle-Dogrulama.md) | `TechnicallyVerified` | Farklı aktörle doğrulama. |
-| 5 | [36B5](Iterasyon-36B5-Kapatma-ve-Yeniden-Acma.md) | `TechnicallyVerified` | Kapatma/yeniden açma kod ve test kanıtı mevcut; 36E-PG-CUTOVER ile PostgreSQL adaptörleri eklendi. |
-| 6 | [36E](Iterasyon-36E-Calisma-PostgreSQL-Cutover.md) | `TechnicallyVerified` | PostgreSQL execution cutover tamamlandı; `SQLiteExecutionRepository` runtime export'tan çıkarıldı. |
-| 7 | [36F](Iterasyon-36F-Execution-Politika-Worker-Dayanikliligi.md) | `TechnicallyVerified` | Scheduling ve source-usage policy repository'leri PostgreSQL'e taşındı; SQLite eşleri runtime export'tan çıkarıldı. |
+| 1 | [36H2](Iterasyon-36H2-Is-Yurutme-Yasam-Dongusu.md) | `VerificationPending` | İş yürütme yaşam döngüsü kod yüzeyi mevcut; review açık correctness bulguları tespit etti (timeout/iptal sınırlaması, reaper bağlama, atomik iptal, eksik entegrasyon testi). Doğrulanana kadar tamamlanmış sayılmaz. |
+| 2 | [36H1](Iterasyon-36H1-Kalici-Is-Kuyrugu-Cekirdegi.md) | `TechnicallyVerified` | Kalıcı iş kuyruğu çekirdeği: idempotent enqueue, deterministik lease claim, sahip-only heartbeat, süresi geçen claim toparlama ve optimistic version concurrency. |
+| 3 | [36G](Iterasyon-36G-Guvenli-Rapor-Uretimi-ve-Indirme.md) | `TechnicallyVerified` | Güvenli rapor üretimi/indirme: PDF/XLSX/CSV, politika framework'ü, zamanlanmış rapor, PostgreSQL repository ve frontend UI. |
+| 4 | [36F](Iterasyon-36F-Execution-Politika-Worker-Dayanikliligi.md) | `TechnicallyVerified` | Scheduling ve source-usage policy repository'leri PostgreSQL'e taşındı; SQLite eşleri runtime export'tan çıkarıldı. |
+| 5 | [36E](Iterasyon-36E-Calisma-PostgreSQL-Cutover.md) | `TechnicallyVerified` | PostgreSQL execution cutover tamamlandı; `SQLiteExecutionRepository` runtime export'tan çıkarıldı. |
+| 6 | [36B5](Iterasyon-36B5-Kapatma-ve-Yeniden-Acma.md) | `TechnicallyVerified` | Kapatma/yeniden açma kod ve test kanıtı mevcut; 36E-PG-CUTOVER ile PostgreSQL adaptörleri eklendi. |
+| 7 | [36B4](Iterasyon-36B4-Farkli-Aktorle-Dogrulama.md) | `TechnicallyVerified` | Farklı aktörle doğrulama. |
 
 ## Aktif Plan
 

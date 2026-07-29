@@ -88,12 +88,18 @@ def session_factory(db_settings: DatabaseSettings, alembic_up_to_date: None) -> 
 
 
 @pytest.fixture
-def repository(session_factory: type) -> PostgreSQLExecutionRepository:
-    return PostgreSQLExecutionRepository(session_factory)
+def repository(
+    session_factory: type,
+    db_settings: DatabaseSettings,
+) -> PostgreSQLExecutionRepository:
+    return PostgreSQLExecutionRepository(session_factory, schema=db_settings.schema)
 
 
 @pytest.fixture
-def audit_outbox(session_factory: type) -> PostgreSQLTransactionalAudit:
+def audit_outbox(
+    session_factory: type,
+    db_settings: DatabaseSettings,
+) -> PostgreSQLTransactionalAudit:
     from conftest import FakePreparedAuditRepository  # type: ignore[import-untyped]
 
     redactor = AuditRedactor(build_default_redaction_policy())
@@ -103,6 +109,7 @@ def audit_outbox(session_factory: type) -> PostgreSQLTransactionalAudit:
         redactor=redactor,
         repository=repo,
         policy_version="TEST_V1",
+        schema=db_settings.schema,
     )
 
 

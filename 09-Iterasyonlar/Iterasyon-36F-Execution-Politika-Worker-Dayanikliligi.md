@@ -23,11 +23,11 @@ yolundan çıkarmak.
 
 ## Kanıt
 
-- [PostgreSQL schedule repository](../../03-Backend/src/veri_kalitesi/executions/postgresql_scheduling.py)
-- [PostgreSQL source usage repository](../../03-Backend/src/veri_kalitesi/executions/postgresql_source_usage.py)
-- [Schedule protocol ve SchedulingService güncellemesi](../../03-Backend/src/veri_kalitesi/executions/scheduling.py)
-- [Migration](../../05-Veritabani/alembic/versions/20260724_05_scheduling_and_policy_baseline.py)
-- [Runtime export temizliği](../../03-Backend/src/veri_kalitesi/executions/__init__.py)
+- [PostgreSQL schedule repository](../03-Backend/src/veri_kalitesi/executions/postgresql_scheduling.py)
+- [PostgreSQL source usage repository](../03-Backend/src/veri_kalitesi/executions/postgresql_source_usage.py)
+- [Schedule protocol ve SchedulingService güncellemesi](../03-Backend/src/veri_kalitesi/executions/scheduling.py)
+- [Migration](../05-Veritabani/alembic/versions/20260724_05_scheduling_and_policy_baseline.py)
+- [Runtime export temizliği](../03-Backend/src/veri_kalitesi/executions/__init__.py)
 
 ## Tamamlama Ölçütleri
 

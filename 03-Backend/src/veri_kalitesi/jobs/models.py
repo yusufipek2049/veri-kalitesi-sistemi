@@ -20,10 +20,29 @@ def utc_now() -> datetime:
 class JobStatus(str, Enum):
     QUEUED = "QUEUED"
     RUNNING = "RUNNING"
+    CANCEL_REQUESTED = "CANCEL_REQUESTED"
     SUCCESS = "SUCCESS"
     TECHNICAL_ERROR = "TECHNICAL_ERROR"
     TIMEOUT = "TIMEOUT"
     CANCELLED = "CANCELLED"
+
+
+class JobCompletionOutcome(str, Enum):
+    """Kuyruk başarısını veri kalitesi sonucundan ayrı tutar."""
+
+    SUCCESS = "SUCCESS"
+    QUALITY_FAILURE = "QUALITY_FAILURE"
+
+
+class JobFailureKind(str, Enum):
+    RETRYABLE_TECHNICAL = "RETRYABLE_TECHNICAL"
+    PERMANENT_TECHNICAL = "PERMANENT_TECHNICAL"
+    TIMEOUT = "TIMEOUT"
+
+
+class DeadLetterStatus(str, Enum):
+    OPEN = "OPEN"
+    REPROCESSED = "REPROCESSED"
 
 
 @dataclass(frozen=True)
@@ -35,6 +54,44 @@ class JobLeasePolicy:
     def __post_init__(self) -> None:
         if self.duration <= timedelta(0):
             raise JobValidationError("Job lease duration must be positive.")
+
+
+@dataclass(frozen=True)
+class JobRetryPolicy:
+    retry_count: int
+    retry_delay_seconds: float
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.retry_count, bool)
+            or not isinstance(self.retry_count, int)
+            or not 0 <= self.retry_count <= 3
+        ):
+            raise JobValidationError("Job retry_count must be between zero and three.")
+        if (
+            isinstance(self.retry_delay_seconds, bool)
+            or not isinstance(self.retry_delay_seconds, (int, float))
+            or self.retry_delay_seconds < 0
+        ):
+            raise JobValidationError("Job retry delay must not be negative.")
+
+    def delay_for_attempt(self, attempt_count: int) -> timedelta:
+        if attempt_count <= 0:
+            raise JobValidationError("Job attempt_count must be positive for retry.")
+        return timedelta(seconds=self.retry_delay_seconds * (2 ** (attempt_count - 1)))
+
+
+@dataclass(frozen=True)
+class DeadLetterRecord:
+    dead_letter_id: str
+    job_id: str
+    error_class: str
+    attempt_count: int
+    status: DeadLetterStatus
+    created_at: datetime
+    reprocessed_at: datetime | None = None
+    reprocessed_by: str | None = None
+    audit_event_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -54,6 +111,11 @@ class BackgroundJob:
     attempt_count: int = 0
     version: int = 0
     last_error_class: str | None = None
+    completion_outcome: JobCompletionOutcome | None = None
+    completed_at: datetime | None = None
+    cancel_requested_at: datetime | None = None
+    cancel_requested_by: str | None = None
+    cancel_reason_code: str | None = None
 
     def __post_init__(self) -> None:
         _validate_identifier("job_type", self.job_type)
@@ -74,6 +136,8 @@ class BackgroundJob:
             ("updated_at", self.updated_at),
             ("lease_expires_at", self.lease_expires_at),
             ("last_heartbeat_at", self.last_heartbeat_at),
+            ("completed_at", self.completed_at),
+            ("cancel_requested_at", self.cancel_requested_at),
         ):
             if value is not None and (value.tzinfo is None or value.utcoffset() is None):
                 raise JobValidationError(f"Job {field_name} must be timezone-aware.")
