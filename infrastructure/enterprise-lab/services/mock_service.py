@@ -7,6 +7,8 @@ import json
 import os
 import re
 import sys
+import threading
+import time
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -18,6 +20,8 @@ OBJECT_ID = re.compile(r"^[a-f0-9]{64}$")
 SERVICENOW_FIELDS = frozenset({"short_description", "correlation_id", "issue_id"})
 SIEM_FIELDS = frozenset({"event_id", "occurred_at_utc", "action", "result", "correlation_id"})
 SERVICES = frozenset({"secret-manager", "servicenow", "siem", "evidence"})
+FAULT_MODES = frozenset({"denied", "outage", "rate-limit", "timeout", "malformed-response"})
+FAULT_CONTROL_TOKEN_FILE = Path("/run/secrets/lab_fault_control_token")
 SECRET_FILES = {
     "keycloak-admin": "/run/secrets/keycloak_admin_password",
     "postgres-app": "/run/secrets/postgres_app_password",
@@ -31,6 +35,8 @@ class LabHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     records: dict[str, dict[str, Any]] = {}
     event_count = 0
+    fault_mode: str | None = None
+    fault_lock = threading.Lock()
 
     def log_message(self, _format: str, *args: object) -> None:
         return
@@ -38,11 +44,7 @@ class LabHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         if self.path == "/health":
             payload = self._health_payload()
-            status = (
-                HTTPStatus.OK
-                if payload["status"] == "UP"
-                else HTTPStatus.SERVICE_UNAVAILABLE
-            )
+            status = HTTPStatus.OK if payload["status"] == "UP" else HTTPStatus.SERVICE_UNAVAILABLE
             self._json(status, payload)
             return
         if SERVICE == "evidence" and self.path.startswith("/objects/"):
@@ -51,6 +53,9 @@ class LabHandler(BaseHTTPRequestHandler):
         self._json(HTTPStatus.NOT_FOUND, {"code": "NOT_FOUND"})
 
     def do_POST(self) -> None:
+        if self.path == "/_lab/fault":
+            self._configure_fault()
+            return
         if SERVICE == "secret-manager" and self.path == "/v1/resolve":
             self._resolve_secret()
             return
@@ -74,7 +79,9 @@ class LabHandler(BaseHTTPRequestHandler):
     def _health_payload(self) -> dict[str, Any]:
         if SERVICE == "secret-manager":
             try:
-                ready = all(Path(path).read_text(encoding="utf-8").strip() for path in SECRET_FILES.values())
+                ready = all(
+                    Path(path).read_text(encoding="utf-8").strip() for path in SECRET_FILES.values()
+                )
             except OSError:
                 ready = False
             return {"status": "UP" if ready else "DOWN", "service": SERVICE}
@@ -83,6 +90,8 @@ class LabHandler(BaseHTTPRequestHandler):
         return {"status": "UP", "service": SERVICE}
 
     def _resolve_secret(self) -> None:
+        if self._apply_fault():
+            return
         if not self._authorized():
             self._json(HTTPStatus.UNAUTHORIZED, {"code": "UNAUTHORIZED"})
             return
@@ -101,14 +110,16 @@ class LabHandler(BaseHTTPRequestHandler):
 
     def _authorized(self) -> bool:
         try:
-            expected = Path("/run/secrets/local_secret_manager_token").read_text(
-                encoding="utf-8"
-            ).strip()
+            expected = (
+                Path("/run/secrets/local_secret_manager_token").read_text(encoding="utf-8").strip()
+            )
         except OSError:
             return False
         return self.headers.get("Authorization") == f"Bearer {expected}"
 
     def _create_incident(self) -> None:
+        if self._apply_fault():
+            return
         key = self.headers.get("Idempotency-Key", "")
         payload = self._read_json()
         if not key or payload is None or frozenset(payload) != SERVICENOW_FIELDS:
@@ -125,12 +136,75 @@ class LabHandler(BaseHTTPRequestHandler):
         self._json(status, existing)
 
     def _collect_event(self) -> None:
+        if self._apply_fault():
+            return
+        key = self.headers.get("Idempotency-Key", "")
         payload = self._read_json()
-        if payload is None or frozenset(payload) != SIEM_FIELDS:
+        if (
+            not key
+            or payload is None
+            or frozenset(payload) != SIEM_FIELDS
+            or payload.get("event_id") != key
+        ):
             self._json(HTTPStatus.BAD_REQUEST, {"code": "INVALID_EVENT"})
             return
+        record_key = f"siem:{key}"
+        digest = hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("ascii")
+        ).hexdigest()
+        existing = self.records.get(record_key)
+        if existing is not None:
+            if existing["digest"] != digest:
+                self._json(HTTPStatus.CONFLICT, {"code": "IDEMPOTENCY_CONFLICT"})
+                return
+            self._json(HTTPStatus.OK, {"status": "ACCEPTED"})
+            return
+        self.records[record_key] = {"digest": digest}
         type(self).event_count += 1
         self._json(HTTPStatus.ACCEPTED, {"status": "ACCEPTED"})
+
+    def _configure_fault(self) -> None:
+        if not self._fault_control_authorized():
+            self._json(HTTPStatus.FORBIDDEN, {"code": "FAULT_CONTROL_DENIED"})
+            return
+        payload = self._read_json()
+        mode = payload.get("mode") if payload else None
+        if mode not in FAULT_MODES:
+            self._json(HTTPStatus.BAD_REQUEST, {"code": "FAULT_MODE_INVALID"})
+            return
+        with type(self).fault_lock:
+            type(self).fault_mode = mode
+        self._json(HTTPStatus.NO_CONTENT, {})
+
+    def _fault_control_authorized(self) -> bool:
+        try:
+            expected = FAULT_CONTROL_TOKEN_FILE.read_text(encoding="utf-8").strip()
+        except OSError:
+            return False
+        return bool(expected) and self.headers.get("Authorization") == f"Bearer {expected}"
+
+    def _apply_fault(self) -> bool:
+        with type(self).fault_lock:
+            mode = type(self).fault_mode
+            type(self).fault_mode = None
+        if mode is None:
+            return False
+        if mode == "denied":
+            self._json(HTTPStatus.FORBIDDEN, {"code": "DENIED"})
+        elif mode == "outage":
+            self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"code": "UNAVAILABLE"})
+        elif mode == "rate-limit":
+            self._json(
+                HTTPStatus.TOO_MANY_REQUESTS,
+                {"code": "RATE_LIMITED"},
+                extra_headers={"Retry-After": "2"},
+            )
+        elif mode == "timeout":
+            time.sleep(4)
+            self._json(HTTPStatus.SERVICE_UNAVAILABLE, {"code": "UNAVAILABLE"})
+        else:
+            self._json(HTTPStatus.OK, {"unexpected": "response"})
+        return True
 
     def _create_evidence(self, object_id: str) -> None:
         if not OBJECT_ID.fullmatch(object_id):
@@ -189,13 +263,24 @@ class LabHandler(BaseHTTPRequestHandler):
             return None
         return self.rfile.read(length)
 
-    def _json(self, status: HTTPStatus, payload: dict[str, Any]) -> None:
+    def _json(
+        self,
+        status: HTTPStatus,
+        payload: dict[str, Any],
+        *,
+        extra_headers: dict[str, str] | None = None,
+    ) -> None:
         body = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("ascii")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            for name, value in (extra_headers or {}).items():
+                self.send_header(name, value)
+            self.end_headers()
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError):
+            return
 
 
 if len(sys.argv) != 2 or sys.argv[1] not in SERVICES:

@@ -32,12 +32,14 @@ Bu dosya karar metinlerini tekrar etmez; bağlayıcı kararın kanonik kaynağı
 | API ve kullanıcı arayüzü | `API-001–015`, `FE-DEC-*`, `PG-MIG-*`, `UI-WRITE-*` | [API, Frontend ve PostgreSQL Kararları](Karar-Kayitlari/API-Frontend-ve-PostgreSQL-Kararlari.md) |
 | Skorlama ve ölçüm | `DQ-SCR-001–033` | [Skorlama ve İkinci Faz Kararları](Karar-Kayitlari/Skorlama-Sentetik-Veri-ve-Ikinci-Faz-Kararlari.md) |
 | Kanıta dayalı ikinci faz | `OPEN-026–OPEN-036` | [Skorlama ve İkinci Faz Kararları](Karar-Kayitlari/Skorlama-Sentetik-Veri-ve-Ikinci-Faz-Kararlari.md) |
+| Ürün yetenekleri prototip yönü | `DQ-CAP-001–015` — profilleme, kural, anomali, lineage, yönetişim ve dashboard | [Ürün Yetenekleri Prototip Kararları](Karar-Kayitlari/Urun-Yetenekleri-Prototip-Kararlari.md) |
 | Uygulama karar geçmişi | tarihli iterasyon kararları | [İterasyon Teknik Karar Geçmişi](Karar-Kayitlari/Iterasyon-Teknik-Karar-Gecmisi.md) |
 | Mimari özet | `ADR-001–ADR-020` | [Mimari Kararlar](../02-Mimari/Mimari-Kararlar.md) |
 
 ## Durum Kuralı
 
 - `KararAlındı` teknik yönün seçildiğini gösterir; runtime, banka onayı veya üretim uygunluğu değildir.
+- `PrototypeDecision` gerçek kurumsal erişim olmadan prototip yönünü seçer; runtime tamamlanması, production-ready veya banka onayı değildir.
 - `ApprovedByBank` yalnız açıkça belirtilen karar kapsamı için kullanılır.
 - `Açık` ve `ComplianceReviewRequired` kayıtları bu dosyada yinelenmez.
 - Eski seçenekler ve tarihsel test sayıları bağlayıcı karar değildir; [arşivde](../docs/archive/project-memory-2026-07-24/Alinan-Kararlar.md) korunur.

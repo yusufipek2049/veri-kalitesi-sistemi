@@ -25,9 +25,10 @@ güvenilir sınırlar içinde yazılabilir; kaynak üretim verisi değiştirilem
   olarak doğrulanmıştır. `36H2` iş yürütme yaşam döngüsü de controller birim ve
   PostgreSQL kapıları ile reviewer `APPROVED` kararı sonucunda
   `TechnicallyVerified` olarak kapanmıştır.
-- `ENTERPRISE-LAB-01` sentetik/non-production entegrasyon laboratuvarı
-  `PrototypeVerified` olarak kapanmıştır; production veya banka onayı değildir.
-- [Son tamamlanan çalışma paketi](NEXT_STEP.md) ENTERPRISE-LAB-01'dir;
+- `ENTERPRISE-LAB-03` canlı Compose kabul kapısı sentetik/non-production
+  uygulama adaptörlerini gerçek container ağında `PrototypeVerified` olarak
+  doğrulamıştır; production veya banka onayı değildir.
+- [Son tamamlanan çalışma paketi](NEXT_STEP.md) ENTERPRISE-LAB-03'tür;
   bağımlılıkları tamamlanmış yeni bir `Next`/`READY` teknik paket yoktur.
 - Üretim hazır değildir; kurumsal IdP, PAM/secret, HA veri/session, broker,
   SIEM/WORM, ServiceNow, DR ve banka onayları ayrıdır.

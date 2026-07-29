@@ -10,9 +10,86 @@
       "enabled": true,
       "publicClient": true,
       "standardFlowEnabled": true,
-      "directAccessGrantsEnabled": false,
+      "directAccessGrantsEnabled": true,
       "redirectUris": ["http://127.0.0.1:18080/lab-callback"],
-      "webOrigins": ["http://127.0.0.1:18080"]
+      "webOrigins": ["http://127.0.0.1:18080"],
+      "protocolMappers": [
+        {
+          "name": "synthetic-groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "synthetic-mfa-evidence",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "mfa_evidence",
+            "claim.name": "mfa_evidence",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "name": "lab-viewers"
+    },
+    {
+      "name": "lab-unmapped"
+    }
+  ],
+  "users": [
+    {
+      "username": "synthetic-lab-viewer",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Synthetic",
+      "lastName": "Viewer",
+      "email": "synthetic-viewer@invalid.example",
+      "attributes": {
+        "mfa_evidence": ["lab-mfa"]
+      },
+      "groups": ["/lab-viewers"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${LAB_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "synthetic-lab-unmapped",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Synthetic",
+      "lastName": "Unmapped",
+      "email": "synthetic-unmapped@invalid.example",
+      "attributes": {
+        "mfa_evidence": ["lab-mfa"]
+      },
+      "groups": ["/lab-unmapped"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "${LAB_USER_PASSWORD}",
+          "temporary": false
+        }
+      ]
     }
   ]
 }

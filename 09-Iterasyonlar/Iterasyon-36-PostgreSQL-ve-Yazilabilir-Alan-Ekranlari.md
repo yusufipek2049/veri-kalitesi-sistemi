@@ -35,7 +35,7 @@ yönetmek. Kaynak sistemler salt okunur kalır.
 
 ## Sıradaki Durum
 
-[Son tamamlanan paket](../NEXT_STEP.md) ENTERPRISE-LAB-01'dir ve yalnız
+[Son tamamlanan paket](../NEXT_STEP.md) ENTERPRISE-LAB-03'tür ve yalnız
 `PrototypeVerified` durumundadır; `ComplianceReviewRequired` kalır ve
 production-ready değildir. Bağımlılıkları tamamlanmış yeni bir `Next`/`READY`
 teknik paket yoktur; kalan production readiness başlıkları dış bağımlılık ve

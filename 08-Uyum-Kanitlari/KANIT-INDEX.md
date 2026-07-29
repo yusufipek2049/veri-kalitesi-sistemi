@@ -16,6 +16,7 @@
 
 ## Teknik Doğrulama Kayıtları
 
+- [ENTERPRISE-LAB-03 Canlı Compose Kanıt Manifesti](Guvenlik-Testleri/ENTERPRISE-LAB-03-Kanit-Manifesti.json) - `PrototypeVerified` / `ComplianceReviewRequired`
 - [İterasyon 16 - Güvenilir Aktör Kanıtı](Erisim/Iterasyon-16-Guvenilir-Aktor-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 17A - Merkezi Audit Kanıtı](Audit/Iterasyon-17A-Merkezi-Audit-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 17B - Modül Audit Geçiş Kanıtı](Audit/Iterasyon-17B-Modul-Audit-Gecis-Kaniti.md) - `TechnicallyVerified`
