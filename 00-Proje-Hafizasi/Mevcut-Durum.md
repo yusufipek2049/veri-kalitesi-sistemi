@@ -15,9 +15,10 @@ last_updated: 2026-07-29
 | Issue kalıcılığı | PostgreSQL transaction, seçici SQLite aktarımı ve issue runtime fallback kaldırma teknik olarak doğrulanmıştır. | Production altyapı/onay ayrı kapıdır. |
 | Issue yaşam döngüsü | İnceleme, yeniden atama, çözüm, farklı aktörle doğrulama, kapatma ve aynı başarısızlıkta yeniden açma kod/UI/test yüzeyinde vardır. | PostgreSQL issue mutasyon testleri (2/2) ve tüm entegrasyon paketi (44/44) gerçek PostgreSQL 16.13 üzerinde doğrulanmıştır. |
 | Kural/veri kaynağı | PostgreSQL migration/repository ve yazılabilir API/UI yüzeyleri mevcuttur. | Production composition root ve kurumsal rol/politika kanıtı ayrıca doğrulanır. |
-| Çalıştırmalar | 36E PostgreSQL cutover, 36F kalıcı scheduling/policy ve 36H1 kuyruk çekirdeği tamamlanmıştır. 36H2 iş yürütme yaşam döngüsü (terminal geçiş/retry/deadline/iptal/dead-letter/worker composition) kod yüzeyi eklendi ancak review açık correctness bulguları tespit etti; **VerificationPending** — doğrulanana kadar tamamlanmış sayılmaz. | Gerçek üretim IdP, secret manager/PAM, HA PostgreSQL/broker ve SIEM/WORM ayrı kurumsal kapılardır. 36H2 açık bulguları [NEXT_STEP](../NEXT_STEP.md) sıradaki iştir. |
+| Çalıştırmalar | 36E PostgreSQL cutover, 36F kalıcı scheduling/policy, 36H1 kuyruk çekirdeği ve 36H2 iş yürütme yaşam döngüsü `TechnicallyVerified` olarak tamamlanmıştır. | Gerçek üretim IdP, secret manager/PAM, HA PostgreSQL/broker ve SIEM/WORM ayrı kurumsal kapılardır; bağımlılıkları tamamlanmış yeni bir `Next`/`READY` teknik paket yoktur. |
 | Raporlama | 36G güvenli PDF/XLSX/CSV üretimi/indirme yüzeyi 36H2 ile kalıcı `REPORT` kuyruğuna bağlandı; istek-içi worker yalnız açık geliştirme modundadır. | Kurumsal DLP/watermark ürün entegrasyonu ayrıdır. |
 | Frontend | Dashboard ve alan ekranları; güvenilir mutasyon, optimistic locking ve no-persistent-sensitive-draft kuralları uygulanmıştır. Çalıştırma ve rapor ekranları 36E/36G kapanış kanıtlarıyla uyumludur. | Gerçek IdP/üretim API verisi ve kurumsal DLP/watermark adaptörleri açık. |
+| Kurumsal entegrasyon laboratuvarı | ENTERPRISE-LAB-01 sentetik/non-production Compose bileşimi `PrototypeVerified`; sekiz servis ve fail-closed ortam kapısı sağlıklıdır. | Fake/yerel servisler kurumsal ürün, WORM/HA/DR, `ApprovedByBank` veya production-ready kanıtı değildir. |
 | Production readiness | Hazır değil. | IdP/SSO-MFA, PAM/secret, HA veri/session, broker, SIEM/WORM, ServiceNow, DR ve banka onayları gerekir. |
 
 ## Aktif İterasyon Bağlamı
@@ -35,6 +36,6 @@ aktif işlerde yeni koşu sonucu ayrıca kaydedilmelidir.
 
 ## Sıradaki Adım
 
-Bağımlılıkları tamamlanmış `Next`/`READY` teknik paket yoktur. Kalan production
-readiness başlıkları [backlogda](Sonraki-Adimlar.md) `ExternalDependency`
-durumundadır.
+ENTERPRISE-LAB-01 yalnız prototip olarak kapanmıştır. Bağımlılıkları tamamlanmış
+yeni bir `Next`/`READY` teknik paket yoktur; kalan production readiness başlıkları
+[backlogda](Sonraki-Adimlar.md) `ExternalDependency` durumundadır.

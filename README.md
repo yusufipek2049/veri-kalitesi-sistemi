@@ -22,9 +22,13 @@ güvenilir sınırlar içinde yazılabilir; kaynak üretim verisi değiştirilem
   `TechnicallyVerified` olarak kaydedilmiştir.
 - `36E` execution PostgreSQL cutover, `36F` scheduling/policy PostgreSQL
   kalıcılığı, `36G` güvenli raporlama ve `36H1` kalıcı kuyruk çekirdeği teknik
-  olarak doğrulanmıştır. `36H2` iş yürütme yaşam döngüsü kod ve hedefli birim
-  kanıtına sahiptir; controller/reviewer kapıları beklenmektedir.
-- [İş yürütme yaşam döngüsü doğrulaması](NEXT_STEP.md) tek sıradaki pakettir.
+  olarak doğrulanmıştır. `36H2` iş yürütme yaşam döngüsü de controller birim ve
+  PostgreSQL kapıları ile reviewer `APPROVED` kararı sonucunda
+  `TechnicallyVerified` olarak kapanmıştır.
+- `ENTERPRISE-LAB-01` sentetik/non-production entegrasyon laboratuvarı
+  `PrototypeVerified` olarak kapanmıştır; production veya banka onayı değildir.
+- [Son tamamlanan çalışma paketi](NEXT_STEP.md) ENTERPRISE-LAB-01'dir;
+  bağımlılıkları tamamlanmış yeni bir `Next`/`READY` teknik paket yoktur.
 - Üretim hazır değildir; kurumsal IdP, PAM/secret, HA veri/session, broker,
   SIEM/WORM, ServiceNow, DR ve banka onayları ayrıdır.
 

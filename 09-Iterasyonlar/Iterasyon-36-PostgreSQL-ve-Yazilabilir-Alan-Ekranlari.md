@@ -19,10 +19,11 @@ yönetmek. Kaynak sistemler salt okunur kalır.
 | --- | --- | --- |
 | Issue PostgreSQL temeli ve aktarımı | `TechnicallyVerified` | Üretim banka/altyapı onayı ayrı. |
 | Issue inceleme, atama, çözüm, doğrulama | `TechnicallyVerified` | Gerçek IdP/dizin bağlantısı açık. |
-| Issue kapatma ve yeniden açma | `VerificationPending` | Kod/test kanıtı mevcut; güncel hedefli ve PostgreSQL koşusu kayda bağlanmalı. |
-| Kural ve veri kaynağı yazımları | Uygulama yüzeyi mevcut | Production composition root ve kurumsal politika/rol kanıtı ayrıca doğrulanmalı. |
+| Issue kapatma ve yeniden açma | `TechnicallyVerified` | 36B5 güncel birim ve PostgreSQL kanıtıyla kapandı; production banka/altyapı onayı ayrı. |
+| Kural ve veri kaynağı yazımları | Uygulama yüzeyi mevcut | Banka onaylı production wiring ve kurumsal politika/rol kanıtı ayrıca doğrulanmalı. |
 | Çalıştırma PostgreSQL cutover | `TechnicallyVerified` | PostgreSQL migration/repository, API adaptörleri ve testler tamamlandı. `SQLiteExecutionRepository` runtime export'tan çıkarıldı. |
-| Güvenli rapor üretimi/indirme | `TechnicallyVerified` | 36G ile PDF/XLSX/CSV, DLP/watermark/maker-checker, zamanlanmış rapor, PostgreSQL repository ve frontend UI tamamlandı. Worker dayanıklılığı ayrı pakettir. |
+| Güvenli rapor üretimi/indirme | `TechnicallyVerified` | 36G ile PDF/XLSX/CSV, politika framework'ü, zamanlanmış rapor, PostgreSQL repository ve frontend UI tamamlandı; kurumsal DLP/watermark adaptörleri ayrı. |
+| Kalıcı iş kuyruğu ve yürütme yaşam döngüsü | `TechnicallyVerified` | 36H1 kuyruk çekirdeği ile 36H2 worker/reaper, deadline, iptal, retry/dead-letter ve auditli yaşam döngüsü tamamlandı; production HA/broker/operasyon kanıtı ayrı. |
 
 ## Değişmez Tamamlama Koşulları
 
@@ -32,7 +33,8 @@ yönetmek. Kaynak sistemler salt okunur kalır.
 - PostgreSQL'e taşınan production domaininde SQLite fallback bırakılmaz.
 - Gerçek banka verisi, kimliği veya secret'ı geliştirme/test ortamına yazılmaz.
 
-## Sıradaki İş
+## Sıradaki Durum
 
-[Worker dayanıklılığı](../NEXT_STEP.md) — retry, timeout, kalıcı kuyruk,
-dead letter queue. 36G güvenli rapor üretimi/indirme tamamlanmıştır.
+[Son tamamlanan paket](../NEXT_STEP.md) 36H2'dir. Bağımlılıkları tamamlanmış
+yeni bir `Next`/`READY` teknik paket yoktur; kalan production readiness
+başlıkları dış bağımlılık ve banka/operasyon kanıtıdır.
