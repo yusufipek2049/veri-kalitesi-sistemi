@@ -29,7 +29,6 @@ from veri_kalitesi.identity import ActorContextIssuer, ActorType
 from veri_kalitesi.executions import (
     ConcurrencyPolicy,
     ExecutionNotFoundError,
-    ExecutionStatus,
     PostgreSQLSourceUsagePolicyRepository,
     SourceUsagePolicy,
     SourceUsagePolicyStatus,
@@ -318,7 +317,9 @@ def test_execution_cancel_rolls_back_execution_and_audit_when_job_cancel_fails(
         source_ids=("source-a",),
         triggered_by="operator-a",
     )
-    pending_before = len(audit_outbox.list_pending())
+    job_before = repository.get_by_idempotency_key("EXECUTION", execution.execution_id)
+    assert job_before is not None
+    pending_before = audit_outbox.list_pending()
 
     def fail_job_cancel(*args, **kwargs):
         raise RuntimeError("injected job cancellation failure")
@@ -338,11 +339,12 @@ def test_execution_cancel_rolls_back_execution_and_audit_when_job_cancel_fails(
             requested_by="operator-a",
         )
 
-    assert execution_repository.get(execution.execution_id).status is ExecutionStatus.QUEUED
-    job = repository.get_by_idempotency_key("EXECUTION", execution.execution_id)
-    assert job is not None
-    assert job.status is JobStatus.QUEUED
-    assert len(audit_outbox.list_pending()) == pending_before
+    assert execution_repository.get(execution.execution_id) == execution
+    assert (
+        repository.get_by_idempotency_key("EXECUTION", execution.execution_id)
+        == job_before
+    )
+    assert audit_outbox.list_pending() == pending_before
 
 
 def test_report_request_uses_persistent_job_instead_of_inline_worker(

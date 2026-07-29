@@ -54,9 +54,9 @@ Terminal, iptal ve lease-expiry iptal kapanışları audit/outbox olmadan redded
   `20260729_10_source_policy_deadlines.py`
 - Birim: `test_job_queue.py`, `test_persistent_job_worker.py`,
   `test_persistent_job_handlers.py`, `test_source_usage_policies.py` —
-  `39 passed`
+  `42 passed` (implementer hedefli koşusu; controller/reviewer kapıları bekleniyor)
 - PostgreSQL: `test_postgresql_job_queue.py` — canlı PostgreSQL üzerinde
-  `31 passed`, skip yok; execution/report atomik enqueue/rollback, eşzamanlı aynı-kaynak
+  `32 passed`, skip yok; execution/report atomik enqueue/rollback, eşzamanlı aynı-kaynak
   kotası, lease'i aşan worker heartbeat'i, audit atomikliği ve üç ayrı policy
   deadline alanı kapsanır.
 

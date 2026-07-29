@@ -40,8 +40,9 @@ tags:
 `01-Birim/test_job_queue.py`, `01-Birim/test_persistent_job_worker.py`,
 `01-Birim/test_persistent_job_handlers.py`, `01-Birim/test_source_usage_policies.py` ve
 `02-Entegrasyon/test_postgresql_job_queue.py` dosyalarındadır; son hedefli
-koşular sırasıyla `39 passed` ve canlı PostgreSQL üzerinde skipsiz `31 passed`
-sonucunu vermiştir.
+implementer koşusu `42 passed` vermiştir; controller/reviewer kapıları
+beklenmektedir. PostgreSQL kanıtındaki son canlı koşu skipsiz `32 passed`
+sonucudur.
 
 ## Kesinleşen Kararların Doğrulama Kapsamı
 
@@ -168,6 +169,6 @@ geçmez.
 | `36E` execution cutover | Migration, PostgreSQL repository, entegrasyon testleri ve `PostgreSQLExecutionStartService`/`PostgreSQLExecutionCancelService` adaptörleri mevcut. | `TechnicallyVerified`; production composition root PostgreSQL kullanabilir ve SQLite repository runtime export'ta değildir. |
 | `36F` scheduling/policy kalıcılığı | PostgreSQL scheduling/source-usage policy repository'leri, `20260724_05` migration'ı ve runtime export temizliği mevcut. | `TechnicallyVerified`; PostgreSQL entegrasyon kanıtının yeniden koşulması için `DATA_QUALITY_POSTGRES_TEST_URL` gerekir. |
 | `36G` güvenli raporlama | Birim testleri; report/report schedule repository'leri; `20260724_06/07` migration'ları ve PostgreSQL yaşam döngüsü entegrasyon testi mevcut. | `TechnicallyVerified`; PostgreSQL entegrasyon kanıtının yeniden koşulması için `DATA_QUALITY_POSTGRES_TEST_URL` gerekir. Kalıcı queue/worker dayanıklılığı ayrı pakettir. |
-| `36H1`/`36H2` kalıcı iş kuyruğu ve yaşam döngüsü | Dört hedefli birim dosyası (`39 passed`); canlı PostgreSQL `test_postgresql_job_queue.py` (`31 passed`, skip yok); `20260728_08` + `20260729_09` + `20260729_10` migration zinciri. | `TechnicallyVerified`; execution/report atomik enqueue ve rollback, kontrollü production poll/kapatma, lease/concurrency, handler heartbeat, atomik global/kaynak kotası, ayrı deadline/sürücü iptali, total-timeout güvenliği, zorunlu terminal audit/outbox, retry ve dead-letter kapsanır. |
+| `36H1`/`36H2` kalıcı iş kuyruğu ve yaşam döngüsü | Dört hedefli birim dosyası (`42 passed` implementer koşusu); son canlı PostgreSQL `test_postgresql_job_queue.py` kanıtı (`32 passed`, skip yok); `20260728_08` + `20260729_09` + `20260729_10` migration zinciri. | 36H1 `TechnicallyVerified`; 36H2 bounded timeout/iptal, production reaper ve atomik execution+job iptali kod/test yüzeyine sahiptir ancak controller entegrasyon kapısı ve reviewer `APPROVED` sonucu beklenmektedir. |
 
-Son tamamlanan doğrulama paketi [NEXT_STEP.md](../NEXT_STEP.md) içinde kayıtlıdır.
+Aktif doğrulama paketi [NEXT_STEP.md](../NEXT_STEP.md) içinde kayıtlıdır.
