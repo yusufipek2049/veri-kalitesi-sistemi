@@ -196,14 +196,20 @@ class _Repository:
         return self.job
 
 
-def _worker(repository: _Repository, handler, *, resolver: _Resolver | None = None):
+def _worker(
+    repository: _Repository,
+    handler,
+    *,
+    resolver: _Resolver | None = None,
+    lease_policy: JobLeasePolicy | None = None,
+):
     return PersistentJobWorker(
         repository=repository,  # type: ignore[arg-type]
         policy_resolver=resolver or _Resolver(),
         handlers={"EXECUTION": handler},
         transactional_audit=_Audit(),  # type: ignore[arg-type]
         worker_id="worker-a",
-        lease_policy=JobLeasePolicy(),
+        lease_policy=lease_policy or JobLeasePolicy(),
         clock=lambda: NOW,
     )
 
@@ -412,15 +418,23 @@ def test_total_deadline_forces_timeout_and_signals_blocked_handler() -> None:
         return JobCompletionOutcome.SUCCESS
 
     started = monotonic()
-    result = _worker(repository, handler, resolver=resolver).run_once()
+    result = _worker(
+        repository,
+        handler,
+        resolver=resolver,
+        lease_policy=JobLeasePolicy(duration=timedelta(milliseconds=30)),
+    ).run_once()
     elapsed = monotonic() - started
 
     assert result is not None
     assert result.status is JobStatus.TIMEOUT
     assert repository.failure_call == (JobFailureKind.TIMEOUT, 2, 4)
     assert signalled.is_set()
+    assert repository.heartbeat_count >= 1
     assert elapsed < 0.4
+    heartbeat_count_at_timeout = repository.heartbeat_count
     sleep(0.35)
+    assert repository.heartbeat_count == heartbeat_count_at_timeout
     assert not late_side_effect.is_set()
 
 
