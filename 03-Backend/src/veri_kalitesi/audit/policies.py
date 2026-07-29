@@ -7,6 +7,13 @@ def build_default_redaction_policy() -> AuditRedactionPolicy:
     return AuditRedactionPolicy(
         version="AUDIT_REDACTION_V3",
         allowed_fields_by_action={
+            "JOB_COMPLETED": frozenset({"status", "attempt_count"}),
+            "JOB_FAILED": frozenset({"status", "attempt_count"}),
+            "JOB_RETRY_SCHEDULED": frozenset({"status", "attempt_count"}),
+            "JOB_CANCELLED": frozenset({"status", "attempt_count"}),
+            "JOB_DEAD_LETTER_REPROCESSED": frozenset(
+                {"dead_letter_status", "attempt_count", "job_status"}
+            ),
             "LDAP_AUTHENTICATION": frozenset(
                 {
                     "mapping_policy_version",

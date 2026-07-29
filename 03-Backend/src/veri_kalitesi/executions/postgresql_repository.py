@@ -159,24 +159,40 @@ class PostgreSQLExecutionRepository:
         self._session_factory = session_factory
         self._tables = execution_tables(schema)
 
+    @property
+    def session_factory(self) -> SessionFactory:
+        return self._session_factory
+
     # ------------------------------------------------------------------
     # Read methods
     # ------------------------------------------------------------------
 
-    def get(self, execution_id: str) -> RuleExecution:
-        with self._session_factory() as session:
+    def get(
+        self,
+        execution_id: str,
+        *,
+        session: Session | None = None,
+        for_update: bool = False,
+    ) -> RuleExecution:
+        def _get(active_session: Session) -> RuleExecution:
+            statement = select(self._tables.executions).where(
+                self._tables.executions.c.execution_id == execution_id
+            )
+            if for_update:
+                statement = statement.with_for_update()
             row = (
-                session.execute(
-                    select(self._tables.executions).where(
-                        self._tables.executions.c.execution_id == execution_id
-                    )
-                )
+                active_session.execute(statement)
                 .mappings()
                 .one_or_none()
             )
-        if row is None:
-            raise ExecutionNotFoundError("RuleExecution not found.")
-        return _row_to_execution(row)
+            if row is None:
+                raise ExecutionNotFoundError("RuleExecution not found.")
+            return _row_to_execution(row)
+
+        if session is not None:
+            return _get(session)
+        with self._session_factory() as active_session:
+            return _get(active_session)
 
     def list_executions_for_sources(
         self,
@@ -262,11 +278,11 @@ class PostgreSQLExecutionRepository:
         *,
         audit_event: PreparedAuditEvent | None = None,
         audit_outbox: PostgreSQLTransactionalAudit | None = None,
+        session: Session | None = None,
     ) -> tuple[RuleExecution, bool]:
-        # Check for existing execution first (read-only)
-        with self._session_factory() as session:
+        def _create_or_get(active_session: Session) -> tuple[RuleExecution, bool]:
             existing = (
-                session.execute(
+                active_session.execute(
                     select(self._tables.executions).where(
                         self._tables.executions.c.idempotency_key_hash == execution.idempotency_key_hash
                     )
@@ -274,17 +290,14 @@ class PostgreSQLExecutionRepository:
                 .mappings()
                 .one_or_none()
             )
-        if existing is not None:
-            if existing["payload_hash"] != execution.payload_hash:
-                raise IdempotencyConflictError(
-                    "Idempotency key was already used with a different payload."
-                )
-            return _row_to_execution(existing), False
-
-        # Create new execution with audit
-        with transactional_session(self._session_factory) as session:
+            if existing is not None:
+                if existing["payload_hash"] != execution.payload_hash:
+                    raise IdempotencyConflictError(
+                        "Idempotency key was already used with a different payload."
+                    )
+                return _row_to_execution(existing), False
             try:
-                session.execute(
+                active_session.execute(
                     insert(self._tables.executions).values(
                         execution_id=execution.execution_id,
                         execution_type=execution.execution_type.value,
@@ -309,12 +322,17 @@ class PostgreSQLExecutionRepository:
                     )
                 )
                 if audit_outbox is not None and audit_event is not None:
-                    audit_outbox.stage(audit_event, session=session)
+                    audit_outbox.stage(audit_event, session=active_session)
             except IntegrityError as exc:
                 raise ExecutionConflictError(
                     "Execution could not be created due to a conflict."
                 ) from exc
-        return execution, True
+            return execution, True
+
+        if session is not None:
+            return _create_or_get(session)
+        with transactional_session(self._session_factory) as active_session:
+            return _create_or_get(active_session)
 
     def claim_next(
         self,
@@ -567,11 +585,14 @@ class PostgreSQLExecutionRepository:
         requested_at: datetime,
         audit_event: PreparedAuditEvent | None = None,
         audit_outbox: PostgreSQLTransactionalAudit | None = None,
+        session: Session | None = None,
     ) -> RuleExecution:
-        with transactional_session(self._session_factory) as session:
+        def _request_cancel(active_session: Session) -> RuleExecution:
             t = self._tables.executions
-            current = session.execute(
-                select(t.c.status).where(t.c.execution_id == execution_id)
+            current = active_session.execute(
+                select(t)
+                .where(t.c.execution_id == execution_id)
+                .with_for_update()
             ).mappings().one_or_none()
             if current is None:
                 raise ExecutionNotFoundError("RuleExecution not found.")
@@ -595,7 +616,7 @@ class PostgreSQLExecutionRepository:
                     "Only queued or running executions can be cancelled."
                 )
 
-            session.execute(
+            active_session.execute(
                 update(t)
                 .where(t.c.execution_id == execution_id)
                 .values(
@@ -608,8 +629,20 @@ class PostgreSQLExecutionRepository:
                 )
             )
             if audit_outbox is not None and audit_event is not None:
-                audit_outbox.stage(audit_event, session=session)
-        return self.get(execution_id)
+                audit_outbox.stage(audit_event, session=active_session)
+            updated = (
+                active_session.execute(
+                    select(t).where(t.c.execution_id == execution_id)
+                )
+                .mappings()
+                .one()
+            )
+            return _row_to_execution(updated)
+
+        if session is not None:
+            return _request_cancel(session)
+        with transactional_session(self._session_factory) as active_session:
+            return _request_cancel(active_session)
 
     def complete_cancelled(
         self,

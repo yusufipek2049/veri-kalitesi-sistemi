@@ -36,6 +36,13 @@ tags:
 9. Karar desteği için formül/kanıt bağlama, manifest ile yeniden üretim,
    nedensellik sınırı, politika kontrollü remediation ve chaos izolasyon testleri.
 
+36H2 kalıcı iş yaşam döngüsü kanıtı
+`01-Birim/test_job_queue.py`, `01-Birim/test_persistent_job_worker.py`,
+`01-Birim/test_persistent_job_handlers.py`, `01-Birim/test_source_usage_policies.py` ve
+`02-Entegrasyon/test_postgresql_job_queue.py` dosyalarındadır; son hedefli
+koşular sırasıyla `39 passed` ve canlı PostgreSQL üzerinde skipsiz `31 passed`
+sonucunu vermiştir.
+
 ## Kesinleşen Kararların Doğrulama Kapsamı
 
 | Karar grubu | Zorunlu senaryo |
@@ -161,5 +168,6 @@ geçmez.
 | `36E` execution cutover | Migration, PostgreSQL repository, entegrasyon testleri ve `PostgreSQLExecutionStartService`/`PostgreSQLExecutionCancelService` adaptörleri mevcut. | `TechnicallyVerified`; production composition root PostgreSQL kullanabilir ve SQLite repository runtime export'ta değildir. |
 | `36F` scheduling/policy kalıcılığı | PostgreSQL scheduling/source-usage policy repository'leri, `20260724_05` migration'ı ve runtime export temizliği mevcut. | `TechnicallyVerified`; PostgreSQL entegrasyon kanıtının yeniden koşulması için `DATA_QUALITY_POSTGRES_TEST_URL` gerekir. |
 | `36G` güvenli raporlama | Birim testleri; report/report schedule repository'leri; `20260724_06/07` migration'ları ve PostgreSQL yaşam döngüsü entegrasyon testi mevcut. | `TechnicallyVerified`; PostgreSQL entegrasyon kanıtının yeniden koşulması için `DATA_QUALITY_POSTGRES_TEST_URL` gerekir. Kalıcı queue/worker dayanıklılığı ayrı pakettir. |
+| `36H1`/`36H2` kalıcı iş kuyruğu ve yaşam döngüsü | Dört hedefli birim dosyası (`39 passed`); canlı PostgreSQL `test_postgresql_job_queue.py` (`31 passed`, skip yok); `20260728_08` + `20260729_09` + `20260729_10` migration zinciri. | `TechnicallyVerified`; execution/report atomik enqueue ve rollback, kontrollü production poll/kapatma, lease/concurrency, handler heartbeat, atomik global/kaynak kotası, ayrı deadline/sürücü iptali, total-timeout güvenliği, zorunlu terminal audit/outbox, retry ve dead-letter kapsanır. |
 
-Sıradaki doğrulama paketi [NEXT_STEP.md](../NEXT_STEP.md) içinde tanımlıdır.
+Son tamamlanan doğrulama paketi [NEXT_STEP.md](../NEXT_STEP.md) içinde kayıtlıdır.

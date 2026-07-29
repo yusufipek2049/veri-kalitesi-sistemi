@@ -9,7 +9,7 @@ güvenilir sınırlar içinde yazılabilir; kaynak üretim verisi değiştirilem
 
 1. [Dokümantasyon İndeksi](DOCUMENTATION_INDEX.md)
 2. [Mevcut Durum](00-Proje-Hafizasi/Mevcut-Durum.md)
-3. [Sıradaki Tek Çalışma Paketi](NEXT_STEP.md)
+3. [Son Tamamlanan Çalışma Paketi](NEXT_STEP.md)
 4. [Aktif Backlog](00-Proje-Hafizasi/Sonraki-Adimlar.md)
 5. [Aktif Son Yedi İterasyon](09-Iterasyonlar/ITERASYON-INDEX.md)
 6. [Ajan Kuralları](AGENTS.md)
@@ -21,11 +21,10 @@ güvenilir sınırlar içinde yazılabilir; kaynak üretim verisi değiştirilem
 - Kapatma/yeniden açma davranışı ve `36B5` kapanış kanıtı
   `TechnicallyVerified` olarak kaydedilmiştir.
 - `36E` execution PostgreSQL cutover, `36F` scheduling/policy PostgreSQL
-  kalıcılığı ve `36G` güvenli rapor üretimi/indirme teknik olarak
-  doğrulanmıştır.
-- [Kalıcı iş kuyruğu ve worker dayanıklılığı](NEXT_STEP.md), süreç kaybı
-  toparlama, lease/heartbeat ve dead-letter sınırlarını kapatacak tek sıradaki
-  çalışma paketidir.
+  kalıcılığı, `36G` güvenli raporlama, `36H1` kalıcı kuyruk çekirdeği ve `36H2`
+  iş yürütme yaşam döngüsü teknik olarak doğrulanmıştır.
+- [İş yürütme yaşam döngüsü, retry ve dead-letter](NEXT_STEP.md) tamamlanmıştır;
+  bağımlılıkları hazır başka `Next`/`READY` paket yoktur.
 - Üretim hazır değildir; kurumsal IdP, PAM/secret, HA veri/session, broker,
   SIEM/WORM, ServiceNow, DR ve banka onayları ayrıdır.
 

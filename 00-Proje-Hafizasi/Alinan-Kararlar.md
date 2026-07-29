@@ -2,7 +2,7 @@
 type: decision-index
 status: active
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-last_updated: 2026-07-24
+last_updated: 2026-07-29
 ---
 
 # Alınan Kararlar
@@ -28,6 +28,7 @@ Bu dosya karar metinlerini tekrar etmez; bağlayıcı kararın kanonik kaynağı
 | --- | --- | --- |
 | Temel mimari ve `OPEN-001–OPEN-018` | kapasite, politika, saklama, dağıtım, maker-checker | [Temel ve Mimari Kararlar](Karar-Kayitlari/Temel-ve-Mimari-Kararlar.md) |
 | Bankacılık teknik yönleri | `OPEN-BNK-003–007`, `010`, `012`, `014–017`, `020–021` | [Bankacılık Kararları](Karar-Kayitlari/Bankacilik-Kararlari.md) |
+| Bankacılık uyum (modelleme varsayımı) | `OPEN-BNK-001`, `002`, `008`, `009`, `011`, `013`, `018`, `019` — `GOV-DECISION-2026-07-29` | [Açık Konular — karara bağlandı](Acik-Konular.md) |
 | API ve kullanıcı arayüzü | `API-001–015`, `FE-DEC-*`, `PG-MIG-*`, `UI-WRITE-*` | [API, Frontend ve PostgreSQL Kararları](Karar-Kayitlari/API-Frontend-ve-PostgreSQL-Kararlari.md) |
 | Skorlama ve ölçüm | `DQ-SCR-001–033` | [Skorlama ve İkinci Faz Kararları](Karar-Kayitlari/Skorlama-Sentetik-Veri-ve-Ikinci-Faz-Kararlari.md) |
 | Kanıta dayalı ikinci faz | `OPEN-026–OPEN-036` | [Skorlama ve İkinci Faz Kararları](Karar-Kayitlari/Skorlama-Sentetik-Veri-ve-Ikinci-Faz-Kararlari.md) |

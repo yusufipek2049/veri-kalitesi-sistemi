@@ -2,7 +2,7 @@
 type: implementation-index
 area: backend
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-updated_at: 2026-07-27
+updated_at: 2026-07-29
 ---
 
 # Backend Modül Haritası
@@ -15,7 +15,8 @@ updated_at: 2026-07-27
 | Veri kaynakları | [Veri Kaynağı Yönetimi](../01-SRS/04-Fonksiyonel-Gereksinimler/04.02-Veri-Kaynagi-Yonetimi.md) | `veri_kalitesi/data_sources` | API ve PostgreSQL repository/migration mevcut; secret yalnız referansla taşınır. |
 | Profilleme | [Metadata ve Profilleme](../01-SRS/04-Fonksiyonel-Gereksinimler/04.03-Metadata-ve-Profilleme.md) | `veri_kalitesi/profiling` | Domain uygulaması mevcut; üretim bağlayıcıları açık. |
 | Kural yönetimi | [Kural Yönetimi](../01-SRS/04-Fonksiyonel-Gereksinimler/04.04-Kural-Yonetimi.md) | `veri_kalitesi/rules` | API, PostgreSQL repository ve migration mevcut. |
-| Çalıştırma/zamanlama | [Çalıştırma ve Zamanlama](../01-SRS/04-Fonksiyonel-Gereksinimler/04.05-Calistirma-ve-Zamanlama.md) | `veri_kalitesi/executions`, `api/postgresql_execution.py` | 36E production cutover tamamlandı. 36F ile scheduling/source-usage policy PostgreSQL repository ve migration'ı eklendi; SQLite repository'ler runtime export'tan çıkarıldı. Kalıcı queue lease/heartbeat, worker kaybı toparlama ve dead-letter yaşam döngüsü açık. |
+| Çalıştırma/zamanlama | [Çalıştırma ve Zamanlama](../01-SRS/04-Fonksiyonel-Gereksinimler/04.05-Calistirma-ve-Zamanlama.md) | `veri_kalitesi/executions`, `api/postgresql_execution.py` | 36E production cutover tamamlandı. 36F ile scheduling/source-usage policy PostgreSQL repository ve migration'ı eklendi; SQLite repository'ler runtime export'tan çıkarıldı. |
+| Kalıcı iş kuyruğu | [Çalıştırma ve Zamanlama](../01-SRS/04-Fonksiyonel-Gereksinimler/04.05-Calistirma-ve-Zamanlama.md), [Güvenilirlik](../01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler/09.04-Guvenilirlik-ve-Hata-Toleransi.md) | `veri_kalitesi/jobs` | 36H1 kuyruk/lease/concurrency çekirdeği ve 36H2 execution/report atomik enqueue, handler heartbeat, atomik global/kaynak kotası, bağlayıcıya ayrı connection/query deadline + sürücü iptali, total-timeout sonrası güvenli durma, retry, zorunlu terminal audit/outbox ve dead-letter yaşam döngüsü teknik olarak doğrulandı. |
 | Skorlama | [Skorlama](../01-SRS/04-Fonksiyonel-Gereksinimler/04.06-Skorlama.md) | `veri_kalitesi/scoring` | Çekirdek ve politika modelleri mevcut; sürümlü kurumsal politika/üretim kalıcılığı kısmi. |
 | Dashboard | [Dashboard](../01-SRS/04-Fonksiyonel-Gereksinimler/04.07-Dashboard.md) | `veri_kalitesi/dashboard`, `api/app.py` | Güvenli özet API mevcut; gerçek üretim veri/IdP adaptörleri açık. |
 | Bildirim | [Bildirim](../01-SRS/04-Fonksiyonel-Gereksinimler/04.08-Bildirim.md) | `veri_kalitesi/notifications` | Sistem içi akış mevcut; kurumsal kanal kararları/adaptörleri açık. |

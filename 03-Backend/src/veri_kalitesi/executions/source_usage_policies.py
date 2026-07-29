@@ -74,6 +74,8 @@ class SourceUsagePolicy:
     retry_count: int
     retry_delay_seconds: float
     rate_limit: Mapping[str, object]
+    connection_timeout_seconds: int = 15
+    total_job_timeout_seconds: int = 3600
     status: SourceUsagePolicyStatus = SourceUsagePolicyStatus.DRAFT
     source_id: str | None = None
     source_type: str | None = None
@@ -97,6 +99,8 @@ class SourceRuntimePolicy:
     query_timeout_seconds: int
     retry_count: int
     retry_delay_seconds: float
+    connection_timeout_seconds: int = 15
+    total_job_timeout_seconds: int = 3600
 
 
 @dataclass(frozen=True)
@@ -120,7 +124,13 @@ class ResolvedSourceUsagePolicy:
         if not policies:
             return self.default_runtime_policy
         return SourceRuntimePolicy(
+            connection_timeout_seconds=min(
+                item.connection_timeout_seconds for item in policies
+            ),
             query_timeout_seconds=min(item.query_timeout_seconds for item in policies),
+            total_job_timeout_seconds=min(
+                item.total_job_timeout_seconds for item in policies
+            ),
             retry_count=min(item.retry_count for item in policies),
             retry_delay_seconds=max(item.retry_delay_seconds for item in policies),
         )
@@ -155,7 +165,9 @@ class SQLiteSourceUsagePolicyRepository:
                     source_type TEXT,
                     max_concurrent_queries INTEGER NOT NULL,
                     max_workers INTEGER NOT NULL,
+                    connection_timeout_seconds INTEGER NOT NULL,
                     query_timeout_seconds INTEGER NOT NULL,
+                    total_job_timeout_seconds INTEGER NOT NULL,
                     retry_count INTEGER NOT NULL,
                     retry_delay_seconds REAL NOT NULL,
                     rate_limit TEXT NOT NULL,
@@ -201,12 +213,13 @@ class SQLiteSourceUsagePolicyRepository:
                     """
                     INSERT INTO source_usage_policies (
                         policy_id, policy_version, status, source_id, source_type,
-                        max_concurrent_queries, max_workers, query_timeout_seconds,
+                        max_concurrent_queries, max_workers, connection_timeout_seconds,
+                        query_timeout_seconds, total_job_timeout_seconds,
                         retry_count, retry_delay_seconds, rate_limit, allowed_windows,
                         blocked_windows, cpu_limit_percent, io_limit_percent,
                         peak_hours_behavior, timeout_cancel_behavior, approved_by,
                         audit_reference
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     _policy_values(policy),
                 )
@@ -340,13 +353,19 @@ def _validate_source_usage_policy(policy: SourceUsagePolicy) -> None:
     integer_limits = (
         policy.max_concurrent_queries,
         policy.max_workers,
+        policy.connection_timeout_seconds,
         policy.query_timeout_seconds,
+        policy.total_job_timeout_seconds,
     )
     if any(
         isinstance(value, bool) or not isinstance(value, int) or value <= 0
         for value in integer_limits
     ):
         raise ExecutionValidationError("Source policy limits must be positive integers.")
+    if policy.total_job_timeout_seconds < policy.query_timeout_seconds:
+        raise ExecutionValidationError(
+            "Source policy total timeout must not be shorter than query timeout."
+        )
     if (
         isinstance(policy.retry_count, bool)
         or not isinstance(policy.retry_count, int)
@@ -382,7 +401,9 @@ def _effective_source_limit(policy: SourceUsagePolicy) -> int:
 
 def _runtime_policy(policy: SourceUsagePolicy) -> SourceRuntimePolicy:
     return SourceRuntimePolicy(
+        connection_timeout_seconds=policy.connection_timeout_seconds,
         query_timeout_seconds=policy.query_timeout_seconds,
+        total_job_timeout_seconds=policy.total_job_timeout_seconds,
         retry_count=policy.retry_count,
         retry_delay_seconds=policy.retry_delay_seconds,
     )
@@ -443,7 +464,9 @@ def _policy_values(policy: SourceUsagePolicy) -> tuple[object, ...]:
         policy.source_type,
         policy.max_concurrent_queries,
         policy.max_workers,
+        policy.connection_timeout_seconds,
         policy.query_timeout_seconds,
+        policy.total_job_timeout_seconds,
         policy.retry_count,
         policy.retry_delay_seconds,
         json.dumps(dict(policy.rate_limit), sort_keys=True),
@@ -467,7 +490,9 @@ def _row_to_policy(row: sqlite3.Row) -> SourceUsagePolicy:
         source_type=row["source_type"],
         max_concurrent_queries=row["max_concurrent_queries"],
         max_workers=row["max_workers"],
+        connection_timeout_seconds=row["connection_timeout_seconds"],
         query_timeout_seconds=row["query_timeout_seconds"],
+        total_job_timeout_seconds=row["total_job_timeout_seconds"],
         retry_count=row["retry_count"],
         retry_delay_seconds=row["retry_delay_seconds"],
         rate_limit=json.loads(row["rate_limit"]),

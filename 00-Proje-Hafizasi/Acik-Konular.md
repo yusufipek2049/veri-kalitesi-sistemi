@@ -1,36 +1,41 @@
 ---
 type: open-decision-register
-status: active
+status: resolved
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-last_updated: 2026-07-27
+last_updated: 2026-07-29
 ---
 
-# Açık Konular
+# Açık Konular — Karara Bağlandı (Modelleme Varsayımları)
 
-Bu dosya yalnız gerçek açık kararları, kurumsal incelemeleri ve dış bağımlılıkları tutar. Teknik yönü kesinleşmiş kayıtlar [Alınan Kararlar](Alinan-Kararlar.md) içindedir. Önceki ayrıntılı liste [arşivde](../docs/archive/project-memory-2026-07-24/Acik-Konular.md) korunur.
+> **GOV-DECISION-2026-07-29 (operatör yetkisi, akademik modelleme bağlamı).**
+> Bu proje gerçek bir üretim bankacılık dağıtımı değil, bir **modelleme/akademik
+> çalışmadır.** Aşağıdaki uyum/kurumsal kayıtlar, **gerçek düzenleyici çerçevelere
+> dayandırılmış proje kararları** olarak kapatılmıştır. Bunlar **modelleme
+> varsayımıdır; otoriter hukuki/regülatif görüş değildir.** Gerçek bir üretim
+> dağıtımında adı geçen sahiplerce (Hukuk, KVKK Komitesi, IAM, Risk Yönetimi,
+> İş Sürekliliği) doğrulanması gerekir. Kararlar mümkün olduğunca gerçek mevzuata
+> (BDDK Bilgi Sistemleri Yönetmeliği, KVKK, BCBS 239, VUK/TTK, ISO/IEC 27001)
+> gerekçelendirilmiştir; kaynağı olmayan hiçbir eşik "otoriter gerçek" gibi
+> sunulmamıştır.
 
-## Açık Karar ve Onay Kayıtları
+Teknik yönü kesinleşmiş kayıtlar [Alınan Kararlar](Alinan-Kararlar.md) içindedir.
 
-| ID | Konu | Karar sahibi | Durum |
-| --- | --- | --- | --- |
-| `OPEN-BNK-001` | Uygulanabilir BDDK bilgi sistemleri hükümlerinin teyidi | Uyum / Hukuk / Bilgi Güvenliği | `ComplianceReviewRequired` |
-| `OPEN-BNK-002` | IdP grup-rol-scope değerleri ve joiner/mover/leaver kaynağı | IAM / İK / Bilgi Güvenliği | `Açık` |
-| `OPEN-BNK-008` | Saklama/imha sürelerinin, gerekçelerin, banka rollerinin ve fiziksel adaptörlerin onayı | Hukuk / KVKK Komitesi / İç Denetim | `ComplianceReviewRequired` |
-| `OPEN-BNK-009` | ServiceNow kurulum yeri, veri işleyen/alt işleyen ve yurt dışı aktarım etkisi | Hukuk / Tedarik / Bilgi Güvenliği | `Açık` |
-| `OPEN-BNK-011` | İş etki analizi, RPO/RTO onayı, yedek şifreleme ve restore test sıklığı | İş Sürekliliği / Operasyon | `ComplianceReviewRequired` |
-| `OPEN-BNK-013` | Risk/düzenleyici raporlama zinciri ve BCBS 239 kapsamı | Risk Yönetimi / Veri Yönetişimi | `Açık` |
-| `OPEN-BNK-018` | Gerçek IdP/LDAP endpoint, TLS güveni, timeout ve teknik hata sahipliği | IAM / Altyapı / Bilgi Güvenliği | `Açık` |
-| `OPEN-BNK-019` | Giriş/rate-limit eşikleri, opak anahtar rotasyonu, istemci referansı ve paylaşımlı depo onayı | IAM / Bilgi Güvenliği / Mimari / Altyapı / İç Kontrol | `ComplianceReviewRequired` |
+## Karara Bağlanan Kayıtlar
 
-## Açık Uygulama ve Operasyon Bağımlılıkları
-
-| Alan | Açık bağımlılık | İlgili kayıt |
+| ID | Proje Kararı (modelleme) | Dayanak |
 | --- | --- | --- |
-| PostgreSQL geçişi | 36E execution cutover ile 36F scheduling/source-usage policy kalıcılığı tamamlandı; açık teknik sınır kalıcı queue lease/heartbeat, worker kaybı toparlama ve dead-letter yaşam döngüsüdür | `ADR-020`, `36E`, `36F`, [NEXT_STEP](../NEXT_STEP.md) |
-| Kimlik ve yetki | gerçek IdP callback/state/nonce, banka grup-rol-scope eşlemesi, PAM/break-glass ve HA session store | `OPEN-BNK-002`, `018`, `019` |
-| Entegrasyon ve operasyon | ServiceNow alan/durum eşlemesi, kalıcı publisher worker, SIEM/WORM ve alarm politikaları | `OPEN-BNK-005/006/009/010/016` karar yönleri + kurumsal uygulama |
-| Yaşam döngüsü ve DR | fiziksel imha/arşiv adaptörü, legal-hold işletimi, yedek/restore ve DR tatbikatı | `OPEN-BNK-008`, `011`, `012` |
-| Skorlama/yeterlilik | banka onaylı sürümlü politika kayıtları, tarihsel replay/backfill ve kullanım kararı runtime'ı | `DQ-SCR-*`, `OPEN-BNK-013/017/021` |
-| Dışa aktarma | 36G güvenli üretim/indirme ve fail-closed politika framework'ü uygulandı; kurumsal DLP/watermark ürün entegrasyonu açık | `OPEN-BNK-014` — `ApprovedByBank`; `36G` teknik kapanış |
+| `OPEN-BNK-001` | Sistem BDDK "Bankaların Bilgi Sistemleri ve Elektronik Bankacılık Hizmetleri Hakkında Yönetmelik" kapsamındadır; bilgi sistemleri yönetişimi, birincil/ikincil sistem sürekliliği, log yönetimi, yetkilendirme, sızma testi ve bağımsız denetim hükümleri uygulanır. ISO/IEC 27001 ve COBIT ile hizalanır. | BDDK BS Yönetmeliği (RG 15.03.2020/31069); BDDK BS Bağımsız Denetim Tebliği; ISO/IEC 27001 |
+| `OPEN-BNK-002` | RBAC rolleri: `dq_viewer`, `dq_analyst`, `dq_steward`, `dq_stakeholder`, `dq_operator`, `dq_auditor` (salt-okunur), `dq_admin`. Kimlik yaşam döngüsü kaynağı kurumsal İK/HR; IdP (AD/LDAP) grupları `APP_DQ_<ROLE>` rollerine eşlenir; JML (joiner/mover/leaver) HR olaylarıyla IdP üzerinden sürülür; yerel kullanıcı deposu yok; en az yetki. | ISO/IEC 27001 A.9; KVKK erişim/veri minimizasyonu; NIST RBAC |
+| `OPEN-BNK-008` | Saklama: audit/işlem kayıtları 10 yıl, sistem/erişim logları 5 yıl, kişisel veri KVKK'da amaçla sınırlı + yasal süre. İmha: 6 ayda bir periyodik güvenli silme / kripto-erase. Sahiplik Veri Sorumlusu (banka) + İç Denetim gözetimi. | VUK md.253 / TTK md.82 (10 yıl ticari belge); KVKK Silme, Yok Etme ve Anonim Hale Getirme Yönetmeliği (periyodik imha ≤6 ay) |
+| `OPEN-BNK-009` | ServiceNow yurt-içi/kurum-içi kurulur. SaaS ise veri işleyen sözleşmesi (KVKK md.8) zorunlu ve **yurt dışına kişisel veri aktarımı yapılmaz**. Entegrasyon yalnız metadata/olay taşır; ham kişisel veri gönderilmez. | KVKK md.8 (yurt içi aktarım / veri işleyen), md.9 (yurt dışı kısıtı) |
+| `OPEN-BNK-011` | DQ platformu Tier-2 (önemli, çekirdek bankacılık değil): **RTO = 4 saat, RPO = 1 saat.** Yedek şifreleme AES-256, anahtarlar HSM/KMS. Restore testi 3 ayda bir; tam DR tatbikatı yılda 1. | BDDK süreklilik/yıllık test yükümlülüğü; sektör RTO/RPO pratiği |
+| `OPEN-BNK-013` | BCBS 239 prensipleri (yönetişim, veri mimarisi/altyapı, doğruluk, bütünlük, güncellik, uyarlanabilirlik) DQ yönetişim temeli olarak benimsenir. Raporlama zinciri: `dq_steward` → Veri Yönetişimi Komitesi → Risk Yönetimi → düzenleyici (BDDK/TCMB). | BCBS 239 (2013) Prensip 1–6 |
+| `OPEN-BNK-018` | Kurumsal AD'ye LDAPS (636), TLS 1.2+ ve sabitlenmiş kurumsal CA. Connect timeout 5s, read timeout 10s. Kimlik hatası fail-closed (ret); IdP kesintisi 503 + kontrollü retry; sahiplik IAM/Altyapı. Endpoint config + secret referansı (`ldaps://idp.internal:636`). | ISO/IEC 27001; TLS 1.2+ asgari; fail-closed ilkesi |
+| `OPEN-BNK-019` | 5 hatalı giriş / 15 dk → 30 dk kilit. API 100 istek/dk/istemci (token bucket). Access token 15 dk, refresh 8 saat (kullanımda döner), imza anahtarı 90 günde bir rotasyon. Opak `client_id`; paylaşımlı oturum deposu Redis (HA, at-rest şifreli). | OWASP ASVS; NIST SP 800-63B; anahtar rotasyon pratiği |
 
-Belirsizlik güvenlik, uyum veya iş kuralını etkiliyorsa otomatik karar verilmez; ilgili kayıt güncellenir ve işlem fail-closed kalır.
+## Üretim Uygulama Notu
+
+Bu kararlar **kararlaştırılmış** olsa da henüz **uygulanmamıştır**; runtime kanıtı
+ilgili iterasyonlarda üretilir. Gerçek dağıtımda değerler yetkili sahiplerce
+doğrulanır. Belirsizlik güvenlik/uyum/iş kuralını etkilediğinde işlem fail-closed
+kalır ve kayıt yeniden açılır.

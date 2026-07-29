@@ -1,6 +1,27 @@
-# Dokümantasyon Konsolidasyon Denetimi — 24 Temmuz 2026
+# Dokümantasyon Konsolidasyon Denetimi — 29 Temmuz 2026
 
-## Özet
+## 2026-07-29 Turu — 36H1 Senkronizasyonu
+
+Bu tur, aktif dal üzerindeki 36H1 kalıcı iş kuyruğu çekirdeği artımını kanonik
+dokümantasyonla eşitledi. Proje kapsamı, gereksinim, güvenlik/uyum kuralı veya
+iş kuralı değiştirilmedi; kod değiştirilmedi.
+
+| İşlem | Ayrıntı |
+| --- | --- |
+| İterasyon kaydı | `Iterasyon-36H1-Kalici-Is-Kuyrugu-Cekirdegi.md` oluşturuldu; birim testleri bu oturumda `11 passed` ile doğrulandı, PostgreSQL entegrasyonu canlı DB gerektirdiği için yeniden koşulmadı. |
+| Aktif yedi kuralı | 36H1 eklendi; en eski `36B2` arşive taşındı; aktif indekste artık kalan duplike `36B1` aktif dosyası silindi (arşiv kopyası korundu). |
+| Sıradaki adım | `NEXT_STEP.md` bütün paket yerine tek kalan artıma (iş yürütme yaşam döngüsü, retry/timeout, dead-letter + production worker/composition) daraltıldı. |
+| Kanonik senkron | Mevcut-Durum, Sonraki-Adimlar, Açık-Konular, roadmap, README, backend/veritabanı/test indeksleri ve DOCUMENTATION_INDEX güncellendi. |
+| Ajan sözleşmesi | AGENTS.md'ye deterministik görev seçim algoritması, boş "devam"/açık görev sözleşmesi ve `.agent-handoff`/commit-hash yasakları eklendi. |
+
+Çözülen çelişki: 36H1 kodu (jobs modülü, migration, birim+entegrasyon testleri)
+teslim edilmişken kanonik belgeler bütün kalıcı kuyruk paketini hâlâ "başlanmadı"
+gösteriyordu. Kod gerçeği esas alındı; tamamlanan çekirdek DONE, kalan yaşam
+döngüsü tek sıradaki `Next` paket olarak ayrıldı.
+
+---
+
+## 2026-07-24 Turu (tarihsel)
 
 Bu tur, ilk temizlikten sonraki depoyu güncel kararlar ve son yedi iterasyon
 üzerinden yeniden düzenledi. Proje kapsamı, gereksinim, güvenlik/uyum kuralı veya

@@ -12,12 +12,18 @@ import time as time_module
 import concurrent.futures
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from threading import Event
 from typing import Protocol
-from uuid import uuid4
 
 from veri_kalitesi.reporting.errors import ReportNotReadyError, ReportRetryableError
 from veri_kalitesi.reporting.export import GeneratedFile, ReportDataProvider, generate_report
-from veri_kalitesi.reporting.models import Report, ReportExportPolicy, ReportFormat, ReportRequest, ReportStatus, ReportType
+from veri_kalitesi.reporting.models import (
+    Report,
+    ReportExportPolicy,
+    ReportFormat,
+    ReportStatus,
+    ReportType,
+)
 from veri_kalitesi.reporting.policies import ReportExportPolicyRepository
 
 
@@ -68,7 +74,13 @@ class ReportWorker:
         self._data_provider = data_provider
         self._settings = settings or ReportWorkerSettings()
 
-    def process_report(self, report_id: str) -> Report:
+    def process_report(
+        self,
+        report_id: str,
+        *,
+        timeout_seconds: int | None = None,
+        cancellation_event: Event | None = None,
+    ) -> Report:
         """Bir raporu isler: QUEUED -> RUNNING -> READY/FAILED.
 
         Retryable hatalarda max_retry_attempts'e kadar ussel backoff ile
@@ -77,6 +89,8 @@ class ReportWorker:
         from pathlib import Path
 
         report = self._repo.get_report(report_id)
+        if cancellation_event is not None and cancellation_event.is_set():
+            raise ReportRetryableError("Report generation was cancelled.")
 
         if report.status != ReportStatus.QUEUED:
             raise ReportNotReadyError(report_id, report.status.value)
@@ -92,6 +106,8 @@ class ReportWorker:
 
         for attempt in range(1, max_attempts + 1):
             try:
+                if cancellation_event is not None and cancellation_event.is_set():
+                    raise ReportRetryableError("Report generation was cancelled.")
                 policy = self._policy_repo.get_active_policy(report.sensitivity_level)
 
                 watermark_text = None
@@ -107,7 +123,10 @@ class ReportWorker:
                     parameters=report.parameters,
                     policy=policy,
                     watermark_text=watermark_text,
+                    timeout_seconds=timeout_seconds,
                 )
+                if cancellation_event is not None and cancellation_event.is_set():
+                    raise ReportRetryableError("Report generation was cancelled.")
 
                 # Dosyayi kaydet
                 storage = Path(self._settings.storage_path)
@@ -137,6 +156,10 @@ class ReportWorker:
                 return report
 
             except Exception as exc:
+                if cancellation_event is not None and cancellation_event.is_set():
+                    raise ReportRetryableError(
+                        "Report generation was cancelled."
+                    ) from exc
                 last_exception = exc
                 if not self._is_retryable(exc):
                     # Non-retryable hata — direkt FAILED, retry bilgisi eklenmez
@@ -170,13 +193,20 @@ class ReportWorker:
         parameters: dict,
         policy: ReportExportPolicy | None,
         watermark_text: str | None,
+        timeout_seconds: int | None = None,
     ) -> GeneratedFile:
         """Raporu timeout ile uretir.
 
         generation_timeout_seconds asiminda concurrent.futures.TimeoutError
         firlatilir.
         """
-        timeout = max(1, self._settings.generation_timeout_seconds)
+        timeout = max(
+            1,
+            min(
+                self._settings.generation_timeout_seconds,
+                timeout_seconds or self._settings.generation_timeout_seconds,
+            ),
+        )
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(
