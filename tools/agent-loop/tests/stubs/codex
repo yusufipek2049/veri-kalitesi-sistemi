@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Fake `codex` for agent-loop tests. Honors `-o <file>` and is driven by env vars:
+#   STUB_CODEX_EXIT     non-zero -> write to stderr and exit that code (no result file)
+#   STUB_CODEX_EMPTY=1  -> write an empty result file, exit 0
+#   STUB_CODEX_ECHO_PG=1-> write STATUS + forwarded PG url (env forwarding check)
+#   STUB_CODEX_STATUS   -> first line of the result (default "STATUS: SUCCESS")
+#   STUB_CODEX_BODY     -> remaining body
+set -u
+
+out=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -o) out="${2:-}"; shift 2 ;;
+    *)  shift ;;
+  esac
+done
+
+# Capture the prompt on stdin (used for role auto-detection).
+prompt="$(cat 2>/dev/null || true)"
+
+if [[ -n "${STUB_CODEX_EXIT:-}" && "${STUB_CODEX_EXIT}" != "0" ]]; then
+  echo "stub codex forced failure exit=${STUB_CODEX_EXIT}" >&2
+  exit "${STUB_CODEX_EXIT}"
+fi
+
+[[ -n "$out" ]] || { echo "stub codex: missing -o" >&2; exit 90; }
+
+if [[ "${STUB_CODEX_EMPTY:-0}" == "1" ]]; then
+  : > "$out"
+  exit 0
+fi
+
+# STUB_CODEX_STATUS override edilmişse onu kullan; aksi halde prompt'tan rolü
+# tespit edip makul bir varsayılan STATUS üret (uçtan uca demo için).
+status="${STUB_CODEX_STATUS:-}"
+body="${STUB_CODEX_BODY:-stub body}"
+if [[ -z "$status" ]]; then
+  if grep -q "planning agent" <<<"$prompt"; then
+    status="STATUS: READY"
+    body=$'TASK_ID: demo-task\nTITLE: Demo task\nOBJECTIVE: demo objective\nSOURCE_DOCS: README.md\nPRIORITY_REASON: demo priority'
+  elif grep -q "final repository reviewer" <<<"$prompt"; then
+    status="STATUS: APPROVED"
+    body="Demo approval."
+  else
+    status="STATUS: SUCCESS"
+  fi
+fi
+
+{
+  echo "$status"
+  if [[ "${STUB_CODEX_ECHO_PG:-0}" == "1" ]]; then
+    echo "PG_URL=${DATA_QUALITY_POSTGRES_TEST_URL:-}"
+    echo "PG_SCHEMA=${DATA_QUALITY_DATABASE_SCHEMA:-}"
+  else
+    printf '%s\n' "$body"
+  fi
+} > "$out"
+exit 0
