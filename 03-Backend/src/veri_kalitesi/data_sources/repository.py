@@ -33,6 +33,8 @@ from veri_kalitesi.data_sources.models import (
     MetadataChange,
     MetadataDiscoveryResult,
     DataProfile,
+    ProfileComparison,
+    ProfileComparisonStatus,
     SourceType,
     ProfileMethod,
     ProfileStatus,
@@ -142,6 +144,22 @@ class SQLiteDataSourceRepository:
                 started_at TEXT NOT NULL,
                 finished_at TEXT NOT NULL,
                 FOREIGN KEY (dataset_id) REFERENCES datasets(dataset_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS profile_comparisons (
+                comparison_id TEXT PRIMARY KEY,
+                dataset_id TEXT NOT NULL,
+                baseline_profile_id TEXT NOT NULL,
+                current_profile_id TEXT NOT NULL,
+                policy_version TEXT,
+                status TEXT NOT NULL,
+                anomaly_candidate INTEGER,
+                result TEXT NOT NULL,
+                message TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (dataset_id) REFERENCES datasets(dataset_id),
+                FOREIGN KEY (baseline_profile_id) REFERENCES data_profiles(profile_id),
+                FOREIGN KEY (current_profile_id) REFERENCES data_profiles(profile_id)
             );
 
             CREATE TABLE IF NOT EXISTS data_processing_inventory_versions (
@@ -1054,6 +1072,54 @@ class SQLiteDataSourceRepository:
         ).fetchall()
         return [_row_to_data_profile(row) for row in rows]
 
+    def add_profile_comparison(
+        self,
+        comparison: ProfileComparison,
+        *,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: SQLiteTransactionalAudit,
+    ) -> ProfileComparison:
+        self._require_shared_audit_transaction(audit_outbox)
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO profile_comparisons (
+                    comparison_id, dataset_id, baseline_profile_id, current_profile_id,
+                    policy_version, status, anomaly_candidate, result, message, created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    comparison.comparison_id,
+                    comparison.dataset_id,
+                    comparison.baseline_profile_id,
+                    comparison.current_profile_id,
+                    comparison.policy_version,
+                    comparison.status.value,
+                    (
+                        None
+                        if comparison.anomaly_candidate is None
+                        else int(comparison.anomaly_candidate)
+                    ),
+                    json.dumps(comparison.result, sort_keys=True),
+                    comparison.message,
+                    _to_text(comparison.created_at),
+                ),
+            )
+            audit_outbox.stage(audit_event)
+        return comparison
+
+    def list_profile_comparisons(self, dataset_id: str) -> list[ProfileComparison]:
+        rows = self.connection.execute(
+            """
+            SELECT * FROM profile_comparisons
+            WHERE dataset_id = ?
+            ORDER BY created_at, comparison_id
+            """,
+            (dataset_id,),
+        ).fetchall()
+        return [_row_to_profile_comparison(row) for row in rows]
+
     def next_processing_inventory_version(self, data_field_id: str) -> int:
         row = self.connection.execute(
             """
@@ -1303,6 +1369,22 @@ def _row_to_data_profile(row: sqlite3.Row) -> DataProfile:
         message=row["message"],
         started_at=_from_text(row["started_at"]),
         finished_at=_from_text(row["finished_at"]),
+    )
+
+
+def _row_to_profile_comparison(row: sqlite3.Row) -> ProfileComparison:
+    anomaly_candidate = row["anomaly_candidate"]
+    return ProfileComparison(
+        comparison_id=row["comparison_id"],
+        dataset_id=row["dataset_id"],
+        baseline_profile_id=row["baseline_profile_id"],
+        current_profile_id=row["current_profile_id"],
+        policy_version=row["policy_version"],
+        status=ProfileComparisonStatus(row["status"]),
+        anomaly_candidate=(None if anomaly_candidate is None else bool(anomaly_candidate)),
+        result=json.loads(row["result"]),
+        message=row["message"],
+        created_at=_from_text(row["created_at"]),
     )
 
 

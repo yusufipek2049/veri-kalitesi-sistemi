@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from veri_kalitesi.audit import AuditEvent, AuditQueryPage
 from veri_kalitesi.dashboard import DashboardOverview
-from veri_kalitesi.data_sources import DataSource
+from veri_kalitesi.data_sources import DataSource, ProfileComparison
 from veri_kalitesi.executions import RuleExecution
 from veri_kalitesi.issues import DataQualityIssue, IssuePriority
 from veri_kalitesi.reporting import ReportPreview, ReportSummaryRow, Report, ReportSchedule, ReportStatus, ReportFormat, ReportType
@@ -42,6 +42,54 @@ class DataSourceListResponse(BaseModel):
     data_origin: str
     correlation_id: str
     items: tuple[DataSourceListItemResponse, ...]
+
+
+class ProfileComparisonRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    dataset_id: str = Field(min_length=1)
+    baseline_profile_id: str = Field(min_length=1)
+    current_profile_id: str = Field(min_length=1)
+    policy_version: str | None = Field(default=None, min_length=1)
+
+
+class ProfileComparisonItemResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    comparison_id: str
+    dataset_id: str
+    baseline_profile_id: str
+    current_profile_id: str
+    policy_version: str | None
+    status: str
+    anomaly_candidate: bool | None
+    result: dict
+    message: str
+    created_at: datetime
+
+    @classmethod
+    def from_domain(cls, comparison: ProfileComparison) -> "ProfileComparisonItemResponse":
+        return cls(
+            comparison_id=comparison.comparison_id,
+            dataset_id=comparison.dataset_id,
+            baseline_profile_id=comparison.baseline_profile_id,
+            current_profile_id=comparison.current_profile_id,
+            policy_version=comparison.policy_version,
+            status=comparison.status.value,
+            anomaly_candidate=comparison.anomaly_candidate,
+            result=comparison.result,
+            message=comparison.message,
+            created_at=comparison.created_at,
+        )
+
+
+class ProfileComparisonResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    item: ProfileComparisonItemResponse
 
 
 class RuleListItemResponse(BaseModel):

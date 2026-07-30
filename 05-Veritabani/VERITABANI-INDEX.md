@@ -23,7 +23,7 @@ updated_at: 2026-07-29
 | --- | --- | --- | --- |
 | Sorun yönetimi | `20260723_01_issue_baseline.py` | Var | Issue runtime yolu PostgreSQL-only olarak belgelenmiş; seçici SQLite aktarımı ve test desteği var. |
 | Kural yönetimi | `20260723_02_rule_baseline.py` | Var | API/service sözleşmesi mevcut; teknik geçiş tamamlanmış olarak kaydedilmiş. |
-| Veri kaynakları | `20260724_03_data_source_baseline.py` | Var | API/service sözleşmesi mevcut; teknik geçiş tamamlanmış olarak kaydedilmiş. |
+| Veri kaynakları/profil karşılaştırma | `20260724_03_data_source_baseline.py`, `20260729_11_profile_comparisons.py` | Var | Profil snapshot geçmişi ve atomik audit/outbox'lı deterministik karşılaştırma sonucu repository'si vardır; production composition/ölçek kanıtı ayrıca açıktır. |
 | Çalıştırmalar | `20260724_04_execution_baseline.py` | Var | Repository ve testler mevcut; `PostgreSQLExecutionStartService`/`PostgreSQLExecutionCancelService` adaptörleri ile üretim cutover'ı tamamlandı. `create_development_app(session_factory=...)` ile PostgreSQL kullanılabilir. |
 | Zamanlama/kaynak kullanım politikası | `20260724_05_scheduling_and_policy_baseline.py`, `20260729_10_source_policy_deadlines.py` | Var | 36F ile scheduling/source-usage policy repository'leri PostgreSQL'e taşındı; ayrı bağlantı/sorgu/toplam deadline alanları eklendi; SQLite eşleri runtime export'tan çıkarılıp test double olarak sınırlandı. |
 | Raporlama | `20260724_06_reporting_baseline.py`, `20260724_07_report_schedules.py` | Var | 36G report ve report schedule PostgreSQL repository'leri runtime'a bağlandı; süreçten bağımsız kalıcı queue/worker yaşam döngüsü ayrı pakettir. |

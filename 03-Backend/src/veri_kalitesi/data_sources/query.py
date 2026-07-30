@@ -7,7 +7,9 @@ from typing import Protocol
 
 from sqlalchemy.exc import SQLAlchemyError
 
-from veri_kalitesi.data_sources.models import DataSource
+from veri_kalitesi.data_sources.errors import ValidationError
+from veri_kalitesi.data_sources.models import DataSource, ProfileComparison
+from veri_kalitesi.data_sources.service import DataSourceService
 from veri_kalitesi.identity import ActorContext, AuthorizationService, IdentityError
 
 
@@ -27,6 +29,10 @@ class DataSourceQueryAuthorizationError(DataSourceQueryError):
 
 class DataSourceQueryTechnicalError(DataSourceQueryError):
     """Depo sorgusu teknik nedenle tamamlanamadı."""
+
+
+class DataSourceQueryValidationError(DataSourceQueryError):
+    """Profil karşılaştırma istemci girdisi domain doğrulamasını geçemedi."""
 
 
 class DataSourceQueryService:
@@ -53,4 +59,65 @@ class DataSourceQueryService:
         except (sqlite3.Error, SQLAlchemyError, OSError) as exc:
             raise DataSourceQueryTechnicalError(
                 "Data source query could not be completed.", correlation_id
+            ) from exc
+
+
+class ProfileComparisonCommandService:
+    """HTTP sınırı için trusted-context ve dataset scope zorlaması."""
+
+    def __init__(
+        self,
+        service: DataSourceService,
+        authorization_service: AuthorizationService,
+    ) -> None:
+        self.service = service
+        self.authorization_service = authorization_service
+
+    def compare(
+        self,
+        *,
+        actor_context: ActorContext | None,
+        dataset_id: str,
+        baseline_profile_id: str,
+        current_profile_id: str,
+        policy_version: str | None,
+        correlation_id: str,
+    ) -> ProfileComparison:
+        try:
+            decision = self.authorization_service.authorize_dashboard(actor_context)
+        except IdentityError as exc:
+            raise DataSourceQueryAuthorizationError(
+                "Profile comparison scope is not available.",
+                correlation_id,
+            ) from exc
+        assert actor_context is not None
+        try:
+            dataset = self.service.repository.get_dataset(dataset_id)
+            if (
+                dataset_id not in decision.permitted_dataset_ids
+                and dataset.data_source_id not in decision.permitted_source_ids
+            ):
+                raise DataSourceQueryAuthorizationError(
+                    "Profile comparison scope is not available.",
+                    correlation_id,
+                )
+            return self.service.compare_profiles(
+                actor_id=actor_context.actor_id,
+                dataset_id=dataset_id,
+                baseline_profile_id=baseline_profile_id,
+                current_profile_id=current_profile_id,
+                policy_version=policy_version,
+                correlation_id=correlation_id,
+            )
+        except DataSourceQueryAuthorizationError:
+            raise
+        except ValidationError as exc:
+            raise DataSourceQueryValidationError(
+                "Profile comparison request could not be validated.",
+                correlation_id,
+            ) from exc
+        except (sqlite3.Error, SQLAlchemyError, OSError) as exc:
+            raise DataSourceQueryTechnicalError(
+                "Profile comparison could not be completed.",
+                correlation_id,
             ) from exc

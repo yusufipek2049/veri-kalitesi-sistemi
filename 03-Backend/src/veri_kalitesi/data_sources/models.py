@@ -133,6 +133,27 @@ class ProfileStatus(str, Enum):
     TECHNICAL_ERROR = "TECHNICAL_ERROR"
 
 
+class ProfilePolicyResolutionStatus(str, Enum):
+    RESOLVED = "RESOLVED"
+    MISSING = "MISSING"
+
+
+class ProfileComparisonStatus(str, Enum):
+    COMPLETED = "COMPLETED"
+    CONFIGURATION_ERROR = "CONFIGURATION_ERROR"
+    INSUFFICIENT_HISTORY = "INSUFFICIENT_HISTORY"
+    INCOMPATIBLE = "INCOMPATIBLE"
+
+
+class OutlierMethod(str, Enum):
+    IQR = "IQR"
+    ROBUST_Z_SCORE = "ROBUST_Z_SCORE"
+
+
+class ProfileSamplingStrategy(str, Enum):
+    DETERMINISTIC_HASH = "DETERMINISTIC_HASH"
+
+
 class ErrorClass(str, Enum):
     VALIDATION = "VALIDATION"
     DNS = "DNS"
@@ -243,6 +264,38 @@ class ProfileOptions:
     sample_ratio: float | None = None
     field_names: tuple[str, ...] = ()
     key_field_names: tuple[str, ...] = ()
+    scope: dict[str, Any] = field(default_factory=dict)
+    query_version: str = "DATA_SOURCE_PROFILE_QUERY_V1"
+    connector_version: str = "DATA_SOURCE_CONNECTOR_V1"
+    policy_version: str | None = None
+    analysis_policy: "ProfileAnalysisPolicy | None" = field(default=None, repr=False, compare=False)
+
+
+@dataclass(frozen=True)
+class ProfileAnalysisPolicy:
+    """Onaylı dış konfigürasyondan çözülen, kod varsayılanı olmayan profil politikası."""
+
+    version: str
+    top_n_limit: int
+    high_cardinality_threshold: int
+    advanced_sample_size: int
+    sampling_strategy: ProfileSamplingStrategy
+    sampling_seed: int
+    enabled_outlier_methods: tuple[OutlierMethod, ...]
+    iqr_multiplier: float
+    robust_z_score_threshold: float
+    minimum_numeric_sample: int
+    comparison_window: int
+    minimum_history: int
+    volume_ratio_threshold: float
+    null_ratio_delta_threshold: float
+    distinct_ratio_delta_threshold: float
+    category_loss_ratio_threshold: float
+    numeric_mean_ratio_threshold: float
+    numeric_median_ratio_threshold: float
+    freshness_delay_seconds_threshold: float
+    schema_change_detection_enabled: bool
+    freshness_field_names: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -268,6 +321,20 @@ class DataProfile:
     profile_id: str = field(default_factory=lambda: str(uuid4()))
     started_at: datetime = field(default_factory=utc_now)
     finished_at: datetime = field(default_factory=utc_now)
+
+
+@dataclass(frozen=True)
+class ProfileComparison:
+    dataset_id: str
+    baseline_profile_id: str
+    current_profile_id: str
+    status: ProfileComparisonStatus
+    result: dict[str, Any]
+    policy_version: str | None = None
+    anomaly_candidate: bool | None = None
+    message: str = ""
+    comparison_id: str = field(default_factory=lambda: str(uuid4()))
+    created_at: datetime = field(default_factory=utc_now)
 
 
 @dataclass(frozen=True)

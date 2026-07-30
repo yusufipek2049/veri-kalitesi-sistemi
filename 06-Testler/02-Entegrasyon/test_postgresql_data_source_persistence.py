@@ -8,6 +8,7 @@ olmadan atlanir. Issues/postgresql_repository.py sablonunu izler.
 from __future__ import annotations
 
 import os
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -25,6 +26,12 @@ from veri_kalitesi.audit import (
     build_default_redaction_policy,
 )
 from veri_kalitesi.audit.models import AuditEventInput, AuditResult
+from veri_kalitesi.data_protection import (
+    DefaultClassificationPolicy,
+    DefaultMaskingPolicy,
+)
+from veri_kalitesi.data_sources.connectors import CSVConnector, ConnectorRegistry
+from veri_kalitesi.data_sources.errors import ValidationError
 from veri_kalitesi.data_sources.models import (
     ConnectionRevisionStatus,
     ConnectionTestResult,
@@ -33,11 +40,30 @@ from veri_kalitesi.data_sources.models import (
     DataSourceActivationStatus,
     DataSourceConnectionRevision,
     DataSourceStatus,
+    DataField,
+    DataProfile,
+    Dataset,
+    MetadataDiscoveryResult,
+    ProfileComparison,
+    ProfileComparisonStatus,
+    ProfileAnalysisPolicy,
+    ProfileMethod,
+    ProfileOptions,
+    ProfileStatus,
+    ProfileSamplingStrategy,
+    OutlierMethod,
     SourceType,
+)
+from veri_kalitesi.data_sources.profiling import (
+    InMemoryProfilePolicyResolver,
+    build_profile_contract,
+    compare_profile_snapshots,
 )
 from veri_kalitesi.data_sources.postgresql_repository import (
     PostgreSQLDataSourceRepository,
 )
+from veri_kalitesi.data_sources.postgresql_driver import SQLAlchemyPostgreSQLDriver
+from veri_kalitesi.data_sources.service import DataSourceService
 from veri_kalitesi.persistence import (
     DatabaseSettings,
     DEFAULT_SCHEMA_NAME,
@@ -51,6 +77,11 @@ pytestmark = pytest.mark.skipif(
     not os.environ.get("DATA_QUALITY_POSTGRES_TEST_URL"),
     reason="Requires DATA_QUALITY_POSTGRES_TEST_URL pointing to a test PostgreSQL database",
 )
+
+
+class _NoopAuditSink:
+    def append(self, event: AuditEventInput) -> None:
+        del event
 
 
 @pytest.fixture(scope="module")
@@ -79,6 +110,7 @@ def session_factory(db_settings: DatabaseSettings, alembic_up_to_date: None) -> 
     # Clean all tables before each test
     with engine.begin() as conn:
         for table_name in [
+            "profile_comparisons",
             "data_source_activation_requests",
             "data_source_connection_revisions",
             "data_processing_inventory_versions",
@@ -151,6 +183,521 @@ def _prepare_event(
     return audit_outbox.prepare(event)
 
 
+def test_profile_comparison_migration_is_available(
+    db_settings: DatabaseSettings,
+    alembic_up_to_date: None,
+) -> None:
+    engine = create_engine(
+        db_settings.url.render_as_string(hide_password=False),
+        pool_pre_ping=True,
+    )
+    with engine.connect() as connection:
+        columns = {
+            row[0]
+            for row in connection.execute(
+                text(
+                    """
+                    SELECT column_name
+                    FROM information_schema.columns
+                    WHERE table_schema = :schema
+                      AND table_name = 'profile_comparisons'
+                    """
+                ),
+                {"schema": db_settings.schema},
+            )
+        }
+    assert {
+        "comparison_id",
+        "dataset_id",
+        "baseline_profile_id",
+        "current_profile_id",
+        "policy_version",
+        "status",
+        "anomaly_candidate",
+        "result",
+        "message",
+        "created_at",
+    } == columns
+
+
+def test_dq_cap_001_postgresql_driver_uses_source_aggregates_for_advanced_metrics(
+    db_settings: DatabaseSettings,
+    alembic_up_to_date: None,
+) -> None:
+    table_name = "synthetic_dq_cap_001_profile"
+    engine = create_engine(
+        db_settings.url.render_as_string(hide_password=False),
+        pool_pre_ping=True,
+    )
+    qualified = f'"{db_settings.schema}"."{table_name}"'
+    with engine.begin() as connection:
+        connection.execute(text(f"DROP TABLE IF EXISTS {qualified}"))
+        connection.execute(
+            text(f"CREATE TABLE {qualified} (amount NUMERIC NOT NULL, segment TEXT NOT NULL)")
+        )
+        connection.execute(
+            text(
+                f"""
+                INSERT INTO {qualified} (amount, segment)
+                VALUES (1, 'retail'), (2, 'retail'), (3, 'commercial'), (100, 'retail')
+                """
+            )
+        )
+    policy = ProfileAnalysisPolicy(
+        version="POSTGRES_SOURCE_AGGREGATE_TEST_V1",
+        top_n_limit=2,
+        high_cardinality_threshold=3,
+        advanced_sample_size=8,
+        sampling_strategy=ProfileSamplingStrategy.DETERMINISTIC_HASH,
+        sampling_seed=20260729,
+        enabled_outlier_methods=(OutlierMethod.IQR, OutlierMethod.ROBUST_Z_SCORE),
+        iqr_multiplier=1.5,
+        robust_z_score_threshold=3.5,
+        minimum_numeric_sample=4,
+        comparison_window=2,
+        minimum_history=2,
+        volume_ratio_threshold=0.1,
+        null_ratio_delta_threshold=0.1,
+        distinct_ratio_delta_threshold=0.1,
+        category_loss_ratio_threshold=0.1,
+        numeric_mean_ratio_threshold=0.1,
+        numeric_median_ratio_threshold=0.1,
+        freshness_delay_seconds_threshold=60,
+        schema_change_detection_enabled=True,
+    )
+    dataset = Dataset(
+        data_source_id="synthetic-source",
+        namespace=db_settings.schema,
+        name=table_name,
+    )
+    fields = (
+        DataField(dataset_id=dataset.dataset_id, name="amount", native_data_type="NUMERIC"),
+        DataField(dataset_id=dataset.dataset_id, name="segment", native_data_type="TEXT"),
+    )
+    url = db_settings.url
+    try:
+        result = SQLAlchemyPostgreSQLDriver().profile_dataset(
+            config={
+                "host": url.host,
+                "port": url.port or 5432,
+                "database": url.database,
+                "ssl_mode": "disable",
+                "connect_timeout_seconds": 5,
+                "statement_timeout_ms": 5000,
+            },
+            credentials={
+                "username": url.username,
+                "password": url.password,
+            },
+            dataset=dataset,
+            fields=fields,
+            options=ProfileOptions(
+                method=ProfileMethod.AGGREGATE,
+                analysis_policy=policy,
+                policy_version=policy.version,
+            ),
+        )
+    finally:
+        with engine.begin() as connection:
+            connection.execute(text(f"DROP TABLE IF EXISTS {qualified}"))
+        engine.dispose()
+
+    assert result.status is ProfileStatus.COMPLETED
+    assert result.metrics["analysis_execution"]["method"] == "SOURCE_AGGREGATE"
+    assert result.metrics["analysis_execution"]["raw_rows_transferred"] is False
+    assert result.metrics["fields"]["segment"]["top_values"][0] == {
+        "rank": 1,
+        "value": "retail",
+        "count": 3,
+    }
+    assert result.metrics["fields"]["amount"]["numeric_summary"]["median"] == 2.5
+    assert {
+        item["method"]
+        for item in result.metrics["fields"]["amount"]["outlier_candidates"]
+    } == {"IQR", "ROBUST_Z_SCORE"}
+
+
+def test_dq_cap_006_postgresql_freshness_scope_flows_from_aggregate_to_comparison(
+    db_settings: DatabaseSettings,
+    alembic_up_to_date: None,
+) -> None:
+    del alembic_up_to_date
+    table_name = "synthetic_dq_cap_006_freshness"
+    engine = create_engine(
+        db_settings.url.render_as_string(hide_password=False),
+        pool_pre_ping=True,
+    )
+    qualified = f'"{db_settings.schema}"."{table_name}"'
+    with engine.begin() as connection:
+        connection.execute(text(f"DROP TABLE IF EXISTS {qualified}"))
+        connection.execute(
+            text(
+                f"""
+                CREATE TABLE {qualified} (
+                    observed_at TIMESTAMPTZ NOT NULL,
+                    unscoped_at TIMESTAMPTZ NOT NULL
+                )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                f"""
+                INSERT INTO {qualified} (observed_at, unscoped_at)
+                VALUES
+                    ('2026-07-20T11:00:00Z', '2026-07-20T09:00:00Z'),
+                    ('2026-07-20T12:00:00Z', '2026-07-20T10:00:00Z')
+                """
+            )
+        )
+    policy = ProfileAnalysisPolicy(
+        version="POSTGRES_FRESHNESS_SCOPE_TEST_V1",
+        top_n_limit=2,
+        high_cardinality_threshold=4,
+        advanced_sample_size=8,
+        sampling_strategy=ProfileSamplingStrategy.DETERMINISTIC_HASH,
+        sampling_seed=20260730,
+        enabled_outlier_methods=(OutlierMethod.IQR,),
+        iqr_multiplier=1.5,
+        robust_z_score_threshold=3.5,
+        minimum_numeric_sample=2,
+        comparison_window=2,
+        minimum_history=2,
+        volume_ratio_threshold=1.0,
+        null_ratio_delta_threshold=1.0,
+        distinct_ratio_delta_threshold=1.0,
+        category_loss_ratio_threshold=1.0,
+        numeric_mean_ratio_threshold=1.0,
+        numeric_median_ratio_threshold=1.0,
+        freshness_delay_seconds_threshold=3600,
+        schema_change_detection_enabled=True,
+        freshness_field_names=("observed_at",),
+    )
+    dataset = Dataset(
+        data_source_id="synthetic-freshness-source",
+        namespace=db_settings.schema,
+        name=table_name,
+    )
+    fields = (
+        DataField(
+            dataset_id=dataset.dataset_id,
+            name="observed_at",
+            native_data_type="TIMESTAMP WITH TIME ZONE",
+        ),
+        DataField(
+            dataset_id=dataset.dataset_id,
+            name="unscoped_at",
+            native_data_type="TIMESTAMP WITH TIME ZONE",
+        ),
+    )
+    options = ProfileOptions(
+        method=ProfileMethod.AGGREGATE,
+        analysis_policy=policy,
+        policy_version=policy.version,
+    )
+    url = db_settings.url
+    driver = SQLAlchemyPostgreSQLDriver()
+    unsafe_policy = replace(
+        policy,
+        version="POSTGRES_UNSAFE_FRESHNESS_SCOPE_TEST_V1",
+        freshness_field_names=("observed_at; DROP TABLE synthetic",),
+    )
+    with pytest.raises(ValidationError, match="must exist in metadata"):
+        driver.profile_dataset(
+            config={},
+            credentials={},
+            dataset=dataset,
+            fields=fields,
+            options=replace(
+                options,
+                analysis_policy=unsafe_policy,
+                policy_version=unsafe_policy.version,
+            ),
+        )
+    with pytest.raises(ValidationError, match="timezone-safe date/time type"):
+        driver.profile_dataset(
+            config={},
+            credentials={},
+            dataset=dataset,
+            fields=(replace(fields[0], native_data_type="TEXT"), fields[1]),
+            options=options,
+        )
+
+    def run_profile(profile_id: str) -> DataProfile:
+        result = driver.profile_dataset(
+            config={
+                "host": url.host,
+                "port": url.port or 5432,
+                "database": url.database,
+                "ssl_mode": "disable",
+                "connect_timeout_seconds": 5,
+                "statement_timeout_ms": 5000,
+            },
+            credentials={"username": url.username, "password": url.password},
+            dataset=dataset,
+            fields=fields,
+            options=options,
+        )
+        metrics = dict(result.metrics)
+        metrics["profile_contract"] = build_profile_contract(
+            fields=fields,
+            method=ProfileMethod.AGGREGATE,
+            sample_ratio=None,
+            scope={},
+            query_version=options.query_version,
+            connector_version=options.connector_version,
+            policy=policy,
+            data_observed_at=None,
+            category_fingerprint_algorithm=None,
+            category_fingerprint_key_id=None,
+            analysis_execution=metrics["analysis_execution"],
+        )
+        return DataProfile(
+            profile_id=profile_id,
+            dataset_id=dataset.dataset_id,
+            execution_id=f"execution-{profile_id}",
+            method=ProfileMethod.AGGREGATE,
+            metrics=metrics,
+            status=result.status,
+        )
+
+    try:
+        baseline = run_profile("postgres-freshness-baseline")
+        with engine.begin() as connection:
+            connection.execute(text(f"TRUNCATE TABLE {qualified}"))
+            connection.execute(
+                text(
+                    f"""
+                    INSERT INTO {qualified} (observed_at, unscoped_at)
+                    VALUES
+                        ('2026-07-20T09:00:00Z', '2026-07-20T06:00:00Z'),
+                        ('2026-07-20T10:00:00Z', '2026-07-20T07:00:00Z')
+                    """
+                )
+            )
+        current = run_profile("postgres-freshness-current")
+    finally:
+        with engine.begin() as connection:
+            connection.execute(text(f"DROP TABLE IF EXISTS {qualified}"))
+        engine.dispose()
+
+    comparison = compare_profile_snapshots(
+        baseline=baseline,
+        current=current,
+        history=(baseline, current),
+        policy=policy,
+    )
+    freshness_signals = [
+        signal
+        for signal in comparison.result["signals"]
+        if signal["kind"] == "FRESHNESS_DELAY"
+    ]
+
+    assert baseline.metrics["fields"]["observed_at"]["freshness_max"].endswith("+00:00")
+    assert "freshness_max" not in baseline.metrics["fields"]["unscoped_at"]
+    assert freshness_signals[0]["field"] == "observed_at"
+    assert freshness_signals[0]["delay_seconds"] == 7200.0
+    assert freshness_signals[0]["breached"] is True
+
+
+def test_profile_comparison_repository_persists_with_transactional_audit(
+    repository: PostgreSQLDataSourceRepository,
+    audit_outbox: PostgreSQLTransactionalAudit,
+    sample_data_source: DataSource,
+) -> None:
+    repository.add_data_source(
+        sample_data_source,
+        audit_event=_prepare_event(audit_outbox, "DATA_SOURCE_CREATED"),
+        audit_outbox=audit_outbox,
+    )
+    dataset = Dataset(
+        dataset_id=str(uuid4()),
+        data_source_id=sample_data_source.data_source_id,
+        namespace="public",
+        name="profile_test",
+    )
+    field = DataField(
+        data_field_id=str(uuid4()),
+        dataset_id=dataset.dataset_id,
+        name="amount",
+        native_data_type="NUMERIC",
+    )
+    discovery = MetadataDiscoveryResult(
+        data_source_id=sample_data_source.data_source_id,
+        succeeded=True,
+        duration_ms=1,
+        datasets=(dataset,),
+        fields=(field,),
+    )
+    repository.replace_metadata(
+        sample_data_source.data_source_id,
+        [dataset],
+        {dataset.dataset_id: [field]},
+        discovery,
+        audit_event=_prepare_event(audit_outbox, "DATA_SOURCE_METADATA_DISCOVERED"),
+        audit_outbox=audit_outbox,
+    )
+    now = datetime.now(timezone.utc)
+    profiles = [
+        DataProfile(
+            dataset_id=dataset.dataset_id,
+            execution_id=str(uuid4()),
+            method=ProfileMethod.FULL,
+            metrics={"record_count": count},
+            status=ProfileStatus.COMPLETED,
+            started_at=now,
+            finished_at=now,
+        )
+        for count in (100, 80)
+    ]
+    for profile in profiles:
+        repository.add_data_profile(
+            profile,
+            audit_event=_prepare_event(audit_outbox, "DATASET_PROFILE_CREATED"),
+            audit_outbox=audit_outbox,
+        )
+    comparison = ProfileComparison(
+        dataset_id=dataset.dataset_id,
+        baseline_profile_id=profiles[0].profile_id,
+        current_profile_id=profiles[1].profile_id,
+        policy_version="PROFILE_POLICY_TEST_V1",
+        status=ProfileComparisonStatus.COMPLETED,
+        anomaly_candidate=True,
+        result={"signals": [{"kind": "VOLUME_CHANGE", "breached": True}]},
+        created_at=now,
+    )
+
+    repository.add_profile_comparison(
+        comparison,
+        audit_event=_prepare_event(audit_outbox, "DATASET_PROFILES_COMPARED"),
+        audit_outbox=audit_outbox,
+    )
+
+    assert repository.list_profile_comparisons(dataset.dataset_id) == [comparison]
+
+
+def test_masked_category_drift_survives_service_reconstruction(
+    session_factory: type,
+    db_settings: DatabaseSettings,
+    audit_outbox: PostgreSQLTransactionalAudit,
+    tmp_path: Path,
+) -> None:
+    csv_file = tmp_path / "postgresql-persistent-category-drift.csv"
+    csv_file.write_text(
+        "segment\nretail\nretail\ncommercial\n",
+        encoding="utf-8",
+    )
+    policy = ProfileAnalysisPolicy(
+        version="PROFILE_POLICY_PERSISTENCE_TEST_V1",
+        top_n_limit=10,
+        high_cardinality_threshold=10,
+        advanced_sample_size=20,
+        sampling_strategy=ProfileSamplingStrategy.DETERMINISTIC_HASH,
+        sampling_seed=20260729,
+        enabled_outlier_methods=(OutlierMethod.IQR,),
+        iqr_multiplier=1.5,
+        robust_z_score_threshold=3.5,
+        minimum_numeric_sample=3,
+        comparison_window=2,
+        minimum_history=2,
+        volume_ratio_threshold=1.0,
+        null_ratio_delta_threshold=1.0,
+        distinct_ratio_delta_threshold=1.0,
+        category_loss_ratio_threshold=0.0,
+        numeric_mean_ratio_threshold=1.0,
+        numeric_median_ratio_threshold=1.0,
+        freshness_delay_seconds_threshold=3600.0,
+        schema_change_detection_enabled=True,
+    )
+    fingerprint_key = b"postgresql-stable-fingerprint-key-01"
+    fingerprint_key_id = "postgresql-fingerprint-test-v1"
+
+    def build_service() -> DataSourceService:
+        classification = DefaultClassificationPolicy()
+        return DataSourceService(
+            PostgreSQLDataSourceRepository(session_factory, schema=db_settings.schema),
+            ConnectorRegistry([CSVConnector()]),
+            audit_sink=_NoopAuditSink(),
+            transactional_audit=audit_outbox,
+            classification_policy=classification,
+            masking_policy=DefaultMaskingPolicy(
+                classification,
+                category_fingerprint_key=fingerprint_key,
+                category_fingerprint_key_id=fingerprint_key_id,
+            ),
+            profile_policy_resolver=InMemoryProfilePolicyResolver(
+                (policy,),
+                active_version=policy.version,
+            ),
+        )
+
+    first_service = build_service()
+    source = first_service.create_data_source(
+        actor_id="user-1",
+        name="Persistent Masked Category Drift CSV",
+        source_type="CSV",
+        connection_config={"file_path": str(csv_file)},
+        secret_reference="secret://datasources/persistent-category-drift",
+    )
+    first_service.test_connection(
+        actor_id="user-1",
+        data_source_id=source.data_source_id,
+    )
+    dataset = Dataset(
+        data_source_id=source.data_source_id,
+        namespace=str(csv_file.parent),
+        name=csv_file.name,
+    )
+    segment = DataField(
+        dataset_id=dataset.dataset_id,
+        name="segment",
+        native_data_type="TEXT",
+    )
+    first_service.repository.replace_metadata(
+        source.data_source_id,
+        [dataset],
+        {dataset.dataset_id: [segment]},
+        MetadataDiscoveryResult(
+            data_source_id=source.data_source_id,
+            succeeded=True,
+            duration_ms=1,
+            datasets=(dataset,),
+            fields=(segment,),
+        ),
+        audit_event=_prepare_event(audit_outbox, "DATA_SOURCE_METADATA_DISCOVERED"),
+        audit_outbox=audit_outbox,
+    )
+    baseline = first_service.run_profile(
+        actor_id="user-1",
+        dataset_id=dataset.dataset_id,
+    )
+
+    second_service = build_service()
+    csv_file.write_text("segment\nretail\nretail\nretail\n", encoding="utf-8")
+    current = second_service.run_profile(
+        actor_id="user-1",
+        dataset_id=dataset.dataset_id,
+    )
+    comparison = second_service.compare_profiles(
+        actor_id="user-1",
+        dataset_id=dataset.dataset_id,
+        baseline_profile_id=baseline.profile_id,
+        current_profile_id=current.profile_id,
+    )
+
+    signals = {signal["kind"]: signal for signal in comparison.result["signals"]}
+    assert comparison.status is ProfileComparisonStatus.COMPLETED
+    assert comparison.anomaly_candidate is True
+    assert signals["CATEGORY_LOSS"]["lost_category_count"] == 1
+    assert signals["CATEGORY_LOSS"]["breached"] is True
+    assert len(second_service.repository.list_data_profiles(dataset.dataset_id)) == 2
+    assert second_service.repository.list_profile_comparisons(dataset.dataset_id) == [
+        comparison
+    ]
+    assert "retail" not in str(baseline.metrics)
+    assert "commercial" not in str(baseline.metrics)
+
+
 def test_add_and_get_data_source(
     repository: PostgreSQLDataSourceRepository,
     audit_outbox: PostgreSQLTransactionalAudit,
@@ -158,7 +705,9 @@ def test_add_and_get_data_source(
 ) -> None:
     """FR-007: Veri kaynagi olusturma ve okuma."""
     prepared = _prepare_event(audit_outbox, "DATA_SOURCE_CREATED")
-    stored = repository.add_data_source(sample_data_source, audit_event=prepared, audit_outbox=audit_outbox)
+    stored = repository.add_data_source(
+        sample_data_source, audit_event=prepared, audit_outbox=audit_outbox
+    )
     assert stored.data_source_id == sample_data_source.data_source_id
     assert stored.status is DataSourceStatus.TEST_PENDING
 
@@ -232,7 +781,9 @@ def test_activation_request_lifecycle(
         tested_at=datetime.now(timezone.utc),
     )
     test_prepared = _prepare_event(audit_outbox, "CONNECTION_TEST_SUCCEEDED")
-    repository.update_connection_test(test_result, audit_event=test_prepared, audit_outbox=audit_outbox)
+    repository.update_connection_test(
+        test_result, audit_event=test_prepared, audit_outbox=audit_outbox
+    )
 
     request = DataSourceActivationRequest(
         data_source_id=sample_data_source.data_source_id,

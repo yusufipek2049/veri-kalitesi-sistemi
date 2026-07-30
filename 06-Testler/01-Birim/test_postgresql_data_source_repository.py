@@ -20,13 +20,14 @@ def test_data_source_tables_uses_dq_schema() -> None:
     assert tables.fields.schema == DEFAULT_SCHEMA_NAME
     assert tables.metadata_discovery.schema == DEFAULT_SCHEMA_NAME
     assert tables.profiles.schema == DEFAULT_SCHEMA_NAME
+    assert tables.profile_comparisons.schema == DEFAULT_SCHEMA_NAME
     assert tables.processing_inventory.schema == DEFAULT_SCHEMA_NAME
     assert tables.connection_revisions.schema == DEFAULT_SCHEMA_NAME
     assert tables.activation_requests.schema == DEFAULT_SCHEMA_NAME
 
 
-def test_data_source_tables_has_nine_tables() -> None:
-    """Dokuz tablo tanimlanir."""
+def test_data_source_tables_has_ten_tables() -> None:
+    """Profil karşılaştırmaları dahil on tablo tanımlanır."""
     tables = data_source_tables()
     names = {
         t.name
@@ -37,6 +38,7 @@ def test_data_source_tables_has_nine_tables() -> None:
             tables.fields,
             tables.metadata_discovery,
             tables.profiles,
+            tables.profile_comparisons,
             tables.processing_inventory,
             tables.connection_revisions,
             tables.activation_requests,
@@ -49,6 +51,7 @@ def test_data_source_tables_has_nine_tables() -> None:
         "data_fields",
         "metadata_discovery_results",
         "data_profiles",
+        "profile_comparisons",
         "data_processing_inventory_versions",
         "data_source_connection_revisions",
         "data_source_activation_requests",
@@ -62,9 +65,14 @@ def test_data_source_tables_primary_keys() -> None:
     assert [c.name for c in tables.datasets.primary_key.columns] == ["dataset_id"]
     assert [c.name for c in tables.fields.primary_key.columns] == ["data_field_id"]
     assert [c.name for c in tables.profiles.primary_key.columns] == ["profile_id"]
+    assert [c.name for c in tables.profile_comparisons.primary_key.columns] == ["comparison_id"]
     assert [c.name for c in tables.processing_inventory.primary_key.columns] == ["inventory_id"]
-    assert [c.name for c in tables.connection_revisions.primary_key.columns] == ["connection_revision_id"]
-    assert [c.name for c in tables.activation_requests.primary_key.columns] == ["activation_request_id"]
+    assert [c.name for c in tables.connection_revisions.primary_key.columns] == [
+        "connection_revision_id"
+    ]
+    assert [c.name for c in tables.activation_requests.primary_key.columns] == [
+        "activation_request_id"
+    ]
 
 
 def test_data_source_tables_auto_increment_primary_keys() -> None:
@@ -85,10 +93,7 @@ def test_data_source_tables_unique_constraints() -> None:
 
     dataset_constraints = list(tables.datasets.constraints)
     dataset_uq = [c for c in dataset_constraints if isinstance(c, UniqueConstraint)]
-    assert any(
-        set(c.columns.keys()) == {"data_source_id", "namespace", "name"}
-        for c in dataset_uq
-    )
+    assert any(set(c.columns.keys()) == {"data_source_id", "namespace", "name"} for c in dataset_uq)
 
     field_constraints = list(tables.fields.constraints)
     field_uq = [c for c in field_constraints if isinstance(c, UniqueConstraint)]
@@ -107,8 +112,7 @@ def test_data_source_tables_foreign_keys() -> None:
 
     fields_fk = list(tables.fields.foreign_keys)
     assert any(
-        fk.column.table.name == "datasets" and fk.column.name == "dataset_id"
-        for fk in fields_fk
+        fk.column.table.name == "datasets" and fk.column.name == "dataset_id" for fk in fields_fk
     )
 
     connection_tests_fk = list(tables.connection_tests.foreign_keys)
@@ -128,6 +132,13 @@ def test_data_source_tables_foreign_keys() -> None:
         fk.column.table.name == "data_sources" and fk.column.name == "data_source_id"
         for fk in activation_requests_fk
     )
+    comparison_fk_targets = {
+        (fk.column.table.name, fk.column.name) for fk in tables.profile_comparisons.foreign_keys
+    }
+    assert comparison_fk_targets == {
+        ("datasets", "dataset_id"),
+        ("data_profiles", "profile_id"),
+    }
 
 
 def test_data_source_tables_check_constraints() -> None:
@@ -148,12 +159,20 @@ def test_data_source_tables_check_constraints() -> None:
     profile_cc = [c for c in tables.profiles.constraints if isinstance(c, CheckConstraint)]
     assert any("method" in str(c.sqltext) for c in profile_cc)
     assert any("status" in str(c.sqltext) for c in profile_cc)
+    comparison_cc = [
+        c for c in tables.profile_comparisons.constraints if isinstance(c, CheckConstraint)
+    ]
+    assert any("status" in str(c.sqltext) for c in comparison_cc)
 
-    revision_cc = [c for c in tables.connection_revisions.constraints if isinstance(c, CheckConstraint)]
+    revision_cc = [
+        c for c in tables.connection_revisions.constraints if isinstance(c, CheckConstraint)
+    ]
     assert any("revision > 0" in str(c.sqltext) for c in revision_cc)
     assert any("base_revision > 0" in str(c.sqltext) for c in revision_cc)
 
-    activation_cc = [c for c in tables.activation_requests.constraints if isinstance(c, CheckConstraint)]
+    activation_cc = [
+        c for c in tables.activation_requests.constraints if isinstance(c, CheckConstraint)
+    ]
     assert any("status" in str(c.sqltext) for c in activation_cc)
 
 
@@ -163,6 +182,7 @@ def test_data_source_tables_json_columns() -> None:
     assert "connection_config" in tables.sources.c
     assert "source_info" in tables.connection_tests.c
     assert "metrics" in tables.profiles.c
+    assert "result" in tables.profile_comparisons.c
     assert "connection_config" in tables.connection_revisions.c
     assert "changes" in tables.metadata_discovery.c
     assert "access_role_codes" in tables.processing_inventory.c
@@ -177,3 +197,4 @@ def test_data_source_tables_boolean_columns() -> None:
     assert str(tables.processing_inventory.c.cross_border_transfer.type) == "BOOLEAN"
     assert str(tables.connection_tests.c.succeeded.type) == "BOOLEAN"
     assert str(tables.metadata_discovery.c.succeeded.type) == "BOOLEAN"
+    assert str(tables.profile_comparisons.c.anomaly_candidate.type) == "BOOLEAN"

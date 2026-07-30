@@ -18,6 +18,7 @@ from veri_kalitesi.data_sources.models import (
     ConnectionTestResult,
     DataField,
     DataProfile,
+    ProfileComparison,
     DataSource,
     DataSourceActivationRequest,
     DataSourceConnectionRevision,
@@ -99,6 +100,8 @@ class DataSourceRepository(Protocol[AuditRepoT]):
     ) -> dict[tuple[str, str], list[DataField]]: ...
 
     def list_data_profiles(self, dataset_id: str) -> list[DataProfile]: ...
+
+    def list_profile_comparisons(self, dataset_id: str) -> list[ProfileComparison]: ...
 
     def next_processing_inventory_version(self, data_field_id: str) -> int: ...
 
@@ -222,6 +225,14 @@ class DataSourceRepository(Protocol[AuditRepoT]):
         audit_event: PreparedAuditEvent,
         audit_outbox: AuditRepoT,
     ) -> DataProfile: ...
+
+    def add_profile_comparison(
+        self,
+        comparison: ProfileComparison,
+        *,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: AuditRepoT,
+    ) -> ProfileComparison: ...
 
     def add_processing_inventory(
         self,

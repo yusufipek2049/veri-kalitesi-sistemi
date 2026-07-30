@@ -22,9 +22,15 @@ from veri_kalitesi.data_sources.models import (
     MetadataDiscoveryResult,
     MetadataFieldCandidate,
     ProfileComputationResult,
+    ProfileAnalysisPolicy,
+    ProfileComparison,
+    ProfileComparisonStatus,
     ProfileMethod,
     ProfileOptions,
+    ProfilePolicyResolutionStatus,
+    ProfileSamplingStrategy,
     ProfileStatus,
+    OutlierMethod,
     SourceType,
 )
 from veri_kalitesi.data_sources.postgresql import (
@@ -49,12 +55,18 @@ from veri_kalitesi.data_sources.postgresql_repository import (
 from veri_kalitesi.data_sources.query import (
     DataSourceQueryAuthorizationError,
     DataSourceQueryError,
+    ProfileComparisonCommandService,
     DataSourceQueryService,
     DataSourceQueryTechnicalError,
+    DataSourceQueryValidationError,
 )
 from veri_kalitesi.data_sources.repository import SQLiteDataSourceRepository
 from veri_kalitesi.data_sources.secrets import EmptySecretResolver, InMemorySecretResolver
 from veri_kalitesi.data_sources.service import BusinessCalendar, DataSourceService
+from veri_kalitesi.data_sources.profiling import (
+    InMemoryProfilePolicyResolver,
+    ProfilePolicyResolver,
+)
 from veri_kalitesi.data_protection import (
     ClassificationCode,
     DataProcessingInventory,
@@ -79,8 +91,10 @@ __all__ = [
     "DataSourceConnectionRevision",
     "DataSourceQueryAuthorizationError",
     "DataSourceQueryError",
+    "ProfileComparisonCommandService",
     "DataSourceQueryService",
     "DataSourceQueryTechnicalError",
+    "DataSourceQueryValidationError",
     "DataSourceRepository",
     "DataSourceService",
     "DataSourceStatus",
@@ -107,10 +121,18 @@ __all__ = [
     "NetworkConnectionError",
     "PermissionConnectionError",
     "PostgreSQLDataSourceRepository",
+    "ProfileAnalysisPolicy",
+    "ProfileComparison",
+    "ProfileComparisonStatus",
     "ProfileComputationResult",
+    "ProfilePolicyResolutionStatus",
+    "ProfileSamplingStrategy",
     "ProfileMethod",
     "ProfileOptions",
     "ProfileStatus",
+    "OutlierMethod",
+    "ProfilePolicyResolver",
+    "InMemoryProfilePolicyResolver",
     "PostgreSQLConnector",
     "PostgreSQLProbeResult",
     "SQLiteDataSourceRepository",
