@@ -16,11 +16,11 @@ proje bilgisi kaynağı değildir; controller tarafından her çalışmada yenid
 
 | Dosya | Sorumluluk |
 | --- | --- |
-| `lib.sh` | Yan etkisiz, source edilebilir controller kütüphanesi (state, contract, codex, test, planner/implementer/tester/reviewer, `main`). |
+| `lib.sh` | Yan etkisiz, source edilebilir controller kütüphanesi (state, contract, agent backend, test, planner/implementer/tester/reviewer, `main`). |
 | `controller.sh` | Giriş noktası: env yükler, `.agent-handoff` runtime'ını kurar, tek instance için `flock` alır, `main` döngüsünü çalıştırır. |
 | `devam.sh` | CLI dispatcher: `continue` / `durum` / `log`. |
 | `prompts/*.md` | Planner, implementer, reviewer prompt kaynakları; runtime'a snapshot'lanır. |
-| `tests/run.sh` | Stub `codex` ve fonksiyon override'ları ile controller smoke/integration testleri. |
+| `tests/run.sh` | Stub `codex`/`claude` binary'leri ve fonksiyon override'ları ile controller smoke/integration testleri. |
 
 ## Komutlar
 
@@ -56,8 +56,8 @@ Boş `devam`:
    görevle aynı değilse** (bayatlık guard'ı) görevi doğrudan seçer. Bu, `AGENTS.md`
    görev seçim algoritmasının "NEXT_STEP güncelse onu kullan" adımıdır ve **planner LLM
    çağrısını çoğu turda tamamen atlar.**
-2. **LLM planner (yedek):** NEXT_STEP eksik/bayat/`active` değilse fresh `codex exec`
-   planner canonical dokümanları okuyup tek görevi seçer.
+2. **LLM planner (yedek):** NEXT_STEP eksik/bayat/`active` değilse fresh planner agent
+   süreci canonical dokümanları okuyup tek görevi seçer.
 
 Açık görev verildiğinde ikisi de atlanır. Her görevde kontrat (`CURRENT_TASK.json`)
 **tamamen** yeniden üretilir; önceki görevin dosya kapsamı, kabul kriteri veya commit
@@ -67,29 +67,45 @@ güncel HEAD ile yenilenir — tarihsel HEAD eşitliği hiçbir zaman kapı değ
 ## Maliyet (token) kaldıraçları
 
 - **Deterministik planner:** yukarıdaki 0-token yol; LLM planner yalnız gerektiğinde.
-- **Aşama başına reasoning effort / model:** `CODEX_{PLANNER,REVIEWER,IMPLEMENTER}_REASONING`
-  (ör. planner/reviewer `low`) ve `CODEX_{...}_MODEL`. Implementer güçlü kalır.
+- **Aşama başına reasoning effort / model:** codex için
+  `CODEX_{PLANNER,REVIEWER,IMPLEMENTER}_REASONING` (ör. planner/reviewer `low`) ve
+  `CODEX_{...}_MODEL`; claude için `CLAUDE_{...}_EFFORT` ve `CLAUDE_{...}_MODEL`.
+  Implementer güçlü kalır.
 - **Onarım turu:** `MAX_REPAIR_ROUNDS` varsayılan **1**; aşılırsa `WAITING_HUMAN`.
 - **Scope hint:** planner/`NEXT_STEP` çıktısından türetilen `scope.hint`, implementer'a
   "buradan başla" ipucu vererek agentic dosya keşfini daraltır (bağlayıcı liste değil).
-- **Test kapıları:** zaten 0 token (controller kabuğunda, codex değil).
+- **Test kapıları:** zaten 0 token (controller kabuğunda, agent süreci değil).
 
 İnsan kararı bir onarım kilidini kırdığında (`WAITING_HUMAN` sonrası `devam "karar"`)
 onarım bütçesi (`repair_round`) sıfırlanır; verdiğin yönlendirme taze bir turla işlenir.
 
-## Codex çalıştırma
+## Agent çalıştırma (backend seçimi)
 
-Her implementer/reviewer/planner çağrısı fresh `codex exec` ile başlar
-(`--ask-for-approval never --sandbox danger-full-access`). Eski session/thread
-resume edilmez. Sonuç dosyası yalnız (a) exit 0, (b) boş değil, (c) beklenen
-`STATUS:` satırı doğrulandıktan **sonra** atomik olarak görünür yapılır; aksi halde
-bayat/kısmi sonuç asla okunmaz. Gerçek stderr ve exit kodları `.agent-handoff/logs/`
-altında kalıcı loglanır. Model `CODEX_{PLANNER,IMPLEMENTER,REVIEWER}_MODEL` ile,
-binary `CODEX_BIN` ile override edilir.
+Her implementer/reviewer/planner çağrısı fresh bir agent süreci ile başlar; eski
+session/thread resume edilmez. Backend `AGENT_BACKEND` ile seçilir:
+
+| `AGENT_BACKEND` | Çağrı | Sonuç yakalama | Binary |
+| --- | --- | --- | --- |
+| `codex` (varsayılan) | `codex --ask-for-approval never --sandbox danger-full-access -C <root> exec -o <dosya> -` | agent dosyaya yazar | `CODEX_BIN` |
+| `claude` | `claude -p --permission-mode bypassPermissions --add-dir <root>` | stdout dosyaya yönlendirilir | `CLAUDE_BIN` |
+
+Backend'ler yalnız argüman kurulumu ve sonuç yakalama biçiminde farklıdır. Prompt
+her iki backend'de stdin'den verilir, agent repo kökünde çalıştırılır ve sonuç
+dosyası yalnız (a) exit 0, (b) boş değil, (c) beklenen `STATUS:` satırı
+doğrulandıktan **sonra** atomik olarak görünür yapılır; aksi halde bayat/kısmi
+sonuç asla okunmaz. Tanımsız bir `AGENT_BACKEND` fail-closed'dur (exit 35): hiçbir
+agent çalıştırılmaz ve varsa eski sonuç dosyası okunmaz. Gerçek stderr ve exit
+kodları `.agent-handoff/logs/` altında kalıcı loglanır; stdout logu `BACKEND=` satırı
+ile hangi backend'in çalıştığını kaydeder.
+
+Rol başına model/effort değişkenleri backend başına ayrıdır ve birbirine sızmaz:
+`CODEX_{...}_MODEL` / `CODEX_{...}_REASONING` yalnız codex'e, `CLAUDE_{...}_MODEL` /
+`CLAUDE_{...}_EFFORT` yalnız claude'a uygulanır. Böylece codex için ayarlanmış bir
+env-file backend değiştirildiğinde geçersiz argüman üretmez.
 
 ## Test kapıları
 
-Geniş testler Codex process'ine bağlanmaz; controller kabuğunda `GNU timeout`
+Geniş testler agent sürecine bağlanmaz; controller kabuğunda `GNU timeout`
 (önce `SIGINT`, sonra `--kill-after`) ile çalışır. Birim testleri her zaman;
 entegrasyon testleri yalnız görev PostgreSQL/uygulama kaynağı/migration etkilediğinde
 (`integration_required`). Entegrasyon gerektiğinde PG preflight zorunludur;
@@ -117,9 +133,11 @@ penceresidir; state kalıcı olduğu için katı bir bloklama süresi uygulanmaz
 bash tools/agent-loop/tests/run.sh
 ```
 
-Gerçek Codex ve gerçek pytest çağrılmaz: fresh `codex exec` bir stub ile, test
-kapıları fonksiyon override'ı ile taklit edilir. Her test kendi geçici repo'sunda
-izole çalışır.
+Gerçek agent CLI'ları ve gerçek pytest çağrılmaz: her backend (`codex`, `claude`)
+`tests/stubs/` altındaki bir stub ile, test kapıları fonksiyon override'ı ile taklit
+edilir. Her test kendi geçici repo'sunda izole çalışır. Suite iki backend için de
+sonuç yakalama, argüman eşlemesi, bayat/boş/geçersiz sonuç reddi, PG env forward'ı
+ve uçtan uca iterasyonu kapsar.
 
 ## Yapılandırma varsayılanları
 
@@ -127,10 +145,19 @@ izole çalışır.
 | --- | --- |
 | `TEST_TIMEOUT_SECONDS` | 900 |
 | `CODEX_STAGE_TIMEOUT_SECONDS` | 2700 |
+| `AGENT_STAGE_TIMEOUT_SECONDS` | `CODEX_STAGE_TIMEOUT_SECONDS` (geriye dönük ad) |
 | `MAX_REPAIR_ROUNDS` | 1 |
 | `HUMAN_WAIT_SECONDS` | 600 |
 | `UNIT_TEST_DIR` | `06-Testler/01-Birim` |
 | `INTEGRATION_TEST_DIR` | `06-Testler/02-Entegrasyon` |
+| `AGENT_BACKEND` | `codex` (diğer geçerli değer: `claude`) |
+| `CODEX_BIN` / `CLAUDE_BIN` | `codex` / `claude` |
 | `CODEX_PLANNER_REASONING` / `CODEX_REVIEWER_REASONING` | (env-file'da `low`) |
 | `CODEX_IMPLEMENTER_REASONING` | (unset — codex config varsayılanı) |
 | `CODEX_{PLANNER,REVIEWER,IMPLEMENTER}_MODEL` | (unset — aşama başına model override) |
+| `CLAUDE_{PLANNER,REVIEWER,IMPLEMENTER}_EFFORT` | (unset — `low\|medium\|high\|xhigh\|max`) |
+| `CLAUDE_{PLANNER,REVIEWER,IMPLEMENTER}_MODEL` | (unset — ör. `opus`, `sonnet`, `haiku`) |
+
+Backend'i kalıcı değiştirmek için env-file'a (`~/.config/veri-kalitesi/agent-loop.env`)
+`export AGENT_BACKEND=claude` eklenir; tek turluk denemede `AGENT_BACKEND=claude devam`
+yeterlidir.

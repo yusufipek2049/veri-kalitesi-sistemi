@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 # tools/agent-loop/tests/run.sh
 #
-# Agent-loop controller smoke/integration test suite. Gerçek Codex ve gerçek pytest
-# ÇAĞRILMAZ: fresh `codex exec` bir stub ile, test kapıları ise fonksiyon override'ı
-# ile taklit edilir. Her test kendi geçici repo'sunda izole çalışır.
+# Agent-loop controller smoke/integration test suite. Gerçek agent CLI'ları ve
+# gerçek pytest ÇAĞRILMAZ: her backend (codex, claude) bir stub ile, test kapıları
+# ise fonksiyon override'ı ile taklit edilir. Her test kendi geçici repo'sunda
+# izole çalışır.
 set -uo pipefail
 
 TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOOP_DIR="$(cd "$TESTS_DIR/.." && pwd)"
 STUB="$TESTS_DIR/stubs/codex"
-chmod +x "$STUB" 2>/dev/null || true
+STUB_CLAUDE="$TESTS_DIR/stubs/claude"
+chmod +x "$STUB" "$STUB_CLAUDE" 2>/dev/null || true
 
 PASS=0
 FAIL=0
@@ -59,13 +61,26 @@ run_test() {
   # shellcheck source=/dev/null
   source "$LOOP_DIR/lib.sh"
   CODEX_BIN="$STUB"
+  CLAUDE_BIN="$STUB_CLAUDE"
   MAX_REPAIR_ROUNDS=2
   TEST_TIMEOUT_SECONDS=900
   CODEX_STAGE_TIMEOUT_SECONDS=60
+  AGENT_STAGE_TIMEOUT_SECONDS=60
+  # Harness alt kabuk kullanmadığı için backend seçimi ve rol tuning değişkenleri
+  # testler arasında sızabilir; her testte açıkça varsayılana döndürülür.
+  AGENT_BACKEND=codex
+  CODEX_IMPLEMENTER_MODEL=""; CODEX_REVIEWER_MODEL=""; CODEX_PLANNER_MODEL=""
+  CODEX_IMPLEMENTER_REASONING=""; CODEX_REVIEWER_REASONING=""; CODEX_PLANNER_REASONING=""
+  CLAUDE_IMPLEMENTER_MODEL=""; CLAUDE_REVIEWER_MODEL=""; CLAUDE_PLANNER_MODEL=""
+  CLAUDE_IMPLEMENTER_EFFORT=""; CLAUDE_REVIEWER_EFFORT=""; CLAUDE_PLANNER_EFFORT=""
   unset STUB_CODEX_EXIT STUB_CODEX_EMPTY STUB_CODEX_ECHO_PG STUB_CODEX_STATUS STUB_CODEX_BODY
-  # run_codex stub'ı `env` ile başlatır; kontrol değişkenleri export edilmeli ki
+  unset STUB_CLAUDE_EXIT STUB_CLAUDE_EMPTY STUB_CLAUDE_ECHO_PG STUB_CLAUDE_STATUS \
+        STUB_CLAUDE_BODY STUB_CLAUDE_ARGV_LOG STUB_CLAUDE_CWD_LOG
+  # run_agent stub'ı `env` ile başlatır; kontrol değişkenleri export edilmeli ki
   # alt sürece ulaşsın. Export attribute'u sonraki atamalarda korunur.
   export STUB_CODEX_EXIT STUB_CODEX_EMPTY STUB_CODEX_ECHO_PG STUB_CODEX_STATUS STUB_CODEX_BODY
+  export STUB_CLAUDE_EXIT STUB_CLAUDE_EMPTY STUB_CLAUDE_ECHO_PG STUB_CLAUDE_STATUS \
+         STUB_CLAUDE_BODY STUB_CLAUDE_ARGV_LOG STUB_CLAUDE_CWD_LOG
   DATA_QUALITY_POSTGRES_TEST_URL=""
   DATA_QUALITY_DATABASE_SCHEMA=""
   agentloop_init "$ROOTX" "$LOOP_DIR"
@@ -157,6 +172,110 @@ t_codex_stderr_logged() {
   run_codex implementer "$H/in.md" "$H/CODEX_RESULT.md" '^STATUS: SUCCESS$' >/dev/null 2>&1
   local log="$LOGS/implementer-i$(state_field iteration)-r$(state_field repair_round).stderr.log"
   if retry_nonempty "$log"; then ok; else fail "stderr kalıcı loglanmalı: $log"; fi
+}
+
+# --- backend parametrikliği (AGENT_BACKEND=claude) --------------------------
+
+t_claude_backend_captures_stdout_result() {
+  AGENT_BACKEND=claude
+  STUB_CLAUDE_BODY="claude gövdesi"
+  echo "prompt" > "$H/in.md"
+  run_agent implementer "$H/in.md" "$H/CODEX_RESULT.md" '^STATUS: SUCCESS$' >/dev/null 2>&1
+  assert_eq "0" "$?" "claude backend başarılı sonuç üretmeli"
+  assert_present "$H/CODEX_RESULT.md" "stdout sonucu dosyaya yakalanmalı"
+  assert_contains "$(cat "$H/CODEX_RESULT.md" 2>/dev/null)" "claude gövdesi" \
+    "stdout gövdesi sonuç dosyasına geçmeli"
+  local log="$LOGS/implementer-i$(state_field iteration)-r$(state_field repair_round).stdout.log"
+  assert_contains "$(cat "$log" 2>/dev/null)" "BACKEND=claude" "stdout log backend'i kaydetmeli"
+  assert_contains "$(cat "$log" 2>/dev/null)" "claude gövdesi" "sonuç stdout loguna da eklenmeli"
+}
+
+t_claude_backend_arg_mapping() {
+  AGENT_BACKEND=claude
+  CLAUDE_REVIEWER_MODEL="opus"
+  CLAUDE_REVIEWER_EFFORT="low"
+  # Codex tuning değişkenleri claude argümanlarına SIZMAMALI.
+  CODEX_REVIEWER_MODEL="gpt-leak"
+  CODEX_REVIEWER_REASONING="high"
+  STUB_CLAUDE_ARGV_LOG="$H/claude.argv"
+  echo "prompt" > "$H/in.md"
+  run_agent reviewer "$H/in.md" "$H/ARCHITECT_REVIEW.md" '^STATUS: [A-Z_]+$' >/dev/null 2>&1
+  local argv
+  argv="$(cat "$H/claude.argv" 2>/dev/null)"
+  assert_contains "$argv" "-p" "claude non-interactive -p ile çağrılmalı"
+  assert_contains "$argv" "bypassPermissions" "onay istemeden çalışmalı"
+  assert_contains "$argv" "opus" "rol modeli --model ile geçmeli"
+  assert_contains "$argv" "low" "rol effort'u --effort ile geçmeli"
+  if [[ "$argv" == *"gpt-leak"* ]]; then fail "CODEX_* tuning claude'a sızmamalı"; else ok; fi
+  if [[ "$argv" == *"-o"* ]]; then fail "claude backend -o kullanmamalı (stdout yakalanır)"; else ok; fi
+}
+
+t_claude_backend_runs_in_repo_root() {
+  AGENT_BACKEND=claude
+  STUB_CLAUDE_CWD_LOG="$H/claude.cwd"
+  echo "prompt" > "$H/in.md"
+  run_agent implementer "$H/in.md" "$H/CODEX_RESULT.md" '^STATUS: SUCCESS$' >/dev/null 2>&1
+  assert_eq "$(cd "$ROOTX" && pwd -P)" "$(cd "$(cat "$H/claude.cwd" 2>/dev/null)" && pwd -P)" \
+    "agent repo kökünde çalıştırılmalı"
+}
+
+t_claude_backend_nonzero_exit_no_stale_result() {
+  AGENT_BACKEND=claude
+  echo "OLD STALE" > "$H/CODEX_RESULT.md"
+  STUB_CLAUDE_EXIT=7
+  echo "prompt" > "$H/in.md"
+  run_agent implementer "$H/in.md" "$H/CODEX_RESULT.md" '^STATUS: SUCCESS$' >/dev/null 2>&1
+  assert_eq "33" "$?" "claude non-zero exit 33 döndürmeli"
+  assert_absent "$H/CODEX_RESULT.md" "bayat result claude backend'de de silinmeli"
+}
+
+t_claude_backend_empty_result_fails() {
+  AGENT_BACKEND=claude
+  STUB_CLAUDE_EMPTY=1
+  echo "prompt" > "$H/in.md"
+  run_agent implementer "$H/in.md" "$H/CODEX_RESULT.md" '^STATUS: SUCCESS$' >/dev/null 2>&1
+  assert_eq "34" "$?" "boş stdout 34 döndürmeli"
+  assert_absent "$H/CODEX_RESULT.md" "boş sonuç görünür yapılmamalı"
+}
+
+t_claude_backend_invalid_status_fails() {
+  AGENT_BACKEND=claude
+  STUB_CLAUDE_STATUS="RASTGELE METİN"
+  echo "prompt" > "$H/in.md"
+  run_agent implementer "$H/in.md" "$H/CODEX_RESULT.md" '^STATUS: SUCCESS$' >/dev/null 2>&1
+  assert_eq "21" "$?" "beklenmeyen STATUS 21 döndürmeli"
+  assert_absent "$H/CODEX_RESULT.md" "doğrulanmamış sonuç görünür yapılmamalı"
+  assert_present "$LOGS/implementer-invalid-result.md" "geçersiz sonuç kanıt olarak loglanmalı"
+}
+
+t_claude_backend_pg_env_forwarded() {
+  AGENT_BACKEND=claude
+  DATA_QUALITY_POSTGRES_TEST_URL="postgres://SENTINEL_URL"
+  DATA_QUALITY_DATABASE_SCHEMA="sentinel_schema"
+  STUB_CLAUDE_ECHO_PG=1
+  echo "prompt" > "$H/in.md"
+  run_agent implementer "$H/in.md" "$H/CODEX_RESULT.md" '^STATUS: SUCCESS$' >/dev/null 2>&1
+  assert_present "$H/CODEX_RESULT.md" "sonuç üretilmeli"
+  assert_contains "$(cat "$H/CODEX_RESULT.md" 2>/dev/null)" "SENTINEL_URL" \
+    "PG url claude alt sürecine forward edilmeli"
+}
+
+t_unknown_backend_fails_closed() {
+  AGENT_BACKEND=vertex-hayali
+  echo "OLD STALE" > "$H/CODEX_RESULT.md"
+  echo "prompt" > "$H/in.md"
+  run_agent implementer "$H/in.md" "$H/CODEX_RESULT.md" '^STATUS: SUCCESS$' >/dev/null 2>&1
+  assert_eq "35" "$?" "bilinmeyen backend 35 ile fail-closed olmalı"
+  assert_absent "$H/CODEX_RESULT.md" "bilinmeyen backend'de bayat result okunmamalı"
+}
+
+t_claude_backend_full_iteration() {
+  AGENT_BACKEND=claude
+  # Test kapıları taklit edilir; agent aşamaları claude stub'ı ile yürür.
+  run_tests() { echo "stub test report" > "$H/TEST_REPORT.md"; state_update "REVIEWER" "READY" ""; return 0; }
+  main continue >/dev/null 2>&1
+  assert_eq "COMPLETED" "$(state_field stage)" "claude backend uçtan uca iterasyonu tamamlamalı"
+  assert_present "$H/ARCHITECT_REVIEW.md" "reviewer onayı üretilmeli"
 }
 
 t_test_timeout_exit_code() {
@@ -366,6 +485,15 @@ run_test "base-ref-not-a-gate"                t_base_ref_not_a_gate
 run_test "codex-nonzero-exit-no-stale-result" t_codex_nonzero_exit_no_stale_result
 run_test "codex-empty-result-fails"           t_codex_empty_result_fails
 run_test "codex-stderr-logged"                t_codex_stderr_logged
+run_test "claude-backend-captures-stdout"     t_claude_backend_captures_stdout_result
+run_test "claude-backend-arg-mapping"         t_claude_backend_arg_mapping
+run_test "claude-backend-runs-in-repo-root"   t_claude_backend_runs_in_repo_root
+run_test "claude-backend-no-stale-result"     t_claude_backend_nonzero_exit_no_stale_result
+run_test "claude-backend-empty-result-fails"  t_claude_backend_empty_result_fails
+run_test "claude-backend-invalid-status"      t_claude_backend_invalid_status_fails
+run_test "claude-backend-pg-env-forwarded"    t_claude_backend_pg_env_forwarded
+run_test "unknown-backend-fails-closed"       t_unknown_backend_fails_closed
+run_test "claude-backend-full-iteration"      t_claude_backend_full_iteration
 run_test "test-timeout-exit-code"             t_test_timeout_exit_code
 run_test "pg-env-forwarded"                   t_pg_env_forwarded
 run_test "integration-required-detection"     t_integration_required_detection

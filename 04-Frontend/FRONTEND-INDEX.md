@@ -29,7 +29,7 @@ Doğrulama komutları: `npm test`, `npm run typecheck`, `npm run build`,
 
 | Route/alan | Salt okunur ekran | Yazılabilir akış | Durum/not |
 | --- | --- | --- | --- |
-| Dashboard | Var | Yok | Özet ve trend ekranı mevcut; iş alanı/SLA analitiği ve mühendis için dağılım-lineage-teşhis görünümü ile üretim IdP/veri adaptörü açık. |
+| Dashboard | Var | Yok | Ortak yetkili API'den yönetici/mühendis rol görünümü, fail-closed dönem karşılaştırma notu ve scope filtreli katkı bileşenleri gösterilir; iş alanı/SLA analitiği, lineage/kanıtlı teşhis ve üretim IdP/veri adaptörü açıktır. |
 | Veri kaynakları | Var | Oluşturma, test, aktivasyon/pasifleştirme | Teknik UI/API mevcut; secret değeri UI/payload/log/audit/DB'de tutulmaz. |
 | Kurallar | Var | Taslak, düzenleme, test, onay akışları | Ortak IR sürümü, no-code/özel SQL kaynağı ve doğrulanmış kapsam inceleme satırında gösterilir. |
 | Çalıştırmalar | Var | Manuel başlatma ve iptal | OFFICIAL/SHADOW modu yaşam döngüsü durumundan ayrı gösterilir; SHADOW açık etiketlidir. |

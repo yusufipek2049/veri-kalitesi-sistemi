@@ -45,6 +45,7 @@ show_status() {
     title="$(jq -r '.task.title // "-"' "$H/CURRENT_TASK.json")"
     mode="$(jq -r '.task.selection_mode // "-"' "$H/CURRENT_TASK.json")"
   fi
+  printf 'Backend   : %s\n' "${AGENT_BACKEND:-codex}"
   printf 'Iteration : %s\n' "$iteration"
   printf 'Stage     : %s\n' "$stage"
   printf 'Status    : %s\n' "$status"

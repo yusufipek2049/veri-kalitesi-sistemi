@@ -673,11 +673,126 @@ class FailingReader:
         raise sqlite3.OperationalError("database unavailable")
 
 
+def test_dq_cap_015_role_view_uses_same_scope_and_minimizes_executive_graph() -> None:
+    repository = SQLiteScoreRepository()
+    repository.add_or_get(
+        _score(
+            ScoreScopeType.SOURCE,
+            "source-a",
+            "88.00",
+            details={
+                "included_components": [
+                    {
+                        "quality_score_id": "score-dataset-a",
+                        "dataset_id": "dataset-a",
+                        "score": "88.00",
+                        "weight": "1",
+                    },
+                    {
+                        "quality_score_id": "score-dataset-b",
+                        "dataset_id": "dataset-b",
+                        "score": "91.00",
+                        "weight": "1",
+                    },
+                ],
+                "weight_sum": "2",
+            },
+        )
+    )
+    executive_service, executive, _ = _secure_service(
+        repository, source_ids={"source-a"}, roles={"DATA_OWNER"}
+    )
+    engineer_service, engineer, _ = _secure_service(
+        repository,
+        source_ids={"source-a"},
+        dataset_ids={"dataset-a"},
+        roles={"DATA_ENGINEER"},
+    )
+
+    executive_overview = executive_service.get_overview(executive)
+    engineer_overview = engineer_service.get_overview(engineer)
+    executive_node = next(
+        item
+        for period in executive_overview.trend.periods
+        for item in period.observations
+    )
+    engineer_node = next(
+        item
+        for period in engineer_overview.trend.periods
+        for item in period.observations
+    )
+
+    assert executive_overview.role_view == "EXECUTIVE"
+    assert engineer_overview.role_view == "ENGINEER"
+    assert executive_node.scope_id == engineer_node.scope_id == "source-a"
+    assert "components" not in executive_node.contribution_graph
+    assert [
+        component["dataset_id"]
+        for component in engineer_node.contribution_graph["components"]
+    ] == ["dataset-a"]
+    assert "dataset-b" not in str(engineer_node.contribution_graph)
+
+
+def test_dq_cap_011_technical_observation_does_not_replace_official_baseline() -> None:
+    versions = {
+        "rule_set_version": "rule-set-v1",
+        "configuration_version": "policy-v1",
+        "qualification_policy_version": "qualification-v1",
+        "profile_version": "profile-v1",
+        "governance_version": "governance-v1",
+    }
+    reader = CountingReader(
+        trend_scores=[
+            _score(
+                ScoreScopeType.SOURCE,
+                "source-a",
+                "80.00",
+                execution_id="official-old",
+                calculated_at=NOW - timedelta(hours=2),
+                details=versions,
+            ),
+            _score(
+                ScoreScopeType.SOURCE,
+                "source-a",
+                None,
+                status=ScoreStatus.NOT_CALCULATED_TECHNICAL_ERROR,
+                level=None,
+                execution_id="technical-middle",
+                calculated_at=NOW - timedelta(hours=1),
+                details=versions,
+            ),
+            _score(
+                ScoreScopeType.SOURCE,
+                "source-a",
+                "85.00",
+                execution_id="official-new",
+                calculated_at=NOW,
+                details=versions,
+            ),
+        ]
+    )
+    service, context, _ = _secure_service(reader, source_ids={"source-a"})
+
+    observations = [
+        item
+        for period in service.get_overview(context).trend.periods
+        for item in period.observations
+    ]
+
+    assert observations[1].comparison_status == "NOT_COMPARABLE"
+    assert observations[1].comparison_reason_codes == ("NON_OFFICIAL_RESULT",)
+    assert observations[2].comparison_status == "COMPARABLE"
+    assert observations[2].change == Decimal("5.00")
+    assert observations[2].contribution_graph["deterioration_status"] == "IMPROVING"
+
+
 @overload
 def _secure_service(
     reader: SQLiteScoreRepository | CountingReader | FailingReader,
     *,
     source_ids: set[str],
+    dataset_ids: set[str] | None = None,
+    roles: set[str] | None = None,
     actor_type: ActorType = ActorType.USER,
     can_view_enterprise: bool = False,
     privileged: bool = False,
@@ -693,6 +808,8 @@ def _secure_service(
     reader: SQLiteScoreRepository | CountingReader | FailingReader,
     *,
     source_ids: set[str],
+    dataset_ids: set[str] | None = None,
+    roles: set[str] | None = None,
     actor_type: ActorType = ActorType.USER,
     can_view_enterprise: bool = False,
     privileged: bool = False,
@@ -707,6 +824,8 @@ def _secure_service(
     reader: SQLiteScoreRepository | CountingReader | FailingReader,
     *,
     source_ids: set[str],
+    dataset_ids: set[str] | None = None,
+    roles: set[str] | None = None,
     actor_type: ActorType = ActorType.USER,
     can_view_enterprise: bool = False,
     privileged: bool = False,
@@ -757,9 +876,9 @@ def _secure_service(
         actor_type=actor_type,
         authentication_source="synthetic-adapter",
         session_id="synthetic-session",
-        roles=frozenset({"DATA_VIEWER"}),
+        roles=frozenset(roles or {"DATA_VIEWER"}),
         permitted_source_ids=frozenset(source_ids),
-        permitted_dataset_ids=frozenset(),
+        permitted_dataset_ids=frozenset(dataset_ids or set()),
         can_view_enterprise=can_view_enterprise,
         privileged=privileged,
         issued_at=NOW - timedelta(minutes=5),
@@ -780,10 +899,14 @@ def _score(
     execution_id: str = "execution-dashboard",
     calculated_at: datetime = datetime(2026, 7, 16, 14, 0, tzinfo=timezone.utc),
     official: bool | None = None,
+    details: dict[str, object] | None = None,
 ) -> QualityScore:
-    details: dict[str, object] = {"formula_version": "TEST_ONLY"}
+    calculation_details: dict[str, object] = {
+        "formula_version": "TEST_ONLY",
+        **(details or {}),
+    }
     if official is not None:
-        details["included_in_official_aggregation"] = official
+        calculation_details["included_in_official_aggregation"] = official
     return QualityScore(
         execution_id=execution_id,
         rule_version_id=None,
@@ -792,6 +915,6 @@ def _score(
         score_value=Decimal(score_value) if score_value is not None else None,
         score_status=status,
         level=level,
-        calculation_details=details,
+        calculation_details=calculation_details,
         calculated_at=calculated_at,
     )

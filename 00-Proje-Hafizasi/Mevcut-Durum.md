@@ -2,7 +2,7 @@
 type: project-memory
 status: active
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-last_updated: 2026-07-29
+last_updated: 2026-07-30
 ---
 
 # Mevcut Durum
@@ -20,6 +20,7 @@ last_updated: 2026-07-29
 | Frontend | Dashboard ve alan ekranları; güvenilir mutasyon, optimistic locking ve no-persistent-sensitive-draft kuralları uygulanmıştır. Çalıştırma ve rapor ekranları 36E/36G kapanış kanıtlarıyla uyumludur. | Gerçek IdP/üretim API verisi ve kurumsal DLP/watermark adaptörleri açık. |
 | Kurumsal entegrasyon laboratuvarı | ENTERPRISE-LAB-03 ile sentetik Keycloak, yerel secret manager, fake ServiceNow ve SIEM uygulama adaptörleri canlı Compose/container ağında olumlu ve fail-closed negatiflerle `PrototypeVerified`; ENTERPRISE-LAB-01/02 sınırları korunur. | Fake/yerel servisler kurumsal ürün, WORM/HA/DR, `ApprovedByBank` veya production-ready kanıtı değildir. |
 | Profilleme ve drift | DQ-CAP-PROTOTYPE-01 ile politika kontrollü bounded CSV örneği, salt-okunur PostgreSQL source aggregate gelişmiş metrikleri ve yedi deterministik drift ailesi `PrototypeVerified`; politika/fingerprint yokluğunda hüküm üretilmez. | Production secret manager/KMS wiring'i, ölçek/yük, politika kalibrasyonu/onayı, composition/operasyon ve kullanıcı ekranı açıktır. |
+| Skor katkısı ve rol dashboardu | DQ-CAP-PROTOTYPE-03 ile veri-minimum katkı grafiği, sürüm sınırında fail-closed dönem karşılaştırması, scope filtreli yönetici/mühendis API/React görünümü ve atomik PostgreSQL snapshot'ı `PrototypeVerified`dır. | İş alanı/SLA, lineage/kanıtlı teşhis, production composition/ölçek ve kurumsal politika/onaylar açıktır; production-ready veya banka onayı değildir. |
 | Ürün yetenek listesi | 29 Temmuz 2026 özellik karşılaştırması ve `DQ-CAP-001–015` prototip yönleri kanonik olarak kaydedildi. | Yalnız kalite boyutları ile teknik hata/kalite ihlali ayrımı çekirdekte bütündür; kalan başlıklar [durum matrisindeki](Urun-Yetenek-Durum-Matrisi.md) kısmi/hedef/harici sınırları korur. |
 | Production readiness | Hazır değil. | IdP/SSO-MFA, PAM/secret, HA veri/session, broker, SIEM/WORM, ServiceNow, DR ve banka onayları gerekir. |
 
@@ -38,7 +39,7 @@ aktif işlerde yeni koşu sonucu ayrıca kaydedilmelidir.
 
 ## Sıradaki Adım
 
-DQ-CAP-PROTOTYPE-01 yalnız prototip olarak kapanmıştır. Bağımlılıkları
+DQ-CAP-PROTOTYPE-03 yalnız prototip olarak kapanmıştır. Bağımlılıkları
 tamamlanmış yeni bir `Next`/`READY` teknik paket yoktur; kalan production
 readiness ve ürünleştirme başlıkları [backlogda](Sonraki-Adimlar.md)
 `ExternalDependency` durumundadır.

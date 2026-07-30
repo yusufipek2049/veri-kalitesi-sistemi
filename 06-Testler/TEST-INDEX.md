@@ -83,6 +83,15 @@ doğrulanır. Güncel controller raporunda birim paketi exit `0`, ilgili
 PostgreSQL entegrasyon hedefleri skip olmadan exit `0` tamamlanmıştır. Sonuç
 yalnız `PrototypeVerified`dır.
 
+DQ-CAP-PROTOTYPE-03 hedef testleri `01-Birim/test_score_contributions.py`,
+`01-Birim/test_scoring.py`, `01-Birim/test_dashboard.py`,
+`01-Birim/test_dashboard_api.py`, frontend dashboard model/API testleri ve
+`02-Entegrasyon/test_postgresql_score_contributions.py` dosyasındadır.
+Implementer hedefli kapıları backend için `101 passed`, frontend Vitest için
+`10 passed`, dashboard Playwright için `15 passed`; migration ile değişmez
+snapshot/audit-outbox atomikliği için test PostgreSQL üzerinde skipsiz
+`1 passed` vermiştir. Sonuç yalnız `PrototypeVerified`dır.
+
 ## Kesinleşen Kararların Doğrulama Kapsamı
 
 | Karar grubu | Zorunlu senaryo |

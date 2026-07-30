@@ -9,8 +9,9 @@
 #   - Kalıcı/kaynak kod burada (tools/agent-loop, Git'te izlenir).
 #   - Runtime state, log ve prompt snapshot'ları .agent-handoff altında üretilir
 #     (Git tarafından ignore edilir; canonical bilgi kaynağı DEĞİLDİR).
-#   - Her agent aşaması fresh `codex exec` ile başlar; eski session resume edilmez.
-#   - Geniş testler controller kabuğunda çalışır, Codex process'ine bağlanmaz.
+#   - Her agent aşaması fresh agent process'i ile başlar (AGENT_BACKEND=codex|claude);
+#     eski session/thread resume edilmez.
+#   - Geniş testler controller kabuğunda çalışır, agent process'ine bağlanmaz.
 #   - State atomik (mktemp + mv) yazılır; tek instance flock ile korunur.
 #
 # shellcheck shell=bash
@@ -40,9 +41,15 @@ agentloop_init() {
   # Yapılandırma varsayılanları (env veya env-file ile override edilebilir).
   : "${TEST_TIMEOUT_SECONDS:=900}"
   : "${CODEX_STAGE_TIMEOUT_SECONDS:=2700}"
+  # Backend-bağımsız aşama timeout'u; eski CODEX_* adı geriye dönük varsayılandır.
+  : "${AGENT_STAGE_TIMEOUT_SECONDS:=$CODEX_STAGE_TIMEOUT_SECONDS}"
   : "${MAX_REPAIR_ROUNDS:=1}"
   : "${HUMAN_WAIT_SECONDS:=600}"
+  # Agent backend seçimi: codex (varsayılan) veya claude. Rol başına model/effort
+  # değişkenleri backend başına ayrıdır, birbirine sızmaz.
+  : "${AGENT_BACKEND:=codex}"
   : "${CODEX_BIN:=codex}"
+  : "${CLAUDE_BIN:=claude}"
   : "${UNIT_TEST_DIR:=06-Testler/01-Birim}"
   : "${INTEGRATION_TEST_DIR:=06-Testler/02-Entegrasyon}"
   : "${OPTIONAL_INTEGRATION_TEST:=$INTEGRATION_TEST_DIR/test_synthetic_postgresql_integration.py}"
@@ -198,17 +205,31 @@ engine.dispose()
 PY
 }
 
-# --- fresh codex exec -------------------------------------------------------
+# --- fresh agent exec -------------------------------------------------------
 #
-# Her çağrı yeni bir `codex exec` başlatır. Eski session/thread resume edilmez.
-# Sonuç dosyası yalnız (a) exit 0, (b) boş değil, (c) beklenen STATUS satırı
-# doğrulandıktan SONRA atomik olarak görünür yapılır. Aksi halde bayat/kısmi
-# sonuç asla okunmaz.
-run_codex() {
+# Her çağrı yeni bir agent process'i başlatır (AGENT_BACKEND=codex|claude). Eski
+# session/thread resume edilmez. Sonuç dosyası yalnız (a) exit 0, (b) boş değil,
+# (c) beklenen STATUS satırı doğrulandıktan SONRA atomik olarak görünür yapılır.
+# Aksi halde bayat/kısmi sonuç asla okunmaz.
+#
+# Backend farkı yalnız argüman kurulumu ve sonuç yakalama biçimindedir:
+#   codex  -> `exec -o <dosya>`; nihai mesajı kendisi dosyaya yazar.
+#   claude -> `-p`; prompt stdin'den verilir, nihai mesaj stdout'tan yakalanır.
+# Doğrulama, atomik görünürlük ve log/timeout davranışı iki backend'de aynıdır.
+
+agent_backend_label() {
+  case "${AGENT_BACKEND}" in
+    claude) printf 'Claude' ;;
+    codex)  printf 'Codex' ;;
+    *)      printf '%s' "${AGENT_BACKEND}" ;;
+  esac
+}
+
+run_agent() {
   local role="$1" input="$2" result="$3" allowed_regex="$4"
   local iteration repair stdout_log stderr_log failure_log tmp_result
-  local model="" reasoning="" rc first_line
-  local args
+  local model="" reasoning="" rc first_line capture_stdout="no"
+  local args runner
 
   iteration="$(state_field iteration)"
   repair="$(state_field repair_round)"
@@ -222,20 +243,40 @@ run_codex() {
   rm -f "$result"
 
   # Aşama başına model ve reasoning-effort maliyet kaldıracı: planner/reviewer için
-  # düşük effort, implementer için varsayılan (config) bırakılabilir.
-  case "$role" in
-    implementer) model="${CODEX_IMPLEMENTER_MODEL:-}"; reasoning="${CODEX_IMPLEMENTER_REASONING:-}" ;;
-    reviewer)    model="${CODEX_REVIEWER_MODEL:-}";    reasoning="${CODEX_REVIEWER_REASONING:-}" ;;
-    planner)     model="${CODEX_PLANNER_MODEL:-}";     reasoning="${CODEX_PLANNER_REASONING:-}" ;;
+  # düşük effort, implementer için varsayılan (backend config) bırakılabilir.
+  case "${AGENT_BACKEND}" in
+    codex)
+      case "$role" in
+        implementer) model="${CODEX_IMPLEMENTER_MODEL:-}"; reasoning="${CODEX_IMPLEMENTER_REASONING:-}" ;;
+        reviewer)    model="${CODEX_REVIEWER_MODEL:-}";    reasoning="${CODEX_REVIEWER_REASONING:-}" ;;
+        planner)     model="${CODEX_PLANNER_MODEL:-}";     reasoning="${CODEX_PLANNER_REASONING:-}" ;;
+      esac
+      args=( "$CODEX_BIN" --ask-for-approval never --sandbox danger-full-access -C "$ROOT" )
+      [[ -n "$model" ]] && args+=( -m "$model" )
+      [[ -n "$reasoning" ]] && args+=( -c "model_reasoning_effort=$reasoning" )
+      args+=( exec -o "$tmp_result" - )
+      ;;
+    claude)
+      case "$role" in
+        implementer) model="${CLAUDE_IMPLEMENTER_MODEL:-}"; reasoning="${CLAUDE_IMPLEMENTER_EFFORT:-}" ;;
+        reviewer)    model="${CLAUDE_REVIEWER_MODEL:-}";    reasoning="${CLAUDE_REVIEWER_EFFORT:-}" ;;
+        planner)     model="${CLAUDE_PLANNER_MODEL:-}";     reasoning="${CLAUDE_PLANNER_EFFORT:-}" ;;
+      esac
+      args=( "$CLAUDE_BIN" -p --permission-mode bypassPermissions --add-dir "$ROOT" )
+      [[ -n "$model" ]] && args+=( --model "$model" )
+      [[ -n "$reasoning" ]] && args+=( --effort "$reasoning" )
+      capture_stdout="yes"
+      ;;
+    *)
+      echo "Bilinmeyen AGENT_BACKEND=${AGENT_BACKEND} (codex|claude)." | tee -a "$failure_log" >&2
+      rm -f "$tmp_result" "$result"
+      return 35
+      ;;
   esac
-
-  args=( "$CODEX_BIN" --ask-for-approval never --sandbox danger-full-access -C "$ROOT" )
-  [[ -n "$model" ]] && args+=( -m "$model" )
-  [[ -n "$reasoning" ]] && args+=( -c "model_reasoning_effort=$reasoning" )
-  args+=( exec -o "$tmp_result" - )
 
   {
     echo "ROLE=$role"
+    echo "BACKEND=${AGENT_BACKEND}"
     echo "ITERATION=$iteration"
     echo "REPAIR_ROUND=$repair"
     echo "STARTED_AT=$(now)"
@@ -243,17 +284,33 @@ run_codex() {
     echo "PG_SCHEMA=${DATA_QUALITY_DATABASE_SCHEMA:-unset}"
   } | tee -a "$stdout_log"
 
-  env \
-    PYTHONUNBUFFERED=1 \
-    DATA_QUALITY_POSTGRES_TEST_URL="${DATA_QUALITY_POSTGRES_TEST_URL:-}" \
-    DATA_QUALITY_DATABASE_SCHEMA="${DATA_QUALITY_DATABASE_SCHEMA:-}" \
-    TEST_TIMEOUT_SECONDS="${TEST_TIMEOUT_SECONDS}" \
-    timeout --signal=INT --kill-after=30s "${CODEX_STAGE_TIMEOUT_SECONDS}s" \
-      "${args[@]}" \
+  runner=(
+    env
+      PYTHONUNBUFFERED=1
+      DATA_QUALITY_POSTGRES_TEST_URL="${DATA_QUALITY_POSTGRES_TEST_URL:-}"
+      DATA_QUALITY_DATABASE_SCHEMA="${DATA_QUALITY_DATABASE_SCHEMA:-}"
+      TEST_TIMEOUT_SECONDS="${TEST_TIMEOUT_SECONDS}"
+    timeout --signal=INT --kill-after=30s "${AGENT_STAGE_TIMEOUT_SECONDS}s"
+      "${args[@]}"
+  )
+
+  # Agent her zaman repo kökünde çalıştırılır; codex ayrıca `-C` ile bağlanır.
+  if [[ "$capture_stdout" == "yes" ]]; then
+    # Sonuç stdout'tan yakalanır: log kopyası process bittikten sonra eklenir,
+    # böylece tee ile yarış olmadan tam çıktı hem sonuçta hem logda bulunur.
+    ( cd "$ROOT" && "${runner[@]}" ) \
+      < "$input" \
+      > "$tmp_result" \
+      2> >(tee -a "$stderr_log" >&2)
+    rc=$?
+    cat "$tmp_result" >> "$stdout_log" 2>/dev/null || true
+  else
+    ( cd "$ROOT" && "${runner[@]}" ) \
       < "$input" \
       > >(tee -a "$stdout_log") \
       2> >(tee -a "$stderr_log" >&2)
-  rc=$?
+    rc=$?
+  fi
 
   if [[ "$rc" -ne 0 ]]; then
     {
@@ -286,6 +343,11 @@ run_codex() {
   mv -f "$tmp_result" "$result"
   echo "$first_line"
   return 0
+}
+
+# Geriye dönük ad. Eski çağrı yüzeyi korunur; backend AGENT_BACKEND ile seçilir.
+run_codex() {
+  run_agent "$@"
 }
 
 # --- test gate (controller kabuğunda) --------------------------------------
@@ -342,8 +404,8 @@ run_implementer() {
     fi
   } > "$input"
 
-  echo "[1/3] Fresh Codex implementer"
-  run_codex "implementer" "$input" "$result" '^STATUS: SUCCESS$'
+  echo "[1/3] Fresh $(agent_backend_label) implementer"
+  run_agent "implementer" "$input" "$result" '^STATUS: SUCCESS$'
   rc=$?
   if [[ "$rc" -ne 0 ]]; then
     state_update "IMPLEMENTER" "FAILED" "Implementer başarısız; loglar kaydedildi."
@@ -447,8 +509,8 @@ run_reviewer() {
     printf '\n## Current diff stat\n\n```text\n'; git -C "$ROOT" diff --stat; printf '```\n'
   } > "$input"
 
-  echo "[3/3] Fresh Codex reviewer"
-  run_codex "reviewer" "$input" "$result" '^STATUS: (APPROVED|CHANGES_REQUIRED|HUMAN_DECISION)$'
+  echo "[3/3] Fresh $(agent_backend_label) reviewer"
+  run_agent "reviewer" "$input" "$result" '^STATUS: (APPROVED|CHANGES_REQUIRED|HUMAN_DECISION)$'
   rc=$?
   if [[ "$rc" -ne 0 ]]; then
     state_update "REVIEWER" "FAILED" "Reviewer başarısız; loglar kaydedildi."
@@ -548,7 +610,7 @@ run_planner() {
   } > "$input"
 
   echo "[0/3] Dokümanlardan sıradaki görev seçiliyor"
-  run_codex "planner" "$input" "$result" '^STATUS: (READY|NO_TASK)$'
+  run_agent "planner" "$input" "$result" '^STATUS: (READY|NO_TASK)$'
   rc=$?
   if [[ "$rc" -ne 0 ]]; then
     state_update "PLANNER" "FAILED" "Planner sıradaki görevi seçemedi; loglar kaydedildi."
@@ -651,8 +713,8 @@ start_new_task() {
           {id:"AC-07", requirement:"Reviewer güncel kod, test ve kaynak dokümanlar üzerinden onay vermelidir."}
         ],
         runtime_rules: [
-          "Her agent aşaması fresh codex exec ile başlatılır.",
-          "Eski Codex sessionları resume edilmez.",
+          "Her agent aşaması fresh agent süreci ile başlatılır.",
+          "Eski agent sessionları resume edilmez.",
           "Eski handoff raporları güncel gerçeklik sayılmaz.",
           "Geniş test paketleri controller kabuğunda çalıştırılır.",
           "Tarihsel HEAD eşitliği görev kapısı değildir.",

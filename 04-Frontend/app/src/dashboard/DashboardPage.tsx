@@ -107,6 +107,9 @@ export function DashboardPage({
           <Box>
             <Typography component="h1" variant="h1">Genel Bakış</Typography>
             <Typography color="text.secondary">Yetkili kapsam için son 30 günlük veri kalitesi görünümü</Typography>
+            <Typography color="text.secondary" variant="caption">
+              {data.roleView === "ENGINEER" ? "Mühendis görünümü" : "Yönetici görünümü"}
+            </Typography>
           </Box>
           <Stack direction="row" sx={{ flexWrap: "wrap", gap: 2 }}>
             <Button variant="outlined">Tüm veri alanları</Button>
@@ -140,7 +143,62 @@ export function DashboardPage({
               <Typography color="text.secondary" sx={{ mt: 2 }} variant="body2">
                 {data.measurementNote}
               </Typography>
+              <Typography color="text.secondary" sx={{ mt: 1 }} variant="body2">
+                {data.comparisonNote}
+              </Typography>
             </Paper>
+            {data.roleView === "ENGINEER" ? (
+              <Paper component="section" variant="outlined" sx={{ borderRadius: 1.5, p: 4 }}>
+                <Typography component="h2" variant="h3">Skor Katkı Grafiği</Typography>
+                {data.contributionGraph?.components?.length ? (
+                  <Box component="ul" sx={{ m: 0, mt: 2, pl: 3 }}>
+                    {data.contributionGraph.components.map((component) => (
+                      <Typography component="li" key={`${component.component_ref}-${component.included}`} variant="body2">
+                        {component.component_ref}: {component.included
+                          ? `ağırlık ${component.weight ?? "Unknown"}, katkı ${component.contribution ?? "Unknown"}`
+                          : `dışlandı (${component.exclusion_reason ?? "Unknown"})`}
+                      </Typography>
+                    ))}
+                  </Box>
+                ) : (
+                  <Typography color="text.secondary" sx={{ mt: 2 }} variant="body2">
+                    Katkı kanıtı Unknown. Ham kayıt, serbest SQL veya hassas değer gösterilmedi.
+                  </Typography>
+                )}
+                <Typography color="text.secondary" sx={{ mt: 2 }} variant="body2">
+                  Profil sürümü: {data.contributionGraph?.versions?.profile_version ?? "UNKNOWN"}
+                </Typography>
+                <Typography color="text.secondary" sx={{ mt: 1 }} variant="body2">
+                  Güvenli kanıt referansları: {data.contributionGraph?.evidence_references?.length
+                    ? data.contributionGraph.evidence_references.join(", ")
+                    : "UNKNOWN"}
+                </Typography>
+                <Typography color="text.secondary" sx={{ mt: 1 }} variant="body2">
+                  Kanıtlı teşhis: {data.contributionGraph?.diagnosis_status ?? "UNKNOWN"}
+                  {data.contributionGraph?.diagnosis_evidence_ref
+                    ? ` (${data.contributionGraph.diagnosis_evidence_ref})`
+                    : ""}
+                </Typography>
+              </Paper>
+            ) : (
+              <Paper component="section" variant="outlined" sx={{ borderRadius: 1.5, p: 4 }}>
+                <Typography component="h2" variant="h3">Yönetici Durum Özeti</Typography>
+                <Box component="ul" sx={{ m: 0, mt: 2, pl: 3 }}>
+                  <Typography component="li" variant="body2">
+                    Kritik asset: {data.contributionGraph?.critical_asset_status ?? "UNKNOWN"}
+                  </Typography>
+                  <Typography component="li" variant="body2">
+                    Bozulma: {data.contributionGraph?.deterioration_status ?? "UNKNOWN"}
+                  </Typography>
+                  <Typography component="li" variant="body2">
+                    Risk: {data.contributionGraph?.risk_status ?? "UNKNOWN"}
+                  </Typography>
+                  <Typography component="li" variant="body2">
+                    SLA: {data.contributionGraph?.sla_status ?? "UNKNOWN"}
+                  </Typography>
+                </Box>
+              </Paper>
+            )}
           </>
         ) : null}
       </Box>

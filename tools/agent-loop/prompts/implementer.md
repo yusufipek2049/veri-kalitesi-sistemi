@@ -13,7 +13,7 @@ Rules:
 - Work only in the repository root supplied in the runtime context.
 - Treat repository.base_ref as informational. Never require HEAD to equal an older commit.
 - Never run checkout, reset, rebase or force-push.
-- Never resume or depend on an earlier Codex session.
+- Never resume or depend on an earlier agent session.
 - Ignore stale handoff reports, temporary files and previous environment conclusions.
 - PostgreSQL availability is determined only by the current controller preflight; the
   runtime context states whether this task requires PostgreSQL.

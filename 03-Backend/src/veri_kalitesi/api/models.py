@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -11,7 +12,7 @@ from veri_kalitesi.dashboard import DashboardOverview
 from veri_kalitesi.data_sources import DataSource, ProfileComparison
 from veri_kalitesi.executions import RuleExecution
 from veri_kalitesi.issues import DataQualityIssue, IssuePriority
-from veri_kalitesi.reporting import ReportPreview, ReportSummaryRow, Report, ReportSchedule, ReportStatus, ReportFormat, ReportType
+from veri_kalitesi.reporting import Report, ReportPreview, ReportSchedule, ReportSummaryRow
 from veri_kalitesi.rules import QualityRule, RuleTestResult, RuleVersion
 
 
@@ -581,6 +582,10 @@ class DashboardObservationResponse(BaseModel):
     score_status: str
     level: str | None
     calculated_at: datetime
+    comparison_status: str
+    comparison_reason_codes: tuple[str, ...]
+    change: Decimal | None
+    contribution_graph: dict[str, Any] | None
 
 
 class DashboardTrendPeriodResponse(BaseModel):
@@ -637,6 +642,7 @@ class DashboardSummaryResponse(BaseModel):
     has_data: bool
     periods: tuple[DashboardTrendPeriodResponse, ...]
     operational_indicators: DashboardOperationalIndicatorsResponse
+    role_view: str
 
     @classmethod
     def from_domain(
@@ -651,6 +657,7 @@ class DashboardSummaryResponse(BaseModel):
             correlation_id=correlation_id,
             as_of=overview.trend.as_of,
             has_data=overview.trend.has_data,
+            role_view=overview.role_view,
             periods=tuple(
                 DashboardTrendPeriodResponse(
                     period_start=period.period_start,
@@ -664,6 +671,10 @@ class DashboardSummaryResponse(BaseModel):
                             score_status=item.score_status.value,
                             level=item.level.value if item.level is not None else None,
                             calculated_at=item.calculated_at,
+                            comparison_status=item.comparison_status,
+                            comparison_reason_codes=item.comparison_reason_codes,
+                            change=item.change,
+                            contribution_graph=item.contribution_graph,
                         )
                         for item in period.observations
                     ),

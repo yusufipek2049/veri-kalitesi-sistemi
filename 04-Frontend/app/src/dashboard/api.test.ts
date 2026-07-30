@@ -93,6 +93,7 @@ function validPayload() {
     as_of: "2026-07-22T12:00:00Z",
     has_data: false,
     periods: [],
+    role_view: "EXECUTIVE",
     operational_indicators: {
       measurement_qualification: {
         status: "NO_DATA",

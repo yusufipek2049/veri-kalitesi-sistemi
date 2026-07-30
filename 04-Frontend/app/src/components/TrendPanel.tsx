@@ -3,7 +3,6 @@ import { LineChart } from "echarts/charts";
 import {
   GridComponent,
   LegendComponent,
-  MarkLineComponent,
   TooltipComponent,
 } from "echarts/components";
 import * as echarts from "echarts/core";
@@ -26,7 +25,7 @@ import type { EChartsCoreOption } from "echarts/core";
 import type { TrendObservation } from "../dashboard/model";
 import { StatusBadge } from "./StatusBadge";
 
-echarts.use([LineChart, GridComponent, LegendComponent, MarkLineComponent, TooltipComponent, CanvasRenderer]);
+echarts.use([LineChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
 
 interface TrendPanelProps {
   observations: TrendObservation[];
@@ -58,7 +57,9 @@ export function TrendPanel({ observations, description = "Son 30 UTC gün · yal
       grid: { left: 48, right: 88, top: 36, bottom: 44 },
       legend: {
         bottom: 0,
-        data: hasTechnicalObservation ? ["Resmî nihai skor", "Teknik hata"] : ["Resmî nihai skor"],
+        data: hasTechnicalObservation
+          ? ["Karşılaştırılabilir ham skor", "Teknik hata"]
+          : ["Karşılaştırılabilir ham skor"],
         textStyle: { color: theme.palette.text.secondary },
       },
       tooltip: {
@@ -69,7 +70,7 @@ export function TrendPanel({ observations, description = "Son 30 UTC gün · yal
           if (!item) return "";
           return [
             `<strong>${item.displayDate}</strong>`,
-            `Nihai skor: ${formatScore(item.finalScore)}`,
+            `Ham skor: ${formatScore(item.rawScore)}`,
             `Yeterlilik: ${item.qualification}`,
             `Kapsam: ${item.coverageRate === null ? "—" : `%${item.coverageRate}`}`,
             `Teknik durum: ${item.technicalStatus}`,
@@ -92,20 +93,14 @@ export function TrendPanel({ observations, description = "Son 30 UTC gün · yal
       },
       series: [
         {
-          name: "Resmî nihai skor",
+          name: "Karşılaştırılabilir ham skor",
           type: "line",
           connectNulls: false,
           symbol: "circle",
           symbolSize: 7,
           lineStyle: { width: 3, color: theme.status.info },
           itemStyle: { color: theme.palette.background.paper, borderColor: theme.status.info, borderWidth: 2 },
-          data: observations.map((item) => (item.official ? item.finalScore : null)),
-          markLine: {
-            symbol: "none",
-            label: { formatter: "Kritik eşik 70", color: theme.status.critical, position: "insideEndTop" },
-            lineStyle: { color: theme.status.critical, type: "dashed" },
-            data: [{ yAxis: 70 }],
-          },
+          data: observations.map((item) => (item.official ? item.rawScore : null)),
         },
         {
           name: "Teknik hata",
@@ -152,7 +147,7 @@ export function TrendPanel({ observations, description = "Son 30 UTC gün · yal
         <Box
           ref={chartElementRef}
           role="img"
-          aria-label={`Resmî nihai skor trendi. ${officialObservations.length} resmî gözlem gösteriliyor. Teknik hata ve provizyonel sonuçlar çizgiye katılmıyor.`}
+          aria-label={`Karşılaştırılabilir ham skor trendi. ${officialObservations.length} uyumlu resmî gözlem gösteriliyor. Teknik hata, provizyonel ve uyumsuz dönemler çizgiye katılmıyor.`}
           sx={(theme) => ({ height: theme.appLayout.chartHeight, mt: 2, width: "100%" })}
         />
       ) : (
