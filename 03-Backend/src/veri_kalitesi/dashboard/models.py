@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
+from typing import Any, Mapping
 
 from veri_kalitesi.scoring.models import ScoreLevel, ScoreScopeType, ScoreStatus
 
@@ -15,6 +16,7 @@ class DashboardAccessScope:
     """Internal read scope; external callers must use ActorContext."""
 
     allowed_source_ids: frozenset[str] = field(default_factory=frozenset)
+    allowed_dataset_ids: frozenset[str] = field(default_factory=frozenset)
     can_view_enterprise: bool = False
 
 
@@ -27,6 +29,10 @@ class DashboardScoreNode:
     score_status: ScoreStatus
     level: ScoreLevel | None
     calculated_at: datetime
+    comparison_status: str = "UNKNOWN"
+    comparison_reason_codes: tuple[str, ...] = ()
+    change: Decimal | None = None
+    contribution_graph: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -107,3 +113,4 @@ class DashboardOperationalIndicators:
 class DashboardOverview:
     trend: DashboardScoreTrend
     operational_indicators: DashboardOperationalIndicators
+    role_view: str = "EXECUTIVE"

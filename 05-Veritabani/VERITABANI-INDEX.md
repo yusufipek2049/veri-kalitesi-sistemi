@@ -2,7 +2,7 @@
 type: implementation-index
 area: database
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-updated_at: 2026-07-29
+updated_at: 2026-07-30
 ---
 
 # Veritabanı ve Veri Modeli Haritası
@@ -28,6 +28,7 @@ updated_at: 2026-07-29
 | Zamanlama/kaynak kullanım politikası | `20260724_05_scheduling_and_policy_baseline.py`, `20260729_10_source_policy_deadlines.py` | Var | 36F ile scheduling/source-usage policy repository'leri PostgreSQL'e taşındı; ayrı bağlantı/sorgu/toplam deadline alanları eklendi; SQLite eşleri runtime export'tan çıkarılıp test double olarak sınırlandı. |
 | Raporlama | `20260724_06_reporting_baseline.py`, `20260724_07_report_schedules.py` | Var | 36G report ve report schedule PostgreSQL repository'leri runtime'a bağlandı; süreçten bağımsız kalıcı queue/worker yaşam döngüsü ayrı pakettir. |
 | Kalıcı iş kuyruğu | `20260728_08_job_queue.py`, `20260729_09_job_lifecycle.py` | Var (`PostgreSQLJobQueueRepository`) | 36H1 kuyruk/lease çekirdeği ile 36H2 terminal yaşam döngüsü, atomik kaynak kotası/iptal, ayrı deadline, retry/dead-letter ve auditli yeniden işleme kalıcılığı `TechnicallyVerified` olarak tamamlandı. |
+| Skor katkı grafiği | `20260730_13_score_contribution_graphs.py` | Var (`PostgreSQLContributionGraphRepository`) | Değişmez JSONB snapshot ve audit/outbox atomikliği test PostgreSQL şemasında skipsiz doğrulandı; production composition/operasyon ayrıca açıktır. |
 
 Migration/repository varlığı, uygulamanın gerçek production wiring'inin taşındığı
 anlamına gelmez. Her domain için composition root, transaction sınırı, retry,

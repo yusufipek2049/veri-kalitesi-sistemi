@@ -2,38 +2,38 @@
 type: next-step
 status: completed
 updated_at: 2026-07-30
-work_package: DQ-CAP-PROTOTYPE-02
-predecessor: DQ-CAP-PROTOTYPE-01
+work_package: DQ-CAP-PROTOTYPE-03
+predecessor: DQ-CAP-PROTOTYPE-02
 ---
 
-# Son Tamamlanan Çalışma Paketi — Kural IR, SHADOW ve Kanıt
+# Son Tamamlanan Çalışma Paketi — Skor Katkısı ve Rol Dashboardu
 
-[DQ-CAP-PROTOTYPE-02](09-Iterasyonlar/DQ-CAP-PROTOTYPE-02-Kural-IR-Shadow-ve-Kanit.md)
-yalnız sentetik/yerel ortak kural gösterimi, SHADOW yürütme ve veri-minimum
-kanıt çekirdeği olarak `PrototypeVerified` sınıfında kapanmıştır.
+[DQ-CAP-PROTOTYPE-03](09-Iterasyonlar/DQ-CAP-PROTOTYPE-03-Skor-Katki-ve-Rol-Dashboard.md)
+yalnız sentetik/yerel katkı grafiği, fail-closed karşılaştırma ve rol görünümü
+prototipi olarak `PrototypeVerified` sınıfında kapanmıştır.
 
 ## Tamamlanan Kapsam
 
-- No-code şablon ve güvenli salt-okunur özel SQL `DQ_RULE_IR_V1` içinde
-  birleştirildi; yedi kural kapsamı açık enum ile modellendi.
-- Özel SQL kapsam, pozitif timeout/kota ve güvenli query reference olmadan
-  kaydedilmez; bind değeri taşıyan tanım fail-closed reddedilir.
-- `SHADOW` yürütme modu kural yaşam döngüsünden ayrıldı; resmî skor, bildirim,
-  SLA ve otomatik issue üretimine uygun değildir ve API/UI'da etiketlidir.
-- İhlal kanıtı allowlist sayaç haritaları, doğrulanabilir digest/HMAC ve bounded
-  opaque query/plan referansları taşır; serbest metin, ham örnek, SQL/bind/secret
-  payload'ı ve bilinmeyen alan fail-closed reddedilir.
-- PostgreSQL migration/repository ve frontend inceleme yüzeyleri eklendi;
-  atomik execution+job audit/outbox başlangıcı korundu.
+- Dahil/dışlanan bileşen, sayaç, ağırlık, katkı, dışlama ve sürümler
+  `DQ_SCORE_CONTRIBUTION_GRAPH_V1` ile yeniden üretilebilir kılındı.
+- Resmî/provizyonel ayrımı ve kapsam/model/politika/profil/yönetişim sürüm
+  sınırı fail-closed karşılaştırma sonucu üretir.
+- Ortak yetkili API yönetici özetini ve `DATA_ENGINEER` veri-minimum katkı
+  ayrıntısını aynı scope filtresiyle sağlar; kanıtsız kritik asset/risk/SLA ve
+  teşhis alanları `UNKNOWN` kalır.
+- PostgreSQL değişmez grafik snapshot'ı audit outbox ile atomik yazılır.
 
 ## Doğrulama
 
-- Güncel controller birim paketi exit `0` tamamlandı.
-- Güncel controller PostgreSQL entegrasyon hedefleri skip olmadan exit `0`
-  tamamlandı.
+- Hedefli scoring/dashboard backend paketi `101 passed` ile exit `0` tamamlandı.
+- Hedefli frontend dashboard paketi `10 passed` ile exit `0` tamamlandı.
+- Dashboard Playwright paketi beş viewport, açık/koyu tema ve rol özetleriyle
+  `15 passed` verdi.
+- Katkı grafiği migration/repository atomiklik testi controller tarafından
+  sağlanan PostgreSQL üzerinde skipsiz `1 passed` ile exit `0` tamamlandı.
 
 Ayrıntılı kanıt ve sınırlar
-[kapanış kaydındadır](09-Iterasyonlar/DQ-CAP-PROTOTYPE-02-Kural-IR-Shadow-ve-Kanit.md).
+[kapanış kaydındadır](09-Iterasyonlar/DQ-CAP-PROTOTYPE-03-Skor-Katki-ve-Rol-Dashboard.md).
 
 ## Sıradaki Durum
 

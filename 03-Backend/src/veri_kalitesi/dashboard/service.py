@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from typing import Callable, Protocol
 
 from veri_kalitesi.dashboard.errors import (
@@ -27,7 +28,13 @@ from veri_kalitesi.dashboard.models import (
     MeasurementQualificationIndicatorStatus,
 )
 from veri_kalitesi.identity import ActorContext, AuthorizationService, IdentityError
-from veri_kalitesi.scoring.models import QualityScore, ScoreScopeType, ScoreStatus
+from veri_kalitesi.scoring.models import (
+    QualityScore,
+    ScoreScopeType,
+    ScoreStatus,
+    is_official_score,
+)
+from veri_kalitesi.scoring.contributions import compare_scores, contribution_graph
 
 
 class ScoreReader(Protocol):
@@ -153,10 +160,22 @@ class DashboardQueryService:
                     observations=observations,
                 )
             )
+        role_view = (
+            "ENGINEER"
+            if actor_context is not None and "DATA_ENGINEER" in actor_context.roles
+            else "EXECUTIVE"
+        )
+        periods = _decorate_comparisons(
+            periods,
+            authorized_scores,
+            include_graph=role_view == "ENGINEER",
+            access_scope=access_scope,
+        )
         trend = DashboardScoreTrend(as_of=as_of, periods=tuple(periods))
         return DashboardOverview(
             trend=trend,
             operational_indicators=_build_operational_indicators(authorized_scores),
+            role_view=role_view,
         )
 
     def _authorize(self, actor_context: ActorContext | None) -> tuple[DashboardAccessScope, str]:
@@ -171,6 +190,7 @@ class DashboardQueryService:
         return (
             DashboardAccessScope(
                 allowed_source_ids=decision.permitted_source_ids,
+                allowed_dataset_ids=decision.permitted_dataset_ids,
                 can_view_enterprise=decision.can_view_enterprise,
             ),
             actor_context.correlation_id,
@@ -190,6 +210,8 @@ def _validate_scoped_request(
         raise DashboardValidationError("correlation_id is required.")
     if any(not source_id.strip() for source_id in access_scope.allowed_source_ids):
         raise DashboardValidationError("Authorized source IDs must not be blank.")
+    if any(not dataset_id.strip() for dataset_id in access_scope.allowed_dataset_ids):
+        raise DashboardValidationError("Authorized dataset IDs must not be blank.")
 
 
 def _read_score_tree(
@@ -240,6 +262,118 @@ def _to_node(score: QualityScore) -> DashboardScoreNode:
         level=score.level,
         calculated_at=score.calculated_at,
     )
+
+
+def _decorate_comparisons(
+    periods: list[DashboardTrendPeriod],
+    authorized_scores: tuple[tuple[QualityScore, datetime], ...],
+    *,
+    include_graph: bool,
+    access_scope: DashboardAccessScope,
+) -> list[DashboardTrendPeriod]:
+    previous_by_scope: dict[tuple[ScoreScopeType, str | None], QualityScore] = {}
+    decorated: dict[str, DashboardScoreNode] = {}
+    for score, _ in sorted(authorized_scores, key=lambda item: item[1]):
+        key = (score.scope_type, score.scope_id)
+        previous = previous_by_scope.get(key)
+        comparison = compare_scores(score, previous) if previous is not None else None
+        graph = contribution_graph(score)
+        if comparison is not None:
+            comparison_status = comparison.status.value
+            comparison_reason_codes = comparison.reason_codes
+            change = comparison.delta
+        elif is_official_score(score):
+            comparison_status = "UNKNOWN"
+            comparison_reason_codes = ("NO_PREVIOUS_OBSERVATION",)
+            change = None
+        else:
+            comparison_status = "NOT_COMPARABLE"
+            comparison_reason_codes = ("NON_OFFICIAL_RESULT",)
+            change = None
+        graph["deterioration_status"] = _deterioration_status(
+            comparison_status,
+            change,
+        )
+        decorated[score.quality_score_id] = DashboardScoreNode(
+            quality_score_id=score.quality_score_id,
+            scope_type=score.scope_type,
+            scope_id=score.scope_id,
+            score_value=score.score_value,
+            score_status=score.score_status,
+            level=score.level,
+            calculated_at=score.calculated_at,
+            comparison_status=comparison_status,
+            comparison_reason_codes=comparison_reason_codes,
+            change=change,
+            contribution_graph=(
+                _filter_engineer_graph(graph, access_scope)
+                if include_graph
+                else {
+                    "graph_version": graph["graph_version"],
+                    "official": graph["official"],
+                    "measurement_qualification": graph["measurement_qualification"],
+                    "critical_rule_status": graph["critical_rule_status"],
+                    "critical_asset_status": graph["critical_asset_status"],
+                    "deterioration_status": graph["deterioration_status"],
+                    "risk_status": graph["risk_status"],
+                    "sla_status": graph["sla_status"],
+                    "usage_decision": graph["usage_decision"],
+                    "coverage_status": graph["coverage_status"],
+                }
+            ),
+        )
+        if is_official_score(score):
+            previous_by_scope[key] = score
+    return [
+        DashboardTrendPeriod(
+            period_start=period.period_start,
+            period_end=period.period_end,
+            observations=tuple(
+                decorated[node.quality_score_id] for node in period.observations
+            ),
+        )
+        for period in periods
+    ]
+
+
+def _deterioration_status(
+    comparison_status: str,
+    change: object,
+) -> str:
+    if comparison_status != "COMPARABLE" or not isinstance(change, Decimal):
+        return "UNKNOWN"
+    if change < 0:
+        return "DETERIORATING"
+    if change > 0:
+        return "IMPROVING"
+    return "STABLE"
+
+
+def _filter_engineer_graph(
+    graph: dict[str, object],
+    access_scope: DashboardAccessScope,
+) -> dict[str, object]:
+    components = graph.get("components")
+    if not isinstance(components, list):
+        return {**graph, "components": []}
+    visible = []
+    for component in components:
+        if not isinstance(component, dict):
+            continue
+        dataset_id = component.get("dataset_id")
+        source_id = component.get("data_source_id")
+        if (
+            isinstance(dataset_id, str)
+            and dataset_id not in access_scope.allowed_dataset_ids
+        ):
+            continue
+        if (
+            isinstance(source_id, str)
+            and source_id not in access_scope.allowed_source_ids
+        ):
+            continue
+        visible.append(component)
+    return {**graph, "components": visible}
 
 
 def _score_time_utc(score: QualityScore) -> datetime:

@@ -36,6 +36,17 @@ from veri_kalitesi.scoring.models import (
     is_official_score,
 )
 from veri_kalitesi.scoring.repository import SQLiteScoreRepository
+from veri_kalitesi.scoring.contributions import (
+    CONTRIBUTION_GRAPH_VERSION,
+    ComparisonStatus,
+    ScoreComparison,
+    compare_scores,
+    contribution_graph,
+)
+from veri_kalitesi.scoring.postgresql_contributions import (
+    PostgreSQLContributionGraphRepository,
+    StoredContributionGraph,
+)
 from veri_kalitesi.scoring.service import (
     DATASET_FORMULA_VERSION,
     DIMENSION_FORMULA_VERSION,
@@ -53,6 +64,8 @@ from veri_kalitesi.scoring.service import (
 
 __all__ = [
     "DATASET_FORMULA_VERSION",
+    "CONTRIBUTION_GRAPH_VERSION",
+    "ComparisonStatus",
     "DEFAULT_THRESHOLD_SET",
     "DatasetPartialScorePolicy",
     "DatasetPartialScorePolicyLifecycleService",
@@ -63,6 +76,7 @@ __all__ = [
     "MeasurementStatus",
     "SOURCE_FORMULA_VERSION",
     "QualityScore",
+    "PostgreSQLContributionGraphRepository",
     "PartialExecutionFacts",
     "PartialScoreDecision",
     "PartialScoreEligibility",
@@ -72,6 +86,8 @@ __all__ = [
     "ScoreNotFoundError",
     "ScoreScopeType",
     "ScoreStatus",
+    "ScoreComparison",
+    "StoredContributionGraph",
     "ScoringError",
     "ScoringTechnicalError",
     "ScoringApprovalPolicy",
@@ -88,6 +104,8 @@ __all__ = [
     "calculate_weighted_score",
     "calculate_rule_score",
     "classify_score",
+    "compare_scores",
+    "contribution_graph",
     "default_dimension_weights",
     "default_criticality_weights",
     "is_official_observation",

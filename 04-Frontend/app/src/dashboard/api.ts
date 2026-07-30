@@ -41,13 +41,33 @@ function isDashboardSummary(payload: unknown): payload is DashboardSummaryApiRes
     && typeof candidate.correlation_id === "string"
     && typeof candidate.as_of === "string"
     && typeof candidate.has_data === "boolean"
+    && ["EXECUTIVE", "ENGINEER"].includes(candidate.role_view ?? "")
     && Array.isArray(candidate.periods)
     && candidate.periods.every((period) => (
       typeof period?.period_start === "string"
       && typeof period?.period_end === "string"
       && Array.isArray(period?.observations)
+      && period.observations.every(isDashboardObservation)
     ))
     && isOperationalIndicators(candidate.operational_indicators);
+}
+
+function isDashboardObservation(
+  value: DashboardSummaryApiResponse["periods"][number]["observations"][number],
+): boolean {
+  return Boolean(
+    value
+      && typeof value.quality_score_id === "string"
+      && ["ENTERPRISE", "SOURCE"].includes(value.scope_type)
+      && (value.scope_id === null || typeof value.scope_id === "string")
+      && typeof value.score_status === "string"
+      && typeof value.calculated_at === "string"
+      && ["COMPARABLE", "NOT_COMPARABLE", "UNKNOWN"].includes(value.comparison_status)
+      && Array.isArray(value.comparison_reason_codes)
+      && value.comparison_reason_codes.every((reason) => typeof reason === "string")
+      && (value.change === null || typeof value.change === "string" || typeof value.change === "number")
+      && (value.contribution_graph === null || typeof value.contribution_graph === "object"),
+  );
 }
 
 function isOperationalIndicators(

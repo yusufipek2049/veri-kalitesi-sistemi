@@ -69,6 +69,41 @@ export interface DashboardViewModel {
   dataNotice: string;
   trendDescription: string;
   measurementNote: string;
+  comparisonNote: string;
+  roleView: "EXECUTIVE" | "ENGINEER";
+  contributionGraph: DashboardContributionGraph | null;
+}
+
+export interface DashboardContributionGraph {
+  graph_version: string;
+  official: boolean;
+  canonical_counts?: Record<string, number | null> | null;
+  evidence_references?: string[];
+  diagnosis_status?: string;
+  diagnosis_evidence_ref?: string | null;
+  components?: Array<{
+    component_ref: string;
+    component_type: "RULE" | "DATASET" | "DIMENSION" | "SOURCE" | "UNKNOWN";
+    quality_score_id: string | null;
+    rule_version_id: string | null;
+    dataset_id: string | null;
+    data_source_id: string | null;
+    dimension: string | null;
+    included: boolean;
+    score: string | null;
+    weight: string | null;
+    contribution: string | null;
+    exclusion_reason: string | null;
+  }>;
+  versions?: Record<string, string | null>;
+  measurement_qualification: string;
+  critical_rule_status: string;
+  critical_asset_status: string;
+  deterioration_status?: string;
+  coverage_status: string;
+  risk_status: string;
+  sla_status: string;
+  usage_decision: string;
 }
 
 export interface DashboardApiObservation {
@@ -79,6 +114,10 @@ export interface DashboardApiObservation {
   score_status: string;
   level: string | null;
   calculated_at: string;
+  comparison_status: "COMPARABLE" | "NOT_COMPARABLE" | "UNKNOWN";
+  comparison_reason_codes: string[];
+  change: string | number | null;
+  contribution_graph: DashboardContributionGraph | null;
 }
 
 export interface DashboardApiPeriod {
@@ -117,6 +156,7 @@ export interface DashboardSummaryApiResponse {
   has_data: boolean;
   periods: DashboardApiPeriod[];
   operational_indicators: DashboardOperationalIndicatorsApiResponse;
+  role_view: "EXECUTIVE" | "ENGINEER";
 }
 
 export const kpis: KpiViewModel[] = [
@@ -240,6 +280,9 @@ export const syntheticDashboardViewModel: DashboardViewModel = {
   dataNotice: "Bu ekran yalnız sentetik gösterim verisi kullanır; üretim API'si, kullanıcı oturumu veya banka verisi bağlı değildir.",
   trendDescription: "Son 30 UTC gün · yalnız resmî skorlar",
   measurementNote: "Son sonuç sınırlı kapsama rağmen onaylı sentetik politika koşullarını karşılıyor. Provizyonel 13 Temmuz sonucu resmî trend ve SLA hesabına katılmadı; önceki resmî skor geçersiz kılınmadı.",
+  comparisonNote: "Sentetik dönemler aynı sürümlü karşılaştırma sözleşmesindedir.",
+  roleView: "ENGINEER",
+  contributionGraph: null,
 };
 
 export function dashboardViewModelFromApi(
@@ -250,17 +293,18 @@ export function dashboardViewModelFromApi(
     const observation = period.observations.find((item) => observationScopeKey(item) === scopeKey);
     const score = parseScore(observation?.score_value ?? null);
     const isTechnical = observation?.score_status === "NOT_CALCULATED_TECHNICAL_ERROR";
-    const isOfficial = observation?.score_status === "CALCULATED" || observation?.score_status === "PARTIAL";
+    const isOfficial = observation?.contribution_graph?.official === true;
+    const trendComparable = observation?.comparison_status === "COMPARABLE";
     return {
       date: period.period_start.slice(0, 10),
       displayDate: formatUtcDate(period.period_start),
-      rawScore: null,
-      finalScore: score,
+      rawScore: score,
+      finalScore: null,
       qualification: "Bu API diliminde sağlanmıyor",
       usageDecision: "Bu API diliminde sağlanmıyor",
       coverageRate: null,
       technicalStatus: isTechnical ? "Teknik Hata" as const : observation ? "Başarılı" as const : "Hesaplanmadı" as const,
-      official: isOfficial && score !== null,
+      official: isOfficial && trendComparable === true && score !== null,
     };
   });
   const latest = [...response.periods]
@@ -275,7 +319,7 @@ export function dashboardViewModelFromApi(
     kpis: [
       {
         id: "quality-score",
-        label: "Nihai Kalite Skoru",
+        label: "Ham Kalite Skoru",
         value: formatScore(latestScore),
         detail: latest ? `${scopeLabel} · ${formatUtcDateTime(latest.calculated_at)}` : "Yetkili kapsamda resmî skor bulunamadı",
         tone: latestTone,
@@ -294,7 +338,27 @@ export function dashboardViewModelFromApi(
       : "Dashboard verisi yetkili API kapsamından yüklenmiştir.",
     trendDescription: `Son 30 UTC gün · ${scopeLabel} · yalnız resmî skorlar`,
     measurementNote: "Ölçüm yeterliliği ve teknik sağlık 21C operasyonel göstergelerinden alınır. Kapsam, kullanım kararı, kritik kontrol sonuçları ve alarm akışı ilgili runtime sözleşmeleri tamamlanmadan üretilmez.",
+    comparisonNote: comparisonNote(latest),
+    roleView: response.role_view,
+    contributionGraph: latest?.contribution_graph ?? null,
   };
+}
+
+function comparisonNote(observation: DashboardApiObservation | undefined): string {
+  if (!observation) return "Karşılaştırma için yetkili gözlem bulunamadı.";
+  if (observation.comparison_status === "COMPARABLE") {
+    const change = parseScore(observation.change);
+    if (change === null) return "Karşılaştırılabilir dönemde değişim değeri Unknown.";
+    const direction = change > 0 ? "İyileşme" : change < 0 ? "Kötüleşme" : "Değişim yok";
+    const prefix = change > 0 ? "+" : "";
+    return `${direction}: önceki uyumlu döneme göre ${prefix}${change.toLocaleString("tr-TR")} puan.`;
+  }
+  const reasons = observation.comparison_reason_codes.length
+    ? observation.comparison_reason_codes.join(", ")
+    : "UNKNOWN";
+  return observation.comparison_status === "NOT_COMPARABLE"
+    ? `Dönemler karşılaştırılamaz: ${reasons}.`
+    : `Dönem karşılaştırması Unknown: ${reasons}.`;
 }
 
 function selectScopeKey(periods: DashboardApiPeriod[]): string {

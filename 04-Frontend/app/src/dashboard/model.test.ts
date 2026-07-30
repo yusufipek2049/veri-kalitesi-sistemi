@@ -25,6 +25,7 @@ describe("dashboard trend modeli", () => {
     const viewModel = dashboardViewModelFromApi(apiResponse());
 
     expect(viewModel.kpis[0].value).toBe("87,4");
+    expect(viewModel.kpis[0].label).toBe("Ham Kalite Skoru");
     expect(viewModel.kpis[1]).toMatchObject({ value: "İnceleme", statusLabel: "Doğrulama Gerekli" });
     expect(viewModel.kpis[2]).toMatchObject({ value: "—", statusLabel: "Veri Yok" });
     expect(viewModel.kpis[3]).toMatchObject({ value: "0", statusLabel: "Teknik Hata Yok" });
@@ -34,7 +35,24 @@ describe("dashboard trend modeli", () => {
     expect(viewModel.trendObservations).toHaveLength(2);
     expect(viewModel.trendObservations[0].finalScore).toBeNull();
     expect(viewModel.trendObservations[0].technicalStatus).toBe("Hesaplanmadı");
+    expect(viewModel.trendObservations[1].rawScore).toBe(87.4);
+    expect(viewModel.trendObservations[1].finalScore).toBeNull();
+    expect(viewModel.trendObservations[1].official).toBe(false);
+    expect(viewModel.comparisonNote).toContain("Unknown");
+  });
+
+  it("yalnız uyumlu dönem değişimini iyileşme olarak gösterir", () => {
+    const response = apiResponse();
+    const latest = response.periods[1].observations[0];
+    latest.comparison_status = "COMPARABLE";
+    latest.comparison_reason_codes = [];
+    latest.change = "2.40";
+
+    const viewModel = dashboardViewModelFromApi(response);
+
     expect(viewModel.trendObservations[1].official).toBe(true);
+    expect(viewModel.comparisonNote).toContain("İyileşme");
+    expect(viewModel.comparisonNote).toContain("+2,4");
   });
 
   it("FR-056 teknik hata göstergesini kalite skorundan ayrı eşler", () => {
@@ -80,6 +98,20 @@ function apiResponse(): DashboardSummaryApiResponse {
             score_status: "CALCULATED",
             level: "ACCEPTABLE",
             calculated_at: "2026-07-22T11:00:00Z",
+            comparison_status: "UNKNOWN",
+            comparison_reason_codes: ["NO_PREVIOUS_OBSERVATION"],
+            change: null,
+            contribution_graph: {
+              graph_version: "DQ_SCORE_CONTRIBUTION_GRAPH_V1",
+              official: true,
+              measurement_qualification: "UNKNOWN",
+              critical_rule_status: "UNKNOWN",
+              critical_asset_status: "UNKNOWN",
+              coverage_status: "UNKNOWN",
+              risk_status: "UNKNOWN",
+              sla_status: "UNKNOWN",
+              usage_decision: "UNKNOWN",
+            },
           },
         ],
       },
@@ -105,5 +137,6 @@ function apiResponse(): DashboardSummaryApiResponse {
         last_occurred_at: null,
       },
     },
+    role_view: "EXECUTIVE",
   };
 }

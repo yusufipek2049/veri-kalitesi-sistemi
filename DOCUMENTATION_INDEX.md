@@ -6,7 +6,7 @@
 | [AGENTS](AGENTS.md) | Ajan davranışı | Değişmez sınırlar, bağlam/doğrulama kuralları | Aktif iterasyon ve next step | Aktif | Depo yönetişimi |
 | [Mevcut Durum](00-Proje-Hafizasi/Mevcut-Durum.md) | Uygulama durumu | Uygulanan/kısmi/açık alanlar | İndeks, backlog, next step | Aktif | Proje durumu |
 | [Ürün Yetenek Durum Matrisi](00-Proje-Hafizasi/Urun-Yetenek-Durum-Matrisi.md) | Özellik kapsamı | Kullanıcı özellik listesi için SRS/runtime/boşluk karşılaştırması | SRS, karar kayıtları, backend/frontend | Aktif | Ürün durumu |
-| [NEXT_STEP](NEXT_STEP.md) | Son tamamlanan çalışma paketi ve sıradaki durum | DQ-CAP-PROTOTYPE-02 `PrototypeVerified`; production-ready değil; yeni `Next`/`READY` teknik paket yok | İterasyon, backlog, test | Aktif | Teslimat |
+| [NEXT_STEP](NEXT_STEP.md) | Son tamamlanan çalışma paketi ve sıradaki durum | DQ-CAP-PROTOTYPE-03 `PrototypeVerified`; production-ready değil; yeni `Next`/`READY` teknik paket yok | İterasyon, backlog, test | Aktif | Teslimat |
 | [Sonraki Adımlar](00-Proje-Hafizasi/Sonraki-Adimlar.md) | Backlog | Öncelik, durum ve çıkış kriteri | NEXT_STEP, yol haritası | Aktif | Teslimat |
 | [SRS](01-SRS/SRS-INDEX.md) | Gereksinim ve kabul | BR/FR/UC/RULE/NFR/AC/TS | Mimari, veri modeli, test | Kanonik | Ürün/analiz |
 | [Mimari](02-Mimari/MIMARI-INDEX.md) | Mimari yapı | Bileşen, veri akışı ve güvenlik sınırı | ADR, SRS | Kanonik | Mimari |

@@ -10,6 +10,22 @@ const viewports = [
 
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => {
+    window.localStorage.setItem("development-user-id", "e2e-data-owner");
+  });
+  await page.route("**/api/v1/development/users", async (route) => {
+    await route.fulfill({
+      body: JSON.stringify({
+        items: [{
+          user_id: "e2e-data-owner",
+          display_name: "E2E Data Owner",
+          roles: "DATA_OWNER",
+        }],
+      }),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
   await page.route("**/api/v1/dashboard/summary", async (route) => {
     await route.fulfill({
       body: JSON.stringify(dashboardApiFixture()),
@@ -30,7 +46,8 @@ for (const viewport of viewports) {
       await expect(page.getByRole("heading", { level: 1, name: "Genel Bakış" })).toBeVisible();
       await expect(page.getByText("SENTETİK VERİ")).toBeVisible();
       await expect(page.getByText(/Yerel dashboard API'si sentetik geliştirme skorlarıyla bağlıdır/)).toBeVisible();
-      await expect(page.getByRole("img", { name: /Resmî nihai skor trendi/ })).toBeVisible();
+      await expect(page.getByRole("img", { name: /Karşılaştırılabilir ham skor trendi/ })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Yönetici Durum Özeti" })).toBeVisible();
 
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       expect(overflow).toBeLessThanOrEqual(1);
@@ -75,7 +92,7 @@ test("grafik ve erişilebilir tablo aynı gözlemleri kullanır", async ({ page 
   const table = page.getByRole("table", { name: "Veri kalitesi trend tablosu" });
   await expect(table).toBeVisible();
   await expect(table.getByRole("row")).toHaveCount(31);
-  await expect(table.getByRole("cell", { name: "Resmî", exact: true })).toHaveCount(7);
+  await expect(table.getByRole("cell", { name: "Resmî", exact: true })).toHaveCount(6);
 });
 
 test("21C operasyonel göstergeleri ve sentetik karşılaştırmalar ayrı sunulur", async ({ page }) => {
@@ -110,6 +127,10 @@ function dashboardApiFixture() {
     const periodEnd = new Date(periodStart);
     periodEnd.setUTCDate(periodStart.getUTCDate() + 1);
     const score = scores.get(index);
+    const earlierScores = [...scores.entries()].filter(([scoreIndex]) => scoreIndex < index);
+    const previousScore = earlierScores.length
+      ? earlierScores[earlierScores.length - 1][1]
+      : undefined;
     return {
       period_start: periodStart.toISOString(),
       period_end: periodEnd.toISOString(),
@@ -121,6 +142,21 @@ function dashboardApiFixture() {
         score_status: "CALCULATED",
         level: "ACCEPTABLE",
         calculated_at: periodStart.toISOString(),
+        comparison_status: previousScore === undefined ? "UNKNOWN" : "COMPARABLE",
+        comparison_reason_codes: previousScore === undefined ? ["NO_PREVIOUS_OBSERVATION"] : [],
+        change: previousScore === undefined ? null : (score - previousScore).toFixed(2),
+        contribution_graph: {
+          graph_version: "DQ_SCORE_CONTRIBUTION_GRAPH_V1",
+          official: true,
+          measurement_qualification: "UNKNOWN",
+          critical_rule_status: "UNKNOWN",
+          critical_asset_status: "UNKNOWN",
+          deterioration_status: previousScore === undefined ? "UNKNOWN" : "IMPROVING",
+          coverage_status: "UNKNOWN",
+          risk_status: "UNKNOWN",
+          sla_status: "UNKNOWN",
+          usage_decision: "UNKNOWN",
+        },
       }],
     };
   });
@@ -131,6 +167,7 @@ function dashboardApiFixture() {
     as_of: "2026-07-22T12:00:00Z",
     has_data: true,
     periods,
+    role_view: "EXECUTIVE",
     operational_indicators: {
       measurement_qualification: {
         status: "VALIDATION_REQUIRED",
