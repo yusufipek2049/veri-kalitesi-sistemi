@@ -11,13 +11,13 @@ dahil değildir.
 
 | Sıra | İterasyon | Durum | Sonuç |
 | --- | --- | --- | --- |
-| 1 | [DQ-CAP-PROTOTYPE-01](DQ-CAP-PROTOTYPE-01-Deterministik-Profilleme-ve-Drift.md) | `PrototypeVerified` | Sürümlü-politika kontrollü dağılım/aykırı değer ve yedi deterministik drift ailesi; politika yokluğunda hükümsüz fail-closed sonuç. Production readiness/banka onayı değildir. |
-| 2 | [ENTERPRISE-LAB-03](ENTERPRISE-LAB-03-Canli-Compose-Uctan-Uca-Dogrulama.md) | `PrototypeVerified` | Sekiz healthy servis ve gerçek container ağında Keycloak/secret/ServiceNow/SIEM olumlu-negatif adapter akışları doğrulandı. Production readiness/banka onayı değildir. |
-| 3 | [ENTERPRISE-LAB-02](ENTERPRISE-LAB-02-Uygulama-Adaptor-Baglantilari.md) | `PrototypeVerified` | Sentetik Keycloak, yerel secret manager, fake ServiceNow ve SIEM uygulama adaptörleri; veri-minimum/idempotent ve fail-closed negatif sözleşmeler. Production readiness/banka onayı değildir. |
-| 4 | [ENTERPRISE-LAB-01](ENTERPRISE-LAB-01-Prototip-Kurumsal-Entegrasyon-Laboratuvari.md) | `PrototypeVerified` | Sentetik/non-production Compose laboratuvarı; sekiz sağlıklı servis, fail-closed ortam kapısı ve PostgreSQL streaming standby doğrulandı. Production readiness/banka onayı değildir. |
-| 5 | [36H2](Iterasyon-36H2-Is-Yurutme-Yasam-Dongusu.md) | `TechnicallyVerified` | Bounded timeout/iptal, production reaper ve atomik execution+job iptali controller birim/PostgreSQL kapıları ve reviewer `APPROVED` kararıyla doğrulandı. |
-| 6 | [36H1](Iterasyon-36H1-Kalici-Is-Kuyrugu-Cekirdegi.md) | `TechnicallyVerified` | Kalıcı iş kuyruğu çekirdeği: idempotent enqueue, deterministik lease claim, sahip-only heartbeat, süresi geçen claim toparlama ve optimistic version concurrency. |
-| 7 | [36G](Iterasyon-36G-Guvenli-Rapor-Uretimi-ve-Indirme.md) | `TechnicallyVerified` | Güvenli rapor üretimi/indirme: PDF/XLSX/CSV, zamanlanmış rapor, PostgreSQL repository ve frontend UI. |
+| 1 | [DQ-CAP-PROTOTYPE-02](DQ-CAP-PROTOTYPE-02-Kural-IR-Shadow-ve-Kanit.md) | `PrototypeVerified` | Ortak sürümlü kural IR'i, yedi açık kapsam, yaşam döngüsünden ayrı SHADOW modu ve veri-minimum ihlal kanıtı; production readiness/banka onayı değildir. |
+| 2 | [DQ-CAP-PROTOTYPE-01](DQ-CAP-PROTOTYPE-01-Deterministik-Profilleme-ve-Drift.md) | `PrototypeVerified` | Sürümlü-politika kontrollü dağılım/aykırı değer ve yedi deterministik drift ailesi; politika yokluğunda hükümsüz fail-closed sonuç. Production readiness/banka onayı değildir. |
+| 3 | [ENTERPRISE-LAB-03](ENTERPRISE-LAB-03-Canli-Compose-Uctan-Uca-Dogrulama.md) | `PrototypeVerified` | Sekiz healthy servis ve gerçek container ağında Keycloak/secret/ServiceNow/SIEM olumlu-negatif adapter akışları doğrulandı. Production readiness/banka onayı değildir. |
+| 4 | [ENTERPRISE-LAB-02](ENTERPRISE-LAB-02-Uygulama-Adaptor-Baglantilari.md) | `PrototypeVerified` | Sentetik Keycloak, yerel secret manager, fake ServiceNow ve SIEM uygulama adaptörleri; veri-minimum/idempotent ve fail-closed negatif sözleşmeler. Production readiness/banka onayı değildir. |
+| 5 | [ENTERPRISE-LAB-01](ENTERPRISE-LAB-01-Prototip-Kurumsal-Entegrasyon-Laboratuvari.md) | `PrototypeVerified` | Sentetik/non-production Compose laboratuvarı; sekiz sağlıklı servis, fail-closed ortam kapısı ve PostgreSQL streaming standby doğrulandı. Production readiness/banka onayı değildir. |
+| 6 | [36H2](Iterasyon-36H2-Is-Yurutme-Yasam-Dongusu.md) | `TechnicallyVerified` | Bounded timeout/iptal, production reaper ve atomik execution+job iptali controller birim/PostgreSQL kapıları ve reviewer `APPROVED` kararıyla doğrulandı. |
+| 7 | [36H1](Iterasyon-36H1-Kalici-Is-Kuyrugu-Cekirdegi.md) | `TechnicallyVerified` | Kalıcı iş kuyruğu çekirdeği: idempotent enqueue, deterministik lease claim, sahip-only heartbeat, süresi geçen claim toparlama ve optimistic version concurrency. |
 
 ## Aktif Plan
 

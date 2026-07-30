@@ -19,6 +19,9 @@ export interface RuleListItem {
   versionId: string;
   versionNo: number;
   ruleType: string;
+  irVersion?: string;
+  definitionSource?: string;
+  scopeType?: string;
   criticality: string;
   createdAt: string;
   availableActions: RuleAction[];
@@ -40,6 +43,9 @@ export interface RuleListApiResponse {
     rule_version_id: string;
     version_no: number;
     rule_type: string;
+    ir_version?: string;
+    rule_source?: string;
+    scope_type?: string;
     criticality: string;
     created_at: string;
     available_actions: RuleAction[];
@@ -147,6 +153,9 @@ export function rulesFromApi(response: RuleListApiResponse): RuleListItem[] {
     versionId: item.rule_version_id,
     versionNo: item.version_no,
     ruleType: item.rule_type,
+    irVersion: item.ir_version ?? "DQ_RULE_IR_V1",
+    definitionSource: item.rule_source ?? "TEMPLATE",
+    scopeType: item.scope_type ?? "DATASET",
     criticality: item.criticality,
     createdAt: item.created_at,
     availableActions: item.available_actions ?? [],

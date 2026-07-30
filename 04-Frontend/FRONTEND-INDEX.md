@@ -2,7 +2,7 @@
 type: implementation-index
 area: frontend
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-updated_at: 2026-07-27
+updated_at: 2026-07-30
 ---
 
 # Frontend Ekran Haritası
@@ -31,8 +31,8 @@ Doğrulama komutları: `npm test`, `npm run typecheck`, `npm run build`,
 | --- | --- | --- | --- |
 | Dashboard | Var | Yok | Özet ve trend ekranı mevcut; iş alanı/SLA analitiği ve mühendis için dağılım-lineage-teşhis görünümü ile üretim IdP/veri adaptörü açık. |
 | Veri kaynakları | Var | Oluşturma, test, aktivasyon/pasifleştirme | Teknik UI/API mevcut; secret değeri UI/payload/log/audit/DB'de tutulmaz. |
-| Kurallar | Var | Taslak, düzenleme, test, onay akışları | Teknik UI/API ve PostgreSQL repository mevcut. |
-| Çalıştırmalar | Var | Manuel başlatma ve iptal | Teknik UI/API mevcut; backend runtime PostgreSQL cutover 36E ile teknik olarak doğrulanmıştır. |
+| Kurallar | Var | Taslak, düzenleme, test, onay akışları | Ortak IR sürümü, no-code/özel SQL kaynağı ve doğrulanmış kapsam inceleme satırında gösterilir. |
+| Çalıştırmalar | Var | Manuel başlatma ve iptal | OFFICIAL/SHADOW modu yaşam döngüsü durumundan ayrı gösterilir; SHADOW açık etiketlidir. |
 | Sorunlar | Var | İnceleme, atama, çözüm, doğrulama ve kapatma | Kapatma UI/API akışı ve event-driven yeniden açma davranışı mevcuttur; `36B5` teknik olarak doğrulanmıştır. |
 | Raporlar | Var | Rapor talebi ve indirme | 36G ile ReportsPage, API client/model, rapor geçmişi, talep ve güvenli indirme akışları uygulanmıştır; kurumsal DLP/watermark ürün entegrasyonu ayrıdır. |
 | Denetim | Var | Değişiklik yok | Salt okunur, rol/scope kontrollü bütünlük görünümü. |

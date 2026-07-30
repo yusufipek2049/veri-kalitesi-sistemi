@@ -19,6 +19,7 @@ from veri_kalitesi.executions.errors import (
 from veri_kalitesi.executions.models import (
     ConcurrencyPolicy,
     ExecutionAttempt,
+    ExecutionMode,
     ExecutionStatus,
     ExecutionTimeouts,
     ExecutionType,
@@ -78,6 +79,7 @@ __all__ = [
     "ConcurrencyPolicy",
     "DefaultWorkloadClassifier",
     "ExecutionAttempt",
+    "ExecutionMode",
     "ExecutionCancellationSink",
     "ExecutionError",
     "ExecutionExecutor",

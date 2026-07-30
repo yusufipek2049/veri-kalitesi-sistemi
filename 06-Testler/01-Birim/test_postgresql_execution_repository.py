@@ -94,6 +94,7 @@ def test_execution_tables_check_constraints() -> None:
     assert any("execution_type" in str(c.sqltext) for c in exec_cc)
     assert any("status" in str(c.sqltext) for c in exec_cc)
     assert any("workload_class" in str(c.sqltext) for c in exec_cc)
+    assert any("execution_mode" in str(c.sqltext) for c in exec_cc)
 
     attempt_cc = [c for c in tables.attempts.constraints if isinstance(c, CheckConstraint)]
     assert any("status" in str(c.sqltext) for c in attempt_cc)
@@ -105,7 +106,12 @@ def test_execution_tables_json_columns() -> None:
     assert "rule_version_ids" in tables.executions.c
     assert "scope" in tables.executions.c
     assert "source_ids" in tables.executions.c
+    assert "execution_mode" in tables.executions.c
     assert "completed_partitions" in tables.results.c
+    assert "evidence" in tables.results.c
+    assert "eligible_for_notification" in tables.results.c
+    assert "eligible_for_sla" in tables.results.c
+    assert "eligible_for_auto_issue" in tables.results.c
 
 
 def test_execution_tables_timestamptz_columns() -> None:

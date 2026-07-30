@@ -75,6 +75,14 @@ skipsiz `14 passed`, exit `0` vermiştir. Güncel kapsam CSV ve PostgreSQL profi
 üretiminden snapshot karşılaştırmasına policy kapsam içi/dışı güncellik
 kanıtını; PostgreSQL için salt-okunur `MAX(...)` aggregate davranışını içerir.
 
+DQ-CAP-PROTOTYPE-02 hedef testleri `01-Birim/test_rules.py`,
+`01-Birim/test_executions.py`, ilgili rule/execution API ve PostgreSQL
+repository birim dosyalarındadır. Ortak IR kapsam/politika fail-closed
+kapıları, SHADOW downstream dışlaması ve veri-minimum kanıt kalıcılığı
+doğrulanır. Güncel controller raporunda birim paketi exit `0`, ilgili
+PostgreSQL entegrasyon hedefleri skip olmadan exit `0` tamamlanmıştır. Sonuç
+yalnız `PrototypeVerified`dır.
+
 ## Kesinleşen Kararların Doğrulama Kapsamı
 
 | Karar grubu | Zorunlu senaryo |

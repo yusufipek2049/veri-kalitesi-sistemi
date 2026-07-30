@@ -27,6 +27,21 @@ class RuleType(str, Enum):
     CUSTOM_SQL = "CUSTOM_SQL"
 
 
+class RuleDefinitionSource(str, Enum):
+    TEMPLATE = "TEMPLATE"
+    CUSTOM_SQL = "CUSTOM_SQL"
+
+
+class RuleScopeType(str, Enum):
+    COLUMN = "COLUMN"
+    ROW = "ROW"
+    DATASET = "DATASET"
+    CROSS_TABLE = "CROSS_TABLE"
+    REFERENCE = "REFERENCE"
+    RECONCILIATION = "RECONCILIATION"
+    TIME_SERIES = "TIME_SERIES"
+
+
 class RuleStatus(str, Enum):
     DRAFT = "DRAFT"
     ACTIVE = "ACTIVE"
@@ -121,6 +136,9 @@ class RuleVersion:
     weight: float
     criticality: RuleCriticality
     prepared_by_actor_id: str = "LEGACY_UNKNOWN"
+    ir_version: str = "DQ_RULE_IR_V1"
+    definition_source: RuleDefinitionSource = RuleDefinitionSource.TEMPLATE
+    scope_type: RuleScopeType = RuleScopeType.DATASET
     rule_version_id: str = field(default_factory=lambda: str(uuid4()))
     created_at: datetime = field(default_factory=utc_now)
 

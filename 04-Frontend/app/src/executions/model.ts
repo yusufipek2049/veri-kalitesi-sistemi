@@ -3,6 +3,7 @@ export type ExecutionState = "normal" | "loading" | "empty" | "error" | "unautho
 export interface ExecutionListItem {
   id: string;
   executionType: string;
+  executionMode?: "OFFICIAL" | "SHADOW";
   status: string;
   workloadClass: string;
   ruleCount: number;
@@ -22,6 +23,7 @@ export interface ExecutionListApiResponse {
   items: Array<{
     execution_id: string;
     execution_type: string;
+    execution_mode?: "OFFICIAL" | "SHADOW";
     status: string;
     workload_class: string;
     rule_count: number;
@@ -49,6 +51,7 @@ export function executionsFromApi(response: ExecutionListApiResponse): Execution
   return response.items.map((item) => ({
     id: item.execution_id,
     executionType: item.execution_type,
+    executionMode: item.execution_mode ?? "OFFICIAL",
     status: item.status,
     workloadClass: item.workload_class,
     ruleCount: item.rule_count,

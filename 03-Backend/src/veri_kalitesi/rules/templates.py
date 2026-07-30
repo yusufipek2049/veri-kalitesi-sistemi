@@ -7,9 +7,13 @@ from collections.abc import Mapping
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from veri_kalitesi.data_minimum_evidence import (
+    DataMinimumEvidenceError,
+    validate_query_reference,
+)
 from veri_kalitesi.data_sources.postgresql import is_read_only_sql
 from veri_kalitesi.rules.errors import RuleValidationError
-from veri_kalitesi.rules.models import RuleType
+from veri_kalitesi.rules.models import RuleDefinitionSource, RuleScopeType, RuleType
 
 
 def build_rule_plan(rule_type: RuleType, parameters: Mapping[str, Any]) -> dict[str, Any]:
@@ -23,7 +27,21 @@ def build_rule_plan(rule_type: RuleType, parameters: Mapping[str, Any]) -> dict[
         RuleType.CROSS_TABLE_CONSISTENCY: _cross_table_plan,
         RuleType.CUSTOM_SQL: _custom_sql_plan,
     }
-    return builders[rule_type](parameters)
+    plan = builders[rule_type](parameters)
+    scope_type = _scope_type(rule_type, parameters)
+    plan.update(
+        {
+            "ir_version": "DQ_RULE_IR_V1",
+            "definition_source": (
+                RuleDefinitionSource.CUSTOM_SQL.value
+                if rule_type is RuleType.CUSTOM_SQL
+                else RuleDefinitionSource.TEMPLATE.value
+            ),
+            "scope_type": scope_type.value,
+            "evidence_contract": "DQ_VIOLATION_EVIDENCE_V1",
+        }
+    )
+    return plan
 
 
 def referenced_fields(plan: Mapping[str, Any]) -> tuple[str, ...]:
@@ -134,7 +152,56 @@ def _custom_sql_plan(parameters: Mapping[str, Any]) -> dict[str, Any]:
     sql = parameters.get("sql")
     if not isinstance(sql, str) or not is_read_only_sql(sql):
         raise RuleValidationError("Custom SQL must be a single read-only statement.")
-    return {"operator": "CUSTOM_SQL", "sql": sql.strip()}
+    timeout_seconds = parameters.get("timeout_seconds")
+    row_limit = parameters.get("row_limit")
+    query_reference = parameters.get("query_reference")
+    if (
+        isinstance(timeout_seconds, bool)
+        or not isinstance(timeout_seconds, int)
+        or timeout_seconds <= 0
+    ):
+        raise RuleValidationError("Custom SQL timeout_seconds must be a positive integer.")
+    if isinstance(row_limit, bool) or not isinstance(row_limit, int) or row_limit <= 0:
+        raise RuleValidationError("Custom SQL row_limit must be a positive integer.")
+    if _contains_bind_value(parameters):
+        raise RuleValidationError("Custom SQL bind values must not be persisted in rule IR.")
+    try:
+        safe_query_reference = validate_query_reference(query_reference)
+    except DataMinimumEvidenceError as exc:
+        raise RuleValidationError("Custom SQL query_reference is invalid.") from exc
+    return {
+        "operator": "CUSTOM_SQL",
+        "sql": sql.strip(),
+        "timeout_seconds": timeout_seconds,
+        "row_limit": row_limit,
+        "query_reference": safe_query_reference,
+    }
+
+
+def _scope_type(rule_type: RuleType, parameters: Mapping[str, Any]) -> RuleScopeType:
+    defaults = {
+        RuleType.REQUIRED: RuleScopeType.COLUMN,
+        RuleType.UNIQUE: RuleScopeType.DATASET,
+        RuleType.RANGE: RuleScopeType.COLUMN,
+        RuleType.REGEX: RuleScopeType.COLUMN,
+        RuleType.FRESHNESS: RuleScopeType.TIME_SERIES,
+        RuleType.REFERENTIAL_INTEGRITY: RuleScopeType.REFERENCE,
+        RuleType.CROSS_TABLE_CONSISTENCY: RuleScopeType.CROSS_TABLE,
+    }
+    if rule_type is not RuleType.CUSTOM_SQL:
+        return defaults[rule_type]
+    value = parameters.get("scope_type")
+    try:
+        return RuleScopeType(str(value))
+    except (TypeError, ValueError) as exc:
+        raise RuleValidationError(
+            "Custom SQL scope_type must explicitly identify a supported rule scope."
+        ) from exc
+
+
+def _contains_bind_value(parameters: Mapping[str, Any]) -> bool:
+    forbidden = {"bind", "binds", "bind_value", "bind_values", "parameters", "params"}
+    return any(str(key).lower() in forbidden for key in parameters)
 
 
 def _identifier(parameters: Mapping[str, Any], key: str) -> str:

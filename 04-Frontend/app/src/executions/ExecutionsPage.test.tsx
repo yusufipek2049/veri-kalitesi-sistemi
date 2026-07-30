@@ -3,6 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { ThemeModeProvider } from "../theme/ThemeModeProvider";
 import { ExecutionsPage } from "./ExecutionsPage";
+import type { ExecutionListItem } from "./model";
 
 function renderPage() {
   return render(<ThemeModeProvider><MemoryRouter initialEntries={["/executions"]}><ExecutionsPage /></MemoryRouter></ThemeModeProvider>);
@@ -35,5 +36,16 @@ describe("Çalıştırmalar ekranı", () => {
     expect(screen.getByText("Bu görünüm için yetkiniz yok")).toBeVisible();
     expect(screen.queryByLabelText("Çalıştırma ara")).not.toBeInTheDocument();
     expect(screen.queryByText("execution-running")).not.toBeInTheDocument();
+  });
+
+  it("shadow yürütmeyi yaşam döngüsü durumundan ayrı etiketler", () => {
+    const items: ExecutionListItem[] = [{
+      id: "execution-shadow", executionType: "MANUAL", executionMode: "SHADOW",
+      status: "SUCCESS", workloadClass: "LIGHT", ruleCount: 1, sourceCount: 1,
+      attemptCount: 1, createdAt: "2026-07-23T09:00:00Z",
+    }];
+    render(<ThemeModeProvider><MemoryRouter><ExecutionsPage items={items} /></MemoryRouter></ThemeModeProvider>);
+    expect(screen.getByLabelText("Durum: SHADOW")).toBeVisible();
+    expect(screen.getByLabelText("Durum: Tamamlandı")).toBeVisible();
   });
 });

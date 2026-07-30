@@ -100,11 +100,13 @@ from veri_kalitesi.dashboard import (
     DashboardValidationError,
 )
 from veri_kalitesi.executions import (
+    ExecutionMode,
     ExecutionConflictError,
     ExecutionNotFoundError,
     ExecutionQueryAuthorizationError,
     ExecutionQueryService,
     ExecutionQueryTechnicalError,
+    RuleExecution,
 )
 from veri_kalitesi.issues import (
     DataQualityIssue,
@@ -342,6 +344,7 @@ class ExecutionStartService(Protocol):
         rule_version_ids: tuple[str, ...],
         source_ids: tuple[str, ...],
         triggered_by: str,
+        execution_mode: ExecutionMode = ExecutionMode.OFFICIAL,
     ) -> RuleExecution: ...
 
 
@@ -1941,6 +1944,7 @@ def create_dashboard_api(
             rule_version_ids=payload.rule_version_ids,
             source_ids=payload.source_ids,
             triggered_by=actor_context.actor_id if actor_context else "unknown",
+            execution_mode=ExecutionMode(payload.execution_mode),
         )
         response.headers["Cache-Control"] = "no-store"
         return ExecutionStartResponse(
@@ -2262,6 +2266,7 @@ def _problem(
             rule_version_ids=payload.rule_version_ids,
             source_ids=payload.source_ids,
             triggered_by=actor_context.actor_id if actor_context else "unknown",
+            execution_mode=ExecutionMode(payload.execution_mode),
         )
         response.headers["Cache-Control"] = "no-store"
         return ExecutionStartResponse(

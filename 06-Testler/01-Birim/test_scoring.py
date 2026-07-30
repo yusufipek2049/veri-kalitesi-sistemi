@@ -274,6 +274,7 @@ def test_fr_046_fr_047_ac_039_conditional_universe_uses_only_evaluated_denominat
                 technical_error_count=5,
                 unknown_count=5,
                 measurement_status=MeasurementStatus.WARNING,
+                evidence=_violation_evidence(25),
             ),
         ),
         datetime(2026, 7, 16, 9, 5, tzinfo=timezone.utc),
@@ -609,6 +610,7 @@ def test_fr_046_ac_039_unknown_technical_counter_remains_null_and_is_not_scored(
                 technical_error_count=None,
                 unknown_count=0,
                 measurement_status=MeasurementStatus.FAILED,
+                evidence=_violation_evidence(25),
             ),
         ),
         datetime(2026, 7, 16, 9, 5, tzinfo=timezone.utc),
@@ -1927,6 +1929,7 @@ def _version_result(
             if failed == 0
             else MeasurementStatus.FAILED
         ),
+        evidence=_violation_evidence(failed),
     )
 
 
@@ -1977,7 +1980,22 @@ def _result(
         ),
         completed_partitions=completed_partitions,
         eligible_for_official_scoring=eligible_for_official_scoring,
+        evidence=_violation_evidence(failed),
     )
+
+
+def _violation_evidence(failed_count: int) -> dict[str, object]:
+    if failed_count <= 0:
+        return {}
+    digest = f"{failed_count:064x}"
+    return {
+        "fingerprint": f"sha256:{digest}",
+        "masked_samples": [f"hmac-sha256://test-key/{digest}"],
+        "expected_summary": {"failed_count": 0},
+        "actual_summary": {"failed_count": failed_count},
+        "query_reference": "query-template://scoring-fixture/v1",
+        "plan_reference": "plan://scoring-fixture/v1",
+    }
 
 
 def _partial_policy(dataset_id: str, required_rule_id: str) -> DatasetPartialScorePolicy:

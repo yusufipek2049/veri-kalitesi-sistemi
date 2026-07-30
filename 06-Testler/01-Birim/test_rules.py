@@ -420,6 +420,74 @@ def test_nfr_sec_006_ac_006_uc_005_rejects_dml_ddl_before_rule_test_executor(sql
     assert executor.calls == []
 
 
+def test_dq_cap_003_custom_sql_compiles_to_versioned_scoped_common_ir() -> None:
+    plan = build_rule_plan(
+        RuleType.CUSTOM_SQL,
+        {
+            "sql": "SELECT COUNT(*) FROM customers",
+            "scope_type": "RECONCILIATION",
+            "timeout_seconds": 30,
+            "row_limit": 100,
+            "query_reference": "query-template://customer-reconciliation/v1",
+        },
+    )
+
+    assert plan["ir_version"] == "DQ_RULE_IR_V1"
+    assert plan["definition_source"] == "CUSTOM_SQL"
+    assert plan["scope_type"] == "RECONCILIATION"
+    assert plan["evidence_contract"] == "DQ_VIOLATION_EVIDENCE_V1"
+
+
+@pytest.mark.parametrize(
+    "parameters",
+    [
+        {"sql": "SELECT 1", "timeout_seconds": 30, "row_limit": 10},
+        {
+            "sql": "SELECT 1",
+            "scope_type": "ROW",
+            "timeout_seconds": 30,
+            "row_limit": 10,
+            "query_reference": "query-template://safe/v1",
+            "bind_values": {"customer_id": "raw-sensitive-value"},
+        },
+    ],
+)
+def test_dq_cap_003_custom_sql_fails_closed_without_scope_policy_or_with_bind_values(
+    parameters: dict[str, Any],
+) -> None:
+    with pytest.raises(RuleValidationError):
+        build_rule_plan(RuleType.CUSTOM_SQL, parameters)
+
+
+@pytest.mark.parametrize(
+    "query_reference",
+    [
+        "query-template://SELECT * FROM customers",
+        "query-template://SELECT",
+        "query-template://rules/customer?id=1",
+        "query-template://rules/customer#plan",
+        "query-template://rules/customer%2Fraw",
+        "query-template://bind/customer-id",
+        "query-template://secret/customer-id",
+        "query-template://" + ("a" * 201),
+    ],
+)
+def test_dq_cap_003_custom_sql_rejects_non_opaque_query_reference(
+    query_reference: str,
+) -> None:
+    with pytest.raises(RuleValidationError, match="query_reference is invalid"):
+        build_rule_plan(
+            RuleType.CUSTOM_SQL,
+            {
+                "sql": "SELECT COUNT(*) FROM customers",
+                "scope_type": "ROW",
+                "timeout_seconds": 30,
+                "row_limit": 10,
+                "query_reference": query_reference,
+            },
+        )
+
+
 def test_fr_029_fr_031_uc_006_ac_009_persists_test_counts_and_preview_score() -> None:
     repository = SQLiteRuleRepository()
     executor = FakeRuleExecutor(RuleTestComputation(125, 100, 25))

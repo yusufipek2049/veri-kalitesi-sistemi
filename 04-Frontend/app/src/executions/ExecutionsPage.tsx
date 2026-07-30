@@ -138,10 +138,15 @@ function ExecutionRow({ item }: { item: ExecutionListItem }) {
         </Typography>
       </Box>
       <Box sx={{ gridColumn: { xs: "2", md: "auto" } }}>
-        <StatusBadge
-          label={statusLabels[item.status] ?? item.status}
-          tone={presentation.tone}
-        />
+        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+          <StatusBadge
+            label={statusLabels[item.status] ?? item.status}
+            tone={presentation.tone}
+          />
+          {item.executionMode === "SHADOW" ? (
+            <StatusBadge label="SHADOW" tone="warning" />
+          ) : null}
+        </Box>
       </Box>
       <Box sx={{ gridColumn: { xs: "2", md: "auto" } }}>
         <Typography variant="body2">{item.workloadClass === "HEAVY" ? "Yoğun iş" : "Hafif iş"}</Typography>
