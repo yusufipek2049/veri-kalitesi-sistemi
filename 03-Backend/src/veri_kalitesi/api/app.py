@@ -32,6 +32,9 @@ from veri_kalitesi.api.models import (
     DataSourceListItemResponse,
     DataSourceListResponse,
     DataSourceMutationResponse,
+    ProfileComparisonRequest,
+    ProfileComparisonResponse,
+    ProfileComparisonItemResponse,
     DevelopmentUserInfoResponse,
     DevelopmentUserListResponse,
     ExecutionCancelRequest,
@@ -87,6 +90,8 @@ from veri_kalitesi.data_sources import (
     DataSourceQueryAuthorizationError,
     DataSourceQueryService,
     DataSourceQueryTechnicalError,
+    DataSourceQueryValidationError,
+    ProfileComparison,
 )
 from veri_kalitesi.dashboard import (
     DashboardAuthorizationError,
@@ -315,6 +320,21 @@ class DataSourceMutationService(Protocol):
     def passivate(self, data_source_id: str) -> DataSource: ...
 
 
+class ProfileComparisonService(Protocol):
+    """Yetkiyi güvenilir actor context ile uygulayan profil karşılaştırma sınırı."""
+
+    def compare(
+        self,
+        *,
+        actor_context: ActorContext | None,
+        dataset_id: str,
+        baseline_profile_id: str,
+        current_profile_id: str,
+        policy_version: str | None,
+        correlation_id: str,
+    ) -> ProfileComparison: ...
+
+
 class ExecutionStartService(Protocol):
     def start_manual(
         self,
@@ -344,6 +364,7 @@ def create_dashboard_api(
     data_origin: str = "runtime",
     data_source_query_service: DataSourceQueryService | None = None,
     data_source_mutation_service: DataSourceMutationService | None = None,
+    profile_comparison_service: ProfileComparisonService | None = None,
     execution_start_service: ExecutionStartService | None = None,
     execution_cancel_service: ExecutionCancelService | None = None,
     development_user_registry: DevelopmentUserRegistry | None = None,
@@ -481,6 +502,18 @@ def create_dashboard_api(
             status=503,
             title="Data sources temporarily unavailable",
             detail="The data source query could not be completed.",
+            correlation_id=error.correlation_id,
+        )
+
+    @app.exception_handler(DataSourceQueryValidationError)
+    async def handle_data_source_validation_error(
+        request: Request, error: DataSourceQueryValidationError
+    ) -> JSONResponse:
+        return _problem(
+            request,
+            status=400,
+            title="Invalid request",
+            detail="The profile comparison request could not be validated.",
             correlation_id=error.correlation_id,
         )
 
@@ -865,6 +898,39 @@ def create_dashboard_api(
             data_origin=data_origin,
             correlation_id=request.state.correlation_id,
             items=tuple(DataSourceListItemResponse.from_domain(source) for source in sources),
+        )
+
+    @app.post(
+        "/api/v1/profile-comparisons",
+        response_model=ProfileComparisonResponse,
+        tags=["data-sources"],
+    )
+    async def compare_profiles(
+        payload: ProfileComparisonRequest,
+        request: Request,
+        response: Response,
+    ) -> ProfileComparisonResponse:
+        if profile_comparison_service is None:
+            raise DataSourceQueryTechnicalError(
+                "Profile comparison service is unavailable.",
+                request.state.correlation_id,
+            )
+        actor_context = getattr(request.state, "actor_context", None)
+        if actor_context is None:
+            actor_context = resolver.resolve(request)
+        comparison = profile_comparison_service.compare(
+            actor_context=actor_context,
+            dataset_id=payload.dataset_id,
+            baseline_profile_id=payload.baseline_profile_id,
+            current_profile_id=payload.current_profile_id,
+            policy_version=payload.policy_version,
+            correlation_id=request.state.correlation_id,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return ProfileComparisonResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=ProfileComparisonItemResponse.from_domain(comparison),
         )
 
     @app.get(

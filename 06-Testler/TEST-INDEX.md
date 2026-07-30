@@ -58,6 +58,23 @@ sonrası fail-closed toparlanma ile log redaksiyonu doğrulanmıştır. Sonuç y
 `PrototypeVerified`dır; [manifest](../08-Uyum-Kanitlari/Guvenlik-Testleri/ENTERPRISE-LAB-03-Kanit-Manifesti.json)
 production veya banka onayı değildir.
 
+DQ-CAP-PROTOTYPE-01 hedef testleri
+`01-Birim/test_data_sources.py`, `01-Birim/test_profile_analysis.py`,
+`01-Birim/test_postgresql_data_source_repository.py` ve
+`01-Birim/test_data_source_api.py` içindedir. Top-N/dağılım/sayısal özet,
+IQR/robust-z adayları, hassas değer maskelemesi, yedi drift ailesi, politika
+ve fingerprint secret/configuration yokluğunda hükümsüz sonuç, restart sonrası
+kararlı fingerprint, bounded deterministik CSV örneği ve API/repository
+sözleşmesi hedefli kapıda güncel controller kapısında skipsiz exit `0`;
+implementer profil/data-source koşusunda `92 passed`, API koşusunda `8 passed`
+vermiştir. PostgreSQL migration/repository ve gerçek source-aggregate
+entegrasyon senaryoları
+`02-Entegrasyon/test_postgresql_data_source_persistence.py` içindedir. Güncel
+controller PostgreSQL kapısı skipsiz exit `0`; implementer hedefli koşusu
+skipsiz `14 passed`, exit `0` vermiştir. Güncel kapsam CSV ve PostgreSQL profil
+üretiminden snapshot karşılaştırmasına policy kapsam içi/dışı güncellik
+kanıtını; PostgreSQL için salt-okunur `MAX(...)` aggregate davranışını içerir.
+
 ## Kesinleşen Kararların Doğrulama Kapsamı
 
 | Karar grubu | Zorunlu senaryo |

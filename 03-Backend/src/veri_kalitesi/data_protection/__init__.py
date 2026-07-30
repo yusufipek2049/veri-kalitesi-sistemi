@@ -15,6 +15,7 @@ from veri_kalitesi.data_protection.inventory import (
     validate_inventory,
 )
 from veri_kalitesi.data_protection.policy import (
+    CATEGORY_FINGERPRINT_ALGORITHM,
     CLASSIFICATION_POLICY_VERSION,
     MASKING_POLICY_VERSION,
     ClassificationCode,
@@ -26,6 +27,7 @@ from veri_kalitesi.data_protection.policy import (
 )
 
 __all__ = [
+    "CATEGORY_FINGERPRINT_ALGORITHM",
     "CLASSIFICATION_POLICY_VERSION",
     "MASKING_POLICY_VERSION",
     "ClassificationCode",

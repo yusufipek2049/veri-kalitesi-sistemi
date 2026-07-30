@@ -61,6 +61,8 @@ from veri_kalitesi.data_sources.models import (
     MetadataChange,
     MetadataDiscoveryResult,
     ProfileMethod,
+    ProfileComparison,
+    ProfileComparisonStatus,
     ProfileStatus,
     SourceType,
 )
@@ -75,6 +77,7 @@ class DataSourceTables:
     fields: Table
     metadata_discovery: Table
     profiles: Table
+    profile_comparisons: Table
     processing_inventory: Table
     connection_revisions: Table
     activation_requests: Table
@@ -211,10 +214,44 @@ def data_source_tables(schema: str = DEFAULT_SCHEMA_NAME) -> DataSourceTables:
         Column("message", Text, nullable=False),
         Column("started_at", DateTime(timezone=True), nullable=False),
         Column("finished_at", DateTime(timezone=True), nullable=False),
-        CheckConstraint("method IN ('FULL', 'SAMPLE')", name="ck_ds_profile_method"),
         CheckConstraint(
-            "status IN ('COMPLETED', 'FAILED', 'TIMEOUT', 'CANCELLED')",
+            "method IN ('FULL', 'SAMPLE', 'PARTITION', 'AGGREGATE')",
+            name="ck_ds_profile_method",
+        ),
+        CheckConstraint(
+            "status IN ('COMPLETED', 'NO_DATA', 'TECHNICAL_ERROR')",
             name="ck_ds_profile_status",
+        ),
+    )
+    profile_comparisons = Table(
+        "profile_comparisons",
+        metadata,
+        Column("comparison_id", String(36), primary_key=True),
+        Column(
+            "dataset_id", String(36), ForeignKey(f"{schema}.datasets.dataset_id"), nullable=False
+        ),
+        Column(
+            "baseline_profile_id",
+            String(36),
+            ForeignKey(f"{schema}.data_profiles.profile_id"),
+            nullable=False,
+        ),
+        Column(
+            "current_profile_id",
+            String(36),
+            ForeignKey(f"{schema}.data_profiles.profile_id"),
+            nullable=False,
+        ),
+        Column("policy_version", String(100)),
+        Column("status", String(40), nullable=False),
+        Column("anomaly_candidate", Boolean),
+        Column("result", JSON, nullable=False),
+        Column("message", Text, nullable=False),
+        Column("created_at", DateTime(timezone=True), nullable=False),
+        CheckConstraint(
+            "status IN ('COMPLETED', 'CONFIGURATION_ERROR', "
+            "'INSUFFICIENT_HISTORY', 'INCOMPATIBLE')",
+            name="ck_ds_profile_comparison_status",
         ),
     )
     processing_inventory = Table(
@@ -300,6 +337,7 @@ def data_source_tables(schema: str = DEFAULT_SCHEMA_NAME) -> DataSourceTables:
         fields=fields,
         metadata_discovery=metadata_discovery,
         profiles=profiles,
+        profile_comparisons=profile_comparisons,
         processing_inventory=processing_inventory,
         connection_revisions=connection_revisions,
         activation_requests=activation_requests,
@@ -576,6 +614,23 @@ class PostgreSQLDataSourceRepository:
                 .all()
             )
         return [_row_to_data_profile(row) for row in rows]
+
+    def list_profile_comparisons(self, dataset_id: str) -> list[ProfileComparison]:
+        with transactional_session(self.session_factory) as session:
+            t = self._s(session)
+            rows = (
+                session.execute(
+                    select(t.profile_comparisons)
+                    .where(t.profile_comparisons.c.dataset_id == dataset_id)
+                    .order_by(
+                        t.profile_comparisons.c.created_at,
+                        t.profile_comparisons.c.comparison_id,
+                    )
+                )
+                .mappings()
+                .all()
+            )
+        return [_row_to_profile_comparison(row) for row in rows]
 
     def next_processing_inventory_version(self, data_field_id: str) -> int:
         with transactional_session(self.session_factory) as session:
@@ -1183,6 +1238,32 @@ class PostgreSQLDataSourceRepository:
             audit_outbox.stage(audit_event, session=session)
         return profile
 
+    def add_profile_comparison(
+        self,
+        comparison: ProfileComparison,
+        *,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: PostgreSQLTransactionalAudit,
+    ) -> ProfileComparison:
+        with transactional_session(self.session_factory) as session:
+            t = self._s(session)
+            session.execute(
+                insert(t.profile_comparisons).values(
+                    comparison_id=comparison.comparison_id,
+                    dataset_id=comparison.dataset_id,
+                    baseline_profile_id=comparison.baseline_profile_id,
+                    current_profile_id=comparison.current_profile_id,
+                    policy_version=comparison.policy_version,
+                    status=comparison.status.value,
+                    anomaly_candidate=comparison.anomaly_candidate,
+                    result=json.dumps(comparison.result, sort_keys=True),
+                    message=comparison.message,
+                    created_at=comparison.created_at,
+                )
+            )
+            audit_outbox.stage(audit_event, session=session)
+        return comparison
+
     def add_processing_inventory(
         self,
         inventory: DataProcessingInventory,
@@ -1341,6 +1422,21 @@ def _row_to_data_profile(row: RowMapping) -> DataProfile:
         message=row["message"],
         started_at=row["started_at"],
         finished_at=row["finished_at"],
+    )
+
+
+def _row_to_profile_comparison(row: RowMapping) -> ProfileComparison:
+    return ProfileComparison(
+        comparison_id=row["comparison_id"],
+        dataset_id=row["dataset_id"],
+        baseline_profile_id=row["baseline_profile_id"],
+        current_profile_id=row["current_profile_id"],
+        policy_version=row["policy_version"],
+        status=ProfileComparisonStatus(row["status"]),
+        anomaly_candidate=row["anomaly_candidate"],
+        result=_json_load(row["result"]),
+        message=row["message"],
+        created_at=row["created_at"],
     )
 
 

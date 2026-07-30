@@ -51,10 +51,18 @@ from veri_kalitesi.data_sources.models import (
     MetadataDiscoveryOptions,
     MetadataDiscoveryResult,
     ProfileMethod,
+    ProfileComparison,
+    ProfileComparisonStatus,
     ProfileOptions,
     ProfileStatus,
     SourceType,
     utc_now,
+)
+from veri_kalitesi.data_sources.profiling import (
+    ProfilePolicyResolver,
+    build_profile_contract,
+    compare_profile_snapshots,
+    validate_freshness_field_scope,
 )
 from veri_kalitesi.identity import ActorContext, ActorType, is_trusted_actor_context
 from veri_kalitesi.data_sources.postgresql import is_read_only_sql
@@ -97,6 +105,7 @@ class DataSourceService:
         masking_policy: MaskingPolicy | None = None,
         activation_policy: DataSourceActivationPolicy | None = None,
         activation_calendar: BusinessCalendar | None = None,
+        profile_policy_resolver: ProfilePolicyResolver | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ) -> None:
         self.repository = repository
@@ -108,6 +117,7 @@ class DataSourceService:
         self.masking_policy = masking_policy or DefaultMaskingPolicy(self.classification_policy)
         self.activation_policy = activation_policy
         self.activation_calendar = activation_calendar
+        self.profile_policy_resolver = profile_policy_resolver
         self.clock = clock
         if activation_policy is not None:
             _validate_activation_policy(activation_policy)
@@ -899,11 +909,24 @@ class DataSourceService:
         correlation_id = _resolve_correlation_id(correlation_id)
         options = options or ProfileOptions()
         _validate_profile_options(options)
+        policy = (
+            self.profile_policy_resolver.resolve(options.policy_version)
+            if self.profile_policy_resolver is not None
+            else None
+        )
+        if options.policy_version is not None and policy is None:
+            raise ValidationError("Requested profile policy version could not be resolved.")
+        execution_options = replace(options, analysis_policy=policy)
         dataset = self.repository.get_dataset(dataset_id)
         fields = tuple(self.repository.list_data_fields(dataset_id))
         if not fields:
             raise ValidationError("Profile requires discovered DataField metadata.")
         _validate_profile_field_selection(options, fields)
+        validate_freshness_field_scope(
+            policy,
+            fields,
+            selected_field_names=options.field_names,
+        )
         data_source = self.repository.get_data_source(dataset.data_source_id)
         if data_source.status not in {
             DataSourceStatus.TEST_SUCCEEDED,
@@ -925,7 +948,15 @@ class DataSourceService:
         started = _perf_counter()
         try:
             secret = self.secret_resolver.resolve(data_source.secret_reference)
-            computation = connector.profile_dataset(data_source, secret, dataset, fields, options)
+            computation = connector.profile_dataset(
+                data_source,
+                secret,
+                dataset,
+                fields,
+                execution_options,
+            )
+        except ValidationError:
+            raise
         except SecretResolutionError:
             profile = _profile_from_failure(
                 dataset_id,
@@ -963,11 +994,40 @@ class DataSourceService:
             computation.metrics,
             {field.name: field.classification for field in fields},
         )
+        try:
+            effective_method = ProfileMethod(
+                str(protected_metrics.get("method", options.method.value))
+            )
+        except ValueError as exc:
+            raise TechnicalError("Connector returned an invalid profile method.") from exc
+        effective_sample_ratio = protected_metrics.get("sample_ratio")
+        if effective_sample_ratio is not None and not isinstance(
+            effective_sample_ratio, (int, float)
+        ):
+            raise TechnicalError("Connector returned an invalid profile sample ratio.")
+        data_observed_at = _latest_profile_observation(protected_metrics)
+        protected_metrics["profile_contract"] = build_profile_contract(
+            fields=fields,
+            method=effective_method,
+            sample_ratio=effective_sample_ratio,
+            scope=options.scope,
+            query_version=options.query_version,
+            connector_version=options.connector_version,
+            policy=policy,
+            data_observed_at=data_observed_at,
+            category_fingerprint_algorithm=protected_metrics.get(
+                "category_fingerprint_algorithm"
+            ),
+            category_fingerprint_key_id=protected_metrics.get(
+                "category_fingerprint_key_id"
+            ),
+            analysis_execution=protected_metrics.get("analysis_execution"),
+        )
         profile = DataProfile(
             dataset_id=dataset_id,
             execution_id=str(uuid4()),
-            method=options.method,
-            sample_ratio=options.sample_ratio,
+            method=effective_method,
+            sample_ratio=effective_sample_ratio,
             metrics=protected_metrics,
             status=computation.status,
             duration_ms=_elapsed_ms(started),
@@ -978,6 +1038,67 @@ class DataSourceService:
         )
         self._persist_profile(actor_id, correlation_id, profile)
         return profile
+
+    def compare_profiles(
+        self,
+        *,
+        actor_id: str,
+        dataset_id: str,
+        baseline_profile_id: str,
+        current_profile_id: str,
+        policy_version: str | None = None,
+        correlation_id: str | None = None,
+    ) -> ProfileComparison:
+        correlation_id = _resolve_correlation_id(correlation_id)
+        profiles = self.repository.list_data_profiles(dataset_id)
+        by_id = {profile.profile_id: profile for profile in profiles}
+        try:
+            baseline = by_id[baseline_profile_id]
+            current = by_id[current_profile_id]
+        except KeyError as exc:
+            raise ValidationError("Profile comparison references an unknown profile.") from exc
+        policy = (
+            self.profile_policy_resolver.resolve(policy_version)
+            if self.profile_policy_resolver is not None
+            else None
+        )
+        if policy_version is not None and policy is not None and policy.version != policy_version:
+            raise ValidationError("Resolved profile policy version does not match request.")
+        comparison = compare_profile_snapshots(
+            baseline=baseline,
+            current=current,
+            history=profiles,
+            policy=policy,
+        )
+        audit_event = self._build_audit_event(
+            actor_id=actor_id,
+            correlation_id=correlation_id,
+            action="DATASET_PROFILES_COMPARED",
+            object_type="Dataset",
+            object_id=dataset_id,
+            result=(
+                AuditResult.SUCCESS
+                if comparison.status is ProfileComparisonStatus.COMPLETED
+                else AuditResult.FAILURE
+            ),
+            reason_code=f"PROFILE_COMPARISON_{comparison.status.value}",
+            new_values={
+                "comparison_id": comparison.comparison_id,
+                "baseline_profile_id": comparison.baseline_profile_id,
+                "current_profile_id": comparison.current_profile_id,
+                "status": comparison.status.value,
+                "policy_version": comparison.policy_version,
+                "anomaly_candidate": comparison.anomaly_candidate,
+                "signal_count": len(comparison.result.get("signals", [])),
+            },
+        )
+        stored = self.repository.add_profile_comparison(
+            comparison,
+            audit_event=self.transactional_audit.prepare(audit_event),
+            audit_outbox=self.transactional_audit,
+        )
+        self.transactional_audit.publish_pending()
+        return stored
 
     def record_processing_inventory(
         self,
@@ -1549,3 +1670,26 @@ def _profile_from_failure(
         started_at=started_at,
         finished_at=utc_now(),
     )
+
+
+def _latest_profile_observation(metrics: Mapping[str, Any]) -> datetime | None:
+    latest: datetime | None = None
+    fields = metrics.get("fields")
+    if not isinstance(fields, Mapping):
+        return None
+    for field_metrics in fields.values():
+        if not isinstance(field_metrics, Mapping):
+            continue
+        value = field_metrics.get("freshness_max")
+        if not isinstance(value, str):
+            continue
+        try:
+            observed_at = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if observed_at.tzinfo is None or observed_at.utcoffset() is None:
+            continue
+        observed_at = observed_at.astimezone(timezone.utc)
+        if latest is None or observed_at > latest:
+            latest = observed_at
+    return latest

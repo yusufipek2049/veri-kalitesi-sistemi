@@ -1,5 +1,5 @@
 import sqlite3
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, TypedDict, cast
@@ -27,6 +27,7 @@ from veri_kalitesi.data_sources import (
     DNSConnectionError,
     DataSource,
     DataField,
+    DataProfile,
     Dataset,
     DataSourceActivationPolicy,
     DataSourceActivationStatus,
@@ -34,6 +35,7 @@ from veri_kalitesi.data_sources import (
     DataSourceStatus,
     ErrorClass,
     InMemorySecretResolver,
+    InMemoryProfilePolicyResolver,
     InventoryCoverageStatus,
     InventoryCoverageTechnicalError,
     MetadataChangeType,
@@ -42,16 +44,25 @@ from veri_kalitesi.data_sources import (
     MetadataFieldCandidate,
     PermissionConnectionError,
     ProfileComputationResult,
+    ProfileAnalysisPolicy,
+    ProfileComparisonStatus,
     ProfileMethod,
     ProfileOptions,
     ProfileStatus,
+    ProfileSamplingStrategy,
+    OutlierMethod,
     PostgreSQLConnector,
     PostgreSQLProbeResult,
     SQLiteDataSourceRepository,
     TimeoutConnectionError,
 )
 from veri_kalitesi.data_sources.errors import AuthorizationError, TechnicalError, ValidationError
-from veri_kalitesi.data_protection import CLASSIFICATION_POLICY_VERSION
+from veri_kalitesi.data_protection import (
+    CLASSIFICATION_POLICY_VERSION,
+    DefaultClassificationPolicy,
+    DefaultMaskingPolicy,
+    MaskingPolicy,
+)
 from veri_kalitesi.identity import ActorContext, ActorContextIssuer, ActorType
 
 
@@ -73,6 +84,8 @@ def _data_source_service(
     *,
     activation_policy: DataSourceActivationPolicy | None = None,
     activation_calendar: "FakeBusinessCalendar | None" = None,
+    profile_policy_resolver: InMemoryProfilePolicyResolver | None = None,
+    masking_policy: MaskingPolicy | None = None,
     clock: Callable[[], datetime] = lambda: NOW,
 ) -> DataSourceService:
     audit_repository = SQLiteAuditRepository()
@@ -95,6 +108,8 @@ def _data_source_service(
         ),
         activation_policy=activation_policy,
         activation_calendar=activation_calendar,
+        profile_policy_resolver=profile_policy_resolver,
+        masking_policy=masking_policy,
         clock=clock,
     )
 
@@ -249,6 +264,36 @@ def postgresql_config(**overrides: object) -> dict[str, object]:
     }
     config.update(overrides)
     return config
+
+
+def _profile_policy(
+    version: str = "DQ_PROFILE_POLICY_TEST_V1",
+    *,
+    freshness_field_names: tuple[str, ...] = (),
+) -> ProfileAnalysisPolicy:
+    return ProfileAnalysisPolicy(
+        version=version,
+        top_n_limit=2,
+        high_cardinality_threshold=4,
+        advanced_sample_size=8,
+        sampling_strategy=ProfileSamplingStrategy.DETERMINISTIC_HASH,
+        sampling_seed=20260729,
+        enabled_outlier_methods=(OutlierMethod.IQR, OutlierMethod.ROBUST_Z_SCORE),
+        iqr_multiplier=1.5,
+        robust_z_score_threshold=3.5,
+        minimum_numeric_sample=4,
+        comparison_window=3,
+        minimum_history=2,
+        volume_ratio_threshold=0.2,
+        null_ratio_delta_threshold=0.1,
+        distinct_ratio_delta_threshold=0.1,
+        category_loss_ratio_threshold=0.4,
+        numeric_mean_ratio_threshold=0.2,
+        numeric_median_ratio_threshold=0.2,
+        freshness_delay_seconds_threshold=3600,
+        schema_change_detection_enabled=True,
+        freshness_field_names=freshness_field_names,
+    )
 
 
 def test_fr_007_uc_002_creates_csv_data_source_with_secret_reference_and_audit(
@@ -926,7 +971,15 @@ def test_fr_016_fr_020_uc_004_ac_007_full_csv_profile_computes_basic_metrics(
     csv_file = tmp_path / "scores.csv"
     csv_file.write_text("id,age,score\n1,10,5\n2,,7\n3,30,9\n", encoding="utf-8")
     repository = SQLiteDataSourceRepository()
-    service = _data_source_service(repository, ConnectorRegistry([CSVConnector()]))
+    policy = _profile_policy()
+    service = _data_source_service(
+        repository,
+        ConnectorRegistry([CSVConnector()]),
+        profile_policy_resolver=InMemoryProfilePolicyResolver(
+            (policy,),
+            active_version=policy.version,
+        ),
+    )
     data_source = service.create_data_source(
         actor_id="user-1",
         name="Profil CSV",
@@ -959,13 +1012,126 @@ def test_fr_016_fr_020_uc_004_ac_007_full_csv_profile_computes_basic_metrics(
     assert audits[-1].action == "DATASET_PROFILE_CREATED"
 
 
+def test_fr_016_fr_018_csv_profile_without_advanced_policy_keeps_basic_metrics(
+    tmp_path: Path,
+) -> None:
+    csv_file = tmp_path / "basic-no-policy.csv"
+    csv_file.write_text(
+        "order_id,line_no,segment\n"
+        "1,1,retail\n"
+        "1,1,retail\n"
+        "1,2,\n",
+        encoding="utf-8",
+    )
+    repository = SQLiteDataSourceRepository()
+    service = _data_source_service(repository, ConnectorRegistry([CSVConnector()]))
+    source = service.create_data_source(
+        actor_id="user-1",
+        name="Basic Profile Without Policy CSV",
+        source_type="CSV",
+        connection_config={"file_path": str(csv_file)},
+        secret_reference="secret://datasources/basic-no-policy",
+    )
+    service.test_connection(actor_id="user-1", data_source_id=source.data_source_id)
+    dataset = service.discover_metadata(
+        actor_id="user-1", data_source_id=source.data_source_id
+    ).datasets[0]
+
+    profile = service.run_profile(
+        actor_id="user-1",
+        dataset_id=dataset.dataset_id,
+        options=ProfileOptions(key_field_names=("order_id", "line_no")),
+    )
+
+    assert profile.status is ProfileStatus.COMPLETED
+    assert profile.metrics["advanced_analysis"] == {
+        "status": "CONFIGURATION_ERROR",
+        "reason": "ACTIVE_PROFILE_POLICY_MISSING",
+    }
+    assert profile.metrics["fields"]["segment"]["null_count"] == 1
+    assert profile.metrics["fields"]["segment"]["distinct_count"] == 1
+    assert profile.metrics["fields"]["segment"]["distinct_ratio"] == 1 / 3
+    assert profile.metrics["fields"]["segment"]["distinct_measurement"] == "EXACT"
+    assert "top_values" not in profile.metrics["fields"]["segment"]
+    assert "outlier_candidates" not in profile.metrics["fields"]["segment"]
+    assert profile.metrics["duplicates"] == {
+        "key_fields": ["order_id", "line_no"],
+        "duplicate_group_count": 1,
+        "duplicate_record_count": 1,
+        "duplicate_ratio": 1 / 3,
+    }
+
+
+def test_dq_cap_001_csv_high_cardinality_analysis_is_policy_bounded_and_deterministic(
+    tmp_path: Path,
+) -> None:
+    csv_file = tmp_path / "high-cardinality.csv"
+    csv_file.write_text(
+        "value\n" + "".join(f"value-{index}\n" for index in range(500)),
+        encoding="utf-8",
+    )
+    policy = replace(
+        _profile_policy(),
+        high_cardinality_threshold=8,
+        advanced_sample_size=16,
+    )
+
+    def run_once() -> DataProfile:
+        repository = SQLiteDataSourceRepository()
+        service = _data_source_service(
+            repository,
+            ConnectorRegistry([CSVConnector()]),
+            profile_policy_resolver=InMemoryProfilePolicyResolver(
+                (policy,),
+                active_version=policy.version,
+            ),
+        )
+        source = service.create_data_source(
+            actor_id="user-1",
+            name="Bounded CSV",
+            source_type="CSV",
+            connection_config={"file_path": str(csv_file)},
+            secret_reference="secret://datasources/bounded-csv",
+        )
+        service.test_connection(actor_id="user-1", data_source_id=source.data_source_id)
+        dataset = service.discover_metadata(
+            actor_id="user-1", data_source_id=source.data_source_id
+        ).datasets[0]
+        return service.run_profile(actor_id="user-1", dataset_id=dataset.dataset_id)
+
+    first = run_once()
+    second = run_once()
+    first_field = first.metrics["fields"]["value"]
+
+    assert first_field["sampling"]["advanced_sample_size"] == 16
+    assert first_field["sampling"]["observed_non_null_count"] == 500
+    assert first_field["sampling"]["high_cardinality"] is True
+    assert first_field["distinct_count"] == 500
+    assert first_field["distinct_measurement"] == "EXACT"
+    assert first_field["top_values"] == second.metrics["fields"]["value"]["top_values"]
+    assert first.metrics["profile_contract"]["analysis_execution"] == {
+        "method": "APPLICATION_BOUNDED_SAMPLE",
+        "strategy": "DETERMINISTIC_HASH",
+        "sample_size_limit": 16,
+        "sampling_seed": policy.sampling_seed,
+    }
+
+
 def test_fr_018_uc_004_csv_profile_computes_duplicate_metrics_for_key_fields(
     tmp_path: Path,
 ) -> None:
     csv_file = tmp_path / "orders.csv"
     csv_file.write_text("order_id,line_no,amount\n1,1,10\n1,1,10\n1,2,20\n", encoding="utf-8")
     repository = SQLiteDataSourceRepository()
-    service = _data_source_service(repository, ConnectorRegistry([CSVConnector()]))
+    policy = _profile_policy()
+    service = _data_source_service(
+        repository,
+        ConnectorRegistry([CSVConnector()]),
+        profile_policy_resolver=InMemoryProfilePolicyResolver(
+            (policy,),
+            active_version=policy.version,
+        ),
+    )
     data_source = service.create_data_source(
         actor_id="user-1",
         name="Duplicate CSV",
@@ -1229,6 +1395,395 @@ def test_rule_010_bfr_data_002_003_profile_strips_raw_values_and_keeps_aggregate
     assert "samples" not in str(stored.metrics)
     assert "pattern_examples" not in str(stored.metrics)
     assert "person-one@example.invalid" not in str(_audit_events(service))
+
+
+def test_dq_cap_001_002_csv_profile_produces_policy_versioned_advanced_aggregates(
+    tmp_path: Path,
+) -> None:
+    csv_file = tmp_path / "advanced-profile.csv"
+    csv_file.write_text(
+        "amount,segment,observed_at\n"
+        "1,retail,2026-07-20T08:00:00Z\n"
+        "2,retail,2026-07-20T09:00:00Z\n"
+        "3,commercial,2026-07-20T10:00:00Z\n"
+        "100,retail,2026-07-20T11:00:00Z\n",
+        encoding="utf-8",
+    )
+    repository = SQLiteDataSourceRepository()
+    policy = _profile_policy(freshness_field_names=("observed_at",))
+    service = _data_source_service(
+        repository,
+        ConnectorRegistry([CSVConnector()]),
+        profile_policy_resolver=InMemoryProfilePolicyResolver(
+            (policy,),
+            active_version=policy.version,
+        ),
+        masking_policy=DefaultMaskingPolicy(
+            DefaultClassificationPolicy(),
+            category_fingerprint_key=b"stable-profile-fingerprint-key-01",
+            category_fingerprint_key_id="profile-fingerprint-test-v1",
+        ),
+    )
+    source = service.create_data_source(
+        actor_id="user-1",
+        name="Advanced Profile CSV",
+        source_type="CSV",
+        connection_config={"file_path": str(csv_file)},
+        secret_reference="secret://datasources/advanced-profile",
+    )
+    service.test_connection(actor_id="user-1", data_source_id=source.data_source_id)
+    dataset = service.discover_metadata(
+        actor_id="user-1",
+        data_source_id=source.data_source_id,
+    ).datasets[0]
+
+    profile = service.run_profile(actor_id="user-1", dataset_id=dataset.dataset_id)
+    amount = profile.metrics["fields"]["amount"]
+    segment = profile.metrics["fields"]["segment"]
+
+    assert profile.metrics["profile_contract"]["policy_version"] == policy.version
+    assert profile.metrics["profile_contract"]["policy_resolution_status"] == "RESOLVED"
+    assert amount["type_distribution"] == {"INTEGER": 4}
+    assert amount["numeric_summary"]["median"] == 2.5
+    assert {item["method"] for item in amount["outlier_candidates"]} == {
+        "IQR",
+        "ROBUST_Z_SCORE",
+    }
+    assert all(item["result_kind"] == "OUTLIER_CANDIDATE" for item in amount["outlier_candidates"])
+    assert segment["top_values"][0] == {
+        "rank": 1,
+        "count": 3,
+        "value": "***",
+        "masked": True,
+        "category_fingerprint": segment["top_values"][0]["category_fingerprint"],
+    }
+    assert len(segment["top_values"][0]["category_fingerprint"]) == 64
+    assert (
+        profile.metrics["profile_contract"]["category_fingerprint_algorithm"]
+        == "HMAC_SHA256_V1"
+    )
+    assert profile.metrics["profile_contract"]["category_fingerprint_key_id"]
+    assert "retail" not in str(profile.metrics)
+    assert profile.metrics["profile_contract"]["data_observed_at"] == "2026-07-20T11:00:00+00:00"
+
+
+def test_dq_cap_006_csv_freshness_scope_flows_from_profile_to_comparison(
+    tmp_path: Path,
+) -> None:
+    csv_file = tmp_path / "freshness-drift.csv"
+    csv_file.write_text(
+        "observed_at,unscoped_at\n"
+        "2026-07-20T11:00:00Z,2026-07-20T09:00:00Z\n"
+        "2026-07-20T12:00:00Z,2026-07-20T10:00:00Z\n",
+        encoding="utf-8",
+    )
+    repository = SQLiteDataSourceRepository()
+    policy = _profile_policy(freshness_field_names=("observed_at",))
+    service = _data_source_service(
+        repository,
+        ConnectorRegistry([CSVConnector()]),
+        profile_policy_resolver=InMemoryProfilePolicyResolver(
+            (policy,),
+            active_version=policy.version,
+        ),
+        masking_policy=DefaultMaskingPolicy(
+            DefaultClassificationPolicy(),
+            category_fingerprint_key=b"freshness-scope-fingerprint-key-01",
+            category_fingerprint_key_id="freshness-scope-test-v1",
+        ),
+    )
+    source = service.create_data_source(
+        actor_id="user-1",
+        name="Freshness Drift CSV",
+        source_type="CSV",
+        connection_config={"file_path": str(csv_file)},
+        secret_reference="secret://datasources/freshness-drift",
+    )
+    service.test_connection(actor_id="user-1", data_source_id=source.data_source_id)
+    dataset = service.discover_metadata(
+        actor_id="user-1",
+        data_source_id=source.data_source_id,
+    ).datasets[0]
+    baseline = service.run_profile(actor_id="user-1", dataset_id=dataset.dataset_id)
+    csv_file.write_text(
+        "observed_at,unscoped_at\n"
+        "2026-07-20T09:00:00Z,2026-07-20T06:00:00Z\n"
+        "2026-07-20T10:00:00Z,2026-07-20T07:00:00Z\n",
+        encoding="utf-8",
+    )
+    current = service.run_profile(actor_id="user-1", dataset_id=dataset.dataset_id)
+
+    comparison = service.compare_profiles(
+        actor_id="user-1",
+        dataset_id=dataset.dataset_id,
+        baseline_profile_id=baseline.profile_id,
+        current_profile_id=current.profile_id,
+    )
+
+    freshness_signals = [
+        signal
+        for signal in comparison.result["signals"]
+        if signal["kind"] == "FRESHNESS_DELAY"
+    ]
+    assert baseline.metrics["profile_contract"]["freshness_field_names"] == ["observed_at"]
+    assert baseline.metrics["fields"]["observed_at"]["freshness_max"].endswith("+00:00")
+    assert "freshness_max" not in baseline.metrics["fields"]["unscoped_at"]
+    assert freshness_signals == [
+        {
+            "kind": "FRESHNESS_DELAY",
+            "field": "observed_at",
+            "delay_seconds": 7200.0,
+            "threshold": 3600,
+            "breached": True,
+            "result_kind": "ANOMALY_CANDIDATE",
+        }
+    ]
+
+
+def test_dq_cap_006_csv_freshness_policy_field_must_exist_and_be_date_compatible(
+    tmp_path: Path,
+) -> None:
+    csv_file = tmp_path / "invalid-freshness-policy.csv"
+    csv_file.write_text("observed_at\nnot-a-date\n", encoding="utf-8")
+    repository = SQLiteDataSourceRepository()
+    policy = _profile_policy(freshness_field_names=("observed_at",))
+    service = _data_source_service(
+        repository,
+        ConnectorRegistry([CSVConnector()]),
+        profile_policy_resolver=InMemoryProfilePolicyResolver(
+            (policy,),
+            active_version=policy.version,
+        ),
+    )
+    source = service.create_data_source(
+        actor_id="user-1",
+        name="Invalid Freshness Policy CSV",
+        source_type="CSV",
+        connection_config={"file_path": str(csv_file)},
+        secret_reference="secret://datasources/invalid-freshness-policy",
+    )
+    service.test_connection(actor_id="user-1", data_source_id=source.data_source_id)
+    dataset = service.discover_metadata(
+        actor_id="user-1",
+        data_source_id=source.data_source_id,
+    ).datasets[0]
+
+    with pytest.raises(ValidationError, match="incompatible date/time"):
+        service.run_profile(actor_id="user-1", dataset_id=dataset.dataset_id)
+
+    missing_policy = _profile_policy(
+        "DQ_PROFILE_POLICY_MISSING_FRESHNESS_FIELD_V1",
+        freshness_field_names=("missing_at",),
+    )
+    missing_service = _data_source_service(
+        repository,
+        ConnectorRegistry([CSVConnector()]),
+        profile_policy_resolver=InMemoryProfilePolicyResolver(
+            (missing_policy,),
+            active_version=missing_policy.version,
+        ),
+    )
+    with pytest.raises(ValidationError, match="must exist in metadata"):
+        missing_service.run_profile(actor_id="user-1", dataset_id=dataset.dataset_id)
+
+
+def test_dq_cap_006_service_detects_masked_category_loss_after_reconstruction(
+    tmp_path: Path,
+) -> None:
+    csv_file = tmp_path / "masked-category-drift.csv"
+    database = tmp_path / "masked-category-drift.sqlite"
+    csv_file.write_text(
+        "segment\nretail\nretail\ncommercial\n",
+        encoding="utf-8",
+    )
+    fingerprint_key = b"stable-profile-fingerprint-key-01"
+    fingerprint_key_id = "profile-fingerprint-test-v1"
+    repository = SQLiteDataSourceRepository(str(database))
+    policy = _profile_policy()
+    service = _data_source_service(
+        repository,
+        ConnectorRegistry([CSVConnector()]),
+        profile_policy_resolver=InMemoryProfilePolicyResolver(
+            (policy,),
+            active_version=policy.version,
+        ),
+        masking_policy=DefaultMaskingPolicy(
+            DefaultClassificationPolicy(),
+            category_fingerprint_key=fingerprint_key,
+            category_fingerprint_key_id=fingerprint_key_id,
+        ),
+    )
+    source = service.create_data_source(
+        actor_id="user-1",
+        name="Masked Category Drift CSV",
+        source_type="CSV",
+        connection_config={"file_path": str(csv_file)},
+        secret_reference="secret://datasources/masked-category-drift",
+    )
+    service.test_connection(actor_id="user-1", data_source_id=source.data_source_id)
+    dataset = service.discover_metadata(
+        actor_id="user-1",
+        data_source_id=source.data_source_id,
+    ).datasets[0]
+    baseline = service.run_profile(actor_id="user-1", dataset_id=dataset.dataset_id)
+    repository.connection.close()
+
+    repository = SQLiteDataSourceRepository(str(database))
+    service = _data_source_service(
+        repository,
+        ConnectorRegistry([CSVConnector()]),
+        profile_policy_resolver=InMemoryProfilePolicyResolver(
+            (policy,),
+            active_version=policy.version,
+        ),
+        masking_policy=DefaultMaskingPolicy(
+            DefaultClassificationPolicy(),
+            category_fingerprint_key=fingerprint_key,
+            category_fingerprint_key_id=fingerprint_key_id,
+        ),
+    )
+    csv_file.write_text("segment\nretail\nretail\nretail\n", encoding="utf-8")
+    current = service.run_profile(actor_id="user-1", dataset_id=dataset.dataset_id)
+
+    comparison = service.compare_profiles(
+        actor_id="user-1",
+        dataset_id=dataset.dataset_id,
+        baseline_profile_id=baseline.profile_id,
+        current_profile_id=current.profile_id,
+    )
+
+    baseline_top = baseline.metrics["fields"]["segment"]["top_values"]
+    current_top = current.metrics["fields"]["segment"]["top_values"]
+    signals = {signal["kind"]: signal for signal in comparison.result["signals"]}
+    assert comparison.status is ProfileComparisonStatus.COMPLETED
+    assert signals["CATEGORY_LOSS"]["lost_category_count"] == 1
+    assert signals["CATEGORY_LOSS"]["breached"] is True
+    assert baseline_top[0]["category_fingerprint"] == current_top[0]["category_fingerprint"]
+    assert all(item["masked"] is True and item["value"] == "***" for item in baseline_top)
+    assert "retail" not in str(baseline.metrics)
+    assert "commercial" not in str(baseline.metrics)
+    assert "retail" not in str(_audit_events(service))
+    assert "commercial" not in str(_audit_events(service))
+
+
+def test_dq_cap_006_missing_fingerprint_config_persists_fail_closed_non_verdict(
+    tmp_path: Path,
+) -> None:
+    csv_file = tmp_path / "drift-no-fingerprint-key.csv"
+    csv_file.write_text("segment\nretail\ncommercial\n", encoding="utf-8")
+    repository = SQLiteDataSourceRepository()
+    policy = _profile_policy()
+    service = _data_source_service(
+        repository,
+        ConnectorRegistry([CSVConnector()]),
+        profile_policy_resolver=InMemoryProfilePolicyResolver(
+            (policy,),
+            active_version=policy.version,
+        ),
+    )
+    source = service.create_data_source(
+        actor_id="user-1",
+        name="No Fingerprint Config Drift CSV",
+        source_type="CSV",
+        connection_config={"file_path": str(csv_file)},
+        secret_reference="secret://datasources/no-fingerprint-config",
+    )
+    service.test_connection(actor_id="user-1", data_source_id=source.data_source_id)
+    dataset = service.discover_metadata(
+        actor_id="user-1",
+        data_source_id=source.data_source_id,
+    ).datasets[0]
+    baseline = service.run_profile(actor_id="user-1", dataset_id=dataset.dataset_id)
+    csv_file.write_text("segment\nretail\nretail\n", encoding="utf-8")
+    current = service.run_profile(actor_id="user-1", dataset_id=dataset.dataset_id)
+
+    comparison = service.compare_profiles(
+        actor_id="user-1",
+        dataset_id=dataset.dataset_id,
+        baseline_profile_id=baseline.profile_id,
+        current_profile_id=current.profile_id,
+    )
+
+    assert comparison.status is ProfileComparisonStatus.CONFIGURATION_ERROR
+    assert comparison.anomaly_candidate is None
+    assert (
+        comparison.result["configuration_error"]
+        == "CATEGORY_FINGERPRINT_KEY_UNAVAILABLE"
+    )
+    assert "category_fingerprint" not in str(baseline.metrics["fields"]["segment"])
+    assert repository.list_profile_comparisons(dataset.dataset_id) == [comparison]
+
+
+def test_dq_cap_006_missing_policy_persists_fail_closed_comparison_without_verdict(
+    tmp_path: Path,
+) -> None:
+    csv_file = tmp_path / "drift-no-policy.csv"
+    csv_file.write_text("value\n1\n2\n", encoding="utf-8")
+    repository = SQLiteDataSourceRepository()
+    service = _data_source_service(repository, ConnectorRegistry([CSVConnector()]))
+    source = service.create_data_source(
+        actor_id="user-1",
+        name="No Policy Drift CSV",
+        source_type="CSV",
+        connection_config={"file_path": str(csv_file)},
+        secret_reference="secret://datasources/no-policy-drift",
+    )
+    service.test_connection(actor_id="user-1", data_source_id=source.data_source_id)
+    dataset = service.discover_metadata(
+        actor_id="user-1",
+        data_source_id=source.data_source_id,
+    ).datasets[0]
+    baseline = service.run_profile(actor_id="user-1", dataset_id=dataset.dataset_id)
+    csv_file.write_text("value\n1\n2\n3\n", encoding="utf-8")
+    current = service.run_profile(actor_id="user-1", dataset_id=dataset.dataset_id)
+
+    comparison = service.compare_profiles(
+        actor_id="user-1",
+        dataset_id=dataset.dataset_id,
+        baseline_profile_id=baseline.profile_id,
+        current_profile_id=current.profile_id,
+    )
+
+    assert comparison.status is ProfileComparisonStatus.CONFIGURATION_ERROR
+    assert comparison.anomaly_candidate is None
+    assert comparison.result["configuration_error"] == "ACTIVE_PROFILE_POLICY_MISSING"
+    assert repository.list_profile_comparisons(dataset.dataset_id) == [comparison]
+    assert _audit_events(service)[-1].action == "DATASET_PROFILES_COMPARED"
+    assert _audit_events(service)[-1].result.value == "FAILURE"
+
+
+def test_dq_cap_006_comparison_write_rolls_back_when_outbox_stage_fails(
+    tmp_path: Path,
+) -> None:
+    csv_file = tmp_path / "atomic-comparison.csv"
+    csv_file.write_text("value\n1\n2\n", encoding="utf-8")
+    repository = SQLiteDataSourceRepository()
+    service = _data_source_service(repository, ConnectorRegistry([CSVConnector()]))
+    source = service.create_data_source(
+        actor_id="user-1",
+        name="Atomic Comparison CSV",
+        source_type="CSV",
+        connection_config={"file_path": str(csv_file)},
+        secret_reference="secret://datasources/atomic-comparison",
+    )
+    service.test_connection(actor_id="user-1", data_source_id=source.data_source_id)
+    dataset = service.discover_metadata(
+        actor_id="user-1",
+        data_source_id=source.data_source_id,
+    ).datasets[0]
+    baseline = service.run_profile(actor_id="user-1", dataset_id=dataset.dataset_id)
+    current = service.run_profile(actor_id="user-1", dataset_id=dataset.dataset_id)
+    _use_failing_stage(service)
+
+    with pytest.raises(sqlite3.OperationalError, match="outbox write failure"):
+        service.compare_profiles(
+            actor_id="user-1",
+            dataset_id=dataset.dataset_id,
+            baseline_profile_id=baseline.profile_id,
+            current_profile_id=current.profile_id,
+        )
+
+    assert repository.list_profile_comparisons(dataset.dataset_id) == []
 
 
 def test_bfr_data_001_legacy_free_text_classification_migrates_fail_closed(
