@@ -15,6 +15,7 @@ from uuid import uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, func, select, text, update
 from sqlalchemy.engine import CursorResult
 
@@ -28,6 +29,7 @@ from veri_kalitesi.audit import (
 from veri_kalitesi.identity import ActorContextIssuer, ActorType
 from veri_kalitesi.executions import (
     ConcurrencyPolicy,
+    ExecutionMode,
     ExecutionNotFoundError,
     PostgreSQLSourceUsagePolicyRepository,
     SourceUsagePolicy,
@@ -148,6 +150,12 @@ def _alembic_config(db_settings: DatabaseSettings, schema: str) -> Config:
     return config
 
 
+def _current_alembic_head(config: Config) -> str:
+    head = ScriptDirectory.from_config(config).get_current_head()
+    assert head is not None
+    return head
+
+
 def _drop_isolated_schema(db_settings: DatabaseSettings, schema: str) -> None:
     engine = create_engine(
         db_settings.url.render_as_string(hide_password=False),
@@ -251,6 +259,7 @@ def test_execution_start_atomically_creates_execution_and_persistent_job(
         rule_version_ids=("rule-version-1",),
         source_ids=("source-a",),
         triggered_by="operator-a",
+        execution_mode=ExecutionMode.SHADOW,
     )
 
     job = repository.get_by_idempotency_key("EXECUTION", execution.execution_id)
@@ -258,6 +267,7 @@ def test_execution_start_atomically_creates_execution_and_persistent_job(
     assert job.job_id == execution.execution_id
     assert job.payload["execution_id"] == execution.execution_id
     assert job.payload["source_ids"] == ("source-a",)
+    assert execution.execution_mode is ExecutionMode.SHADOW
 
 
 def test_execution_start_rolls_back_domain_record_when_enqueue_fails(
@@ -1084,6 +1094,7 @@ def test_claim_order_is_priority_then_times_then_id(
 def test_migration_from_empty_schema_reaches_head(db_settings: DatabaseSettings) -> None:
     schema = f"dq_job_fresh_{uuid4().hex}"
     config = _alembic_config(db_settings, schema)
+    expected_head = _current_alembic_head(config)
     engine = create_engine(
         db_settings.url.render_as_string(hide_password=False),
         pool_pre_ping=True,
@@ -1115,7 +1126,7 @@ def test_migration_from_empty_schema_reaches_head(db_settings: DatabaseSettings)
                 )
             }
 
-        assert revision == "20260729_10"
+        assert revision == expected_head
         assert {
             "job_id",
             "job_type",
@@ -1135,6 +1146,7 @@ def test_migration_from_empty_schema_reaches_head(db_settings: DatabaseSettings)
 def test_migration_upgrades_explicit_previous_head(db_settings: DatabaseSettings) -> None:
     schema = f"dq_job_upgrade_{uuid4().hex}"
     config = _alembic_config(db_settings, schema)
+    expected_head = _current_alembic_head(config)
     engine = create_engine(
         db_settings.url.render_as_string(hide_password=False),
         pool_pre_ping=True,
@@ -1170,7 +1182,7 @@ def test_migration_upgrades_explicit_previous_head(db_settings: DatabaseSettings
                 {"schema": schema},
             ).scalar_one()
 
-        assert current_revision == "20260729_10"
+        assert current_revision == expected_head
         assert job_table_count == 1
     finally:
         engine.dispose()

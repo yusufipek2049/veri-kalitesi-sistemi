@@ -11,6 +11,7 @@ describe("kural liste modeli", () => {
         quality_rule_id: "rule-1", code: "DQ_1", name: "Kural 1",
         dataset_id: "dataset-1", primary_dimension: "VALIDITY", status: "ACTIVE",
         rule_version_id: "version-2", version_no: 2, rule_type: "RANGE",
+        ir_version: "DQ_RULE_IR_V1", rule_source: "TEMPLATE", scope_type: "COLUMN",
         criticality: "HIGH", created_at: "2026-07-22T09:00:00Z",
         available_actions: ["CREATE_VERSION", "PASSIVATE"],
       }],
@@ -20,9 +21,11 @@ describe("kural liste modeli", () => {
       id: "rule-1", code: "DQ_1", name: "Kural 1",
       datasetId: "dataset-1", dimension: "VALIDITY", status: "ACTIVE",
       versionId: "version-2", versionNo: 2, ruleType: "RANGE",
+      irVersion: "DQ_RULE_IR_V1", definitionSource: "TEMPLATE", scopeType: "COLUMN",
       criticality: "HIGH", createdAt: "2026-07-22T09:00:00Z",
       availableActions: ["CREATE_VERSION", "PASSIVATE"],
       version: 0,
+      pendingApprovalRequestId: undefined,
     }]);
   });
 
@@ -36,7 +39,7 @@ describe("kural liste modeli", () => {
         dataset_id: "dataset-1", primary_dimension: "VALIDITY", status: "ACTIVE",
         rule_version_id: "version-2", version_no: 2, rule_type: "RANGE",
         criticality: "HIGH", created_at: "2026-07-22T09:00:00Z",
-        available_actions: [] as string[],
+        available_actions: [],
       }],
     };
     const result = rulesFromApi(response);

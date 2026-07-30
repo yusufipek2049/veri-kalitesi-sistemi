@@ -244,6 +244,9 @@ function RuleRow({ item, onAction, actionLoading }: RuleRowProps) {
         <Typography variant="body2">
           Sürüm {item.versionNo} · {ruleTypeLabels[item.ruleType] ?? item.ruleType}
         </Typography>
+        <Typography color="text.secondary" sx={{ display: "block" }} variant="caption">
+          {item.definitionSource === "CUSTOM_SQL" ? "Güvenli özel SQL" : "No-code şablon"} · {item.scopeType ?? "DATASET"} · {item.irVersion ?? "DQ_RULE_IR_V1"}
+        </Typography>
         <Typography color="text.secondary" variant="caption">
           {new Intl.DateTimeFormat("tr-TR", {
             dateStyle: "medium",

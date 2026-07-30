@@ -34,6 +34,8 @@ from veri_kalitesi.rules.models import (
     RuleApprovalRequest,
     RuleApprovalStatus,
     RuleCriticality,
+    RuleDefinitionSource,
+    RuleScopeType,
     RuleStatus,
     RuleTestComputation,
     RuleTestOptions,
@@ -156,6 +158,9 @@ class RuleService(Generic[AuditT]):
             weight=float(weight),
             criticality=parsed_criticality,
             prepared_by_actor_id=actor_id,
+            ir_version=str(plan["ir_version"]),
+            definition_source=RuleDefinitionSource(str(plan["definition_source"])),
+            scope_type=RuleScopeType(str(plan["scope_type"])),
         )
         audit_event = self._build_audit_event(
             actor_id,
@@ -228,6 +233,9 @@ class RuleService(Generic[AuditT]):
             weight=float(weight),
             criticality=parsed_criticality,
             prepared_by_actor_id=actor_id,
+            ir_version=str(plan["ir_version"]),
+            definition_source=RuleDefinitionSource(str(plan["definition_source"])),
+            scope_type=RuleScopeType(str(plan["scope_type"])),
         )
         audit_event = self._build_audit_event(
             actor_id,

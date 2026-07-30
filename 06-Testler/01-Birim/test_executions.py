@@ -23,6 +23,7 @@ from veri_kalitesi.executions import (
     ConcurrencyPolicy,
     ExecutionService,
     ExecutionStatus,
+    ExecutionMode,
     MeasurementStatus,
     ExecutionTechnicalError,
     ExecutionTimeoutError,
@@ -57,6 +58,9 @@ from veri_kalitesi.rules import (
 
 DATASET_ID = "dataset-main"
 SOURCE_ID = "source-main"
+SHA256_FINGERPRINT = "sha256:" + ("a" * 64)
+MASKED_SAMPLE = "hmac-sha256://evidence-key-v1/" + ("b" * 64)
+SECOND_MASKED_SAMPLE = "hmac-sha256://evidence-key-v1/" + ("c" * 64)
 
 
 @dataclass
@@ -239,6 +243,28 @@ def test_fr_045_rule_011_rejects_same_idempotency_key_with_different_payload() -
             idempotency_key="same-key",
             rule_version_ids=(version.rule_version_id,),
             scope={"partition": "B"},
+        )
+
+    assert len(repository.list_executions()) == 1
+
+
+def test_dq_cap_014_execution_mode_is_part_of_idempotent_payload() -> None:
+    service, repository, version = _service(
+        FakeExecutionExecutor([(_computation(1, 1, 0),)])
+    )
+    service.start_manual(
+        actor_id="user-1",
+        idempotency_key="same-mode-key",
+        rule_version_ids=(version.rule_version_id,),
+        execution_mode=ExecutionMode.OFFICIAL,
+    )
+
+    with pytest.raises(IdempotencyConflictError):
+        service.start_manual(
+            actor_id="user-1",
+            idempotency_key="same-mode-key",
+            rule_version_ids=(version.rule_version_id,),
+            execution_mode=ExecutionMode.SHADOW,
         )
 
     assert len(repository.list_executions()) == 1
@@ -535,6 +561,14 @@ def test_fr_040_ac_012_timeout_persists_partial_results_outside_official_scoring
                 unknown_count=0,
                 measurement_status=MeasurementStatus.FAILED,
                 completed_partitions=("2026-01", "2026-02"),
+                evidence={
+                    "fingerprint": SHA256_FINGERPRINT,
+                    "masked_samples": [MASKED_SAMPLE],
+                    "expected_summary": {"failed_count": 0},
+                    "actual_summary": {"failed_count": 5},
+                    "query_reference": "query-template://version-main",
+                    "plan_reference": "plan://version-main",
+                },
             ),
         ),
     )
@@ -1141,6 +1175,7 @@ def test_fr_039_repository_migrates_existing_execution_queue_columns(tmp_path: A
     assert {
         "source_ids",
         "workload_class",
+        "execution_mode",
         "cancel_requested_at",
         "cancel_requested_by",
         "cancel_reason",
@@ -1156,7 +1191,14 @@ def test_fr_039_repository_migrates_existing_execution_queue_columns(tmp_path: A
         "measurement_status",
     } <= result_columns
     assert {"checked_count", "not_evaluated_count"}.isdisjoint(result_columns)
-    assert {"completed_partitions", "eligible_for_official_scoring"} <= result_columns
+    assert {
+        "completed_partitions",
+        "eligible_for_official_scoring",
+        "eligible_for_notification",
+        "eligible_for_sla",
+        "eligible_for_auto_issue",
+        "evidence",
+    } <= result_columns
 
 
 def _service(
@@ -1321,7 +1363,133 @@ def _computation(checked: int, passed: int, failed: int) -> RuleResultComputatio
         technical_error_count=0,
         unknown_count=0,
         measurement_status=(MeasurementStatus.PASSED if failed == 0 else MeasurementStatus.FAILED),
+        evidence=(
+            {
+                "fingerprint": SHA256_FINGERPRINT,
+                "masked_samples": [MASKED_SAMPLE],
+                "expected_summary": {"failed_count": 0},
+                "actual_summary": {"failed_count": failed},
+                "query_reference": "query-template://version-main",
+                "plan_reference": "plan://version-main",
+            }
+            if failed
+            else {}
+        ),
     )
+
+
+def test_dq_cap_014_shadow_result_is_labeled_and_excluded_from_official_consumers() -> None:
+    evidence = {
+        "fingerprint": SHA256_FINGERPRINT,
+        "masked_samples": [MASKED_SAMPLE, SECOND_MASKED_SAMPLE],
+        "expected_summary": {"failed_count": 0},
+        "actual_summary": {"failed_count": 2},
+        "query_reference": "query-template://rules/version-main",
+        "plan_reference": "plan://executions/synthetic",
+    }
+    computation = RuleResultComputation(
+        rule_version_id="version-main",
+        population_count=10,
+        eligible_count=10,
+        evaluated_count=10,
+        passed_count=8,
+        failed_count=2,
+        excluded_count=0,
+        technical_error_count=0,
+        unknown_count=0,
+        measurement_status=MeasurementStatus.FAILED,
+        evidence=evidence,
+    )
+    service, repository, version = _service(FakeExecutionExecutor([(computation,)]))
+
+    queued = service.start_manual(
+        actor_id="user-1",
+        idempotency_key="shadow-run",
+        rule_version_ids=(version.rule_version_id,),
+        execution_mode=ExecutionMode.SHADOW,
+    )
+    completed = service.run_next()
+    result = repository.list_results(queued.execution_id)[0]
+
+    assert completed is not None
+    assert completed.execution_mode is ExecutionMode.SHADOW
+    assert dict(result.evidence) == evidence
+    assert result.eligible_for_official_scoring is False
+    assert result.eligible_for_notification is False
+    assert result.eligible_for_sla is False
+    assert result.eligible_for_auto_issue is False
+
+
+def _valid_evidence() -> dict[str, Any]:
+    return {
+        "fingerprint": SHA256_FINGERPRINT,
+        "masked_samples": [MASKED_SAMPLE],
+        "expected_summary": {"failed_count": 0},
+        "actual_summary": {"failed_count": 1},
+        "query_reference": "query-template://rules/rv-1",
+        "plan_reference": "plan://executions/rv-1",
+    }
+
+
+def _with_evidence_value(field: str, value: Any) -> dict[str, Any]:
+    evidence = _valid_evidence()
+    evidence[field] = value
+    return evidence
+
+
+@pytest.mark.parametrize(
+    "evidence",
+    [
+        _with_evidence_value(
+            "query_reference", "query-template://SELECT * FROM customers"
+        ),
+        _with_evidence_value("query_reference", "query-template://SELECT"),
+        _with_evidence_value("query_reference", "query-template://bind/customer-id"),
+        _with_evidence_value("query_reference", "query-template://rules/rv-1?id=7"),
+        _with_evidence_value("query_reference", "query-template://rules/secret/value"),
+        _with_evidence_value("query_reference", "query-template://" + ("a" * 201)),
+        _with_evidence_value("plan_reference", "plan://EXPLAIN SELECT secret"),
+        _with_evidence_value("plan_reference", "plan://EXPLAIN"),
+        _with_evidence_value("plan_reference", "plan://bind/customer-id"),
+        _with_evidence_value("plan_reference", "plan://executions/rv-1?id=7"),
+        _with_evidence_value("plan_reference", "plan://executions/rv-1#raw"),
+        _with_evidence_value("plan_reference", "plan://executions/rv-1%2Fraw"),
+        _with_evidence_value("plan_reference", "plan://secret/value"),
+        _with_evidence_value("plan_reference", "plan://" + ("a" * 201)),
+        _with_evidence_value("masked_samples", ["***raw-sensitive-value"]),
+        _with_evidence_value("actual_summary", {"failed_count": "SELECT secret"}),
+        _with_evidence_value("actual_summary", {"raw_value": 1}),
+        {**_valid_evidence(), "raw_record": "raw-sensitive-value"},
+        _with_evidence_value("fingerprint", "sha256:raw-sensitive-value"),
+    ],
+)
+def test_dq_cap_008_unbounded_or_sensitive_evidence_cannot_be_persisted(
+    evidence: dict[str, Any],
+) -> None:
+    computation = RuleResultComputation(
+        rule_version_id="version-main",
+        population_count=1,
+        eligible_count=1,
+        evaluated_count=1,
+        passed_count=0,
+        failed_count=1,
+        excluded_count=0,
+        technical_error_count=0,
+        unknown_count=0,
+        measurement_status=MeasurementStatus.FAILED,
+        evidence=evidence,
+    )
+    service, repository, version = _service(FakeExecutionExecutor([(computation,)]))
+    queued = _start(service, version)
+
+    completed = service.run_next()
+
+    assert completed is not None
+    assert completed.status is ExecutionStatus.TECHNICAL_ERROR
+    assert completed.error_class == "UNEXPECTED"
+    assert repository.list_results(queued.execution_id) == []
+    assert "raw-sensitive-value" not in str(completed)
+    assert "SELECT secret" not in str(completed)
 
 
 def _queued_execution(

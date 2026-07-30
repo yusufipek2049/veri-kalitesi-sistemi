@@ -21,6 +21,7 @@ from veri_kalitesi.audit import (
 from veri_kalitesi.audit.postgresql_outbox import PostgreSQLTransactionalAudit
 from veri_kalitesi.executions import (
     ExecutionConflictError,
+    ExecutionMode,
     ExecutionNotFoundError,
     ExecutionStatus,
     ExecutionType,
@@ -62,13 +63,14 @@ class PostgreSQLExecutionStartService:
         rule_version_ids: tuple[str, ...],
         source_ids: tuple[str, ...],
         triggered_by: str,
+        execution_mode: ExecutionMode = ExecutionMode.OFFICIAL,
     ) -> RuleExecution:
         now = self._clock()
         execution_id = uuid4().hex
         correlation_id = uuid4().hex
         idempotency_key = f"manual-{execution_id}"
         scope: dict = {}
-        payload_hash = self._hash_payload(rule_version_ids, scope)
+        payload_hash = self._hash_payload(rule_version_ids, scope, execution_mode)
 
         execution = RuleExecution(
             execution_id=execution_id,
@@ -81,6 +83,7 @@ class PostgreSQLExecutionStartService:
             source_ids=source_ids,
             workload_class=WorkloadClass.LIGHT,
             execution_type=ExecutionType.MANUAL,
+            execution_mode=execution_mode,
             status=ExecutionStatus.QUEUED,
             created_at=now,
         )
@@ -101,6 +104,7 @@ class PostgreSQLExecutionStartService:
                         "rule_version_ids": list(rule_version_ids),
                         "source_ids": list(source_ids),
                         "status": ExecutionStatus.QUEUED.value,
+                        "execution_mode": execution_mode.value,
                     },
                     occurred_at=now,
             )
@@ -148,9 +152,17 @@ class PostgreSQLExecutionStartService:
         return stored
 
     @staticmethod
-    def _hash_payload(version_ids: tuple[str, ...], scope: dict) -> str:
+    def _hash_payload(
+        version_ids: tuple[str, ...],
+        scope: dict,
+        execution_mode: ExecutionMode,
+    ) -> str:
         serialized = json.dumps(
-            {"rule_version_ids": list(version_ids), "scope": scope},
+            {
+                "rule_version_ids": list(version_ids),
+                "scope": scope,
+                "execution_mode": execution_mode.value,
+            },
             sort_keys=True,
             separators=(",", ":"),
         )

@@ -33,6 +33,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from veri_kalitesi.audit import PostgreSQLTransactionalAudit, PreparedAuditEvent
+from veri_kalitesi.data_minimum_evidence import validate_violation_evidence
 from veri_kalitesi.executions.errors import (
     ExecutionConflictError,
     ExecutionNotFoundError,
@@ -42,6 +43,7 @@ from veri_kalitesi.executions.errors import (
 from veri_kalitesi.executions.models import (
     ConcurrencyPolicy,
     ExecutionAttempt,
+    ExecutionMode,
     ExecutionStatus,
     ExecutionType,
     MeasurementStatus,
@@ -75,6 +77,7 @@ def execution_tables(schema: str = DEFAULT_SCHEMA_NAME) -> ExecutionTables:
         Column("correlation_id", String(36), nullable=False),
         Column("source_ids", JSON, nullable=False),
         Column("workload_class", String(20), nullable=False),
+        Column("execution_mode", String(20), nullable=False),
         Column("error_class", String(200)),
         Column("attempt_count", Integer, nullable=False),
         Column("created_at", DateTime(timezone=True), nullable=False),
@@ -96,6 +99,10 @@ def execution_tables(schema: str = DEFAULT_SCHEMA_NAME) -> ExecutionTables:
         CheckConstraint(
             "workload_class IN ('HEAVY', 'LIGHT')",
             name="ck_execution_workload_class",
+        ),
+        CheckConstraint(
+            "execution_mode IN ('OFFICIAL', 'SHADOW')",
+            name="ck_execution_mode",
         ),
     )
     attempts = Table(
@@ -142,6 +149,10 @@ def execution_tables(schema: str = DEFAULT_SCHEMA_NAME) -> ExecutionTables:
         Column("measurement_status", String(30)),
         Column("completed_partitions", JSON, nullable=False),
         Column("eligible_for_official_scoring", Integer, nullable=False),
+        Column("eligible_for_notification", Integer, nullable=False),
+        Column("eligible_for_sla", Integer, nullable=False),
+        Column("eligible_for_auto_issue", Integer, nullable=False),
+        Column("evidence", JSON, nullable=False),
         UniqueConstraint("execution_id", "rule_version_id", name="uq_exec_results_exec_rule"),
     )
     return ExecutionTables(executions=executions, attempts=attempts, results=results)
@@ -310,6 +321,7 @@ class PostgreSQLExecutionRepository:
                         correlation_id=execution.correlation_id,
                         source_ids=list(execution.source_ids),
                         workload_class=execution.workload_class.value,
+                        execution_mode=execution.execution_mode.value,
                         error_class=execution.error_class,
                         attempt_count=execution.attempt_count,
                         created_at=execution.created_at,
@@ -455,7 +467,14 @@ class PostgreSQLExecutionRepository:
             if current == ExecutionStatus.CANCEL_REQUESTED.value:
                 return self._write_cancelled(session, execution_id, finished_at)
 
-            for result in results:
+            safe_evidence = tuple(
+                validate_violation_evidence(
+                    result.evidence,
+                    required=bool(result.failed_count),
+                )
+                for result in results
+            )
+            for result, evidence in zip(results, safe_evidence):
                 session.execute(
                     insert(self._tables.results).values(
                         rule_result_id=result.rule_result_id,
@@ -476,6 +495,10 @@ class PostgreSQLExecutionRepository:
                         ),
                         completed_partitions=list(result.completed_partitions),
                         eligible_for_official_scoring=1 if result.eligible_for_official_scoring else 0,
+                        eligible_for_notification=1 if result.eligible_for_notification else 0,
+                        eligible_for_sla=1 if result.eligible_for_sla else 0,
+                        eligible_for_auto_issue=1 if result.eligible_for_auto_issue else 0,
+                        evidence=evidence,
                     )
                 )
             session.execute(
@@ -510,7 +533,14 @@ class PostgreSQLExecutionRepository:
             if current == ExecutionStatus.CANCEL_REQUESTED.value:
                 return self._write_cancelled(session, execution_id, finished_at)
 
-            for result in results:
+            safe_evidence = tuple(
+                validate_violation_evidence(
+                    result.evidence,
+                    required=bool(result.failed_count),
+                )
+                for result in results
+            )
+            for result, evidence in zip(results, safe_evidence):
                 session.execute(
                     insert(self._tables.results).values(
                         rule_result_id=result.rule_result_id,
@@ -531,6 +561,10 @@ class PostgreSQLExecutionRepository:
                         ),
                         completed_partitions=list(result.completed_partitions),
                         eligible_for_official_scoring=0,
+                        eligible_for_notification=0,
+                        eligible_for_sla=0,
+                        eligible_for_auto_issue=0,
+                        evidence=evidence,
                     )
                 )
             session.execute(
@@ -732,6 +766,7 @@ def _row_to_execution(row: RowMapping) -> RuleExecution:
         correlation_id=row["correlation_id"],
         source_ids=tuple(_from_json(row["source_ids"])),
         workload_class=WorkloadClass(row["workload_class"]),
+        execution_mode=ExecutionMode(row["execution_mode"]),
         error_class=row["error_class"],
         attempt_count=row["attempt_count"],
         created_at=row["created_at"],
@@ -776,6 +811,10 @@ def _row_to_result(row: RowMapping) -> RuleExecutionResult:
         ),
         completed_partitions=tuple(_from_json(row["completed_partitions"])),
         eligible_for_official_scoring=bool(row["eligible_for_official_scoring"]),
+        eligible_for_notification=bool(row["eligible_for_notification"]),
+        eligible_for_sla=bool(row["eligible_for_sla"]),
+        eligible_for_auto_issue=bool(row["eligible_for_auto_issue"]),
+        evidence=dict(_from_json(row["evidence"])),
     )
 
 

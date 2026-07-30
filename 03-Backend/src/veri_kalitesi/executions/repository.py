@@ -7,6 +7,7 @@ import sqlite3
 from datetime import datetime
 from threading import RLock
 
+from veri_kalitesi.data_minimum_evidence import validate_violation_evidence
 from veri_kalitesi.executions.errors import (
     ExecutionNotFoundError,
     ExecutionValidationError,
@@ -15,6 +16,7 @@ from veri_kalitesi.executions.errors import (
 from veri_kalitesi.executions.models import (
     ConcurrencyPolicy,
     ExecutionAttempt,
+    ExecutionMode,
     ExecutionStatus,
     ExecutionType,
     MeasurementStatus,
@@ -46,6 +48,7 @@ class SQLiteExecutionRepository:
                 correlation_id TEXT NOT NULL,
                 source_ids TEXT NOT NULL,
                 workload_class TEXT NOT NULL,
+                execution_mode TEXT NOT NULL DEFAULT 'OFFICIAL',
                 error_class TEXT,
                 attempt_count INTEGER NOT NULL,
                 created_at TEXT NOT NULL,
@@ -84,6 +87,10 @@ class SQLiteExecutionRepository:
                 measurement_status TEXT,
                 completed_partitions TEXT NOT NULL,
                 eligible_for_official_scoring INTEGER NOT NULL,
+                eligible_for_notification INTEGER NOT NULL DEFAULT 1,
+                eligible_for_sla INTEGER NOT NULL DEFAULT 1,
+                eligible_for_auto_issue INTEGER NOT NULL DEFAULT 1,
+                evidence TEXT NOT NULL DEFAULT '{}',
                 UNIQUE (execution_id, rule_version_id),
                 FOREIGN KEY (execution_id) REFERENCES rule_executions(execution_id)
             );
@@ -107,6 +114,11 @@ class SQLiteExecutionRepository:
                 ALTER TABLE rule_executions
                 ADD COLUMN workload_class TEXT NOT NULL DEFAULT 'LIGHT'
                 """
+            )
+        if "execution_mode" not in columns:
+            self.connection.execute(
+                "ALTER TABLE rule_executions ADD COLUMN execution_mode TEXT NOT NULL "
+                "DEFAULT 'OFFICIAL'"
             )
         optional_columns = {
             "cancel_requested_at": "TEXT",
@@ -184,6 +196,18 @@ class SQLiteExecutionRepository:
                     "PRAGMA table_info(rule_execution_results)"
                 ).fetchall()
             }
+        additions = {
+            "eligible_for_notification": "INTEGER NOT NULL DEFAULT 1",
+            "eligible_for_sla": "INTEGER NOT NULL DEFAULT 1",
+            "eligible_for_auto_issue": "INTEGER NOT NULL DEFAULT 1",
+            "evidence": "TEXT NOT NULL DEFAULT '{}'",
+        }
+        for name, definition in additions.items():
+            if name not in columns:
+                self.connection.execute(
+                    f"ALTER TABLE rule_execution_results ADD COLUMN {name} {definition}"
+                )
+        self.connection.commit()
         canonical_columns = {
             "population_count": "INTEGER",
             "eligible_count": "INTEGER",
@@ -221,10 +245,10 @@ class SQLiteExecutionRepository:
                 INSERT INTO rule_executions (
                     execution_id, execution_type, status, idempotency_key_hash,
                     payload_hash, rule_version_ids, scope, triggered_by, correlation_id,
-                    source_ids, workload_class, error_class, attempt_count, created_at,
+                    source_ids, workload_class, execution_mode, error_class, attempt_count, created_at,
                     started_at, finished_at, cancel_requested_at, cancel_requested_by,
                     cancel_reason, cancelled_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 _execution_values(execution),
             )
@@ -327,7 +351,14 @@ class SQLiteExecutionRepository:
             current = self.get(execution_id)
             if current.status is ExecutionStatus.CANCEL_REQUESTED:
                 return self._write_cancelled(execution_id, finished_at)
-            for result in results:
+            safe_evidence = tuple(
+                validate_violation_evidence(
+                    result.evidence,
+                    required=bool(result.failed_count),
+                )
+                for result in results
+            )
+            for result, evidence in zip(results, safe_evidence):
                 self.connection.execute(
                     """
                     INSERT INTO rule_execution_results (
@@ -336,8 +367,9 @@ class SQLiteExecutionRepository:
                         passed_count, failed_count,
                         excluded_count, technical_error_count, unknown_count,
                         measurement_status, completed_partitions,
-                        eligible_for_official_scoring
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        eligible_for_official_scoring, eligible_for_notification,
+                        eligible_for_sla, eligible_for_auto_issue, evidence
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         result.rule_result_id,
@@ -358,6 +390,10 @@ class SQLiteExecutionRepository:
                         ),
                         json.dumps(result.completed_partitions),
                         1 if result.eligible_for_official_scoring else 0,
+                        1 if result.eligible_for_notification else 0,
+                        1 if result.eligible_for_sla else 0,
+                        1 if result.eligible_for_auto_issue else 0,
+                        json.dumps(evidence, sort_keys=True),
                     ),
                 )
             self.connection.execute(
@@ -382,7 +418,14 @@ class SQLiteExecutionRepository:
             current = self.get(execution_id)
             if current.status is ExecutionStatus.CANCEL_REQUESTED:
                 return self._write_cancelled(execution_id, finished_at)
-            for result in results:
+            safe_evidence = tuple(
+                validate_violation_evidence(
+                    result.evidence,
+                    required=bool(result.failed_count),
+                )
+                for result in results
+            )
+            for result, evidence in zip(results, safe_evidence):
                 self.connection.execute(
                     """
                     INSERT INTO rule_execution_results (
@@ -391,8 +434,9 @@ class SQLiteExecutionRepository:
                         passed_count, failed_count,
                         excluded_count, technical_error_count, unknown_count,
                         measurement_status, completed_partitions,
-                        eligible_for_official_scoring
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        eligible_for_official_scoring, eligible_for_notification,
+                        eligible_for_sla, eligible_for_auto_issue, evidence
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         result.rule_result_id,
@@ -413,6 +457,10 @@ class SQLiteExecutionRepository:
                         ),
                         json.dumps(result.completed_partitions),
                         0,
+                        0,
+                        0,
+                        0,
+                        json.dumps(evidence, sort_keys=True),
                     ),
                 )
             self.connection.execute(
@@ -620,6 +668,7 @@ def _execution_values(execution: RuleExecution) -> tuple[object, ...]:
         execution.correlation_id,
         json.dumps(execution.source_ids),
         execution.workload_class.value,
+        execution.execution_mode.value,
         execution.error_class,
         execution.attempt_count,
         execution.created_at.isoformat(),
@@ -645,6 +694,7 @@ def _row_to_execution(row: sqlite3.Row) -> RuleExecution:
         correlation_id=row["correlation_id"],
         source_ids=tuple(json.loads(row["source_ids"])),
         workload_class=WorkloadClass(row["workload_class"]),
+        execution_mode=ExecutionMode(row["execution_mode"]),
         error_class=row["error_class"],
         attempt_count=row["attempt_count"],
         created_at=datetime.fromisoformat(row["created_at"]),
@@ -691,6 +741,10 @@ def _row_to_result(row: sqlite3.Row) -> RuleExecutionResult:
         ),
         completed_partitions=tuple(json.loads(row["completed_partitions"])),
         eligible_for_official_scoring=bool(row["eligible_for_official_scoring"]),
+        eligible_for_notification=bool(row["eligible_for_notification"]),
+        eligible_for_sla=bool(row["eligible_for_sla"]),
+        eligible_for_auto_issue=bool(row["eligible_for_auto_issue"]),
+        evidence=json.loads(row["evidence"]),
     )
 
 

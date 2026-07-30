@@ -10,6 +10,10 @@ from time import sleep
 from typing import Any, Generic, Protocol, TypeVar
 from uuid import uuid4
 
+from veri_kalitesi.data_minimum_evidence import (
+    DataMinimumEvidenceError,
+    validate_violation_evidence,
+)
 from veri_kalitesi.data_sources.models import DataSourceStatus
 from veri_kalitesi.executions.contracts import ExecutionRepository
 from veri_kalitesi.executions.errors import (
@@ -20,6 +24,7 @@ from veri_kalitesi.executions.errors import (
 from veri_kalitesi.executions.models import (
     ConcurrencyPolicy,
     ExecutionAttempt,
+    ExecutionMode,
     ExecutionStatus,
     ExecutionTimeouts,
     ExecutionType,
@@ -142,6 +147,7 @@ class ExecutionService(Generic[_RepoT]):
         idempotency_key: str,
         rule_version_ids: tuple[str, ...],
         scope: Mapping[str, Any] | None = None,
+        execution_mode: ExecutionMode = ExecutionMode.OFFICIAL,
         correlation_id: str | None = None,
     ) -> RuleExecution:
         return self._start(
@@ -150,6 +156,7 @@ class ExecutionService(Generic[_RepoT]):
             idempotency_key=idempotency_key,
             rule_version_ids=rule_version_ids,
             scope=scope,
+            execution_mode=execution_mode,
             correlation_id=correlation_id,
         )
 
@@ -160,6 +167,7 @@ class ExecutionService(Generic[_RepoT]):
         rule_version_ids: tuple[str, ...],
         scope: Mapping[str, Any],
         correlation_id: str,
+        execution_mode: ExecutionMode = ExecutionMode.OFFICIAL,
     ) -> RuleExecution:
         return self._start(
             execution_type=ExecutionType.SCHEDULED,
@@ -168,6 +176,7 @@ class ExecutionService(Generic[_RepoT]):
             rule_version_ids=rule_version_ids,
             scope=scope,
             correlation_id=correlation_id,
+            execution_mode=execution_mode,
         )
 
     def validate_rule_versions(self, rule_version_ids: tuple[str, ...]) -> tuple[str, ...]:
@@ -185,16 +194,19 @@ class ExecutionService(Generic[_RepoT]):
         rule_version_ids: tuple[str, ...],
         scope: Mapping[str, Any] | None,
         correlation_id: str | None,
+        execution_mode: ExecutionMode,
     ) -> RuleExecution:
         _validate_start(actor_id, idempotency_key, rule_version_ids)
         versions = tuple(self.rule_catalog.get_version(item) for item in rule_version_ids)
         source_ids = self._validate_versions(versions)
         normalized_scope = dict(scope or {})
         _reject_sensitive_scope(normalized_scope)
+        if not isinstance(execution_mode, ExecutionMode):
+            raise ExecutionValidationError("Execution mode is invalid.")
         workload_class = self.workload_classifier.classify(versions, normalized_scope)
         if not isinstance(workload_class, WorkloadClass):
             raise ExecutionValidationError("Workload classifier returned an invalid class.")
-        payload_hash = _hash_payload(rule_version_ids, normalized_scope)
+        payload_hash = _hash_payload(rule_version_ids, normalized_scope, execution_mode)
         execution = RuleExecution(
             idempotency_key_hash=_hash_text(idempotency_key),
             payload_hash=payload_hash,
@@ -205,6 +217,7 @@ class ExecutionService(Generic[_RepoT]):
             source_ids=source_ids,
             workload_class=workload_class,
             execution_type=execution_type,
+            execution_mode=execution_mode,
             created_at=self.clock(),
         )
         stored, _ = self.repository.create_or_get(execution)
@@ -281,14 +294,6 @@ class ExecutionService(Generic[_RepoT]):
                     timeouts=effective_timeouts,
                 )
                 _validate_computations(execution, computations)
-                self.repository.add_attempt(
-                    ExecutionAttempt(
-                        execution_id=execution.execution_id,
-                        attempt_no=attempt_no,
-                        status=ExecutionStatus.SUCCESS,
-                        created_at=self.clock(),
-                    )
-                )
                 results = tuple(
                     RuleExecutionResult(
                         execution_id=execution.execution_id,
@@ -303,8 +308,32 @@ class ExecutionService(Generic[_RepoT]):
                         unknown_count=item.unknown_count,
                         measurement_status=item.measurement_status,
                         completed_partitions=item.completed_partitions,
+                        evidence=_validated_evidence(
+                            item.evidence,
+                            required=bool(item.failed_count),
+                        ),
+                        eligible_for_official_scoring=(
+                            execution.execution_mode is ExecutionMode.OFFICIAL
+                        ),
+                        eligible_for_notification=(
+                            execution.execution_mode is ExecutionMode.OFFICIAL
+                        ),
+                        eligible_for_sla=(
+                            execution.execution_mode is ExecutionMode.OFFICIAL
+                        ),
+                        eligible_for_auto_issue=(
+                            execution.execution_mode is ExecutionMode.OFFICIAL
+                        ),
                     )
                     for item in computations
+                )
+                self.repository.add_attempt(
+                    ExecutionAttempt(
+                        execution_id=execution.execution_id,
+                        attempt_no=attempt_no,
+                        status=ExecutionStatus.SUCCESS,
+                        created_at=self.clock(),
+                    )
                 )
                 return self.repository.complete_success(
                     execution.execution_id, results, self.clock()
@@ -342,6 +371,13 @@ class ExecutionService(Generic[_RepoT]):
                             item.completed_partitions or exc.completed_partitions
                         ),
                         eligible_for_official_scoring=False,
+                        eligible_for_notification=False,
+                        eligible_for_sla=False,
+                        eligible_for_auto_issue=False,
+                        evidence=_validated_evidence(
+                            item.evidence,
+                            required=bool(item.failed_count),
+                        ),
                     )
                     for item in exc.partial_results
                 )
@@ -430,6 +466,17 @@ def _validate_start(actor_id: str, key: str, version_ids: tuple[str, ...]) -> No
         raise ExecutionValidationError("Idempotency key must contain 1 to 200 characters.")
     if not version_ids or len(set(version_ids)) != len(version_ids):
         raise ExecutionValidationError("Rule versions must be non-empty and unique.")
+
+
+def _validated_evidence(
+    evidence: Mapping[str, Any],
+    *,
+    required: bool,
+) -> dict[str, Any]:
+    try:
+        return validate_violation_evidence(evidence, required=required)
+    except DataMinimumEvidenceError as exc:
+        raise ExecutionValidationError("Violation evidence contract is invalid.") from exc
 
 
 def _validate_policy(timeouts: ExecutionTimeouts, policy: RetryPolicy) -> None:
@@ -567,10 +614,18 @@ def _validate_partitions(partitions: tuple[str, ...]) -> None:
         raise ExecutionValidationError("Completed partition identifiers are invalid.")
 
 
-def _hash_payload(version_ids: tuple[str, ...], scope: dict[str, Any]) -> str:
+def _hash_payload(
+    version_ids: tuple[str, ...],
+    scope: dict[str, Any],
+    execution_mode: ExecutionMode,
+) -> str:
     try:
         serialized = json.dumps(
-            {"rule_version_ids": list(version_ids), "scope": scope},
+            {
+                "rule_version_ids": list(version_ids),
+                "scope": scope,
+                "execution_mode": execution_mode.value,
+            },
             sort_keys=True,
             separators=(",", ":"),
         )

@@ -40,6 +40,8 @@ from veri_kalitesi.rules.models import (
     RuleApprovalRequest,
     RuleApprovalStatus,
     RuleCriticality,
+    RuleDefinitionSource,
+    RuleScopeType,
     RuleStatus,
     RuleTestResult,
     RuleTestStatus,
@@ -576,16 +578,22 @@ def _row_to_rule(row: RowMapping) -> QualityRule:
 
 
 def _row_to_version(row: RowMapping) -> RuleVersion:
+    definition = _json_loads(row["definition"])
     return RuleVersion(
         rule_version_id=row["rule_version_id"],
         quality_rule_id=row["quality_rule_id"],
         version_no=row["version_no"],
         rule_type=RuleType(row["rule_type"]),
-        definition=_json_loads(row["definition"]),
+        definition=definition,
         threshold=row["threshold"],
         weight=row["weight"],
         criticality=RuleCriticality(row["criticality"]),
         prepared_by_actor_id=row["prepared_by_actor_id"],
+        ir_version=str(definition.get("ir_version", "DQ_RULE_IR_V1")),
+        definition_source=RuleDefinitionSource(
+            definition.get("definition_source", "TEMPLATE")
+        ),
+        scope_type=RuleScopeType(definition.get("scope_type", "DATASET")),
         created_at=row["created_at"],
     )
 

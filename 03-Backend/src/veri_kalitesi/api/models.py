@@ -104,6 +104,9 @@ class RuleListItemResponse(BaseModel):
     rule_version_id: str
     version_no: int
     rule_type: str
+    ir_version: str
+    rule_source: str
+    scope_type: str
     criticality: str
     created_at: datetime
     available_actions: tuple[str, ...] = ()
@@ -128,6 +131,9 @@ class RuleListItemResponse(BaseModel):
             rule_version_id=version.rule_version_id,
             version_no=version.version_no,
             rule_type=version.rule_type.value,
+            ir_version=version.ir_version,
+            rule_source=version.definition_source.value,
+            scope_type=version.scope_type.value,
             criticality=version.criticality.value,
             created_at=version.created_at,
             available_actions=available_actions,
@@ -276,6 +282,7 @@ class ExecutionListItemResponse(BaseModel):
 
     execution_id: str
     execution_type: str
+    execution_mode: str
     status: str
     workload_class: str
     rule_count: int
@@ -291,6 +298,7 @@ class ExecutionListItemResponse(BaseModel):
         return cls(
             execution_id=execution.execution_id,
             execution_type=execution.execution_type.value,
+            execution_mode=execution.execution_mode.value,
             status=execution.status.value,
             workload_class=execution.workload_class.value,
             rule_count=len(execution.rule_version_ids),
@@ -760,6 +768,7 @@ class ExecutionStartRequest(BaseModel):
 
     rule_version_ids: tuple[str, ...] = Field(min_length=1)
     source_ids: tuple[str, ...] = Field(default_factory=tuple)
+    execution_mode: str = Field(default="OFFICIAL", pattern=r"^(OFFICIAL|SHADOW)$")
 
 
 class ExecutionStartResponse(BaseModel):

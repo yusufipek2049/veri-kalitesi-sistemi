@@ -51,6 +51,19 @@ describe("Kurallar ekranı", () => {
     expect(screen.getAllByTestId("rule-actions-trigger")).toHaveLength(5);
   });
 
+  it("ortak IR kaynağı ve doğrulanmış kapsamı inceleme satırında gösterir", () => {
+    const items: RuleListItem[] = [{
+      id: "rule-sql", code: "SQL_RULE", name: "Mutabakat", datasetId: "ds-1",
+      dimension: "CONSISTENCY", status: "DRAFT", versionId: "rv-1", versionNo: 1,
+      ruleType: "CUSTOM_SQL", irVersion: "DQ_RULE_IR_V1",
+      definitionSource: "CUSTOM_SQL", scopeType: "RECONCILIATION",
+      criticality: "MEDIUM", createdAt: "2026-07-24T10:00:00Z",
+      availableActions: [], version: 1,
+    }];
+    render(<ThemeModeProvider><MemoryRouter><RulesPage items={items} /></MemoryRouter></ThemeModeProvider>);
+    expect(screen.getByText(/Güvenli özel SQL · RECONCILIATION · DQ_RULE_IR_V1/)).toBeVisible();
+  });
+
   it("eylem menüsünde kullanılabilir eylemleri listeler", () => {
     renderPage();
     openMenu(0);

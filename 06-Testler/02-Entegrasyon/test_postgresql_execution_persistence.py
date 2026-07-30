@@ -25,6 +25,7 @@ from veri_kalitesi.audit import (
     build_default_redaction_policy,
 )
 from veri_kalitesi.audit.models import AuditEventInput, AuditResult
+from veri_kalitesi.data_minimum_evidence import DataMinimumEvidenceError
 from veri_kalitesi.executions.models import (
     ConcurrencyPolicy,
     ExecutionAttempt,
@@ -268,6 +269,16 @@ def test_complete_success(
             measurement_status=None,
             completed_partitions=(),
             eligible_for_official_scoring=True,
+            evidence={
+                "fingerprint": "sha256:" + ("a" * 64),
+                "masked_samples": [
+                    "hmac-sha256://evidence-key-v1/" + ("b" * 64)
+                ],
+                "expected_summary": {"failed_count": 0},
+                "actual_summary": {"failed_count": 10},
+                "query_reference": "query-template://rv-001",
+                "plan_reference": "plan://rv-001",
+            },
         ),
     )
     success_prepared = _prepare_event(audit_outbox, "EXECUTION_SUCCEEDED")
@@ -282,6 +293,55 @@ def test_complete_success(
     stored_results = repository.list_results(execution.execution_id)
     assert len(stored_results) == 1
     assert stored_results[0].passed_count == 80
+    assert stored_results[0].evidence["fingerprint"] == "sha256:" + ("a" * 64)
+    assert stored_results[0].evidence["actual_summary"] == {"failed_count": 10}
+    assert stored_results[0].evidence["masked_samples"] == [
+        "hmac-sha256://evidence-key-v1/" + ("b" * 64)
+    ]
+    assert stored_results[0].eligible_for_notification is True
+    assert stored_results[0].eligible_for_sla is True
+    assert stored_results[0].eligible_for_auto_issue is True
+
+
+def test_invalid_evidence_is_rejected_before_postgresql_persistence(
+    repository: PostgreSQLExecutionRepository,
+    audit_outbox: PostgreSQLTransactionalAudit,
+) -> None:
+    execution = _sample_execution(rule_version_ids=("rv-001",))
+    repository.create_or_get(
+        execution,
+        audit_event=_prepare_event(audit_outbox, "EXECUTION_CREATED"),
+        audit_outbox=audit_outbox,
+    )
+    repository.claim_next(_now())
+    result = RuleExecutionResult(
+        execution_id=execution.execution_id,
+        rule_version_id="rv-001",
+        population_count=1,
+        eligible_count=1,
+        evaluated_count=1,
+        passed_count=0,
+        failed_count=1,
+        excluded_count=0,
+        technical_error_count=0,
+        unknown_count=0,
+        measurement_status=None,
+        evidence={
+            "fingerprint": "sha256:" + ("a" * 64),
+            "masked_samples": ["***raw-sensitive-value"],
+            "expected_summary": {"failed_count": 0},
+            "actual_summary": {"failed_count": 1},
+            "query_reference": "query-template://rv-001",
+            "plan_reference": "plan://rv-001",
+        },
+    )
+
+    with pytest.raises(DataMinimumEvidenceError) as captured:
+        repository.complete_success(execution.execution_id, (result,), _now())
+
+    assert "raw-sensitive-value" not in str(captured.value)
+    assert repository.list_results(execution.execution_id) == []
+    assert repository.get(execution.execution_id).status is ExecutionStatus.RUNNING
 
 
 def test_complete_technical_error(
@@ -382,6 +442,16 @@ def test_complete_timeout_partial(
             measurement_status=None,
             completed_partitions=("p1",),
             eligible_for_official_scoring=False,
+            evidence={
+                "fingerprint": "sha256:" + ("c" * 64),
+                "masked_samples": [
+                    "hmac-sha256://evidence-key-v1/" + ("d" * 64)
+                ],
+                "expected_summary": {"failed_count": 0},
+                "actual_summary": {"failed_count": 5},
+                "query_reference": "query-template://rv-001",
+                "plan_reference": "plan://rv-001",
+            },
         ),
     )
     timeout_prepared = _prepare_event(audit_outbox, "EXECUTION_TIMEOUT")

@@ -51,7 +51,8 @@ def test_fr_043_execution_list_is_source_scoped_and_data_minimum() -> None:
     assert response.json()["items"] == [
         {
             "execution_id": "execution-a",
-            "execution_type": "MANUAL",
+                "execution_type": "MANUAL",
+                "execution_mode": "OFFICIAL",
             "status": "TECHNICAL_ERROR",
             "workload_class": "HEAVY",
             "rule_count": 2,

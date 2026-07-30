@@ -39,6 +39,7 @@ from veri_kalitesi.executions import (
     ExecutionConflictError,
     ExecutionNotFoundError,
     ExecutionStatus,
+    ExecutionMode,
     ExecutionType,
     RuleExecution,
     WorkloadClass,
@@ -971,6 +972,7 @@ class DevelopmentExecutionStore:
         rule_version_ids: tuple[str, ...],
         source_ids: tuple[str, ...],
         triggered_by: str,
+        execution_mode: ExecutionMode = ExecutionMode.OFFICIAL,
     ) -> RuleExecution:
         with self._lock:
             execution_id = f"execution-{uuid4().hex[:12]}"
@@ -986,6 +988,7 @@ class DevelopmentExecutionStore:
                 source_ids=source_ids,
                 workload_class=WorkloadClass.LIGHT,
                 execution_type=ExecutionType.MANUAL,
+                execution_mode=execution_mode,
                 status=ExecutionStatus.QUEUED,
                 created_at=now,
             )

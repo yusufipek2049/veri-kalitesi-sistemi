@@ -19,6 +19,11 @@ class ExecutionType(str, Enum):
     SCHEDULED = "SCHEDULED"
 
 
+class ExecutionMode(str, Enum):
+    OFFICIAL = "OFFICIAL"
+    SHADOW = "SHADOW"
+
+
 class ExecutionStatus(str, Enum):
     QUEUED = "QUEUED"
     RUNNING = "RUNNING"
@@ -107,6 +112,7 @@ class RuleExecution:
     source_ids: tuple[str, ...] = ()
     workload_class: WorkloadClass = WorkloadClass.LIGHT
     execution_type: ExecutionType = ExecutionType.MANUAL
+    execution_mode: ExecutionMode = ExecutionMode.OFFICIAL
     status: ExecutionStatus = ExecutionStatus.QUEUED
     execution_id: str = field(default_factory=lambda: str(uuid4()))
     error_class: str | None = None
@@ -136,6 +142,10 @@ class RuleResultComputation:
     unknown_count: int | None
     measurement_status: MeasurementStatus | None
     completed_partitions: tuple[str, ...] = ()
+    evidence: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "evidence", MappingProxyType(dict(self.evidence)))
 
 
 @dataclass(frozen=True)
@@ -153,7 +163,14 @@ class RuleExecutionResult:
     measurement_status: MeasurementStatus | None
     completed_partitions: tuple[str, ...] = ()
     eligible_for_official_scoring: bool = True
+    eligible_for_notification: bool = True
+    eligible_for_sla: bool = True
+    eligible_for_auto_issue: bool = True
+    evidence: Mapping[str, Any] = field(default_factory=dict)
     rule_result_id: str = field(default_factory=lambda: str(uuid4()))
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "evidence", MappingProxyType(dict(self.evidence)))
 
     @property
     def checked_count(self) -> int | None:
