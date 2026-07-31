@@ -9,6 +9,9 @@
 #   STUB_CLAUDE_BODY      -> kalan gövde
 #   STUB_CLAUDE_ARGV_LOG  -> verilirse alınan argv satır satır bu dosyaya yazılır
 #   STUB_CLAUDE_CWD_LOG   -> verilirse çalışma dizini bu dosyaya yazılır
+#   STUB_CLAUDE_STDERR    -> stderr'e yazılacak metin (sağlayıcı hatası taklidi)
+#   STUB_CLAUDE_STDOUT_ERROR -> stdout'a bu metni yazıp non-zero çık (gerçek kota
+#                               hatası davranışı: stderr boş, mesaj stdout'ta)
 set -u
 
 if [[ -n "${STUB_CLAUDE_ARGV_LOG:-}" ]]; then
@@ -20,6 +23,17 @@ fi
 
 # Prompt stdin'den gelir (rol otomatik tespiti için kullanılır).
 prompt="$(cat 2>/dev/null || true)"
+
+# Gerçek `claude -p` kota/oturum hatasını STDOUT'a yazıp non-zero çıkar; stderr
+# boş kalır. Devir tespitinin bu kanalı da görmesi gerektiğini doğrular.
+if [[ -n "${STUB_CLAUDE_STDOUT_ERROR:-}" ]]; then
+  printf '%s\n' "${STUB_CLAUDE_STDOUT_ERROR}"
+  exit "${STUB_CLAUDE_EXIT:-1}"
+fi
+
+if [[ -n "${STUB_CLAUDE_STDERR:-}" ]]; then
+  printf '%s\n' "${STUB_CLAUDE_STDERR}" >&2
+fi
 
 if [[ -n "${STUB_CLAUDE_EXIT:-}" && "${STUB_CLAUDE_EXIT}" != "0" ]]; then
   echo "stub claude forced failure exit=${STUB_CLAUDE_EXIT}" >&2

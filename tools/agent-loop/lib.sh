@@ -16,6 +16,15 @@
 #
 # shellcheck shell=bash
 
+# Kardeş kütüphaneler (yalnız fonksiyon tanımlar, yan etki üretmez):
+#   roles.sh   rol → ajan çözümü (canonical kaynak .agent/config/agents.yaml)
+#   ledger.sh  kalıcı görev defteri, claim kilidi, test kanıtı, review kaydı
+_AGENTLOOP_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=tools/agent-loop/roles.sh
+source "$_AGENTLOOP_LIB_DIR/roles.sh"
+# shellcheck source=tools/agent-loop/ledger.sh
+source "$_AGENTLOOP_LIB_DIR/ledger.sh"
+
 # --- init ------------------------------------------------------------------
 
 agentloop_init() {
@@ -48,8 +57,18 @@ agentloop_init() {
   # Agent backend seçimi: codex (varsayılan) veya claude. Rol başına model/effort
   # değişkenleri backend başına ayrıdır, birbirine sızmaz.
   : "${AGENT_BACKEND:=codex}"
+  # Sağlayıcı erişimi tümden yoksa (kota/kredi/kimlik) aşamayı bir kez tekrarlayacak
+  # yedek backend. Boş bırakılırsa devir yapılmaz; maliyet başka sağlayıcıya sessizce
+  # kaymaz.
+  : "${AGENT_BACKEND_FALLBACK:=}"
   : "${CODEX_BIN:=codex}"
   : "${CLAUDE_BIN:=claude}"
+  # Kalıcı stderr logu üst sınırı (0 = sınırsız). Aşılırsa son baytlar korunur.
+  : "${AGENT_STDERR_LOG_MAX_BYTES:=2000000}"
+  # Sağlayıcıya hiç ulaşılamadığını gösteren imzalar. Sağlayıcılar farklı sözcük
+  # kullanır (codex "usage limit", claude "session limit"), bu yüzden desen geniş
+  # ama yalnız erişim/kota/kimlik sınıfını kapsar.
+  : "${AGENT_PROVIDER_ERROR_RE:=usage limit|session limit|rate limit|quota|insufficient_quota|credit balance|billing|too many requests|http (401|429)|\b(401|429)\b|unauthorized|authentication (failed|error)|not logged in|login required|invalid api key|expired token}"
   : "${UNIT_TEST_DIR:=06-Testler/01-Birim}"
   : "${INTEGRATION_TEST_DIR:=06-Testler/02-Entegrasyon}"
   : "${OPTIONAL_INTEGRATION_TEST:=$INTEGRATION_TEST_DIR/test_synthetic_postgresql_integration.py}"
@@ -57,6 +76,19 @@ agentloop_init() {
   # PostgreSQL değişkenleri set -u altında güvenli olsun diye boş default.
   : "${DATA_QUALITY_POSTGRES_TEST_URL:=}"
   : "${DATA_QUALITY_DATABASE_SCHEMA:=}"
+
+  # Kalıcı defter yolları + rol yapılandırması. Rol → ajan eşlemesinin TEK
+  # kaynağı .agent/config/agents.yaml'dır; yoksa geriye dönük AGENT_BACKEND yolu
+  # kullanılır. Dosya VAR ama geçersizse FAIL-CLOSED: hiçbir ajan çalıştırılmaz.
+  ledger_init
+  roles_load "$AGENT_ROLES_FILE"
+  case "$?" in
+    0) AGENT_ROLES_STATUS="loaded" ;;
+    1) AGENT_ROLES_STATUS="absent" ;;
+    *) AGENT_ROLES_STATUS="invalid"
+       echo "Rol yapılandırması geçersiz: $AGENT_ROLES_FILE — ajan çalıştırılmadı." >&2
+       return 36 ;;
+  esac
 
   # Runtime state yoksa temiz başlangıç: iteration 0 / COMPLETED.
   # Böylece ilk `devam` planner'ı tetikler.
@@ -225,26 +257,81 @@ agent_backend_label() {
   esac
 }
 
-run_agent() {
-  local role="$1" input="$2" result="$3" allowed_regex="$4"
-  local iteration repair stdout_log stderr_log failure_log tmp_result
-  local model="" reasoning="" rc first_line capture_stdout="no"
+agent_backend_known() {
+  case "$1" in
+    codex|claude) return 0 ;;
+    *)            return 1 ;;
+  esac
+}
+
+# Sağlayıcı erişiminin tümden yokluğunu (kota/kredi/kimlik) gösteren stderr
+# imzaları. Görev başarısızlığı, geçersiz sonuç ve timeout BU SINIFA GİRMEZ:
+# yalnız sağlayıcıya hiç ulaşılamadığında diğer backend denenir. Aksi halde
+# gerçek bir defekt sessizce ikinci sağlayıcıya devredilirdi.
+agent_provider_unavailable() {
+  local stderr_log="$1" rc="$2" result="${3:-}" first
+  # GNU timeout kodları sağlayıcı arızası değildir.
+  case "$rc" in
+    124|125|137) return 1 ;;
+  esac
+
+  if [[ -s "$stderr_log" ]] && grep -qiE "${AGENT_PROVIDER_ERROR_RE}" "$stderr_log"; then
+    return 0
+  fi
+
+  # Bazı backend'ler kota/oturum hatasını STDOUT'a yazar (`claude -p` böyle
+  # yapar) ve bu kanal aynı zamanda sonuç kanalıdır. Yanlış pozitif riski var:
+  # geçerli bir rapor bu sözcükleri metin olarak içerebilir. Bu yüzden sonuç
+  # kanalına yalnız GEÇERLİ SONUÇ YOKKEN bakılır — gerçek sonuç her zaman
+  # `STATUS:` satırıyla başlar.
+  if [[ -n "$result" && -s "$result" ]]; then
+    first="$(head -n 1 "$result" | tr -d '\r')"
+    if [[ ! "$first" =~ ^STATUS: ]] \
+       && grep -qiE "${AGENT_PROVIDER_ERROR_RE}" "$result"; then
+      return 0
+    fi
+  fi
+  return 1
+}
+
+# Kalıcı stderr logunu üst sınıra indirir. Hata mesajı sonda olduğu için SON
+# baytlar korunur; kesme olayı logun başına açıkça yazılır (sessiz veri kaybı yok).
+agent_cap_log() {
+  local file="$1" max="$2" size prev="" tmp i
+  [[ -f "$file" ]] || return 0
+  [[ "$max" =~ ^[0-9]+$ ]] || return 0
+  (( max > 0 )) || return 0
+
+  # `tee` alt süreci hâlâ yazıyor olabilir: boyut sabitlenene kadar kısa bekle.
+  for i in $(seq 1 10); do
+    size="$(stat -c %s "$file" 2>/dev/null || echo 0)"
+    [[ "$size" == "$prev" ]] && break
+    prev="$size"
+    sleep 0.1
+  done
+
+  size="$(stat -c %s "$file" 2>/dev/null || echo 0)"
+  (( size > max )) || return 0
+  tmp="$(mktemp "${file}.cap.XXXXXX")"
+  {
+    printf '[agent-loop] stderr logu %s bayta ulaştı; yalnız son %s bayt korundu.\n' \
+      "$size" "$max"
+    tail -c "$max" "$file"
+  } > "$tmp"
+  mv -f "$tmp" "$file"
+}
+
+# Tek deneme: argv'yi backend'e göre kurar, agent'ı çalıştırır ve ham exit
+# kodunu döndürür. Doğrulama ve atomik yayınlama çağırana (run_agent) aittir.
+# Bilinmeyen backend'de 35 döner ve hiçbir süreç başlatılmaz.
+agent_attempt() {
+  local backend="$1" role="$2" input="$3" tmp_result="$4" stdout_log="$5" stderr_log="$6"
+  local model="" reasoning="" capture_stdout="no" rc
   local args runner
-
-  iteration="$(state_field iteration)"
-  repair="$(state_field repair_round)"
-  stdout_log="$LOGS/${role}-i${iteration}-r${repair}.stdout.log"
-  stderr_log="$LOGS/${role}-i${iteration}-r${repair}.stderr.log"
-  failure_log="$LOGS/${role}-failures.log"
-  tmp_result="$(mktemp "$H/${role}.result.tmp.XXXXXX")"
-
-  : > "$stdout_log"
-  : > "$stderr_log"
-  rm -f "$result"
 
   # Aşama başına model ve reasoning-effort maliyet kaldıracı: planner/reviewer için
   # düşük effort, implementer için varsayılan (backend config) bırakılabilir.
-  case "${AGENT_BACKEND}" in
+  case "$backend" in
     codex)
       case "$role" in
         implementer) model="${CODEX_IMPLEMENTER_MODEL:-}"; reasoning="${CODEX_IMPLEMENTER_REASONING:-}" ;;
@@ -268,17 +355,18 @@ run_agent() {
       capture_stdout="yes"
       ;;
     *)
-      echo "Bilinmeyen AGENT_BACKEND=${AGENT_BACKEND} (codex|claude)." | tee -a "$failure_log" >&2
-      rm -f "$tmp_result" "$result"
       return 35
       ;;
   esac
 
+  # Önceki denemenin kısmi çıktısı asla ikinci denemeye taşınmaz.
+  : > "$tmp_result"
+
   {
     echo "ROLE=$role"
-    echo "BACKEND=${AGENT_BACKEND}"
-    echo "ITERATION=$iteration"
-    echo "REPAIR_ROUND=$repair"
+    echo "BACKEND=$backend"
+    echo "ITERATION=$(state_field iteration)"
+    echo "REPAIR_ROUND=$(state_field repair_round)"
     echo "STARTED_AT=$(now)"
     echo "PG_ENV_FORWARDED=${DATA_QUALITY_POSTGRES_TEST_URL:+yes}"
     echo "PG_SCHEMA=${DATA_QUALITY_DATABASE_SCHEMA:-unset}"
@@ -311,6 +399,106 @@ run_agent() {
       2> >(tee -a "$stderr_log" >&2)
     rc=$?
   fi
+  return "$rc"
+}
+
+run_agent() {
+  local role="$1" input="$2" result="$3" allowed_regex="$4"
+  local iteration repair stdout_log stderr_log failure_log tmp_result
+  local rc first_line fallback backend override_var
+
+  iteration="$(state_field iteration)"
+  repair="$(state_field repair_round)"
+  stdout_log="$LOGS/${role}-i${iteration}-r${repair}.stdout.log"
+  stderr_log="$LOGS/${role}-i${iteration}-r${repair}.stderr.log"
+  failure_log="$LOGS/${role}-failures.log"
+  tmp_result="$(mktemp "$H/${role}.result.tmp.XXXXXX")"
+
+  : > "$stdout_log"
+  : > "$stderr_log"
+  rm -f "$result"
+
+  # --- rol → ajan çözümü ---
+  # Öncelik: (1) tek turluk AGENT_BACKEND_<ROLE> env override,
+  #          (2) agents.yaml rol dağıtımı, (3) geriye dönük global AGENT_BACKEND.
+  backend="${AGENT_BACKEND}"
+  fallback="${AGENT_BACKEND_FALLBACK:-}"
+  ROLE_RESOLUTION_REASON=""
+  if roles_active; then
+    override_var="AGENT_BACKEND_${role^^}"
+    if [[ -n "${!override_var:-}" ]]; then
+      backend="${!override_var}"
+      ROLE_RESOLUTION_REASON="env_override: ${override_var}=${backend}"
+    elif role_resolve "$role"; then
+      backend="$RESOLVED_AGENT"
+    else
+      echo "ROLE_UNRESOLVED role=$role (agents.yaml)" | tee -a "$failure_log" >&2
+      rm -f "$tmp_result" "$result"
+      return 36
+    fi
+    fallback="$(role_runtime_fallback "$role" "$backend")"
+  fi
+
+  # Handoff ajanı headless çalıştırılamaz: görev paketi üretilir, aşama
+  # WAITING_AGENT'ta durur. Tam otomasyon varmış gibi davranılmaz.
+  if roles_handoff_agent "$backend"; then
+    HANDOFF_AGENT="$backend"
+    HANDOFF_ROLE="$role"
+    HANDOFF_FILE="$(handoff_write "$role" "$backend" "$input")"
+    {
+      echo "ROLE=$role"
+      echo "AGENT=$backend"
+      echo "MODE=handoff"
+      echo "HANDOFF_FILE=$HANDOFF_FILE"
+      echo "FALLBACK_REASON=${ROLE_RESOLUTION_REASON:-none}"
+      echo "CREATED_AT=$(now)"
+    } | tee -a "$stdout_log"
+    rm -f "$tmp_result"
+    return 38
+  fi
+
+  {
+    echo "ROLE_AGENT=$backend"
+    echo "ROLE_RUNTIME_FALLBACK=${fallback:-none}"
+    echo "ROLE_FALLBACK_REASON=${ROLE_RESOLUTION_REASON:-none}"
+  } | tee -a "$stdout_log"
+
+  agent_attempt "$backend" "$role" "$input" "$tmp_result" "$stdout_log" "$stderr_log"
+  rc=$?
+
+  if [[ "$rc" -eq 35 ]]; then
+    echo "Bilinmeyen ajan backend=${backend} (codex|claude)." | tee -a "$failure_log" >&2
+    rm -f "$tmp_result" "$result"
+    return 35
+  fi
+
+  # Sağlayıcıya hiç ulaşılamadıysa aynı aşama diğer backend ile BİR kez tekrarlanır
+  # (fresh süreç, aynı girdi, aynı doğrulama). Birincil denemenin stderr kanıtı
+  # silinmez; devir stdout ve failure loguna açıkça yazılır.
+  if [[ -n "$fallback" ]] && [[ "$fallback" != "$backend" ]] \
+     && { [[ "$rc" -ne 0 ]] || [[ ! -s "$tmp_result" ]]; } \
+     && agent_provider_unavailable "$stderr_log" "$rc" "$tmp_result"; then
+    if agent_backend_known "$fallback"; then
+      {
+        echo "FALLBACK_FROM=${backend}"
+        echo "FALLBACK_TO=$fallback"
+        echo "FALLBACK_REASON=provider_unavailable"
+        echo "FALLBACK_PRIMARY_EXIT=$rc"
+      } | tee -a "$stdout_log" >> "$failure_log"
+      # Etkin ajan değişti: defter ve review kaydı gerçekten çalışanı göstermeli.
+      ROLE_RESOLUTION_REASON="runtime_provider_unavailable: ${backend} exit=${rc}"
+      backend="$fallback"
+      agent_attempt "$fallback" "$role" "$input" "$tmp_result" "$stdout_log" "$stderr_log"
+      rc=$?
+    else
+      echo "Yedek ajan bilinmiyor: $fallback; devir denenmedi." \
+        | tee -a "$failure_log" >&2
+    fi
+  fi
+
+  ROLE_EFFECTIVE_AGENT="$backend"
+
+  agent_cap_log "$stderr_log" "${AGENT_STDERR_LOG_MAX_BYTES}"
 
   if [[ "$rc" -ne 0 ]]; then
     {
@@ -404,21 +592,52 @@ run_implementer() {
     fi
   } > "$input"
 
-  echo "[1/3] Fresh $(agent_backend_label) implementer"
+  echo "[1/3] Fresh $(role_label implementer) implementer"
   run_agent "implementer" "$input" "$result" '^STATUS: SUCCESS$'
   rc=$?
+
+  # 38 = handoff bekliyor: uygulayıcı otomatik çalıştırılamayan bir ajandır
+  # (Qoder). Görev paketi üretildi; operatör IDE'de çalıştırır. Durum kalıcıdır.
+  if [[ "$rc" -eq 38 ]]; then
+    state_patch '
+      .stage = "IMPLEMENTER" | .status = "WAITING_AGENT"
+      | .handoff_file = $file | .handoff_agent = $agent
+      | .handoff_fingerprint = $fp
+      | .last_error = null | .updated_at = $now
+    ' --arg file "$HANDOFF_FILE" --arg agent "$HANDOFF_AGENT" \
+      --arg fp "$(worktree_fingerprint)" --arg now "$(now)"
+    LEDGER_IMPLEMENTER_AGENT="$HANDOFF_AGENT"
+    LEDGER_FALLBACK_REASON="${ROLE_RESOLUTION_REASON:-none}"
+    ledger_sync >/dev/null
+    echo
+    echo "Uygulayıcı rolü $(roles_agent_label "$HANDOFF_AGENT") ajanına devredildi."
+    echo "Neden: ${ROLE_RESOLUTION_REASON:-yapılandırma}"
+    echo "Görev paketi: ${HANDOFF_FILE#"$ROOT"/}"
+    echo
+    echo "Sıradaki adım: paketi $(roles_agent_label "$HANDOFF_AGENT") içinde çalıştır, sonra:"
+    echo "  devam \"qoder tamam\"      (uygulandıysa; controller testleri kendisi çalıştırır)"
+    echo "  devam \"blocked: <neden>\"  (ajan mimari karar gerekiyor dediyse)"
+    return 0
+  fi
+
   if [[ "$rc" -ne 0 ]]; then
     state_update "IMPLEMENTER" "FAILED" "Implementer başarısız; loglar kaydedildi."
+    ledger_sync >/dev/null
     return "$rc"
   fi
   rm -f "$H/HUMAN_RESPONSE.md"
+  LEDGER_IMPLEMENTER_AGENT="${ROLE_EFFECTIVE_AGENT:-}"
+  LEDGER_FALLBACK_REASON="${ROLE_RESOLUTION_REASON:-none}"
   state_update "TESTER" "READY" ""
+  ledger_sync >/dev/null
   return 0
 }
 
 run_tests() {
   local iteration unit_log integration_log unit_rc integration_rc skipped report
-  local need_pg targets t
+  local need_pg targets t task_id unit_cmd integration_cmd started duration
+  local unit_evidence integration_evidence pg_log
+  task_id="$(ledger_task_id)"
   iteration="$(state_field iteration)"
   unit_log="$LOGS/unit-tests-i${iteration}.log"
   integration_log="$LOGS/integration-tests-i${iteration}.log"
@@ -428,26 +647,45 @@ run_tests() {
   echo "[2/3] Controller test gates"
 
   # Unit testler her zaman.
+  unit_cmd="python3 -m pytest -q -p no:cacheprovider $UNIT_TEST_DIR"
+  started="$SECONDS"
   run_logged_test "$unit_log" python3 -m pytest -q -p no:cacheprovider "$UNIT_TEST_DIR"
   unit_rc=$?
+  duration=$(( SECONDS - started ))
+  unit_evidence="$(evidence_write "$task_id" "unit" "$unit_cmd" "$unit_rc" "$duration" \
+    "$unit_log" "Birim testleri controller kabuğunda çalıştırıldı; dış servis gerekmez.")"
 
   integration_rc=0
   skipped="n/a"
+  integration_evidence=""
   if integration_required; then
     need_pg=yes
     # Entegrasyon gerekiyorsa PG preflight zorunlu; başarısızsa SAHTE PASS YOK.
-    if ! postgres_preflight | tee "$LOGS/postgres-preflight-tests-i${iteration}.log"; then
+    pg_log="$LOGS/postgres-preflight-tests-i${iteration}.log"
+    if ! postgres_preflight | tee "$pg_log"; then
+      # Ortam yokluğu ürün hatası DEĞİLDİR: kanıt ENVIRONMENT_FAILURE olarak yazılır.
+      evidence_write "$task_id" "integration" \
+        "postgres_preflight (entegrasyon öncesi zorunlu kapı)" 1 0 "$pg_log" \
+        "PostgreSQL erişilemedi; ENVIRONMENT_FAILURE. Ürün hatası olarak raporlanmaz." \
+        "ENVIRONMENT_FAILURE" >/dev/null
       state_update "TESTER" "FAILED" "PostgreSQL preflight başarısız; entegrasyon PASS sayılamaz (ENVIRONMENT_BLOCK)."
+      ledger_sync >/dev/null
       return 1
     fi
     mapfile -t targets < <(discover_integration_targets)
+    integration_cmd="python3 -m pytest -q -p no:cacheprovider ${targets[*]}"
+    started="$SECONDS"
     run_logged_test "$integration_log" python3 -m pytest -q -p no:cacheprovider "${targets[@]}"
     integration_rc=$?
+    duration=$(( SECONDS - started ))
     if integration_has_skips "$integration_log"; then
       skipped="yes"
     else
       skipped="no"
     fi
+    integration_evidence="$(evidence_write "$task_id" "integration" "$integration_cmd" \
+      "$integration_rc" "$duration" "$integration_log" \
+      "PG preflight geçti. Zorunlu entegrasyonda skip tespiti: $skipped")"
   else
     need_pg=no
   fi
@@ -460,9 +698,11 @@ run_tests() {
     echo "Integration required: $need_pg"
     echo
     echo "## Unit tests"
-    echo "Command: python3 -m pytest -q -p no:cacheprovider $UNIT_TEST_DIR"
+    echo "Command: $unit_cmd"
     echo "Exit code: $unit_rc"
     echo "Log: $unit_log"
+    echo "Failure class: $(classify_test_failure "$unit_log" "$unit_rc")"
+    echo "Evidence: ${unit_evidence:-none}"
     echo
     echo "## Integration tests"
     if [[ "$need_pg" == "yes" ]]; then
@@ -470,25 +710,33 @@ run_tests() {
       echo "Exit code: $integration_rc"
       echo "Skipped detected: $skipped"
       echo "Log: $integration_log"
+      echo "Failure class: $(classify_test_failure "$integration_log" "$integration_rc")"
+      echo "Evidence: ${integration_evidence:-none}"
     else
       echo "Bu görev PostgreSQL/entegrasyon etkisi içermiyor; entegrasyon kapısı çalıştırılmadı."
     fi
   } > "$report"
 
   if [[ "$unit_rc" -ne 0 ]]; then
-    state_update "TESTER" "FAILED" "Birim testleri başarısız."
+    state_update "TESTER" "FAILED" \
+      "Birim testleri başarısız ($(classify_test_failure "$unit_log" "$unit_rc"))."
+    ledger_sync >/dev/null
     return 1
   fi
   if [[ "$integration_rc" -ne 0 ]]; then
-    state_update "TESTER" "FAILED" "PostgreSQL entegrasyon testleri başarısız."
+    state_update "TESTER" "FAILED" \
+      "PostgreSQL entegrasyon testleri başarısız ($(classify_test_failure "$integration_log" "$integration_rc"))."
+    ledger_sync >/dev/null
     return 1
   fi
   if [[ "$skipped" == "yes" ]]; then
     state_update "TESTER" "FAILED" "Zorunlu entegrasyon testlerinde skip tespit edildi."
+    ledger_sync >/dev/null
     return 1
   fi
 
   state_update "REVIEWER" "READY" ""
+  ledger_sync >/dev/null
   return 0
 }
 
@@ -509,24 +757,33 @@ run_reviewer() {
     printf '\n## Current diff stat\n\n```text\n'; git -C "$ROOT" diff --stat; printf '```\n'
   } > "$input"
 
-  echo "[3/3] Fresh $(agent_backend_label) reviewer"
+  echo "[3/3] Fresh $(role_label reviewer) reviewer"
   run_agent "reviewer" "$input" "$result" '^STATUS: (APPROVED|CHANGES_REQUIRED|HUMAN_DECISION)$'
   rc=$?
   if [[ "$rc" -ne 0 ]]; then
     state_update "REVIEWER" "FAILED" "Reviewer başarısız; loglar kaydedildi."
+    ledger_sync >/dev/null
     return "$rc"
   fi
 
   first_line="$(head -n 1 "$result" | tr -d '\r')"
+  local task_id
+  task_id="$(ledger_task_id)"
   case "$first_line" in
     "STATUS: APPROVED")
+      review_record "$task_id" "APPROVED" >/dev/null
       state_update "COMPLETED" "COMPLETED" ""
-      echo; echo "Tamamlandı ve onaylandı."
+      ledger_sync >/dev/null
+      # Görev kapandı: claim serbest bırakılır, aynı görev tekrar claim edilebilir.
+      claim_release "$task_id" || true
+      echo; echo "Tamamlandı ve bağımsız review ile onaylandı."
       ;;
     "STATUS: CHANGES_REQUIRED")
+      review_record "$task_id" "CHANGES_REQUESTED" >/dev/null
       next_repair=$((repair + 1))
       if (( next_repair > MAX_REPAIR_ROUNDS )); then
         state_update "REVIEWER" "WAITING_HUMAN" "Azami otomatik onarım turu aşıldı."
+        ledger_sync >/dev/null
         echo; echo "İnsan kararı gerekiyor. Yanıt: devam \"kararın\""
         return 0
       fi
@@ -537,10 +794,13 @@ run_reviewer() {
         | .last_error = null
         | .updated_at = $now
       ' --argjson repair "$next_repair" --arg now "$(now)"
+      ledger_sync >/dev/null
       echo "Reviewer düzeltme istedi; otomatik onarım turu: $next_repair"
       ;;
     "STATUS: HUMAN_DECISION")
+      review_record "$task_id" "HUMAN_DECISION" >/dev/null
       state_update "REVIEWER" "WAITING_HUMAN" "Reviewer insan kararı istedi."
+      ledger_sync >/dev/null
       echo; echo "İnsan kararı gerekiyor. Yanıt: devam \"kararın\""
       ;;
   esac
@@ -735,11 +995,97 @@ start_new_task() {
     | .status = "READY"
     | .repair_round = 0
     | .last_error = null
+    | .handoff_file = null
+    | .handoff_agent = null
+    | .handoff_fingerprint = null
     | .updated_at = $now
   ' --argjson iteration "$iteration" --arg now "$now_value"
 
+  # Claim: aynı görevi ikinci bir uygulayıcı (başka worktree/süreç) alamaz.
+  # Kilit ortak git dizinindedir, çalışma ağacına yazılmaz.
+  LEDGER_IMPLEMENTER_AGENT=""
+  LEDGER_FALLBACK_REASON=""
+  if ! claim_acquire "$task_id" "$(_ledger_role_agent implementer)"; then
+    state_update "IMPLEMENTER" "WAITING_HUMAN" "Görev $task_id başka bir worktree tarafından claim edilmiş."
+    echo "Görev claim edilemedi; ikinci uygulayıcı başlatılmadı." >&2
+    return 37
+  fi
+  ledger_sync >/dev/null
+
   echo "Yeni iterasyon oluşturuldu: $iteration"
-  echo "Görev: $title"
+  echo "Görev: $title ($task_id)"
+  echo "Uygulayıcı: $(role_label implementer) | Testçi: $(role_label tester) | Reviewer: $(role_label reviewer)"
+}
+
+# --- handoff'tan dönüş ------------------------------------------------------
+
+# Handoff ajanı (Qoder) görevi IDE'de uyguladıktan sonra operatör `devam "..."`
+# der. Uygulama BEYANI kanıt sayılmaz:
+#   - çalışma ağacı parmak izi değişmediyse uygulama yoktur (aşama ilerlemez),
+#   - değiştiyse controller kendi test kapılarını çalıştırır (TESTER),
+#   - onay yine bağımsız reviewer ajanındadır.
+resume_from_handoff() {
+  local note="$1" file agent fp_before fp_now task_id
+  file="$(state_field handoff_file)"
+  agent="$(state_field handoff_agent)"
+  fp_before="$(state_field handoff_fingerprint)"
+  task_id="$(ledger_task_id)"
+
+  if [[ -z "$note" ]]; then
+    echo "Uygulayıcı rolü $(roles_agent_label "${agent:-handoff}") ajanında bekliyor."
+    echo "Görev paketi: ${file#"$ROOT"/}"
+    echo
+    echo "Paketi ajana ver, işi bitince:"
+    echo "  devam \"qoder tamam\"       (uygulama yapıldıysa)"
+    echo "  devam \"blocked: <neden>\"   (ajan mimari karar gerekiyor dediyse)"
+    return 1
+  fi
+
+  # Ajan belirsizlikte karar almaz: BLOCKED insan kararına gider.
+  if [[ "$note" =~ ^[[:space:]]*(blocked|BLOCKED|engellendi) ]]; then
+    printf '%s\n' "$note" > "$H/HANDOFF_RESULT.md"
+    state_update "IMPLEMENTER" "WAITING_HUMAN" "Handoff ajanı BLOCKED bildirdi: $note"
+    ledger_sync >/dev/null
+    echo "Görev BLOCKED olarak işaretlendi; insan kararı bekleniyor."
+    echo 'Karar vermek için: devam "kararın"'
+    return 1
+  fi
+
+  fp_now="$(worktree_fingerprint)"
+  if [[ -n "$fp_before" && "$fp_before" != "null" && "$fp_before" == "$fp_now" ]]; then
+    echo "Çalışma ağacında değişiklik yok: '$note' beyanı doğrulanamadı." >&2
+    echo "Uygulama gerçekten yapıldıysa dosyaları kaydettiğinden emin ol." >&2
+    echo "Aşama WAITING_AGENT'ta bırakıldı; sahte ilerleme üretilmedi." >&2
+    state_update "IMPLEMENTER" "WAITING_AGENT" "Handoff beyanı doğrulanamadı: çalışma ağacı değişmedi."
+    ledger_sync >/dev/null
+    return 1
+  fi
+
+  {
+    printf 'STATUS: SUCCESS\n\n'
+    printf '# Handoff uygulama sonucu (%s)\n\n' "$(roles_agent_label "${agent:-handoff}")"
+    printf 'Operatör beyanı: %s\n\n' "$note"
+    printf 'Görev paketi: `%s`\n\n' "${file#"$ROOT"/}"
+    printf 'Doğrulama: çalışma ağacı parmak izi değişti (beyan tek başına yeterli değildir).\n'
+    printf 'Öncesi: `%s`\nSonrası: `%s`\n\n' "${fp_before:0:12}" "${fp_now:0:12}"
+    printf '## Değişen dosyalar (controller tespiti)\n\n```text\n'
+    git -C "$ROOT" status --short
+    printf '```\n'
+  } > "$H/CODEX_RESULT.md"
+  cp -f "$H/CODEX_RESULT.md" "$H/HANDOFF_RESULT.md"
+
+  # Handoff dosyasının durumunu güncelle (izlenen kanıt: paket tüketildi).
+  if [[ -n "$file" && "$file" != "null" && -f "$file" ]]; then
+    sed -i 's/^status: PENDING$/status: IMPLEMENTED/' "$file"
+  fi
+
+  LEDGER_IMPLEMENTER_AGENT="${agent:-}"
+  LEDGER_FALLBACK_REASON="handoff"
+  rm -f "$H/HUMAN_RESPONSE.md"
+  state_update "TESTER" "READY" ""
+  ledger_sync >/dev/null
+  echo "Handoff uygulaması alındı; controller test kapıları çalıştırılıyor."
+  return 0
 }
 
 # --- ana state-machine ------------------------------------------------------
@@ -763,10 +1109,13 @@ main() {
         run_planner || return $?
       fi
       start_new_task "$PLANNED_OBJECTIVE" "$PLANNED_TASK_ID" "$PLANNED_TITLE" \
-        "$PLANNED_SOURCE_DOCS" "$PLANNED_PRIORITY_REASON" "automatic"
+        "$PLANNED_SOURCE_DOCS" "$PLANNED_PRIORITY_REASON" "automatic" || return $?
     else
-      start_new_task "$note" "" "$note" "" "Operator tarafından doğrudan verildi." "manual"
+      start_new_task "$note" "" "$note" "" "Operator tarafından doğrudan verildi." "manual" || return $?
     fi
+  elif [[ "$status" == "WAITING_AGENT" ]]; then
+    # Operatör eylemi bekleniyor: temiz çıkış (WAITING_HUMAN ile aynı sözleşme).
+    resume_from_handoff "$note" || return 0
   elif [[ "$status" == "WAITING_HUMAN" ]]; then
     if [[ -z "$note" ]]; then
       echo "İnsan kararı bekleniyor (varsayılan pencere ${HUMAN_WAIT_SECONDS}s; state kalıcı, süre sınırı yok)."
@@ -776,7 +1125,7 @@ main() {
       return 0
     fi
     if [[ "$stage" == "PLANNER" ]]; then
-      start_new_task "$note" "" "$note" "" "Planner görev bulamadığı için operatör tarafından verildi." "manual"
+      start_new_task "$note" "" "$note" "" "Planner görev bulamadığı için operatör tarafından verildi." "manual" || return $?
     else
       printf '%s\n' "$note" > "$H/HUMAN_RESPONSE.md"
       # İnsan kararı onarım kilidini kırar: taze onarım bütçesiyle başla.
@@ -799,6 +1148,11 @@ main() {
       READY:TESTER)      run_tests || return $? ;;
       READY:REVIEWER)    run_reviewer || return $? ;;
       COMPLETED:COMPLETED) echo "Pipeline tamamlandı."; return 0 ;;
+      WAITING_AGENT:*)
+        # Handoff ajanı (Qoder) bekliyor: controller yeni yazıcı başlatmaz.
+        echo "Handoff ajanı bekleniyor. Paket: $(state_field handoff_file)"
+        echo 'İş bitince: devam "qoder tamam"'
+        return 0 ;;
       WAITING_HUMAN:*)
         echo "İnsan kararı bekleniyor. Yanıt: devam \"kararın veya görevin\""
         return 0 ;;

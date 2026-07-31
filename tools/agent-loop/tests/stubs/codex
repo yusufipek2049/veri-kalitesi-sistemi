@@ -5,6 +5,8 @@
 #   STUB_CODEX_ECHO_PG=1-> write STATUS + forwarded PG url (env forwarding check)
 #   STUB_CODEX_STATUS   -> first line of the result (default "STATUS: SUCCESS")
 #   STUB_CODEX_BODY     -> remaining body
+#   STUB_CODEX_STDERR   -> stderr'e yazılacak metin (sağlayıcı hatası taklidi)
+#   STUB_CODEX_STDERR_BYTES -> stderr'e bu kadar dolgu bayt (log cap testi)
 set -u
 
 out=""
@@ -17,6 +19,15 @@ done
 
 # Capture the prompt on stdin (used for role auto-detection).
 prompt="$(cat 2>/dev/null || true)"
+
+# Dolgu önce, gerçek mesaj sonra: cap sonrası son baytların korunduğu doğrulanır.
+if [[ -n "${STUB_CODEX_STDERR_BYTES:-}" ]]; then
+  head -c "${STUB_CODEX_STDERR_BYTES}" /dev/zero | tr '\0' 'x' >&2
+  echo >&2
+fi
+if [[ -n "${STUB_CODEX_STDERR:-}" ]]; then
+  printf '%s\n' "${STUB_CODEX_STDERR}" >&2
+fi
 
 if [[ -n "${STUB_CODEX_EXIT:-}" && "${STUB_CODEX_EXIT}" != "0" ]]; then
   echo "stub codex forced failure exit=${STUB_CODEX_EXIT}" >&2

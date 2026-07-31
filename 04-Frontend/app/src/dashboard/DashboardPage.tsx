@@ -197,6 +197,9 @@ export function DashboardPage({
                     SLA: {data.contributionGraph?.sla_status ?? "UNKNOWN"}
                   </Typography>
                 </Box>
+                <Typography color="text.secondary" sx={{ mt: 2 }} variant="body2">
+                  {data.governanceNote}
+                </Typography>
               </Paper>
             )}
           </>

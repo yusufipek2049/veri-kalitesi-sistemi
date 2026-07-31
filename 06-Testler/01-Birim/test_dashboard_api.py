@@ -28,6 +28,7 @@ from veri_kalitesi.identity import (
     DashboardAuthorizationPolicy,
     PolicyAuthorizationService,
 )
+from veri_kalitesi.lineage import StoredLineageSnapshot
 from veri_kalitesi.scoring import (
     QualityScore,
     ScoreLevel,
@@ -261,6 +262,7 @@ def _app(
     use_development_resolver: bool = True,
     context_resolver: ForgedContextResolver | None = None,
     dashboard_clock: Callable[[], datetime] = lambda: NOW,
+    lineage_repo: object | None = None,
 ) -> FastAPI:
     audit_repository = SQLiteAuditRepository()
     audit_service = AuditService(
@@ -305,7 +307,102 @@ def _app(
         actor_context_resolver=resolver,
         allowed_origins=("http://127.0.0.1:5173",),
         data_origin="test",
+        lineage_evidence_repository=lineage_repo,
     )
+
+
+class _FakeLineageRepository:
+    """Salt okunur lineage endpoint'i için minimum repository double'ı."""
+
+    def get(self, snapshot_id: str) -> StoredLineageSnapshot | None:
+        if snapshot_id == "snap-1":
+            return StoredLineageSnapshot(
+                snapshot_id="snap-1",
+                snapshot_kind="GOVERNANCE_PROFILE",
+                subject_ref="source-a",
+                version_label="1",
+                digest="sha256:" + "a" * 64,
+                payload={"profile_contract_version": "DQ_GOVERNANCE_PROFILE_V1"},
+                created_at=NOW,
+            )
+        if snapshot_id == "snap-outside":
+            return StoredLineageSnapshot(
+                snapshot_id="snap-outside",
+                snapshot_kind="GOVERNANCE_PROFILE",
+                subject_ref="source-outside",
+                version_label="1",
+                digest="sha256:" + "b" * 64,
+                payload={"profile_contract_version": "DQ_GOVERNANCE_PROFILE_V1"},
+                created_at=NOW,
+            )
+        return None
+
+
+def test_ac_09_lineage_endpoints_are_fail_closed_without_evidence_repository() -> None:
+    client = TestClient(_app(SQLiteScoreRepository()))
+
+    snapshot_response = client.get("/api/v1/lineage/snapshots/snap-1")
+    projection_response = client.get("/api/v1/governance/source-a/projection")
+
+    assert snapshot_response.status_code == 503
+    assert snapshot_response.json()["status"] == 503
+    assert snapshot_response.headers["cache-control"] == "no-store"
+    assert projection_response.status_code == 503
+    assert projection_response.json()["status"] == 503
+
+
+def test_ac_02_lineage_snapshot_endpoint_serves_stored_evidence() -> None:
+    client = TestClient(_app(SQLiteScoreRepository(), lineage_repo=_FakeLineageRepository()))
+
+    response = client.get("/api/v1/lineage/snapshots/snap-1")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["snapshot_id"] == "snap-1"
+    assert payload["snapshot_kind"] == "GOVERNANCE_PROFILE"
+    assert payload["subject_ref"] == "source-a"
+    assert payload["version_label"] == "1"
+    assert payload["digest"] == "sha256:" + "a" * 64
+    assert payload["data_origin"] == "test"
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_ac_02_lineage_snapshot_endpoint_returns_404_for_unknown_snapshot() -> None:
+    client = TestClient(_app(SQLiteScoreRepository(), lineage_repo=_FakeLineageRepository()))
+
+    response = client.get("/api/v1/lineage/snapshots/missing")
+
+    assert response.status_code == 404
+    assert response.json()["status"] == 404
+
+
+def test_lineage_snapshot_unauthenticated_request_is_rejected() -> None:
+    client = TestClient(
+        _app(SQLiteScoreRepository(), use_development_resolver=False, lineage_repo=_FakeLineageRepository())
+    )
+
+    response = client.get("/api/v1/lineage/snapshots/snap-1")
+
+    assert response.status_code == 401
+    assert response.json()["status"] == 401
+
+
+def test_lineage_snapshot_outside_actor_scope_is_denied() -> None:
+    client = TestClient(_app(SQLiteScoreRepository(), lineage_repo=_FakeLineageRepository()))
+
+    response = client.get("/api/v1/lineage/snapshots/snap-outside")
+
+    assert response.status_code == 403
+    assert response.json()["status"] == 403
+
+
+def test_governance_projection_outside_actor_scope_is_denied() -> None:
+    client = TestClient(_app(SQLiteScoreRepository(), lineage_repo=_FakeLineageRepository()))
+
+    response = client.get("/api/v1/governance/source-outside/projection")
+
+    assert response.status_code == 403
+    assert response.json()["status"] == 403
 
 
 def _score(

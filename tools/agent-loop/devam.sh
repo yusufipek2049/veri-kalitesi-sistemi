@@ -45,13 +45,32 @@ show_status() {
     title="$(jq -r '.task.title // "-"' "$H/CURRENT_TASK.json")"
     mode="$(jq -r '.task.selection_mode // "-"' "$H/CURRENT_TASK.json")"
   fi
-  printf 'Backend   : %s\n' "${AGENT_BACKEND:-codex}"
+  # Rol dağıtımı canonical kaynaktan okunur (agents.yaml); burada tekrar tanımlanmaz.
+  local roles_file="$ROOT/.agent/config/agents.yaml"
+  # shellcheck source=tools/agent-loop/roles.sh
+  source "$TOOLS_DIR/roles.sh"
+  local impl tester reviewer lifecycle handoff
+  if roles_load "$roles_file" >/dev/null 2>&1; then
+    impl="$(role_agent implementer 2>/dev/null || echo unresolved)"
+    tester="$(role_agent tester 2>/dev/null || echo unresolved)"
+    reviewer="$(role_agent reviewer 2>/dev/null || echo unresolved)"
+  else
+    impl="legacy:${AGENT_BACKEND:-codex}"; tester="$impl"; reviewer="$impl"
+  fi
+  # shellcheck source=tools/agent-loop/ledger.sh
+  source "$TOOLS_DIR/ledger.sh"
+  lifecycle="$(lifecycle_state "$stage" "$status" "$repair" "")"
+  handoff="$(jq -r '.handoff_file // "-"' "$STATE")"
+
+  printf 'Lifecycle : %s\n' "$lifecycle"
   printf 'Iteration : %s\n' "$iteration"
   printf 'Stage     : %s\n' "$stage"
   printf 'Status    : %s\n' "$status"
   printf 'Repair    : %s\n' "$repair"
   printf 'Task      : %s (%s)\n' "$task" "$mode"
   printf 'Title     : %s\n' "$title"
+  printf 'Roller    : implementer=%s tester=%s reviewer=%s\n' "$impl" "$tester" "$reviewer"
+  [[ "$handoff" != "-" && "$handoff" != "null" ]] && printf 'Handoff   : %s\n' "$handoff"
   printf 'Last error: %s\n' "$err"
 }
 

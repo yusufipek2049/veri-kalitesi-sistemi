@@ -69,18 +69,24 @@ run_test() {
   # Harness alt kabuk kullanmadığı için backend seçimi ve rol tuning değişkenleri
   # testler arasında sızabilir; her testte açıkça varsayılana döndürülür.
   AGENT_BACKEND=codex
+  AGENT_BACKEND_FALLBACK=""
+  AGENT_STDERR_LOG_MAX_BYTES=2000000
   CODEX_IMPLEMENTER_MODEL=""; CODEX_REVIEWER_MODEL=""; CODEX_PLANNER_MODEL=""
   CODEX_IMPLEMENTER_REASONING=""; CODEX_REVIEWER_REASONING=""; CODEX_PLANNER_REASONING=""
   CLAUDE_IMPLEMENTER_MODEL=""; CLAUDE_REVIEWER_MODEL=""; CLAUDE_PLANNER_MODEL=""
   CLAUDE_IMPLEMENTER_EFFORT=""; CLAUDE_REVIEWER_EFFORT=""; CLAUDE_PLANNER_EFFORT=""
-  unset STUB_CODEX_EXIT STUB_CODEX_EMPTY STUB_CODEX_ECHO_PG STUB_CODEX_STATUS STUB_CODEX_BODY
+  unset STUB_CODEX_EXIT STUB_CODEX_EMPTY STUB_CODEX_ECHO_PG STUB_CODEX_STATUS \
+        STUB_CODEX_BODY STUB_CODEX_STDERR STUB_CODEX_STDERR_BYTES
   unset STUB_CLAUDE_EXIT STUB_CLAUDE_EMPTY STUB_CLAUDE_ECHO_PG STUB_CLAUDE_STATUS \
-        STUB_CLAUDE_BODY STUB_CLAUDE_ARGV_LOG STUB_CLAUDE_CWD_LOG
+        STUB_CLAUDE_BODY STUB_CLAUDE_ARGV_LOG STUB_CLAUDE_CWD_LOG STUB_CLAUDE_STDERR \
+        STUB_CLAUDE_STDOUT_ERROR
   # run_agent stub'ı `env` ile başlatır; kontrol değişkenleri export edilmeli ki
   # alt sürece ulaşsın. Export attribute'u sonraki atamalarda korunur.
-  export STUB_CODEX_EXIT STUB_CODEX_EMPTY STUB_CODEX_ECHO_PG STUB_CODEX_STATUS STUB_CODEX_BODY
+  export STUB_CODEX_EXIT STUB_CODEX_EMPTY STUB_CODEX_ECHO_PG STUB_CODEX_STATUS \
+         STUB_CODEX_BODY STUB_CODEX_STDERR STUB_CODEX_STDERR_BYTES
   export STUB_CLAUDE_EXIT STUB_CLAUDE_EMPTY STUB_CLAUDE_ECHO_PG STUB_CLAUDE_STATUS \
-         STUB_CLAUDE_BODY STUB_CLAUDE_ARGV_LOG STUB_CLAUDE_CWD_LOG
+         STUB_CLAUDE_BODY STUB_CLAUDE_ARGV_LOG STUB_CLAUDE_CWD_LOG STUB_CLAUDE_STDERR \
+        STUB_CLAUDE_STDOUT_ERROR
   DATA_QUALITY_POSTGRES_TEST_URL=""
   DATA_QUALITY_DATABASE_SCHEMA=""
   agentloop_init "$ROOTX" "$LOOP_DIR"
@@ -91,6 +97,29 @@ run_test() {
   cd "$TESTS_DIR" || return
   if [[ "$CURRENT_OK" == "1" ]]; then echo "  ok  $name"; else echo "  XX  $name"; FAILED_TESTS+=("$name"); fi
   rm -rf "$ROOTX"
+}
+
+# Rol yapılandırması yazar ve yeniden yükler. Varsayılan: Codex birincil,
+# Qoder yedek, Claude mimar/reviewer (üretim yapılandırmasının aynısı).
+write_roles_config() { # [codex_available] [impl_primary] [impl_fallback] [reviewer]
+  local avail="${1:-false}" primary="${2:-codex}" fallback="${3:-qoder}" reviewer="${4:-claude}"
+  mkdir -p "$ROOTX/.agent/config"
+  cat > "$ROOTX/.agent/config/agents.yaml" <<EOF
+schema_version: 1
+architect: claude
+reviewer: $reviewer
+implementer:
+  primary: $primary
+  fallback: $fallback
+tester:
+  primary: $primary
+  fallback: $fallback
+runtime:
+  codex_available: $avail
+  fallback_on_quota_error: true
+  prevent_parallel_writers: true
+EOF
+  roles_load "$AGENT_ROLES_FILE"
 }
 
 # --- test cases ------------------------------------------------------------
@@ -276,6 +305,202 @@ t_claude_backend_full_iteration() {
   main continue >/dev/null 2>&1
   assert_eq "COMPLETED" "$(state_field stage)" "claude backend uçtan uca iterasyonu tamamlamalı"
   assert_present "$H/ARCHITECT_REVIEW.md" "reviewer onayı üretilmeli"
+}
+
+# --- sağlayıcı erişimi yokken backend devri --------------------------------
+
+# Gerçek codex kota mesajı (iterasyon 13'te pipeline'ı durduran metin).
+USAGE_LIMIT_MSG="ERROR: You've hit your usage limit. Upgrade to Pro (https://chatgpt.com/explore/pro) or try again at Aug 5th, 2026 8:49 AM."
+
+t_fallback_on_provider_usage_limit() {
+  AGENT_BACKEND=codex
+  AGENT_BACKEND_FALLBACK=claude
+  STUB_CODEX_EXIT=1
+  STUB_CODEX_STDERR="$USAGE_LIMIT_MSG"
+  STUB_CLAUDE_BODY="fallback gövdesi"
+  echo "prompt" > "$H/in.md"
+  run_agent implementer "$H/in.md" "$H/CODEX_RESULT.md" '^STATUS: SUCCESS$' >/dev/null 2>&1
+  assert_eq "0" "$?" "kota hatasında yedek backend aşamayı tamamlamalı"
+  assert_contains "$(cat "$H/CODEX_RESULT.md" 2>/dev/null)" "fallback gövdesi" \
+    "sonuç yedek backend'den gelmeli"
+  local log="$LOGS/implementer-i$(state_field iteration)-r$(state_field repair_round).stdout.log"
+  assert_contains "$(cat "$log" 2>/dev/null)" "FALLBACK_TO=claude" "devir stdout loguna yazılmalı"
+  assert_contains "$(cat "$log" 2>/dev/null)" "FALLBACK_REASON=provider_unavailable" \
+    "devir nedeni kayda geçmeli"
+  assert_contains "$(cat "$log" 2>/dev/null)" "BACKEND=claude" "ikinci deneme backend'i loglanmalı"
+  # Birincil denemenin kanıtı silinmemeli.
+  local elog="$LOGS/implementer-i$(state_field iteration)-r$(state_field repair_round).stderr.log"
+  assert_contains "$(cat "$elog" 2>/dev/null)" "usage limit" "birincil stderr kanıtı korunmalı"
+}
+
+t_fallback_on_empty_result_with_provider_error() {
+  # Süreç 0 dönse bile sonuç boş ve stderr sağlayıcı hatası ise devir yapılır.
+  AGENT_BACKEND=claude
+  AGENT_BACKEND_FALLBACK=codex
+  STUB_CLAUDE_EMPTY=1
+  STUB_CLAUDE_STDERR="Error: 429 too many requests"
+  STUB_CODEX_BODY="codex devraldı"
+  echo "prompt" > "$H/in.md"
+  run_agent implementer "$H/in.md" "$H/CODEX_RESULT.md" '^STATUS: SUCCESS$' >/dev/null 2>&1
+  assert_eq "0" "$?" "boş sonuç + sağlayıcı hatasında devir çalışmalı"
+  assert_contains "$(cat "$H/CODEX_RESULT.md" 2>/dev/null)" "codex devraldı" \
+    "sonuç yedek backend'den gelmeli"
+}
+
+# Gerçek claude oturum limiti metni: iterasyon 14 implementer'ını düşürdü ve
+# stderr BOŞ kaldı, mesaj stdout'a geldi.
+SESSION_LIMIT_MSG="You've hit your session limit · resets 5:10pm (Europe/Istanbul)"
+
+t_fallback_on_stdout_session_limit() {
+  AGENT_BACKEND=claude
+  AGENT_BACKEND_FALLBACK=codex
+  STUB_CLAUDE_STDOUT_ERROR="$SESSION_LIMIT_MSG"
+  STUB_CLAUDE_EXIT=1
+  STUB_CODEX_BODY="codex devraldı"
+  echo "prompt" > "$H/in.md"
+  run_agent implementer "$H/in.md" "$H/CODEX_RESULT.md" '^STATUS: SUCCESS$' >/dev/null 2>&1
+  assert_eq "0" "$?" "stdout'a yazılan oturum limiti devri tetiklemeli"
+  assert_contains "$(cat "$H/CODEX_RESULT.md" 2>/dev/null)" "codex devraldı" \
+    "sonuç yedek backend'den gelmeli"
+  local log="$LOGS/implementer-i$(state_field iteration)-r$(state_field repair_round).stdout.log"
+  assert_contains "$(cat "$log" 2>/dev/null)" "FALLBACK_TO=codex" "devir kayda geçmeli"
+  # stderr boş olduğu halde tespit çalışmalı.
+  local elog="$LOGS/implementer-i$(state_field iteration)-r$(state_field repair_round).stderr.log"
+  if [[ ! -s "$elog" ]]; then ok; else
+    fail "bu senaryoda stderr boş kalmalı (gerçek davranış)"; fi
+}
+
+t_session_limit_recognised_on_stderr_too() {
+  echo "$SESSION_LIMIT_MSG" > "$H/fake-stderr.log"
+  if agent_provider_unavailable "$H/fake-stderr.log" 1; then ok; else
+    fail "'session limit' stderr'de de tanınmalı"; fi
+}
+
+t_valid_result_mentioning_limit_is_not_provider_error() {
+  # Yanlış pozitif koruması: geçerli bir rapor bu sözcükleri metin olarak
+  # içerebilir. Sonuç `STATUS:` ile başlıyorsa sağlayıcı arızası sayılmamalı.
+  AGENT_BACKEND=claude
+  AGENT_BACKEND_FALLBACK=codex
+  STUB_CLAUDE_BODY="Raporda usage limit ve quota sözcükleri kanıt olarak geçiyor."
+  STUB_CODEX_BODY="codex ASLA CALISMAMALI"
+  echo "prompt" > "$H/in.md"
+  run_agent implementer "$H/in.md" "$H/CODEX_RESULT.md" '^STATUS: SUCCESS$' >/dev/null 2>&1
+  assert_eq "0" "$?" "geçerli sonuç başarılı sayılmalı"
+  assert_contains "$(cat "$H/CODEX_RESULT.md" 2>/dev/null)" "kanıt olarak geçiyor" \
+    "sonuç birincil backend'den gelmeli"
+  if [[ "$(cat "$H/CODEX_RESULT.md" 2>/dev/null)" == *"ASLA CALISMAMALI"* ]]; then
+    fail "geçerli sonuç varken devir yapılmamalı"
+  else ok; fi
+}
+
+t_provider_error_in_result_only_without_status() {
+  # Doğrudan fonksiyon sözleşmesi: sonuç kanalına yalnız geçerli STATUS yokken bakılır.
+  printf 'STATUS: SUCCESS\nusage limit metni gövdede.\n' > "$H/res-ok.md"
+  : > "$H/empty-stderr.log"
+  if agent_provider_unavailable "$H/empty-stderr.log" 1 "$H/res-ok.md"; then
+    fail "STATUS ile başlayan sonuç sağlayıcı arızası sayılmamalı"
+  else ok; fi
+  printf '%s\n' "$SESSION_LIMIT_MSG" > "$H/res-bad.md"
+  if agent_provider_unavailable "$H/empty-stderr.log" 1 "$H/res-bad.md"; then ok; else
+    fail "STATUS'suz kota metni sağlayıcı arızası sayılmalı"; fi
+}
+
+t_no_fallback_on_ordinary_failure() {
+  AGENT_BACKEND=codex
+  AGENT_BACKEND_FALLBACK=claude
+  STUB_CODEX_EXIT=7
+  STUB_CLAUDE_ARGV_LOG="$H/claude.argv"
+  echo "prompt" > "$H/in.md"
+  run_agent implementer "$H/in.md" "$H/CODEX_RESULT.md" '^STATUS: SUCCESS$' >/dev/null 2>&1
+  assert_eq "33" "$?" "sıradan başarısızlıkta devir yapılmamalı"
+  assert_absent "$H/claude.argv" "yedek backend hiç çalıştırılmamalı"
+  assert_absent "$H/CODEX_RESULT.md" "başarısız aşamada sonuç yayınlanmamalı"
+}
+
+t_no_fallback_when_disabled() {
+  AGENT_BACKEND=codex
+  AGENT_BACKEND_FALLBACK=""
+  STUB_CODEX_EXIT=1
+  STUB_CODEX_STDERR="$USAGE_LIMIT_MSG"
+  STUB_CLAUDE_ARGV_LOG="$H/claude.argv"
+  echo "prompt" > "$H/in.md"
+  run_agent implementer "$H/in.md" "$H/CODEX_RESULT.md" '^STATUS: SUCCESS$' >/dev/null 2>&1
+  assert_eq "33" "$?" "fallback kapalıyken kota hatası da başarısızlıktır"
+  assert_absent "$H/claude.argv" "fallback kapalıyken diğer sağlayıcıya maliyet kaymamalı"
+}
+
+t_no_fallback_to_same_backend() {
+  AGENT_BACKEND=codex
+  AGENT_BACKEND_FALLBACK=codex
+  STUB_CODEX_EXIT=1
+  STUB_CODEX_STDERR="$USAGE_LIMIT_MSG"
+  echo "prompt" > "$H/in.md"
+  run_agent implementer "$H/in.md" "$H/CODEX_RESULT.md" '^STATUS: SUCCESS$' >/dev/null 2>&1
+  assert_eq "33" "$?" "aynı backend'e devir anlamsızdır, tekrar denenmemeli"
+  local log="$LOGS/implementer-i$(state_field iteration)-r$(state_field repair_round).stdout.log"
+  if [[ "$(cat "$log" 2>/dev/null)" == *"FALLBACK_TO"* ]]; then
+    fail "aynı backend için devir kaydı yazılmamalı"
+  else ok; fi
+}
+
+t_unknown_fallback_target_no_attempt() {
+  AGENT_BACKEND=codex
+  AGENT_BACKEND_FALLBACK=bilinmeyen-provider
+  STUB_CODEX_EXIT=1
+  STUB_CODEX_STDERR="$USAGE_LIMIT_MSG"
+  echo "prompt" > "$H/in.md"
+  run_agent implementer "$H/in.md" "$H/CODEX_RESULT.md" '^STATUS: SUCCESS$' >/dev/null 2>&1
+  assert_eq "33" "$?" "bilinmeyen fallback hedefi aşamayı kurtarmamalı"
+  assert_contains "$(cat "$LOGS/implementer-failures.log" 2>/dev/null)" "bilinmiyor" \
+    "bilinmeyen fallback hedefi loglanmalı"
+}
+
+t_timeout_is_not_provider_unavailable() {
+  # GNU timeout kodları sağlayıcı arızası sayılmaz: stderr eşleşse bile devredilmez.
+  echo "$USAGE_LIMIT_MSG" > "$H/fake-stderr.log"
+  if agent_provider_unavailable "$H/fake-stderr.log" 124; then
+    fail "timeout (124) sağlayıcı arızası sayılmamalı"
+  else ok; fi
+  if agent_provider_unavailable "$H/fake-stderr.log" 1; then ok; else
+    fail "kota mesajı sağlayıcı arızası olarak tanınmalı"; fi
+  : > "$H/fake-stderr.log"
+  if agent_provider_unavailable "$H/fake-stderr.log" 1; then
+    fail "boş stderr sağlayıcı arızası sayılmamalı"
+  else ok; fi
+}
+
+# --- kalıcı log boyutu -----------------------------------------------------
+
+t_stderr_log_capped_keeps_tail() {
+  AGENT_BACKEND=codex
+  AGENT_STDERR_LOG_MAX_BYTES=50000
+  STUB_CODEX_STDERR_BYTES=300000
+  STUB_CODEX_STDERR="TAIL_SENTINEL_ERROR"
+  STUB_CODEX_EXIT=1
+  echo "prompt" > "$H/in.md"
+  run_agent implementer "$H/in.md" "$H/CODEX_RESULT.md" '^STATUS: SUCCESS$' >/dev/null 2>&1
+  local elog size
+  elog="$LOGS/implementer-i$(state_field iteration)-r$(state_field repair_round).stderr.log"
+  size="$(stat -c %s "$elog" 2>/dev/null || echo 0)"
+  if (( size <= 50000 + 512 )); then ok; else
+    fail "stderr logu üst sınıra indirilmeli (boyut=$size)"; fi
+  assert_contains "$(cat "$elog" 2>/dev/null)" "TAIL_SENTINEL_ERROR" \
+    "kesme sonrası gerçek hata mesajı (son baytlar) korunmalı"
+  assert_contains "$(cat "$elog" 2>/dev/null)" "son" "kesme olayı logda açıkça belirtilmeli"
+}
+
+t_stderr_log_not_capped_when_disabled() {
+  AGENT_BACKEND=codex
+  AGENT_STDERR_LOG_MAX_BYTES=0
+  STUB_CODEX_STDERR_BYTES=120000
+  STUB_CODEX_EXIT=1
+  echo "prompt" > "$H/in.md"
+  run_agent implementer "$H/in.md" "$H/CODEX_RESULT.md" '^STATUS: SUCCESS$' >/dev/null 2>&1
+  local elog size
+  elog="$LOGS/implementer-i$(state_field iteration)-r$(state_field repair_round).stderr.log"
+  size="$(stat -c %s "$elog" 2>/dev/null || echo 0)"
+  if (( size > 100000 )); then ok; else
+    fail "0 sınırı kesme yapmamalı (boyut=$size)"; fi
 }
 
 t_test_timeout_exit_code() {
@@ -494,6 +719,19 @@ run_test "claude-backend-invalid-status"      t_claude_backend_invalid_status_fa
 run_test "claude-backend-pg-env-forwarded"    t_claude_backend_pg_env_forwarded
 run_test "unknown-backend-fails-closed"       t_unknown_backend_fails_closed
 run_test "claude-backend-full-iteration"      t_claude_backend_full_iteration
+run_test "fallback-on-usage-limit"            t_fallback_on_provider_usage_limit
+run_test "fallback-on-empty-plus-provider-err" t_fallback_on_empty_result_with_provider_error
+run_test "fallback-on-stdout-session-limit"   t_fallback_on_stdout_session_limit
+run_test "session-limit-on-stderr-too"        t_session_limit_recognised_on_stderr_too
+run_test "valid-result-mentioning-limit-ok"   t_valid_result_mentioning_limit_is_not_provider_error
+run_test "provider-error-only-without-status" t_provider_error_in_result_only_without_status
+run_test "no-fallback-ordinary-failure"       t_no_fallback_on_ordinary_failure
+run_test "no-fallback-when-disabled"          t_no_fallback_when_disabled
+run_test "no-fallback-to-same-backend"        t_no_fallback_to_same_backend
+run_test "unknown-fallback-no-attempt"        t_unknown_fallback_target_no_attempt
+run_test "timeout-not-provider-unavailable"   t_timeout_is_not_provider_unavailable
+run_test "stderr-log-capped-keeps-tail"       t_stderr_log_capped_keeps_tail
+run_test "stderr-log-not-capped-when-0"       t_stderr_log_not_capped_when_disabled
 run_test "test-timeout-exit-code"             t_test_timeout_exit_code
 run_test "pg-env-forwarded"                   t_pg_env_forwarded
 run_test "integration-required-detection"     t_integration_required_detection
@@ -510,6 +748,268 @@ run_test "single-instance-flock"              t_single_instance_flock
 run_test "deterministic-planner-selects"      t_deterministic_planner_selects_from_nextstep
 run_test "deterministic-planner-guard-stale"  t_deterministic_planner_guard_stale_falls_back
 run_test "completed-then-new-task"            t_completed_then_new_task
+
+# --- rol dağıtımı ve Qoder handoff'u ---------------------------------------
+
+t_roles_config_selects_fallback_when_primary_unavailable() {
+  write_roles_config false codex qoder
+  assert_eq "1" "${ROLES_LOADED}" "agents.yaml yüklenmeli"
+  assert_eq "qoder" "$(role_agent implementer)" "codex kullanılamazken uygulayıcı yedeğe düşmeli"
+  assert_eq "qoder" "$(role_agent tester)" "testçi de yedeğe düşmeli"
+  assert_eq "claude" "$(role_agent reviewer)" "reviewer yapılandırıldığı gibi kalmalı"
+  role_resolve implementer
+  assert_contains "$ROLE_RESOLUTION_REASON" "codex_marked_unavailable" "fallback nedeni kaydedilmeli"
+}
+
+t_roles_config_prefers_primary_when_available() {
+  CODEX_BIN="$STUB"   # binary var
+  write_roles_config true codex qoder
+  assert_eq "codex" "$(role_agent implementer)" "codex kullanılabilirken birincil seçilmeli"
+  role_resolve implementer
+  assert_eq "" "$ROLE_RESOLUTION_REASON" "birincil seçildiğinde fallback nedeni boş olmalı"
+}
+
+t_roles_invalid_config_is_fail_closed() {
+  mkdir -p "$ROOTX/.agent/config"
+  printf 'architect: claude\nimplementer:\n  - liste\n' > "$ROOTX/.agent/config/agents.yaml"
+  local rc=0
+  agentloop_init "$ROOTX" "$LOOP_DIR" >/dev/null 2>&1 || rc=$?
+  assert_eq "36" "$rc" "geçersiz agents.yaml fail-closed olmalı (exit 36)"
+  assert_eq "0" "${ROLES_LOADED}" "geçersiz config yüklenmiş sayılmamalı"
+}
+
+t_reviewer_must_be_runnable_agent() {
+  local rc=0
+  write_roles_config false codex qoder qoder >/dev/null 2>&1 || rc=$?
+  assert_eq "2" "$rc" "handoff ajanı reviewer olarak kabul edilmemeli"
+  assert_eq "0" "${ROLES_LOADED}" "geçersiz rol dağıtımı yüklenmemeli"
+}
+
+t_role_env_override_wins_over_config() {
+  write_roles_config false codex qoder
+  start_new_task "obj" "T-OVR" "T" "" "r" manual >/dev/null 2>&1
+  AGENT_BACKEND_IMPLEMENTER=claude
+  export AGENT_BACKEND_IMPLEMENTER
+  STUB_CLAUDE_STATUS="STATUS: SUCCESS"
+  run_agent "implementer" "$H/in.md" "$H/out.md" '^STATUS: SUCCESS$' >/dev/null 2>&1
+  assert_contains "$(cat "$LOGS/implementer-i1-r0.stdout.log")" "ROLE_AGENT=claude" \
+    "AGENT_BACKEND_<ROLE> override'ı config'i geçmeli"
+  unset AGENT_BACKEND_IMPLEMENTER
+}
+
+t_handoff_agent_is_not_executed() {
+  write_roles_config false codex qoder
+  : > "$H/in.md"
+  local rc=0
+  run_agent "implementer" "$H/in.md" "$H/out.md" '^STATUS: SUCCESS$' >/dev/null 2>&1 || rc=$?
+  assert_eq "38" "$rc" "handoff ajanı için 38 (HANDOFF_PENDING) dönmeli"
+  assert_present "$HANDOFF_FILE" "görev paketi üretilmeli"
+  assert_absent "$H/out.md" "handoff ajanı için sonuç dosyası uydurulmamalı"
+  assert_contains "$(cat "$HANDOFF_FILE")" "STATUS: SUCCESS" "paket beklenen çıktı formatını içermeli"
+  assert_contains "$(cat "$HANDOFF_FILE")" "Değiştirilmemesi gereken alanlar" "paket kapsam dışını içermeli"
+}
+
+t_handoff_sets_waiting_agent_state() {
+  write_roles_config false codex qoder
+  start_new_task "obj" "T-HAND" "T" "" "r" manual >/dev/null 2>&1
+  run_implementer >/dev/null 2>&1
+  assert_eq "WAITING_AGENT" "$(state_field status)" "handoff sonrası WAITING_AGENT olmalı"
+  assert_eq "IMPLEMENTER" "$(state_field stage)" "aşama implementer'da kalmalı"
+  assert_eq "qoder" "$(state_field handoff_agent)" "handoff ajanı state'e yazılmalı"
+  assert_present "$(state_field handoff_file)" "handoff dosyası state'ten bulunabilmeli"
+  assert_present "$LEDGER_ACTIVE/T-HAND.md" "aktif görev defteri yazılmalı"
+  assert_contains "$(cat "$LEDGER_ACTIVE/T-HAND.md")" "lifecycle_state: CLAIMED" \
+    "handoff bekleyen görev CLAIMED olmalı"
+}
+
+t_handoff_claim_without_changes_is_rejected() {
+  write_roles_config false codex qoder
+  start_new_task "obj" "T-NOCHG" "T" "" "r" manual >/dev/null 2>&1
+  run_implementer >/dev/null 2>&1
+  # Uygulama yapılmadan "tamam" beyanı: çalışma ağacı değişmedi.
+  main continue "qoder tamam" >/dev/null 2>&1
+  assert_eq "WAITING_AGENT" "$(state_field status)" "doğrulanamayan beyan aşamayı ilerletmemeli"
+  assert_eq "IMPLEMENTER" "$(state_field stage)" "test aşamasına geçilmemeli"
+  assert_contains "$(state_field last_error)" "doğrulanamadı" "neden state'e yazılmalı"
+}
+
+t_handoff_resume_after_real_change_runs_tests() {
+  write_roles_config false codex qoder
+  start_new_task "obj" "T-CHG" "T" "" "r" manual >/dev/null 2>&1
+  run_implementer >/dev/null 2>&1
+  echo "yeni satır" >> "$ROOTX/README.md"
+  run_tests() { : > "$H/.tests_ran"; state_update REVIEWER READY ""; return 0; }
+  run_reviewer() { state_update COMPLETED COMPLETED ""; return 0; }
+  main continue "qoder tamam" >/dev/null 2>&1
+  assert_present "$H/.tests_ran" "controller testleri handoff sonrası kendisi çalıştırmalı"
+  assert_present "$H/CODEX_RESULT.md" "handoff sonucu uygulama sonucu olarak kaydedilmeli"
+  assert_contains "$(cat "$H/CODEX_RESULT.md")" "STATUS: SUCCESS" "sonuç doğrulanabilir formatta olmalı"
+  assert_contains "$(cat "$H/HANDOFF_RESULT.md")" "parmak izi değişti" "doğrulama kanıtı yazılmalı"
+}
+
+t_handoff_blocked_goes_to_human_decision() {
+  write_roles_config false codex qoder
+  start_new_task "obj" "T-BLK" "T" "" "r" manual >/dev/null 2>&1
+  run_implementer >/dev/null 2>&1
+  main continue "blocked: politika kararı gerekiyor" >/dev/null 2>&1
+  assert_eq "WAITING_HUMAN" "$(state_field status)" "BLOCKED insan kararına gitmeli"
+  assert_present "$LEDGER_BLOCKED/T-BLK.md" "görev blocked kovasına taşınmalı"
+  assert_absent "$LEDGER_ACTIVE/T-BLK.md" "görev iki kovada birden bulunmamalı"
+}
+
+t_claim_prevents_second_implementer() {
+  write_roles_config false codex qoder
+  mkdir -p "$CLAIM_DIR"
+  # Başka bir worktree'nin canlı claim'i (bu kabuğun pid'i canlıdır).
+  jq -n --argjson pid "$$" '{task_id:"T-CLAIM", agent:"codex",
+      worktree:"/baska/worktree", branch:"agent/x", pid:$pid, claimed_at:"now"}' \
+    > "$CLAIM_DIR/T-CLAIM.json"
+  local rc=0
+  start_new_task "obj" "T-CLAIM" "T" "" "r" manual >/dev/null 2>&1 || rc=$?
+  assert_eq "37" "$rc" "claim edilmiş görev ikinci uygulayıcıya verilmemeli"
+  assert_eq "WAITING_HUMAN" "$(state_field status)" "çakışma insan kararına düşmeli"
+}
+
+t_claim_reentrant_in_same_worktree() {
+  write_roles_config false codex qoder
+  claim_acquire "T-RE" codex
+  local rc=0
+  claim_acquire "T-RE" codex || rc=$?
+  assert_eq "0" "$rc" "aynı worktree kendi claim'ine yeniden girebilmeli"
+  claim_release "T-RE"
+  assert_absent "$(claim_owner_file T-RE)" "claim bırakılmalı"
+}
+
+# --- test kanıtı ve hata sınıflandırması ------------------------------------
+
+t_environment_failure_is_not_product_defect() {
+  local log="$H/logs/fake.log"
+  printf 'E psycopg2.OperationalError: could not connect to server: Connection refused\n' > "$log"
+  assert_eq "ENVIRONMENT_FAILURE" "$(classify_test_failure "$log" 1)" \
+    "PostgreSQL erişilemezliği ürün hatası sayılmamalı"
+  printf 'ModuleNotFoundError: No module named "pandas"\n' > "$log"
+  assert_eq "DEPENDENCY_FAILURE" "$(classify_test_failure "$log" 1)" "bağımlılık hatası ayrılmalı"
+  printf 'FAILED 06-Testler/01-Birim/test_x.py::test_y - AssertionError\n' > "$log"
+  assert_eq "PRODUCT_DEFECT" "$(classify_test_failure "$log" 1)" "assertion hatası ürün defekti olmalı"
+  printf 'E fixture "db" not found\n' > "$log"
+  assert_eq "TEST_DEFECT" "$(classify_test_failure "$log" 1)" "fixture hatası test defekti olmalı"
+  printf 'anything\n' > "$log"
+  assert_eq "ENVIRONMENT_FAILURE" "$(classify_test_failure "$log" 124)" "timeout ortam hatası olmalı"
+  assert_eq "NONE" "$(classify_test_failure "$log" 0)" "exit 0 sınıflandırma üretmemeli"
+}
+
+t_evidence_record_has_required_fields() {
+  write_roles_config false codex qoder
+  start_new_task "obj" "T-EV" "T" "" "r" manual >/dev/null 2>&1
+  local log="$LOGS/unit-tests-i1.log" file
+  printf '12 passed, 1 skipped in 3.2s\n' > "$log"
+  file="$(evidence_write "T-EV" unit "python3 -m pytest -q" 0 3 "$log" "not")"
+  assert_present "$file" "kanıt dosyası yazılmalı"
+  local missing
+  missing="$(jq -r '["task_id","runner","runner_role","timestamp","working_directory",
+                     "git_branch","git_commit","command","exit_code","duration",
+                     "passed","failed","skipped","stdout_log","stderr_log",
+                     "environment_notes","failure_class"]
+                    - (. | keys) | join(",")' "$file")"
+  assert_eq "" "$missing" "zorunlu kanıt alanları eksiksiz olmalı"
+  assert_eq "12" "$(jq -r '.passed' "$file")" "passed sayacı pytest özetinden okunmalı"
+  assert_eq "1" "$(jq -r '.skipped' "$file")" "skipped sayacı okunmalı"
+  assert_eq "qoder" "$(jq -r '.tester_agent' "$file")" "testçi ajanı kayda geçmeli"
+  assert_eq "controller-shell" "$(jq -r '.runner' "$file")" "testleri controller çalıştırır"
+}
+
+t_evidence_counts_not_invented_when_unparsable() {
+  write_roles_config false codex qoder
+  local log="$LOGS/unit-tests-i0.log" file
+  printf 'internal error, no summary line\n' > "$log"
+  file="$(evidence_write "T-UNP" unit "cmd" 2 1 "$log" "")"
+  assert_eq "-1" "$(jq -r '.passed' "$file")" "okunamayan sayaç uydurulmamalı (-1)"
+}
+
+t_integration_environment_block_records_evidence() {
+  write_roles_config false codex qoder
+  start_new_task "obj" "T-ENVB" "T" "" "r" manual >/dev/null 2>&1
+  integration_required() { return 0; }
+  postgres_preflight() { echo "PG yok"; return 1; }
+  local rc=0
+  run_tests >/dev/null 2>&1 || rc=$?
+  assert_eq "1" "$rc" "PG preflight başarısızsa test kapısı düşmeli"
+  assert_contains "$(state_field last_error)" "ENVIRONMENT_BLOCK" "ortam bloğu state'e yazılmalı"
+  local file="$EVIDENCE_DIR/T-ENVB/i1-integration.json"
+  assert_present "$file" "ortam bloğu için de kanıt yazılmalı"
+  assert_eq "ENVIRONMENT_FAILURE" "$(jq -r '.failure_class' "$file")" \
+    "PG yokluğu ENVIRONMENT_FAILURE olarak sınıflanmalı"
+}
+
+# --- defter ve review kaydı -------------------------------------------------
+
+t_ledger_moves_task_to_completed_after_approval() {
+  write_roles_config false codex qoder
+  start_new_task "obj" "T-DONE" "T" "" "r" manual >/dev/null 2>&1
+  assert_present "$LEDGER_ACTIVE/T-DONE.md" "görev aktif kovada başlamalı"
+  printf 'STATUS: APPROVED\n\nOnaylandı.\n' > "$H/ARCHITECT_REVIEW.md"
+  state_update COMPLETED COMPLETED ""
+  ledger_sync >/dev/null
+  assert_present "$LEDGER_COMPLETED/T-DONE.md" "onaylanan görev completed kovasına geçmeli"
+  assert_absent "$LEDGER_ACTIVE/T-DONE.md" "görev tek kovada bulunmalı"
+  assert_contains "$(cat "$LEDGER_COMPLETED/T-DONE.md")" "review_result: APPROVED" \
+    "review sonucu deftere yazılmalı"
+}
+
+t_review_record_is_written_with_independent_reviewer() {
+  write_roles_config false codex qoder
+  start_new_task "obj" "T-REV" "T" "" "r" manual >/dev/null 2>&1
+  printf 'STATUS: CHANGES_REQUIRED\n\n1. Eksik test.\n' > "$H/ARCHITECT_REVIEW.md"
+  local file
+  file="$(review_record "T-REV" CHANGES_REQUESTED)"
+  assert_present "$file" "review kaydı yazılmalı"
+  assert_contains "$(cat "$file")" "reviewer_agent: claude" "reviewer ajanı kayda geçmeli"
+  assert_contains "$(cat "$file")" "implementer_agent: qoder" "uygulayıcı ajanı kayda geçmeli"
+  assert_contains "$(cat "$file")" "result: CHANGES_REQUESTED" "sonuç kayda geçmeli"
+}
+
+t_lifecycle_states_distinguish_phases() {
+  assert_eq "READY"            "$(lifecycle_state IMPLEMENTER READY 0 "")"  "kod yazılmadan READY"
+  assert_eq "CHANGES_REQUESTED" "$(lifecycle_state IMPLEMENTER READY 1 "")" "onarım turu ayrı durum"
+  assert_eq "CLAIMED"          "$(lifecycle_state IMPLEMENTER WAITING_AGENT 0 "")" "handoff CLAIMED"
+  assert_eq "IMPLEMENTED"      "$(lifecycle_state TESTER READY 0 "")"       "kod yazıldı, test edilmedi"
+  assert_eq "TESTING"          "$(lifecycle_state TESTER FAILED 0 "")"      "test aşaması ayrı"
+  assert_eq "REVIEW"           "$(lifecycle_state REVIEWER READY 0 "")"     "review ayrı durum"
+  assert_eq "APPROVED"         "$(lifecycle_state COMPLETED COMPLETED 0 APPROVED)" "onay ayrı durum"
+  assert_eq "BLOCKED"          "$(lifecycle_state REVIEWER WAITING_HUMAN 0 "")" "insan kararı BLOCKED"
+}
+
+t_legacy_single_backend_still_works_without_config() {
+  # agents.yaml yokken davranış değişmez: geriye dönük AGENT_BACKEND yolu.
+  assert_eq "0" "${ROLES_LOADED}" "config yoksa rol modu kapalı olmalı"
+  STUB_CODEX_STATUS="STATUS: SUCCESS"
+  : > "$H/in.md"
+  local rc=0
+  run_agent "implementer" "$H/in.md" "$H/out.md" '^STATUS: SUCCESS$' >/dev/null 2>&1 || rc=$?
+  assert_eq "0" "$rc" "rol config olmadan codex backend çalışmalı"
+  assert_present "$H/out.md" "sonuç dosyası üretilmeli"
+}
+
+run_test "roles-fallback-when-unavailable"    t_roles_config_selects_fallback_when_primary_unavailable
+run_test "roles-prefer-primary-when-usable"   t_roles_config_prefers_primary_when_available
+run_test "roles-invalid-config-fail-closed"   t_roles_invalid_config_is_fail_closed
+run_test "reviewer-must-be-runnable"          t_reviewer_must_be_runnable_agent
+run_test "role-env-override-wins"             t_role_env_override_wins_over_config
+run_test "handoff-agent-not-executed"         t_handoff_agent_is_not_executed
+run_test "handoff-sets-waiting-agent"         t_handoff_sets_waiting_agent_state
+run_test "handoff-claim-without-changes"      t_handoff_claim_without_changes_is_rejected
+run_test "handoff-resume-runs-tests"          t_handoff_resume_after_real_change_runs_tests
+run_test "handoff-blocked-to-human"           t_handoff_blocked_goes_to_human_decision
+run_test "claim-prevents-second-writer"       t_claim_prevents_second_implementer
+run_test "claim-reentrant-same-worktree"      t_claim_reentrant_in_same_worktree
+run_test "env-failure-not-product-defect"     t_environment_failure_is_not_product_defect
+run_test "evidence-required-fields"           t_evidence_record_has_required_fields
+run_test "evidence-no-invented-counts"        t_evidence_counts_not_invented_when_unparsable
+run_test "integration-env-block-evidence"     t_integration_environment_block_records_evidence
+run_test "ledger-moves-to-completed"          t_ledger_moves_task_to_completed_after_approval
+run_test "review-record-independent"          t_review_record_is_written_with_independent_reviewer
+run_test "lifecycle-states-distinct"          t_lifecycle_states_distinguish_phases
+run_test "legacy-backend-without-config"      t_legacy_single_backend_still_works_without_config
 
 echo
 echo "PASS=$PASS FAIL=$FAIL"

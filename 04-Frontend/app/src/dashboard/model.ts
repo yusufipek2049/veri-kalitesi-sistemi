@@ -70,8 +70,16 @@ export interface DashboardViewModel {
   trendDescription: string;
   measurementNote: string;
   comparisonNote: string;
+  governanceNote: string;
   roleView: "EXECUTIVE" | "ENGINEER";
   contributionGraph: DashboardContributionGraph | null;
+}
+
+export interface DashboardGovernanceSummary {
+  governance_profile_status: string;
+  governance_reason_codes: string[];
+  governance_version: string | null;
+  governance_asset_ref: string | null;
 }
 
 export interface DashboardContributionGraph {
@@ -104,6 +112,7 @@ export interface DashboardContributionGraph {
   risk_status: string;
   sla_status: string;
   usage_decision: string;
+  governance?: DashboardGovernanceSummary | null;
 }
 
 export interface DashboardApiObservation {
@@ -281,6 +290,7 @@ export const syntheticDashboardViewModel: DashboardViewModel = {
   trendDescription: "Son 30 UTC gün · yalnız resmî skorlar",
   measurementNote: "Son sonuç sınırlı kapsama rağmen onaylı sentetik politika koşullarını karşılıyor. Provizyonel 13 Temmuz sonucu resmî trend ve SLA hesabına katılmadı; önceki resmî skor geçersiz kılınmadı.",
   comparisonNote: "Sentetik dönemler aynı sürümlü karşılaştırma sözleşmesindedir.",
+  governanceNote: "Sentetik gösterimde yönetişim profili bağlı değildir; kritik asset, risk ve SLA durumu Unknown kalır.",
   roleView: "ENGINEER",
   contributionGraph: null,
 };
@@ -339,9 +349,23 @@ export function dashboardViewModelFromApi(
     trendDescription: `Son 30 UTC gün · ${scopeLabel} · yalnız resmî skorlar`,
     measurementNote: "Ölçüm yeterliliği ve teknik sağlık 21C operasyonel göstergelerinden alınır. Kapsam, kullanım kararı, kritik kontrol sonuçları ve alarm akışı ilgili runtime sözleşmeleri tamamlanmadan üretilmez.",
     comparisonNote: comparisonNote(latest),
+    governanceNote: governanceNote(latest?.contribution_graph?.governance ?? null),
     roleView: response.role_view,
     contributionGraph: latest?.contribution_graph ?? null,
   };
+}
+
+function governanceNote(governance: DashboardGovernanceSummary | null): string {
+  if (!governance) {
+    return "Yönetişim profili kaynağı bağlı değil; kritik asset, risk ve SLA durumu Unknown kalır.";
+  }
+  if (governance.governance_profile_status === "ACTIVE") {
+    return `Yönetişim profili etkin: ${governance.governance_version ?? "UNKNOWN"}. Kanıtı olmayan alanlar Unknown kalır.`;
+  }
+  const reasons = governance.governance_reason_codes.length
+    ? governance.governance_reason_codes.join(", ")
+    : "UNKNOWN";
+  return `Yönetişim profili uygulanmadı (${governance.governance_profile_status}): ${reasons}. Kritik asset, risk ve SLA durumu Unknown kalır.`;
 }
 
 function comparisonNote(observation: DashboardApiObservation | undefined): string {

@@ -24,7 +24,12 @@ fi
 # shellcheck source=tools/agent-loop/lib.sh
 source "$TOOLS_DIR/lib.sh"
 
-agentloop_init "$ROOT" "$TOOLS_DIR"
+# Rol yapılandırması geçersizse init fail-closed döner: hiçbir ajan başlatılmaz.
+if ! agentloop_init "$ROOT" "$TOOLS_DIR"; then
+  echo "agent-loop başlatılamadı (rol yapılandırması geçersiz)." >&2
+  echo "Düzeltmek için: .agent/config/agents.yaml" >&2
+  exit 36
+fi
 
 # Tek instance koruması: kilit alınamazsa sessizce çık (paralel çalışmaz).
 exec 9>"$H/state/pipeline.lock"

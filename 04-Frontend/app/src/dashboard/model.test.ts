@@ -3,6 +3,7 @@ import {
   dashboardViewModelFromApi,
   trendObservations,
   type DashboardSummaryApiResponse,
+  type DashboardGovernanceSummary,
 } from "./model";
 
 describe("dashboard trend modeli", () => {
@@ -70,6 +71,55 @@ describe("dashboard trend modeli", () => {
     expect(viewModel.kpis[1]).toMatchObject({ value: "—", tone: "technical", statusLabel: "Teknik Başarısızlık" });
     expect(viewModel.kpis[3]).toMatchObject({ value: "3", tone: "technical", statusLabel: "Teknik Hata" });
     expect(viewModel.kpis[3].detail).toContain("2 çalıştırma");
+  });
+
+  it("DQ-CAP-010 yönetişim profili yoksa governanceNote bağlı değil der", () => {
+    const viewModel = dashboardViewModelFromApi(apiResponse());
+
+    expect(viewModel.governanceNote).toContain("bağlı değil");
+    expect(viewModel.contributionGraph?.governance).toBeUndefined();
+  });
+
+  it("DQ-CAP-010 aktif yönetişim profili governanceNote ve governance özetini taşır", () => {
+    const response = apiResponse();
+    const governance: DashboardGovernanceSummary = {
+      governance_profile_status: "ACTIVE",
+      governance_reason_codes: [],
+      governance_version: "DQ_ASSET_GOVERNANCE_PROFILE_V1:source-a:4",
+      governance_asset_ref: "source-a",
+    };
+    const observation = response.periods[1].observations[0];
+    observation.contribution_graph = {
+      ...observation.contribution_graph!,
+      governance,
+    };
+
+    const viewModel = dashboardViewModelFromApi(response);
+
+    expect(viewModel.governanceNote).toContain("etkin");
+    expect(viewModel.governanceNote).toContain("DQ_ASSET_GOVERNANCE_PROFILE_V1:source-a:4");
+    expect(viewModel.contributionGraph?.governance).toEqual(governance);
+  });
+
+  it("DQ-CAP-010 belirsiz yönetişim profili governanceNote'da reason codes gösterir", () => {
+    const response = apiResponse();
+    const governance: DashboardGovernanceSummary = {
+      governance_profile_status: "AMBIGUOUS_EFFECTIVITY",
+      governance_reason_codes: ["OVERLAPPING_EFFECTIVITY_RANGE"],
+      governance_version: null,
+      governance_asset_ref: null,
+    };
+    const observation = response.periods[1].observations[0];
+    observation.contribution_graph = {
+      ...observation.contribution_graph!,
+      governance,
+    };
+
+    const viewModel = dashboardViewModelFromApi(response);
+
+    expect(viewModel.governanceNote).toContain("uygulanmadı");
+    expect(viewModel.governanceNote).toContain("AMBIGUOUS_EFFECTIVITY");
+    expect(viewModel.governanceNote).toContain("OVERLAPPING_EFFECTIVITY_RANGE");
   });
 });
 

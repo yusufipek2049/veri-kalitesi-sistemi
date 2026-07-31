@@ -27,12 +27,19 @@ from veri_kalitesi.dashboard import (
 )
 from veri_kalitesi.dashboard._legacy import LegacyDashboardQueryAdapter
 from veri_kalitesi.dashboard.models import DashboardAccessScope
+from veri_kalitesi.dashboard.service import GovernanceProfileReader
 from veri_kalitesi.identity import (
     ActorContext,
     ActorContextIssuer,
     ActorType,
     DashboardAuthorizationPolicy,
     PolicyAuthorizationService,
+)
+from veri_kalitesi.lineage import (
+    DataAssetGovernanceProfile,
+    GovernanceAssetKind,
+    GovernanceReference,
+    build_governance_profile,
 )
 from veri_kalitesi.scoring import (
     QualityScore,
@@ -786,6 +793,132 @@ def test_dq_cap_011_technical_observation_does_not_replace_official_baseline() -
     assert observations[2].contribution_graph["deterioration_status"] == "IMPROVING"
 
 
+def test_dq_cap_010_governance_profile_feeds_only_evidenced_status_fields() -> None:
+    reader = CountingReader(
+        trend_scores=[
+            _score(ScoreScopeType.SOURCE, "source-a", "88.00", calculated_at=NOW)
+        ]
+    )
+    service, context, _ = _secure_service(
+        reader,
+        source_ids={"source-a"},
+        governance_reader=_GovernanceReader(
+            {
+                "source-a": [
+                    build_governance_profile(
+                        asset_ref="source-a",
+                        asset_kind=GovernanceAssetKind.DATA_SOURCE,
+                        version_number=4,
+                        effective_from=NOW - timedelta(days=1),
+                        attributes={
+                            "criticality": GovernanceReference(
+                                source_system="SYNTHETIC_GOVERNANCE_REGISTRY",
+                                field_path="synthetic_registry.criticality",
+                                value="CRITICAL",
+                            ),
+                            "sla": GovernanceReference(
+                                source_system="SYNTHETIC_GOVERNANCE_REGISTRY",
+                                field_path="synthetic_registry.sla",
+                                value="WITHIN_TARGET",
+                            ),
+                        },
+                    )
+                ]
+            }
+        ),
+    )
+
+    node = next(
+        item
+        for period in service.get_overview(context).trend.periods
+        for item in period.observations
+    )
+
+    assert node.contribution_graph["critical_asset_status"] == "CRITICAL"
+    assert node.contribution_graph["sla_status"] == "WITHIN_TARGET"
+    assert node.contribution_graph["risk_status"] == "UNKNOWN"
+    assert node.contribution_graph["governance"] == {
+        "governance_profile_status": "ACTIVE",
+        "governance_reason_codes": [],
+        "governance_version": "DQ_ASSET_GOVERNANCE_PROFILE_V1:source-a:4",
+        "governance_asset_ref": "source-a",
+    }
+
+
+def test_dq_cap_010_absent_or_ambiguous_governance_profile_stays_unknown() -> None:
+    profile = build_governance_profile(
+        asset_ref="source-a",
+        asset_kind=GovernanceAssetKind.DATA_SOURCE,
+        version_number=1,
+        effective_from=NOW - timedelta(days=2),
+        attributes={
+            "criticality": GovernanceReference(
+                source_system="SYNTHETIC_GOVERNANCE_REGISTRY",
+                field_path="synthetic_registry.criticality",
+                value="CRITICAL",
+            )
+        },
+    )
+    overlapping = build_governance_profile(
+        asset_ref="source-a",
+        asset_kind=GovernanceAssetKind.DATA_SOURCE,
+        version_number=2,
+        effective_from=NOW - timedelta(days=1),
+        attributes={
+            "criticality": GovernanceReference(
+                source_system="SYNTHETIC_GOVERNANCE_REGISTRY",
+                field_path="synthetic_registry.criticality",
+                value="LOW",
+            )
+        },
+    )
+    scores = [_score(ScoreScopeType.SOURCE, "source-a", "88.00", calculated_at=NOW)]
+
+    without_source, without_context, _ = _secure_service(
+        CountingReader(trend_scores=list(scores)), source_ids={"source-a"}
+    )
+    ambiguous, ambiguous_context, _ = _secure_service(
+        CountingReader(trend_scores=list(scores)),
+        source_ids={"source-a"},
+        governance_reader=_GovernanceReader({"source-a": [profile, overlapping]}),
+    )
+
+    unbound = next(
+        item
+        for period in without_source.get_overview(without_context).trend.periods
+        for item in period.observations
+    )
+    conflicted = next(
+        item
+        for period in ambiguous.get_overview(ambiguous_context).trend.periods
+        for item in period.observations
+    )
+
+    assert unbound.contribution_graph["critical_asset_status"] == "UNKNOWN"
+    assert unbound.contribution_graph["governance"]["governance_reason_codes"] == [
+        "NO_GOVERNANCE_SOURCE"
+    ]
+    assert conflicted.contribution_graph["critical_asset_status"] == "UNKNOWN"
+    assert conflicted.contribution_graph["governance"] == {
+        "governance_profile_status": "AMBIGUOUS_EFFECTIVITY",
+        "governance_reason_codes": ["OVERLAPPING_EFFECTIVITY_RANGE"],
+        "governance_version": None,
+        "governance_asset_ref": None,
+    }
+
+
+class _GovernanceReader:
+    def __init__(
+        self, profiles_by_asset: dict[str, list[DataAssetGovernanceProfile]]
+    ) -> None:
+        self._profiles_by_asset = profiles_by_asset
+
+    def list_governance_profiles(
+        self, asset_ref: str
+    ) -> list[DataAssetGovernanceProfile]:
+        return list(self._profiles_by_asset.get(asset_ref, ()))
+
+
 @overload
 def _secure_service(
     reader: SQLiteScoreRepository | CountingReader | FailingReader,
@@ -800,6 +933,7 @@ def _secure_service(
     context_policy_version: str = POLICY_VERSION,
     audit_sink: None = None,
     clock: Callable[[], datetime] = lambda: NOW,
+    governance_reader: GovernanceProfileReader | None = None,
 ) -> tuple[DashboardQueryService, ActorContext, SQLiteAuditRepository]: ...
 
 
@@ -817,6 +951,7 @@ def _secure_service(
     context_policy_version: str = POLICY_VERSION,
     audit_sink: FailingAuditSink,
     clock: Callable[[], datetime] = lambda: NOW,
+    governance_reader: GovernanceProfileReader | None = None,
 ) -> tuple[DashboardQueryService, ActorContext, FailingAuditSink]: ...
 
 
@@ -833,6 +968,7 @@ def _secure_service(
     context_policy_version: str = POLICY_VERSION,
     audit_sink: FailingAuditSink | None = None,
     clock: Callable[[], datetime] = lambda: NOW,
+    governance_reader: GovernanceProfileReader | None = None,
 ) -> tuple[
     DashboardQueryService,
     ActorContext,
@@ -886,7 +1022,16 @@ def _secure_service(
         policy_version=context_policy_version,
         correlation_id="correlation-dashboard",
     )
-    return DashboardQueryService(reader, authorization, clock=clock), context, audit_result
+    return (
+        DashboardQueryService(
+            reader,
+            authorization,
+            clock=clock,
+            governance_reader=governance_reader,
+        ),
+        context,
+        audit_result,
+    )
 
 
 def _score(

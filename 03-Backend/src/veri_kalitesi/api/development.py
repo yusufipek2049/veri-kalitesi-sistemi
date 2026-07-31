@@ -51,6 +51,10 @@ from veri_kalitesi.audit.postgresql_outbox import PostgreSQLTransactionalAudit
 from veri_kalitesi.persistence import SessionFactory
 from veri_kalitesi.jobs import PostgreSQLJobQueueRepository
 from veri_kalitesi.dashboard import DashboardQueryService
+from veri_kalitesi.lineage import (
+    PostgreSQLGovernanceProfileReader,
+    PostgreSQLLineageEvidenceRepository,
+)
 from veri_kalitesi.data_sources import (
     DataSource,
     DataSourceQueryService,
@@ -1250,10 +1254,21 @@ def create_development_app(  # type: ignore[no-untyped-def]
         audit_service,
         clock=lambda: datetime.now(timezone.utc),
     )
+    governance_reader = (
+        PostgreSQLGovernanceProfileReader(session_factory)
+        if session_factory is not None
+        else None
+    )
+    lineage_evidence_repository = (
+        PostgreSQLLineageEvidenceRepository(session_factory)
+        if session_factory is not None
+        else None
+    )
     service = DashboardQueryService(
         repository,
         authorization,
         clock=lambda: datetime.now(timezone.utc),
+        governance_reader=governance_reader,
     )
     development_origins = frozenset({"http://127.0.0.1:5173", "http://localhost:5173"})
     effective_registry = user_registry or DEVELOPMENT_USER_REGISTRY
@@ -1344,4 +1359,6 @@ def create_development_app(  # type: ignore[no-untyped-def]
             clock=lambda: datetime.now(timezone.utc),
         ),
         clock=lambda: datetime.now(timezone.utc),
+        lineage_evidence_repository=lineage_evidence_repository,
+        governance_profile_reader=governance_reader,
     )
