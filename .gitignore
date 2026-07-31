@@ -152,8 +152,19 @@ docker-compose.override.yaml
 *.pid
 *.pid.lock
 
-# Claude settings
+# Ajan araclarinin yerel dokumanlari, konfigurasyonu ve calisma durumu.
+# Bu icerik gelistirici makinesine ozeldir ve depoda paylasilmaz.
 .claude/
-
-
+.agent/
+.agents/
 .agent-handoff/
+.codex/
+.qoder/
+
+# Ajan talimat ve yonlendirme dokumanlari (arac tarafindan okunur, izlenmez)
+AGENTS.md
+CLAUDE.md
+CODEX-KULLANIM.md
+DOCUMENTATION_INDEX.md
+DOCUMENTATION_AUDIT.md
+NEXT_STEP.md
