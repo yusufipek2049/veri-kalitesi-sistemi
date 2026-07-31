@@ -28,6 +28,11 @@ from veri_kalitesi.dashboard.models import (
     MeasurementQualificationIndicatorStatus,
 )
 from veri_kalitesi.identity import ActorContext, AuthorizationService, IdentityError
+from veri_kalitesi.lineage.governance import (
+    DataAssetGovernanceProfile,
+    governance_projection,
+    resolve_active_profile,
+)
 from veri_kalitesi.scoring.models import (
     QualityScore,
     ScoreScopeType,
@@ -49,6 +54,12 @@ class ScoreReader(Protocol):
     ) -> list[QualityScore]: ...
 
 
+class GovernanceProfileReader(Protocol):
+    def list_governance_profiles(
+        self, asset_ref: str
+    ) -> list[DataAssetGovernanceProfile]: ...
+
+
 class DashboardQueryService:
     def __init__(
         self,
@@ -56,10 +67,12 @@ class DashboardQueryService:
         authorization_service: AuthorizationService,
         *,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+        governance_reader: GovernanceProfileReader | None = None,
     ) -> None:
         self.score_reader = score_reader
         self.authorization_service = authorization_service
         self.clock = clock
+        self.governance_reader = governance_reader
 
     def get_score_tree(
         self,
@@ -170,6 +183,8 @@ class DashboardQueryService:
             authorized_scores,
             include_graph=role_view == "ENGINEER",
             access_scope=access_scope,
+            governance_reader=self.governance_reader,
+            correlation_id=correlation_id,
         )
         trend = DashboardScoreTrend(as_of=as_of, periods=tuple(periods))
         return DashboardOverview(
@@ -270,6 +285,8 @@ def _decorate_comparisons(
     *,
     include_graph: bool,
     access_scope: DashboardAccessScope,
+    governance_reader: GovernanceProfileReader | None = None,
+    correlation_id: str = "",
 ) -> list[DashboardTrendPeriod]:
     previous_by_scope: dict[tuple[ScoreScopeType, str | None], QualityScore] = {}
     decorated: dict[str, DashboardScoreNode] = {}
@@ -293,6 +310,12 @@ def _decorate_comparisons(
         graph["deterioration_status"] = _deterioration_status(
             comparison_status,
             change,
+        )
+        _apply_governance(
+            graph,
+            score,
+            governance_reader=governance_reader,
+            correlation_id=correlation_id,
         )
         decorated[score.quality_score_id] = DashboardScoreNode(
             quality_score_id=score.quality_score_id,
@@ -319,6 +342,7 @@ def _decorate_comparisons(
                     "sla_status": graph["sla_status"],
                     "usage_decision": graph["usage_decision"],
                     "coverage_status": graph["coverage_status"],
+                    "governance": graph["governance"],
                 }
             ),
         )
@@ -334,6 +358,44 @@ def _decorate_comparisons(
         )
         for period in periods
     ]
+
+
+def _apply_governance(
+    graph: dict[str, object],
+    score: QualityScore,
+    *,
+    governance_reader: GovernanceProfileReader | None,
+    correlation_id: str,
+) -> None:
+    """Yalnız kanıtı olan kritik asset/risk/SLA alanlarını profil ile besler."""
+
+    if governance_reader is None or score.scope_id is None:
+        graph["governance"] = {
+            "governance_profile_status": "NO_ACTIVE_PROFILE",
+            "governance_reason_codes": ["NO_GOVERNANCE_SOURCE"],
+            "governance_version": None,
+            "governance_asset_ref": None,
+        }
+        return
+    try:
+        profiles = governance_reader.list_governance_profiles(score.scope_id)
+    except (sqlite3.Error, OSError) as exc:
+        raise DashboardQueryError(
+            "Dashboard governance profile query could not be completed.",
+            correlation_id,
+        ) from exc
+    projection = governance_projection(
+        resolve_active_profile(profiles, score.calculated_at)
+    )
+    for key in ("critical_asset_status", "risk_status", "sla_status"):
+        if graph.get(key) == "UNKNOWN":
+            graph[key] = projection[key]
+    graph["governance"] = {
+        "governance_profile_status": projection["governance_profile_status"],
+        "governance_reason_codes": projection["governance_reason_codes"],
+        "governance_version": projection["governance_version"],
+        "governance_asset_ref": projection["governance_asset_ref"],
+    }
 
 
 def _deterioration_status(

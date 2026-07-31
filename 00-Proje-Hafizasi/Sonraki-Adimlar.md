@@ -2,20 +2,21 @@
 type: delivery-backlog
 status: active
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
-last_updated: 2026-07-30
+last_updated: 2026-07-31
 ---
 
 # Sonraki Adımlar
 
-Bağımlılıkları tamamlanmış `Next`/`READY` teknik paket yoktur.
-[DQ-CAP-PROTOTYPE-03](../NEXT_STEP.md) sentetik/yerel katkı grafiği,
-karşılaştırılabilir tarih ve rol görünümü olarak `PrototypeVerified` kapanmıştır.
-Kalan production ve ürünleştirme başlıkları açık kalır.
+Son tamamlanan çalışma paketi [DQ-CAP-PROTOTYPE-04](../09-Iterasyonlar/DQ-CAP-PROTOTYPE-04-Sentetik-Lineage-ve-Yonetisim-Profili.md)
+`PrototypeVerified` kapanmıştır (2026-07-31). Sıradaki `READY` teknik paket
+tanımlı değildir; production ve ürünleştirme başlıkları `ExternalDependency`
+olarak açık kalır.
 
 ## Aktif Backlog
 
 | Sıra | İş | Durum | Tamamlanma ölçütü |
 | --- | --- | --- | --- |
+| 0 | DQ-CAP-PROTOTYPE-04 sentetik lineage, sahiplik profili ve kaynaklı etki hipotezi | `Completed` / `PrototypeVerified` | Sürümlü `DataAssetGovernanceProfile` (fail-closed routing), OpenLineage uyumlu değişmez lineage snapshot'ı, hipotez olarak sunulan kök neden ve `Observed/Calculated/Estimated/Unknown` kaynaklı etki bileşenleri [kapanış kaydındadır](../09-Iterasyonlar/DQ-CAP-PROTOTYPE-04-Sentetik-Lineage-ve-Yonetisim-Profili.md); production/banka onayı değildir. |
 | 1 | DQ-CAP-PROTOTYPE-03 skor katkısı/tarih/rol dashboardu | `Completed` / `PrototypeVerified` | Yeniden üretilebilir katkı grafiği, fail-closed karşılaştırma ve ortak yetkili API rol görünümü [kapanış kaydındadır](../09-Iterasyonlar/DQ-CAP-PROTOTYPE-03-Skor-Katki-ve-Rol-Dashboard.md); production/banka onayı değildir. |
 | 2 | DQ-CAP-PROTOTYPE-02 kural IR/SHADOW/kanıt | `Completed` / `PrototypeVerified` | Ortak sürümlü IR, yedi kapsam, yaşam döngüsünden ayrı SHADOW ve veri-minimum kanıt [kapanış kaydındadır](../09-Iterasyonlar/DQ-CAP-PROTOTYPE-02-Kural-IR-Shadow-ve-Kanit.md); production/banka onayı değildir. |
 | 3 | DQ-CAP-PROTOTYPE-01 deterministik profilleme/drift | `Completed` / `PrototypeVerified` | Politika kontrollü bounded CSV örneği, salt-okunur PostgreSQL source aggregate gelişmiş metrikleri, yedi drift ailesi, fail-closed politika/fingerprint yokluğu ve atomik karşılaştırma kalıcılığı [kapanış kaydındadır](../09-Iterasyonlar/DQ-CAP-PROTOTYPE-01-Deterministik-Profilleme-ve-Drift.md); production/banka onayı değildir. |

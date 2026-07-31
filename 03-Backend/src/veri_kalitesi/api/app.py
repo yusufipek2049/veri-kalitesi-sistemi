@@ -149,6 +149,12 @@ from veri_kalitesi.reporting import (
     ReportValidationError,
 )
 from veri_kalitesi.reporting.models import ReportFormat, ReportType
+from veri_kalitesi.lineage import (
+    PostgreSQLGovernanceProfileReader,
+    PostgreSQLLineageEvidenceRepository,
+    governance_projection,
+    resolve_active_profile,
+)
 
 
 class IssueInvestigationService(Protocol):
@@ -386,6 +392,8 @@ def create_dashboard_api(
     report_service: ReportService | None = None,
     report_schedule_service: ReportScheduleService | None = None,
     audit_query_service: AuditQueryService | None = None,
+    lineage_evidence_repository: PostgreSQLLineageEvidenceRepository | None = None,
+    governance_profile_reader: PostgreSQLGovernanceProfileReader | None = None,
     clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
 ) -> FastAPI:
     """Bağımlılıkları dışarıdan verilen, varsayılanı fail-closed API üretir."""
@@ -1981,6 +1989,103 @@ def create_dashboard_api(
             data_origin=data_origin,
             correlation_id=request.state.correlation_id,
             item=ExecutionListItemResponse.from_domain(execution),
+        )
+
+    @app.get(
+        "/api/v1/lineage/snapshots/{snapshot_id}",
+        tags=["lineage"],
+    )
+    async def get_lineage_snapshot(
+        snapshot_id: str,
+        request: Request,
+    ) -> JSONResponse:
+        """Salt okunur lineage/yönetişim/etki kanıt snapshot'ı."""
+        actor_context = resolver.resolve(request)
+        if lineage_evidence_repository is None:
+            return _problem(
+                request,
+                status=503,
+                title="Lineage evidence unavailable",
+                detail="Lineage evidence repository is not configured.",
+                correlation_id=request.state.correlation_id,
+            )
+        stored = lineage_evidence_repository.get(snapshot_id)
+        if stored is None:
+            return _problem(
+                request,
+                status=404,
+                title="Snapshot not found",
+                detail=f"Lineage evidence snapshot '{snapshot_id}' not found.",
+                correlation_id=request.state.correlation_id,
+            )
+        if not actor_context.can_view_enterprise and (
+            stored.subject_ref not in actor_context.permitted_source_ids
+            and stored.subject_ref not in actor_context.permitted_dataset_ids
+        ):
+            return _problem(
+                request,
+                status=403,
+                title="Access denied",
+                detail="The requested evidence scope is not available.",
+                correlation_id=request.state.correlation_id,
+            )
+        return JSONResponse(
+            {
+                "api_version": "v1",
+                "data_origin": data_origin,
+                "correlation_id": request.state.correlation_id,
+                "snapshot_id": stored.snapshot_id,
+                "snapshot_kind": stored.snapshot_kind,
+                "subject_ref": stored.subject_ref,
+                "version_label": stored.version_label,
+                "digest": stored.digest,
+                "created_at": stored.created_at.isoformat(),
+                "payload": stored.payload,
+            },
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @app.get(
+        "/api/v1/governance/{asset_ref}/projection",
+        tags=["lineage"],
+    )
+    async def get_governance_projection(
+        asset_ref: str,
+        request: Request,
+    ) -> JSONResponse:
+        """Salt okunur yönetişim projeksiyonu; kanıt yoksa UNKNOWN döner."""
+        actor_context = resolver.resolve(request)
+        if not actor_context.can_view_enterprise and (
+            asset_ref not in actor_context.permitted_source_ids
+            and asset_ref not in actor_context.permitted_dataset_ids
+        ):
+            return _problem(
+                request,
+                status=403,
+                title="Access denied",
+                detail="The requested governance scope is not available.",
+                correlation_id=request.state.correlation_id,
+            )
+        if lineage_evidence_repository is None or governance_profile_reader is None:
+            return _problem(
+                request,
+                status=503,
+                title="Governance evidence unavailable",
+                detail="Lineage evidence repository is not configured.",
+                correlation_id=request.state.correlation_id,
+            )
+        profiles = governance_profile_reader.list_governance_profiles(asset_ref)
+        now = clock()
+        projection = governance_projection(resolve_active_profile(profiles, now))
+        return JSONResponse(
+            {
+                "api_version": "v1",
+                "data_origin": data_origin,
+                "correlation_id": request.state.correlation_id,
+                "asset_ref": asset_ref,
+                **projection,
+            },
+            headers={"Cache-Control": "no-store"},
         )
 
 

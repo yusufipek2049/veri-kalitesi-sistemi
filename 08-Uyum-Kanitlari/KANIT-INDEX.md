@@ -82,5 +82,6 @@
 - [İterasyon 35D - Sorunlar Ekranı Kanıtı](Guvenlik-Testleri/Iterasyon-35D-Sorunlar-Ekrani-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 35E - Güvenli Rapor Önizleme Ekranı Kanıtı](Raporlama/Iterasyon-35E-Guvenli-Rapor-Onizleme-Ekrani-Kaniti.md) - `TechnicallyVerified`
 - [İterasyon 35F - Salt Okunur Denetim Ekranı Kanıtı](Audit/Iterasyon-35F-Salt-Okunur-Denetim-Ekrani-Kaniti.md) - `TechnicallyVerified`
+- [DQ-CAP-PROTOTYPE-04 Sentetik Lineage ve Yönetişim Profili Kanıtı](Guvenlik-Testleri/DQ-CAP-PROTOTYPE-04-Sentetik-Lineage-Yonetisim-Kaniti.md) - `PrototypeVerified` / `ComplianceReviewRequired`
 
 Kanıt üretmek için [Kanıt Paketi Şablonu](Kanit-Paketi-Sablonu.md) kullanılır.
