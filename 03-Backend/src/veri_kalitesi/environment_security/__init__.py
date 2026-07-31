@@ -7,6 +7,12 @@ from veri_kalitesi.environment_security.errors import (
     EnvironmentSecurityError,
 )
 from veri_kalitesi.environment_security.gate import EnvironmentStartupGate
+from veri_kalitesi.environment_security.lab_gate import (
+    LabAdapterGate,
+    LabGateEvidence,
+    LabGateStatus,
+    StaticLabEnvironmentProvider,
+)
 from veri_kalitesi.environment_security.models import (
     ENVIRONMENT_POLICY_VERSION,
     TRUSTED_CONFIGURATION_SOURCE_CONTRACT,
@@ -29,7 +35,11 @@ __all__ = [
     "EnvironmentSecurityError",
     "EnvironmentStartupEvidence",
     "EnvironmentStartupGate",
+    "LabAdapterGate",
+    "LabGateEvidence",
+    "LabGateStatus",
     "RuntimeEnvironment",
     "SecretScope",
+    "StaticLabEnvironmentProvider",
     "TrustedEnvironmentConfigurationProvider",
 ]
