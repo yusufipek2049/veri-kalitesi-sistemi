@@ -1,5 +1,17 @@
 """In-app notification domain package."""
 
+from veri_kalitesi.notifications.channel_adapters import (
+    ChannelDeliveryResult,
+    ChannelDeliveryStatus,
+    ChannelKind,
+    ChannelRoute,
+    DispatchOutcome,
+    EscalationLevel,
+    FakeChannelAdapter,
+    NotificationChannelAdapter,
+    NotificationChannelDispatcher,
+    NotificationChannelPolicy,
+)
 from veri_kalitesi.notifications.errors import (
     NotificationAuthorizationError,
     NotificationConflictError,
@@ -21,9 +33,19 @@ from veri_kalitesi.notifications.repository import SQLiteNotificationRepository
 from veri_kalitesi.notifications.service import NotificationRecipientResolver, NotificationService
 
 __all__ = [
+    "ChannelDeliveryResult",
+    "ChannelDeliveryStatus",
+    "ChannelKind",
+    "ChannelRoute",
+    "DispatchOutcome",
+    "EscalationLevel",
+    "FakeChannelAdapter",
     "Notification",
     "NotificationAccessPolicy",
     "NotificationAuthorizationError",
+    "NotificationChannelAdapter",
+    "NotificationChannelDispatcher",
+    "NotificationChannelPolicy",
     "NotificationConflictError",
     "NotificationError",
     "NotificationEvent",
