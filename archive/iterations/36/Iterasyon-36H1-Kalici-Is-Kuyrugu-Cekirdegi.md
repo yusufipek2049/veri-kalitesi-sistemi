@@ -9,7 +9,7 @@ decision_reference: USER-DECLARATION-2026-07-23-POSTGRESQL-WRITABLE-UI
 
 ## Amaç
 
-[Kalıcı iş kuyruğu ve worker dayanıklılığı](../NEXT_STEP.md) paketinin
+[Kalıcı iş kuyruğu ve worker dayanıklılığı](../../../NEXT_STEP.md) paketinin
 concurrency ve kalıcılık temelini kurmak: süreç ömründen bağımsız kuyruk kaydı,
 lease/heartbeat sahiplenmesi, worker kaybında güvenli yeniden sahiplenme ve
 idempotent enqueue.
@@ -28,12 +28,12 @@ idempotent enqueue.
 
 ## Kanıt
 
-- [Domain modelleri ve payload sözleşmesi](../03-Backend/src/veri_kalitesi/jobs/models.py)
-- [Hata tipleri](../03-Backend/src/veri_kalitesi/jobs/errors.py)
-- [PostgreSQL kuyruk repository](../03-Backend/src/veri_kalitesi/jobs/postgresql_repository.py)
-- [Migration `20260728_08_job_queue`](../05-Veritabani/alembic/versions/20260728_08_job_queue.py)
-- [Birim testleri](../06-Testler/01-Birim/test_job_queue.py)
-- [PostgreSQL entegrasyon testleri](../06-Testler/02-Entegrasyon/test_postgresql_job_queue.py)
+- [Domain modelleri ve payload sözleşmesi](../../../03-Backend/src/veri_kalitesi/jobs/models.py)
+- [Hata tipleri](../../../03-Backend/src/veri_kalitesi/jobs/errors.py)
+- [PostgreSQL kuyruk repository](../../../03-Backend/src/veri_kalitesi/jobs/postgresql_repository.py)
+- [Migration `20260728_08_job_queue`](../../../05-Veritabani/alembic/versions/20260728_08_job_queue.py)
+- [Birim testleri](../../../06-Testler/01-Birim/test_job_queue.py)
+- [PostgreSQL entegrasyon testleri](../../../06-Testler/02-Entegrasyon/test_postgresql_job_queue.py)
 
 ## Tamamlama Ölçütleri
 
@@ -61,6 +61,6 @@ idempotent enqueue.
 
 ## Bağlantılar
 
-- [İterasyon 36 ana planı](Iterasyon-36-PostgreSQL-ve-Yazilabilir-Alan-Ekranlari.md)
+- [İterasyon 36 ana planı](../../../09-Iterasyonlar/Iterasyon-36-PostgreSQL-ve-Yazilabilir-Alan-Ekranlari.md)
 - [Bir önceki: 36G — Güvenli Rapor Üretimi/İndirme](Iterasyon-36G-Guvenli-Rapor-Uretimi-ve-Indirme.md)
-- [Sonraki: kalan iş yürütme yaşam döngüsü](../NEXT_STEP.md)
+- [Sonraki: kalan iş yürütme yaşam döngüsü](../../../NEXT_STEP.md)

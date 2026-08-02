@@ -23,11 +23,11 @@ yolundan çıkarmak.
 
 ## Kanıt
 
-- [PostgreSQL schedule repository](../03-Backend/src/veri_kalitesi/executions/postgresql_scheduling.py)
-- [PostgreSQL source usage repository](../03-Backend/src/veri_kalitesi/executions/postgresql_source_usage.py)
-- [Schedule protocol ve SchedulingService güncellemesi](../03-Backend/src/veri_kalitesi/executions/scheduling.py)
-- [Migration](../05-Veritabani/alembic/versions/20260724_05_scheduling_and_policy_baseline.py)
-- [Runtime export temizliği](../03-Backend/src/veri_kalitesi/executions/__init__.py)
+- [PostgreSQL schedule repository](../../../03-Backend/src/veri_kalitesi/executions/postgresql_scheduling.py)
+- [PostgreSQL source usage repository](../../../03-Backend/src/veri_kalitesi/executions/postgresql_source_usage.py)
+- [Schedule protocol ve SchedulingService güncellemesi](../../../03-Backend/src/veri_kalitesi/executions/scheduling.py)
+- [Migration](../../../05-Veritabani/alembic/versions/20260724_05_scheduling_and_policy_baseline.py)
+- [Runtime export temizliği](../../../03-Backend/src/veri_kalitesi/executions/__init__.py)
 
 ## Tamamlama Ölçütleri
 
@@ -48,6 +48,6 @@ yolundan çıkarmak.
 
 ## Bağlantılar
 
-- [İterasyon 36 ana planı](Iterasyon-36-PostgreSQL-ve-Yazilabilir-Alan-Ekranlari.md)
+- [İterasyon 36 ana planı](../../../09-Iterasyonlar/Iterasyon-36-PostgreSQL-ve-Yazilabilir-Alan-Ekranlari.md)
 - [Bir önceki: 36E — Çalıştırma PostgreSQL Cutover](Iterasyon-36E-Calisma-PostgreSQL-Cutover.md)
 - [Sonraki: 36G — Güvenli Rapor Üretimi/İndirme](Iterasyon-36G-Guvenli-Rapor-Uretimi-ve-Indirme.md)
