@@ -12,7 +12,6 @@ güvenilir sınırlar içinde yazılabilir; kaynak üretim verisi değiştirilem
 3. [Son Tamamlanan Çalışma Paketi](NEXT_STEP.md)
 4. [Aktif Backlog](00-Proje-Hafizasi/Sonraki-Adimlar.md)
 5. [Aktif Son Yedi İterasyon](09-Iterasyonlar/ITERASYON-INDEX.md)
-6. [Ajan Kuralları](AGENTS.md)
 
 ## Güncel Teknik Özet
 

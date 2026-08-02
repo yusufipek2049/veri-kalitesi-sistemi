@@ -33,7 +33,7 @@ tamamlanmasına bağlıdır ve healthcheck taşır.
 ## Değişiklik ve kanıt
 
 - Compose, config, bootstrap ve servisler:
-  [`infrastructure/enterprise-lab`](../infrastructure/enterprise-lab/README.md)
+  [`infrastructure/enterprise-lab`](../../../infrastructure/enterprise-lab/README.md)
 - Fail-closed kapı: `veri_kalitesi.enterprise_lab`
 - Birim/negatif test:
   `06-Testler/01-Birim/test_enterprise_lab.py`

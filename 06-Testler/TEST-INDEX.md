@@ -12,7 +12,6 @@ tags:
 
 ## Ana Kaynaklar
 
-- [Test Ajan Talimatları](AGENTS.md)
 - [Sistem Kabul Kriterleri](../01-SRS/10-Kabul-Kriterleri.md)
 - [Kullanım Senaryoları](../01-SRS/05-Kullanim-Senaryolari/INDEX.md)
 - [İzlenebilirlik Matrisi](../01-SRS/11-Izlenebilirlik-Matrisi.md)

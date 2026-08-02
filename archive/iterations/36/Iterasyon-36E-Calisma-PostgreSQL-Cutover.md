@@ -26,12 +26,12 @@ yolundan çıkararak yalnız test double rolüne indirgemek.
 
 ## Kanıt
 
-- [PostgreSQL execution repository](../03-Backend/src/veri_kalitesi/executions/postgresql_repository.py)
-- [PostgreSQL execution API adaptörleri](../03-Backend/src/veri_kalitesi/api/postgresql_execution.py)
-- [Execution migration](../05-Veritabani/alembic/versions/20260724_04_execution_baseline.py)
-- [Execution sözleşmesi](../03-Backend/src/veri_kalitesi/executions/contracts.py)
-- [Entegrasyon testleri](../06-Testler/02-Entegrasyon/test_postgresql_execution_persistence.py)
-- [API birim testleri](../06-Testler/01-Birim/test_execution_api.py)
+- [PostgreSQL execution repository](../../../03-Backend/src/veri_kalitesi/executions/postgresql_repository.py)
+- [PostgreSQL execution API adaptörleri](../../../03-Backend/src/veri_kalitesi/api/postgresql_execution.py)
+- [Execution migration](../../../05-Veritabani/alembic/versions/20260724_04_execution_baseline.py)
+- [Execution sözleşmesi](../../../03-Backend/src/veri_kalitesi/executions/contracts.py)
+- [Entegrasyon testleri](../../../06-Testler/02-Entegrasyon/test_postgresql_execution_persistence.py)
+- [API birim testleri](../../../06-Testler/01-Birim/test_execution_api.py)
 
 ## Tamamlama Ölçütleri
 
@@ -59,6 +59,6 @@ yolundan çıkararak yalnız test double rolüne indirgemek.
 
 ## Bağlantılar
 
-- [İterasyon 36 ana planı](Iterasyon-36-PostgreSQL-ve-Yazilabilir-Alan-Ekranlari.md)
+- [İterasyon 36 ana planı](../../../09-Iterasyonlar/Iterasyon-36-PostgreSQL-ve-Yazilabilir-Alan-Ekranlari.md)
 - [Bir önceki: 36B5 — Kapatma ve Yeniden Açma](Iterasyon-36B5-Kapatma-ve-Yeniden-Acma.md)
 - [Sonraki: 36F — Execution Politika ve Worker Dayanıklılığı](Iterasyon-36F-Execution-Politika-Worker-Dayanikliligi.md)

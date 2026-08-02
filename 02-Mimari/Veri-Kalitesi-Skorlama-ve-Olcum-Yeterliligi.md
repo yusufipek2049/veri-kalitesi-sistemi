@@ -457,8 +457,6 @@ değerleri üretim için bağlayıcı değildir.
 | `02-Mimari/Mantiksal-Mimari.md` | Skorlama motoru | Mimari | Ölçüm yeterliliği kapısı | Bileşen sorumluluğu |
 | `02-Mimari/Sistem-Baglami.md` | Sistem davranışı | Mimari bağlam | Skor/yeterlilik/kullanım ayrımı | Sistem sınırı |
 | `02-Mimari/Mimari-Kararlar.md` | ADR-015 | Mimari karar | Katmanlı kritik kapı ve yeterlilik | Karar kaynağı |
-| `03-Backend/06-Skorlama/AGENTS.md` | Uygulama kuralları | Agent | Kanonik terim ve ayrım | Gelecek kod tutarlılığı |
-| `04-Frontend/03-Dashboard/AGENTS.md` | Dashboard uygulama kuralları | Agent | Ayrı durum ve skor yüzeyleri | Gelecek UI tutarlılığı |
 | `01-SRS/06-Is-Kurallari.md` | RULE-003–RULE-007 | İş kuralı | Sayaç, yeterlilik, olay ve sürüm | Domain tutarlılığı |
 | `01-SRS/04-Fonksiyonel-Gereksinimler/04.07-Dashboard.md` | FR-054–FR-058 | UI gereksinimi | Ayrı skor/yeterlilik/kullanım/teknik görünümü | Yanıltıcı sunumu engelleme |
 | `01-SRS/04-Fonksiyonel-Gereksinimler/04.08-Bildirim.md` | FR-059–FR-063 | İş akışı | Yeterlilik ve teknik olay ayrımı | Doğru bildirim sınıfı |

@@ -28,24 +28,24 @@ kaydı. Kontrol yokluğunda fail-closed.
 
 ## Kanıt
 
-- [Report domain modelleri](../03-Backend/src/veri_kalitesi/reporting/models.py)
-- [PDF/XLSX/CSV dışa aktarma](../03-Backend/src/veri_kalitesi/reporting/export.py)
-- [Politika framework'ü (DLP/watermark/maker-checker/gerekçe/süre)](../03-Backend/src/veri_kalitesi/reporting/policies.py)
-- [Asenkron worker](../03-Backend/src/veri_kalitesi/reporting/worker.py)
-- [Zamanlanmış rapor servisi](../03-Backend/src/veri_kalitesi/reporting/scheduling.py)
-- [PostgreSQL repository](../03-Backend/src/veri_kalitesi/reporting/repository.py)
-- [Rapor servisi (yetki/audit/indirme)](../03-Backend/src/veri_kalitesi/reporting/service.py)
-- [API endpoints](../03-Backend/src/veri_kalitesi/api/app.py) (summary, create, list, get, download, schedules CRUD, trigger-due)
-- [API modelleri](../03-Backend/src/veri_kalitesi/api/models.py) (Pydantic istek/yanıt)
-- [Geliştirme kurulumu](../03-Backend/src/veri_kalitesi/api/development.py)
-- [Migration — reports tablosu](../05-Veritabani/alembic/versions/20260724_06_reporting_baseline.py)
-- [Migration — report_schedules tablosu](../05-Veritabani/alembic/versions/20260724_07_report_schedules.py)
-- [Frontend ReportsPage](../04-Frontend/app/src/reports/ReportsPage.tsx)
-- [Frontend API client](../04-Frontend/app/src/reports/api.ts)
-- [Frontend modeller](../04-Frontend/app/src/reports/model.ts)
-- [Frontend route bağlantısı](../04-Frontend/app/src/App.tsx) (ReportsRoute)
-- [Birim testleri](../06-Testler/01-Birim/test_reporting.py)
-- [PostgreSQL entegrasyon testleri](../06-Testler/02-Entegrasyon/test_postgresql_report_lifecycle.py)
+- [Report domain modelleri](../../../03-Backend/src/veri_kalitesi/reporting/models.py)
+- [PDF/XLSX/CSV dışa aktarma](../../../03-Backend/src/veri_kalitesi/reporting/export.py)
+- [Politika framework'ü (DLP/watermark/maker-checker/gerekçe/süre)](../../../03-Backend/src/veri_kalitesi/reporting/policies.py)
+- [Asenkron worker](../../../03-Backend/src/veri_kalitesi/reporting/worker.py)
+- [Zamanlanmış rapor servisi](../../../03-Backend/src/veri_kalitesi/reporting/scheduling.py)
+- [PostgreSQL repository](../../../03-Backend/src/veri_kalitesi/reporting/repository.py)
+- [Rapor servisi (yetki/audit/indirme)](../../../03-Backend/src/veri_kalitesi/reporting/service.py)
+- [API endpoints](../../../03-Backend/src/veri_kalitesi/api/app.py) (summary, create, list, get, download, schedules CRUD, trigger-due)
+- [API modelleri](../../../03-Backend/src/veri_kalitesi/api/models.py) (Pydantic istek/yanıt)
+- [Geliştirme kurulumu](../../../03-Backend/src/veri_kalitesi/api/development.py)
+- [Migration — reports tablosu](../../../05-Veritabani/alembic/versions/20260724_06_reporting_baseline.py)
+- [Migration — report_schedules tablosu](../../../05-Veritabani/alembic/versions/20260724_07_report_schedules.py)
+- [Frontend ReportsPage](../../../04-Frontend/app/src/reports/ReportsPage.tsx)
+- [Frontend API client](../../../04-Frontend/app/src/reports/api.ts)
+- [Frontend modeller](../../../04-Frontend/app/src/reports/model.ts)
+- [Frontend route bağlantısı](../../../04-Frontend/app/src/App.tsx) (ReportsRoute)
+- [Birim testleri](../../../06-Testler/01-Birim/test_reporting.py)
+- [PostgreSQL entegrasyon testleri](../../../06-Testler/02-Entegrasyon/test_postgresql_report_lifecycle.py)
 
 ## Tamamlama Ölçütleri
 
@@ -76,6 +76,6 @@ kaydı. Kontrol yokluğunda fail-closed.
 
 ## Bağlantılar
 
-- [İterasyon 36 ana planı](Iterasyon-36-PostgreSQL-ve-Yazilabilir-Alan-Ekranlari.md)
+- [İterasyon 36 ana planı](../../../09-Iterasyonlar/Iterasyon-36-PostgreSQL-ve-Yazilabilir-Alan-Ekranlari.md)
 - [Bir önceki: 36F — Execution Politika ve Worker Dayanıklılığı](Iterasyon-36F-Execution-Politika-Worker-Dayanikliligi.md)
-- [Sonraki adım (aktif yol haritası)](../NEXT_STEP.md)
+- [Sonraki adım (aktif yol haritası)](../../../NEXT_STEP.md)
