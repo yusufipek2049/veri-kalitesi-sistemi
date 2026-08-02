@@ -73,9 +73,7 @@ class LabAdapterGate:
         try:
             evidence = self._provider.current_evidence()
         except Exception as exc:
-            raise EnvironmentPolicyBlockedError(
-                "LAB_EVIDENCE_PROVIDER_UNAVAILABLE"
-            ) from exc
+            raise EnvironmentPolicyBlockedError("LAB_EVIDENCE_PROVIDER_UNAVAILABLE") from exc
 
         if evidence is None:
             raise EnvironmentPolicyBlockedError("LAB_EVIDENCE_MISSING")

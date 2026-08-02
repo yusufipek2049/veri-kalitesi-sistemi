@@ -26,7 +26,16 @@ from veri_kalitesi.servicenow import (
     ServiceNowTicketRequest,
     ServiceNowTicketResponse,
 )
-from veri_kalitesi.enterprise_lab.gate import verify_enterprise_lab_configuration
+from veri_kalitesi.enterprise_lab.gate import (
+    EnterpriseLabEvidence,
+    verify_enterprise_lab_configuration,
+)
+from veri_kalitesi.environment_security import (
+    LabAdapterGate,
+    LabGateEvidence,
+    LabGateStatus,
+    StaticLabEnvironmentProvider,
+)
 
 
 ENTERPRISE_LAB_APPLICATION_POLICY_VERSION = "ENTERPRISE-LAB-02-v1"
@@ -130,6 +139,20 @@ class EnterpriseLabApplicationAdapters:
     classification: str = _CLASSIFICATION
 
 
+def _derive_lab_gate_evidence(evidence: EnterpriseLabEvidence) -> LabGateEvidence:
+    """Derives fail-closed lab gate evidence from the verified lab configuration evidence."""
+    return LabGateEvidence(
+        lab_id=evidence.lab_id,
+        policy_version=evidence.policy_version,
+        classification=evidence.classification,
+        environment=evidence.environment,
+        data_origin=evidence.data_origin,
+        gate_status=LabGateStatus.OPEN,
+        verified_at=datetime.now(timezone.utc),
+        checks=evidence.checks,
+    )
+
+
 def build_enterprise_lab_application_adapters(
     configuration_path: Path,
     *,
@@ -150,25 +173,30 @@ def build_enterprise_lab_application_adapters(
     if not isinstance(endpoints, dict):
         raise EnterpriseLabAdapterError("LAB_ADAPTER_ENDPOINTS_INVALID")
     active_transport = transport or UrllibHttpTransport()
+    gate = LabAdapterGate(StaticLabEnvironmentProvider(_derive_lab_gate_evidence(evidence)))
     return EnterpriseLabApplicationAdapters(
         identity=KeycloakActorContextResolver(
             _endpoint_value(endpoints, "identity"),
             identity_policy,
             transport=active_transport,
+            gate=gate,
         ),
         secrets=LocalPrototypeSecretResolver(
             _endpoint_value(endpoints, "secret_manager"),
             environment=evidence.environment,
             authorization_token_path=secret_manager_token_path,
             transport=active_transport,
+            gate=gate,
         ),
         servicenow=FakeServiceNowHttpAdapter(
             _endpoint_value(endpoints, "servicenow"),
             transport=active_transport,
+            gate=gate,
         ),
         siem=FailClosedSiemAuditAdapter(
             _endpoint_value(endpoints, "siem"),
             transport=active_transport,
+            gate=gate,
         ),
     )
 
@@ -183,6 +211,7 @@ class KeycloakActorContextResolver:
         *,
         transport: HttpTransport | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+        gate: LabAdapterGate | None = None,
     ) -> None:
         _validate_endpoint(endpoint, expected_host="keycloak")
         _validate_identity_policy(policy)
@@ -193,8 +222,11 @@ class KeycloakActorContextResolver:
         self._transport = transport or UrllibHttpTransport()
         self._clock = clock
         self._issuer = ActorContextIssuer()
+        self._gate = gate
 
     def resolve(self, request: Request) -> ActorContext:
+        if self._gate is not None:
+            self._gate.guard("identity.resolve_actor_context")
         correlation_id = request.state.correlation_id
         authorization = request.headers.get("Authorization", "")
         if not authorization.startswith("Bearer ") or not authorization[7:].strip():
@@ -282,6 +314,7 @@ class LocalPrototypeSecretResolver:
         environment: str,
         authorization_token_path: Path,
         transport: HttpTransport | None = None,
+        gate: LabAdapterGate | None = None,
     ) -> None:
         _validate_endpoint(endpoint, expected_host="local-secret-manager")
         if environment not in _ALLOWED_ENVIRONMENTS:
@@ -290,8 +323,11 @@ class LocalPrototypeSecretResolver:
         self._environment = environment.lower()
         self._authorization_token_path = authorization_token_path
         self._transport = transport or UrllibHttpTransport()
+        self._gate = gate
 
     def resolve(self, secret_reference: str) -> Mapping[str, Any]:
+        if self._gate is not None:
+            self._gate.guard("secret.resolve")
         match = _SECRET_REFERENCE_PATTERN.fullmatch(secret_reference)
         if (
             match is None
@@ -334,12 +370,21 @@ class LocalPrototypeSecretResolver:
 class FakeServiceNowHttpAdapter:
     """Data-minimum adapter for the idempotent fake ServiceNow lab endpoint."""
 
-    def __init__(self, endpoint: str, *, transport: HttpTransport | None = None) -> None:
+    def __init__(
+        self,
+        endpoint: str,
+        *,
+        transport: HttpTransport | None = None,
+        gate: LabAdapterGate | None = None,
+    ) -> None:
         _validate_endpoint(endpoint, expected_host="fake-servicenow")
         self._endpoint = endpoint.rstrip("/") + "/api/now/table/incident"
         self._transport = transport or UrllibHttpTransport()
+        self._gate = gate
 
     def create_ticket(self, request: ServiceNowTicketRequest) -> ServiceNowTicketResponse:
+        if self._gate is not None:
+            self._gate.guard("servicenow.create_ticket")
         payload = {
             "short_description": "SYNTHETIC_DATA_QUALITY_ISSUE",
             "correlation_id": request.correlation_id,
@@ -388,12 +433,21 @@ class FakeServiceNowHttpAdapter:
 class FailClosedSiemAuditAdapter:
     """Projects audit events to an allowlisted SIEM envelope and fails closed."""
 
-    def __init__(self, endpoint: str, *, transport: HttpTransport | None = None) -> None:
+    def __init__(
+        self,
+        endpoint: str,
+        *,
+        transport: HttpTransport | None = None,
+        gate: LabAdapterGate | None = None,
+    ) -> None:
         _validate_endpoint(endpoint, expected_host="siem-collector")
         self._endpoint = endpoint.rstrip("/") + "/events"
         self._transport = transport or UrllibHttpTransport()
+        self._gate = gate
 
     def append(self, event: AuditEventInput) -> None:
+        if self._gate is not None:
+            self._gate.guard("siem.append")
         event_id = _audit_input_id(event)
         self._publish(
             event_id=event_id,
@@ -404,6 +458,8 @@ class FailClosedSiemAuditAdapter:
         )
 
     def publish(self, event: AuditEvent) -> None:
+        if self._gate is not None:
+            self._gate.guard("siem.publish")
         self._publish(
             event_id=event.event_id,
             occurred_at=event.occurred_at,

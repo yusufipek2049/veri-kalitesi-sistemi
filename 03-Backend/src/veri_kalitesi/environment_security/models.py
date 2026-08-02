@@ -44,7 +44,10 @@ class EnvironmentConfiguration:
 
 
 class TrustedEnvironmentConfigurationProvider(Protocol):
-    trust_contract_version: str
+    @property
+    def trust_contract_version(self) -> str:
+        """Guven sozlesmesi surumu; kapi tarafindan salt okunur kullanilir."""
+        ...
 
     def load_verified(self) -> EnvironmentConfiguration:
         """Guvenilir dagitim konfigurasyonundan dogrulanmis ortam bilgisini yukle."""

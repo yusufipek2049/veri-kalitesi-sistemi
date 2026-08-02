@@ -7,7 +7,9 @@ PostgreSQLExecutionRepository ve postgresql_repository.py sablonunu izler.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, time
+from collections.abc import Iterable
+from datetime import datetime, time, timezone
+from typing import cast
 
 from sqlalchemy import (
     Column,
@@ -113,7 +115,7 @@ class PostgreSQLScheduleRepository:
                     .where(
                         t.c.is_active == 1,
                         t.c.next_run_at.isnot(None),
-                        t.c.next_run_at <= now.astimezone(datetime.timezone.utc),
+                        t.c.next_run_at <= now.astimezone(timezone.utc),
                     )
                     .order_by(t.c.next_run_at, t.c.schedule_id)
                 )
@@ -136,7 +138,7 @@ class PostgreSQLScheduleRepository:
                 update(t)
                 .where(t.c.schedule_id == schedule_id)
                 .values(
-                    last_triggered_at=triggered_at.astimezone(datetime.timezone.utc),
+                    last_triggered_at=triggered_at.astimezone(timezone.utc),
                     next_run_at=next_run_at,
                     is_active=1 if is_active else 0,
                 )
@@ -147,9 +149,7 @@ class PostgreSQLScheduleRepository:
         t = self._tables.schedules
         with self._session_factory() as session:
             row = (
-                session.execute(
-                    select(t).where(t.c.schedule_id == schedule_id)
-                )
+                session.execute(select(t).where(t.c.schedule_id == schedule_id))
                 .mappings()
                 .one_or_none()
             )
@@ -163,9 +163,7 @@ class PostgreSQLScheduleRepository:
         t = self._tables.schedules
         with self._session_factory() as session:
             rows = (
-                session.execute(
-                    select(t).order_by(t.c.created_at, t.c.schedule_id)
-                )
+                session.execute(select(t).order_by(t.c.created_at, t.c.schedule_id))
                 .mappings()
                 .all()
             )
@@ -178,7 +176,7 @@ def _row_to_schedule(row: RowMapping) -> Schedule:
         name=row["name"],
         schedule_type=ScheduleType(row["schedule_type"]),
         timezone_name=row["timezone_name"],
-        rule_version_ids=tuple(_from_json(row["rule_version_ids"])),
+        rule_version_ids=tuple(cast(Iterable[str], _from_json(row["rule_version_ids"]))),
         created_by=row["created_by"],
         local_time=time.fromisoformat(row["local_time"]) if row["local_time"] else None,
         once_at=row["once_at"],

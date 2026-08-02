@@ -4,6 +4,10 @@
 class EnvironmentSecurityError(Exception):
     """Ortam guvenligi temel hatasi."""
 
+    def __init__(self, reason_code: str) -> None:
+        super().__init__(reason_code)
+        self.reason_code = reason_code
+
 
 class EnvironmentConfigurationValidationError(EnvironmentSecurityError):
     """Ortam konfigurasyonu veya saglayici sozlesmesi gecersiz."""

@@ -6,10 +6,11 @@ PostgreSQLExecutionRepository ve postgresql_repository.py sablonunu izler.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from types import MappingProxyType
+from typing import cast
 
 from sqlalchemy import (
     Column,
@@ -153,9 +154,7 @@ class PostgreSQLSourceUsagePolicyRepository:
         try:
             with self._session_factory() as session:
                 rows = (
-                    session.execute(
-                        select(t).order_by(t.c.policy_version, t.c.policy_id)
-                    )
+                    session.execute(select(t).order_by(t.c.policy_version, t.c.policy_id))
                     .mappings()
                     .all()
                 )
@@ -208,16 +207,13 @@ class PostgreSQLSourceUsagePolicyRepository:
             policy.source_type: policy for policy in policies if policy.source_type is not None
         }
         resolved_limits = {
-            source_id: _effective_source_limit(policy)
-            for source_id, policy in by_source.items()
+            source_id: _effective_source_limit(policy) for source_id, policy in by_source.items()
         }
         resolved_allowed = {
-            source_id: _policy_allows_at(policy, at)
-            for source_id, policy in by_source.items()
+            source_id: _policy_allows_at(policy, at) for source_id, policy in by_source.items()
         }
         resolved_runtime = {
-            source_id: _runtime_policy(policy)
-            for source_id, policy in by_source.items()
+            source_id: _runtime_policy(policy) for source_id, policy in by_source.items()
         }
         for source_id, source_type in self.source_types_by_id.items():
             override = by_source.get(source_id) or by_type.get(source_type)
@@ -271,12 +267,14 @@ def _row_to_policy(row: RowMapping) -> SourceUsagePolicy:
         total_job_timeout_seconds=row["total_job_timeout_seconds"],
         retry_count=row["retry_count"],
         retry_delay_seconds=row["retry_delay_seconds"],
-        rate_limit=dict(_from_json(row["rate_limit"])),
+        rate_limit=dict(cast(Mapping[str, object], _from_json(row["rate_limit"]))),
         allowed_windows=tuple(
-            _window_from_value(value) for value in _from_json(row["allowed_windows"])
+            _window_from_value(value)
+            for value in cast(Iterable[object], _from_json(row["allowed_windows"]))
         ),
         blocked_windows=tuple(
-            _window_from_value(value) for value in _from_json(row["blocked_windows"])
+            _window_from_value(value)
+            for value in cast(Iterable[object], _from_json(row["blocked_windows"]))
         ),
         cpu_limit_percent=row["cpu_limit_percent"],
         io_limit_percent=row["io_limit_percent"],
