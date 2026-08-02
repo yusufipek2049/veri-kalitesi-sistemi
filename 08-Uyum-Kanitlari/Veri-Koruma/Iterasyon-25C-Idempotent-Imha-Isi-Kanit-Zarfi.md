@@ -5,7 +5,7 @@
 - Teknik durum: `TechnicallyVerified`
 - Uyum durumu: `ComplianceReviewRequired`
 - Tarih: 2026-07-21
-- Üretici rolü: Codex geliştirme ajanı
+- Üretici rolü: mühendislik ekibi
 - Kontroller: `CTRL-KVKK-DEL-001`, `CTRL-BDDK-AUD-001`, `CTRL-BDDK-SOD-001`
 - Gereksinimler: `BFR-LCM-002/003`, `BFR-AUD-004`, `BFR-SOD-002`, `FR-077`,
   `FR-079`, `NFR-SEC-001/008/011`, `NFR-CMP-001/003`

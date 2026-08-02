@@ -13,7 +13,7 @@
 - açık risk kabulü
 - dağıtım ve doğrulama kanıtı
 
-Codex banka onaylarını varsayamaz.
+Uygulayıcı rol banka onaylarını varsayamaz.
 
 ## Skorlama Modeli Değişiklik Kapısı
 

@@ -13,7 +13,7 @@ control_ids:
   - NFR-USA-006
 version: ITERATION_35D
 date: 2026-07-23
-producer_role: Codex
+producer_role: engineering
 ---
 
 # İterasyon 35D Sorunlar Ekranı Kanıtı

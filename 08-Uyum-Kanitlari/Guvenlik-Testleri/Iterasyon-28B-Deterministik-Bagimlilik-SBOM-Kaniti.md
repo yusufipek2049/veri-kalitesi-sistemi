@@ -8,7 +8,7 @@ control_ids:
   - NFR-SEC-012
 version: ITERATION_28B
 date: 2026-07-20
-producer_role: Codex
+producer_role: engineering
 ---
 
 # İterasyon 28B Deterministik Bağımlılık ve SBOM Kanıtı

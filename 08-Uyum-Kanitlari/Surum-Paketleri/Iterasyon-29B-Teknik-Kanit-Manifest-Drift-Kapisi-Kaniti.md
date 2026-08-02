@@ -7,7 +7,7 @@ control_ids:
   - NFR-CMP-005
 version: ITERATION_29B
 date: 2026-07-20
-producer_role: Codex
+producer_role: engineering
 ---
 
 # İterasyon 29B Teknik Kanıt Manifest Drift Kapısı Kanıtı

@@ -14,7 +14,7 @@ requirement_ids:
 status: TechnicallyVerified
 version: iteration-20e-local
 executed_at: 2026-07-22
-producer_role: Codex
+producer_role: engineering
 ---
 
 # İterasyon 20E BFF Oturum ve CSRF HTTP Kanıtı
