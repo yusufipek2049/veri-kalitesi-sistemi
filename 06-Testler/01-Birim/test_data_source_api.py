@@ -155,9 +155,7 @@ def test_profile_comparison_api_maps_unknown_profile_ids_to_validation_response(
 
     assert response.status_code == 400
     assert response.json()["title"] == "Invalid request"
-    assert response.json()["detail"] == (
-        "The profile comparison request could not be validated."
-    )
+    assert response.json()["detail"] == ("The profile comparison request could not be validated.")
     assert "unknown profile contains secret" not in response.text
 
 

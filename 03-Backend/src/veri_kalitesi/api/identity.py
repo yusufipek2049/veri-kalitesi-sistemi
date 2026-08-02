@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Protocol
-from uuid import uuid4
 
 from fastapi import Request
 
@@ -95,18 +94,22 @@ def build_default_development_users() -> list[DevelopmentUser]:
     Her kullanıcı farklı rol ve kapsam kombinasyonuna sahiptir,
     böylece yetki farklılıkları test edilebilir.
     """
-    all_source_ids = frozenset({
-        "source-core-banking",
-        "source-customer-file",
-        "source-risk-mart",
-        "source-regulatory-api",
-    })
-    all_dataset_ids = frozenset({
-        "dataset-customer",
-        "dataset-account",
-        "dataset-risk",
-        "dataset-transaction",
-    })
+    all_source_ids = frozenset(
+        {
+            "source-core-banking",
+            "source-customer-file",
+            "source-risk-mart",
+            "source-regulatory-api",
+        }
+    )
+    all_dataset_ids = frozenset(
+        {
+            "dataset-customer",
+            "dataset-account",
+            "dataset-risk",
+            "dataset-transaction",
+        }
+    )
     limited_sources = frozenset({"source-core-banking", "source-customer-file"})
     limited_datasets = frozenset({"dataset-customer", "dataset-account"})
 
@@ -232,7 +235,9 @@ class DevelopmentActorContextResolver:
         self.request_proof = "development-request-proof-v1"
         self.user_registry = user_registry
 
-    def _resolve_user(self, request: Request) -> tuple[str, frozenset[str], frozenset[str], frozenset[str], bool, bool]:
+    def _resolve_user(
+        self, request: Request
+    ) -> tuple[str, frozenset[str], frozenset[str], frozenset[str], bool, bool]:
         """İstekteki kullanıcıyı belirler.
 
         Eğer X-Development-User-Id header'ı varsa ve kayıtlı bir kullanıcıysa

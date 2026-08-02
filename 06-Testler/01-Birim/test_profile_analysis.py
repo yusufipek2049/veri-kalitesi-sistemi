@@ -346,9 +346,7 @@ def test_dq_cap_006_uses_requested_baseline_after_compatible_history_is_sufficie
     )
 
     volume_signal = next(
-        signal
-        for signal in comparison.result["signals"]
-        if signal["kind"] == "VOLUME_CHANGE"
+        signal for signal in comparison.result["signals"] if signal["kind"] == "VOLUME_CHANGE"
     )
     assert comparison.status is ProfileComparisonStatus.COMPLETED
     assert comparison.baseline_profile_id == baseline.profile_id

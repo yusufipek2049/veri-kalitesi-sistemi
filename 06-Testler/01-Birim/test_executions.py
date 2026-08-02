@@ -249,9 +249,7 @@ def test_fr_045_rule_011_rejects_same_idempotency_key_with_different_payload() -
 
 
 def test_dq_cap_014_execution_mode_is_part_of_idempotent_payload() -> None:
-    service, repository, version = _service(
-        FakeExecutionExecutor([(_computation(1, 1, 0),)])
-    )
+    service, repository, version = _service(FakeExecutionExecutor([(_computation(1, 1, 0),)]))
     service.start_manual(
         actor_id="user-1",
         idempotency_key="same-mode-key",
@@ -1440,9 +1438,7 @@ def _with_evidence_value(field: str, value: Any) -> dict[str, Any]:
 @pytest.mark.parametrize(
     "evidence",
     [
-        _with_evidence_value(
-            "query_reference", "query-template://SELECT * FROM customers"
-        ),
+        _with_evidence_value("query_reference", "query-template://SELECT * FROM customers"),
         _with_evidence_value("query_reference", "query-template://SELECT"),
         _with_evidence_value("query_reference", "query-template://bind/customer-id"),
         _with_evidence_value("query_reference", "query-template://rules/rv-1?id=7"),

@@ -28,7 +28,6 @@ from veri_kalitesi.api.models import (
     AuditEventListResponse,
     DashboardSummaryResponse,
     DataSourceCreateRequest,
-    DataSourceDetailResponse,
     DataSourceListItemResponse,
     DataSourceListResponse,
     DataSourceMutationResponse,
@@ -43,10 +42,8 @@ from veri_kalitesi.api.models import (
     ExecutionStartRequest,
     ExecutionStartResponse,
     IssueAssigneeOptionResponse,
-    ExecutionListResponse,
     IssueListItemResponse,
     IssueListResponse,
-    IssueAssigneeOptionResponse,
     IssueAssigneeOptionsResponse,
     IssueMutationRequest,
     IssueMutationResponse,
@@ -142,7 +139,6 @@ from veri_kalitesi.reporting import (
     ReportPreviewRequest,
     ReportPreviewService,
     ReportRequest,
-    ReportScheduleCreateRequest,
     ReportScheduleService,
     ReportService,
     ReportTechnicalError,
@@ -576,7 +572,6 @@ def create_dashboard_api(
             correlation_id=error.correlation_id,
         )
 
-
     @app.exception_handler(ExecutionNotFoundError)
     async def handle_execution_not_found_error(
         request: Request, error: ExecutionNotFoundError
@@ -758,9 +753,7 @@ def create_dashboard_api(
         )
 
     @app.exception_handler(ReportNotFoundError)
-    async def handle_report_not_found(
-        request: Request, error: ReportNotFoundError
-    ) -> JSONResponse:
+    async def handle_report_not_found(request: Request, error: ReportNotFoundError) -> JSONResponse:
         return _problem(
             request,
             status=404,
@@ -782,9 +775,7 @@ def create_dashboard_api(
         )
 
     @app.exception_handler(ReportExpiredError)
-    async def handle_report_expired(
-        request: Request, error: ReportExpiredError
-    ) -> JSONResponse:
+    async def handle_report_expired(request: Request, error: ReportExpiredError) -> JSONResponse:
         return _problem(
             request,
             status=410,
@@ -794,9 +785,7 @@ def create_dashboard_api(
         )
 
     @app.exception_handler(ReportNotReadyError)
-    async def handle_report_not_ready(
-        request: Request, error: ReportNotReadyError
-    ) -> JSONResponse:
+    async def handle_report_not_ready(request: Request, error: ReportNotReadyError) -> JSONResponse:
         return _problem(
             request,
             status=409,
@@ -1339,7 +1328,7 @@ def create_dashboard_api(
         request: Request,
         response: Response,
         report_id: str,
-    ) -> JSONResponse:
+    ) -> Response:
         if report_service is None:
             raise ReportTechnicalError(request.state.correlation_id)
         actor_context = resolver.resolve(request)
@@ -1384,9 +1373,7 @@ def create_dashboard_api(
             api_version="v1",
             data_origin=data_origin,
             correlation_id=request.state.correlation_id,
-            items=tuple(
-                ReportScheduleItemResponse.from_domain(s) for s in schedules
-            ),
+            items=tuple(ReportScheduleItemResponse.from_domain(s) for s in schedules),
         )
 
     @app.post(
@@ -1801,7 +1788,7 @@ def create_dashboard_api(
         response.status_code = 204
         return response
 
-# ██████ Geliştirme Kullanıcıları ██████
+    # ██████ Geliştirme Kullanıcıları ██████
 
     @app.get(
         "/api/v1/development/users",
@@ -1853,7 +1840,9 @@ def create_dashboard_api(
             database_name=payload.database_name,
             username=payload.username,
             file_path=payload.file_path,
-            connection_parameters=dict(payload.connection_parameters) if payload.connection_parameters else None,
+            connection_parameters=dict(payload.connection_parameters)
+            if payload.connection_parameters
+            else None,
         )
         response.headers["Cache-Control"] = "no-store"
         return DataSourceMutationResponse(
@@ -2088,7 +2077,6 @@ def create_dashboard_api(
             headers={"Cache-Control": "no-store"},
         )
 
-
     return app
 
 
@@ -2219,193 +2207,3 @@ def _problem(
         },
         headers={"X-Correlation-ID": correlation_id, "Cache-Control": "no-store"},
     )
-
-    # ██████ Geliştirme Kullanıcıları ██████
-
-    @app.get(
-        "/api/v1/development/users",
-        response_model=DevelopmentUserListResponse,
-        tags=["development"],
-    )
-    async def list_development_users(request: Request) -> DevelopmentUserListResponse:
-        if development_user_registry is None:
-            return DevelopmentUserListResponse(
-                correlation_id=request.state.correlation_id,
-                items=(),
-            )
-        users = development_user_registry.available_users()
-        return DevelopmentUserListResponse(
-            correlation_id=request.state.correlation_id,
-            items=tuple(
-                DevelopmentUserInfoResponse(
-                    user_id=u["user_id"],
-                    display_name=u["display_name"],
-                    roles=u["roles"],
-                )
-                for u in users
-            ),
-        )
-
-    # ██████ Veri Kaynağı Mutasyonları ██████
-
-    @app.post(
-        "/api/v1/data-sources",
-        response_model=DataSourceMutationResponse,
-        status_code=201,
-        tags=["data-sources"],
-    )
-    async def create_data_source(
-        payload: DataSourceCreateRequest,
-        request: Request,
-        response: Response,
-    ) -> DataSourceMutationResponse:
-        if data_source_mutation_service is None:
-            raise DataSourceQueryTechnicalError(
-                "Data source mutation service is unavailable.", request.state.correlation_id
-            )
-        source = data_source_mutation_service.create(
-            name=payload.name,
-            source_type=payload.source_type,
-            owner_user_id=payload.owner_user_id,
-            host=payload.host,
-            port=payload.port,
-            database_name=payload.database_name,
-            username=payload.username,
-            file_path=payload.file_path,
-            connection_parameters=dict(payload.connection_parameters) if payload.connection_parameters else None,
-        )
-        response.headers["Cache-Control"] = "no-store"
-        return DataSourceMutationResponse(
-            data_origin=data_origin,
-            correlation_id=request.state.correlation_id,
-            item=DataSourceListItemResponse.from_domain(source),
-        )
-
-    @app.post(
-        "/api/v1/data-sources/{data_source_id}/test",
-        response_model=DataSourceMutationResponse,
-        tags=["data-sources"],
-    )
-    async def test_data_source(
-        data_source_id: str,
-        request: Request,
-        response: Response,
-    ) -> DataSourceMutationResponse:
-        if data_source_mutation_service is None:
-            raise DataSourceQueryTechnicalError(
-                "Data source mutation service is unavailable.", request.state.correlation_id
-            )
-        source = data_source_mutation_service.test_connection(data_source_id)
-        response.headers["Cache-Control"] = "no-store"
-        return DataSourceMutationResponse(
-            data_origin=data_origin,
-            correlation_id=request.state.correlation_id,
-            item=DataSourceListItemResponse.from_domain(source),
-        )
-
-    @app.post(
-        "/api/v1/data-sources/{data_source_id}/activation",
-        response_model=DataSourceMutationResponse,
-        tags=["data-sources"],
-    )
-    async def activate_data_source(
-        data_source_id: str,
-        request: Request,
-        response: Response,
-    ) -> DataSourceMutationResponse:
-        if data_source_mutation_service is None:
-            raise DataSourceQueryTechnicalError(
-                "Data source mutation service is unavailable.", request.state.correlation_id
-            )
-        source = data_source_mutation_service.activate(data_source_id)
-        response.headers["Cache-Control"] = "no-store"
-        return DataSourceMutationResponse(
-            data_origin=data_origin,
-            correlation_id=request.state.correlation_id,
-            item=DataSourceListItemResponse.from_domain(source),
-        )
-
-    @app.post(
-        "/api/v1/data-sources/{data_source_id}/passivation",
-        response_model=DataSourceMutationResponse,
-        tags=["data-sources"],
-    )
-    async def passivate_data_source(
-        data_source_id: str,
-        request: Request,
-        response: Response,
-    ) -> DataSourceMutationResponse:
-        if data_source_mutation_service is None:
-            raise DataSourceQueryTechnicalError(
-                "Data source mutation service is unavailable.", request.state.correlation_id
-            )
-        source = data_source_mutation_service.passivate(data_source_id)
-        response.headers["Cache-Control"] = "no-store"
-        return DataSourceMutationResponse(
-            data_origin=data_origin,
-            correlation_id=request.state.correlation_id,
-            item=DataSourceListItemResponse.from_domain(source),
-        )
-
-    # ██████ Çalıştırma İşlemleri ██████
-
-    @app.post(
-        "/api/v1/executions",
-        response_model=ExecutionStartResponse,
-        status_code=201,
-        tags=["executions"],
-    )
-    async def start_manual_execution(
-        payload: ExecutionStartRequest,
-        request: Request,
-        response: Response,
-    ) -> ExecutionStartResponse:
-        if execution_start_service is None:
-            raise ExecutionQueryTechnicalError(
-                "Execution start service is unavailable.", request.state.correlation_id
-            )
-        actor_context = getattr(request.state, "actor_context", None)
-        if actor_context is None:
-            actor_context = resolver.resolve(request)
-        execution = execution_start_service.start_manual(
-            rule_version_ids=payload.rule_version_ids,
-            source_ids=payload.source_ids,
-            triggered_by=actor_context.actor_id if actor_context else "unknown",
-            execution_mode=ExecutionMode(payload.execution_mode),
-        )
-        response.headers["Cache-Control"] = "no-store"
-        return ExecutionStartResponse(
-            data_origin=data_origin,
-            correlation_id=request.state.correlation_id,
-            item=ExecutionListItemResponse.from_domain(execution),
-        )
-
-    @app.post(
-        "/api/v1/executions/{execution_id}/cancel",
-        response_model=ExecutionStartResponse,
-        tags=["executions"],
-    )
-    async def cancel_execution(
-        execution_id: str,
-        payload: ExecutionCancelRequest,
-        request: Request,
-        response: Response,
-    ) -> ExecutionStartResponse:
-        if execution_cancel_service is None:
-            raise ExecutionQueryTechnicalError(
-                "Execution cancel service is unavailable.", request.state.correlation_id
-            )
-        actor_context = getattr(request.state, "actor_context", None)
-        if actor_context is None:
-            actor_context = resolver.resolve(request)
-        execution = execution_cancel_service.cancel(
-            execution_id,
-            reason=payload.reason,
-            requested_by=actor_context.actor_id if actor_context else "unknown",
-        )
-        response.headers["Cache-Control"] = "no-store"
-        return ExecutionStartResponse(
-            data_origin=data_origin,
-            correlation_id=request.state.correlation_id,
-            item=ExecutionListItemResponse.from_domain(execution),
-        )

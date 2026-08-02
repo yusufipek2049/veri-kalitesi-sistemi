@@ -674,7 +674,11 @@ class DashboardSummaryResponse(BaseModel):
                             comparison_status=item.comparison_status,
                             comparison_reason_codes=item.comparison_reason_codes,
                             change=item.change,
-                            contribution_graph=item.contribution_graph,
+                            contribution_graph=(
+                                dict(item.contribution_graph)
+                                if item.contribution_graph is not None
+                                else None
+                            ),
                         )
                         for item in period.observations
                     ),

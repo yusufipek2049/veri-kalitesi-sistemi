@@ -374,9 +374,7 @@ def _build_metrics(
         "advanced_analysis": {
             "status": "RESOLVED" if options.analysis_policy is not None else "CONFIGURATION_ERROR",
             "reason": (
-                None
-                if options.analysis_policy is not None
-                else "ACTIVE_PROFILE_POLICY_MISSING"
+                None if options.analysis_policy is not None else "ACTIVE_PROFILE_POLICY_MISSING"
             ),
         },
     }
@@ -411,9 +409,7 @@ def _build_metrics(
             field_metrics["average"] = float(numeric["sum"] or 0.0) / int(numeric["count"])
         if options.analysis_policy is not None:
             numeric_sample = [
-                parsed
-                for value in sampled_values
-                if (parsed := _to_float(value)) is not None
+                parsed for value in sampled_values if (parsed := _to_float(value)) is not None
             ]
             field_metrics.update(
                 build_advanced_field_metrics(

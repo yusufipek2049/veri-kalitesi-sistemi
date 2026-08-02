@@ -378,7 +378,11 @@ def test_ac_02_lineage_snapshot_endpoint_returns_404_for_unknown_snapshot() -> N
 
 def test_lineage_snapshot_unauthenticated_request_is_rejected() -> None:
     client = TestClient(
-        _app(SQLiteScoreRepository(), use_development_resolver=False, lineage_repo=_FakeLineageRepository())
+        _app(
+            SQLiteScoreRepository(),
+            use_development_resolver=False,
+            lineage_repo=_FakeLineageRepository(),
+        )
     )
 
     response = client.get("/api/v1/lineage/snapshots/snap-1")

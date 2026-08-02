@@ -312,8 +312,7 @@ def test_dq_cap_001_postgresql_driver_uses_source_aggregates_for_advanced_metric
     }
     assert result.metrics["fields"]["amount"]["numeric_summary"]["median"] == 2.5
     assert {
-        item["method"]
-        for item in result.metrics["fields"]["amount"]["outlier_candidates"]
+        item["method"] for item in result.metrics["fields"]["amount"]["outlier_candidates"]
     } == {"IQR", "ROBUST_Z_SCORE"}
 
 
@@ -488,9 +487,7 @@ def test_dq_cap_006_postgresql_freshness_scope_flows_from_aggregate_to_compariso
         policy=policy,
     )
     freshness_signals = [
-        signal
-        for signal in comparison.result["signals"]
-        if signal["kind"] == "FRESHNESS_DELAY"
+        signal for signal in comparison.result["signals"] if signal["kind"] == "FRESHNESS_DELAY"
     ]
 
     assert baseline.metrics["fields"]["observed_at"]["freshness_max"].endswith("+00:00")
@@ -691,9 +688,7 @@ def test_masked_category_drift_survives_service_reconstruction(
     assert signals["CATEGORY_LOSS"]["lost_category_count"] == 1
     assert signals["CATEGORY_LOSS"]["breached"] is True
     assert len(second_service.repository.list_data_profiles(dataset.dataset_id)) == 2
-    assert second_service.repository.list_profile_comparisons(dataset.dataset_id) == [
-        comparison
-    ]
+    assert second_service.repository.list_profile_comparisons(dataset.dataset_id) == [comparison]
     assert "retail" not in str(baseline.metrics)
     assert "commercial" not in str(baseline.metrics)
 

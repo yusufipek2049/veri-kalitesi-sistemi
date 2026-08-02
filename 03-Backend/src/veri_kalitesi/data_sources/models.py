@@ -178,6 +178,7 @@ class DataSource:
     status: DataSourceStatus = DataSourceStatus.TEST_PENDING
     revision: int = 1
     last_test_at: datetime | None = None
+    last_test_result: str | None = None
     created_at: datetime = field(default_factory=utc_now)
 
 

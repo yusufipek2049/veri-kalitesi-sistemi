@@ -719,14 +719,10 @@ def test_dq_cap_015_role_view_uses_same_scope_and_minimizes_executive_graph() ->
     executive_overview = executive_service.get_overview(executive)
     engineer_overview = engineer_service.get_overview(engineer)
     executive_node = next(
-        item
-        for period in executive_overview.trend.periods
-        for item in period.observations
+        item for period in executive_overview.trend.periods for item in period.observations
     )
     engineer_node = next(
-        item
-        for period in engineer_overview.trend.periods
-        for item in period.observations
+        item for period in engineer_overview.trend.periods for item in period.observations
     )
 
     assert executive_overview.role_view == "EXECUTIVE"
@@ -734,8 +730,7 @@ def test_dq_cap_015_role_view_uses_same_scope_and_minimizes_executive_graph() ->
     assert executive_node.scope_id == engineer_node.scope_id == "source-a"
     assert "components" not in executive_node.contribution_graph
     assert [
-        component["dataset_id"]
-        for component in engineer_node.contribution_graph["components"]
+        component["dataset_id"] for component in engineer_node.contribution_graph["components"]
     ] == ["dataset-a"]
     assert "dataset-b" not in str(engineer_node.contribution_graph)
 
@@ -795,9 +790,7 @@ def test_dq_cap_011_technical_observation_does_not_replace_official_baseline() -
 
 def test_dq_cap_010_governance_profile_feeds_only_evidenced_status_fields() -> None:
     reader = CountingReader(
-        trend_scores=[
-            _score(ScoreScopeType.SOURCE, "source-a", "88.00", calculated_at=NOW)
-        ]
+        trend_scores=[_score(ScoreScopeType.SOURCE, "source-a", "88.00", calculated_at=NOW)]
     )
     service, context, _ = _secure_service(
         reader,
@@ -908,14 +901,10 @@ def test_dq_cap_010_absent_or_ambiguous_governance_profile_stays_unknown() -> No
 
 
 class _GovernanceReader:
-    def __init__(
-        self, profiles_by_asset: dict[str, list[DataAssetGovernanceProfile]]
-    ) -> None:
+    def __init__(self, profiles_by_asset: dict[str, list[DataAssetGovernanceProfile]]) -> None:
         self._profiles_by_asset = profiles_by_asset
 
-    def list_governance_profiles(
-        self, asset_ref: str
-    ) -> list[DataAssetGovernanceProfile]:
+    def list_governance_profiles(self, asset_ref: str) -> list[DataAssetGovernanceProfile]:
         return list(self._profiles_by_asset.get(asset_ref, ()))
 
 

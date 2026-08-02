@@ -82,7 +82,9 @@ def upgrade() -> None:
             name="ck_source_usage_policies_scope",
         ),
         sa.UniqueConstraint(
-            "policy_version", "source_id", "source_type",
+            "policy_version",
+            "source_id",
+            "source_type",
             name="uq_source_usage_policies_version_scope",
         ),
         schema=schema,

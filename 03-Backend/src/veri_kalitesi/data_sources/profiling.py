@@ -118,16 +118,10 @@ def validate_profile_policy(policy: ProfileAnalysisPolicy) -> None:
             raise ValidationError("Profile policy drift thresholds must be non-negative.")
     if not isinstance(policy.schema_change_detection_enabled, bool):
         raise ValidationError("Profile policy schema change flag must be boolean.")
-    if (
-        any(
-            not isinstance(name, str)
-            or not name
-            or not name.strip()
-            or name != name.strip()
-            for name in policy.freshness_field_names
-        )
-        or len(set(policy.freshness_field_names)) != len(policy.freshness_field_names)
-    ):
+    if any(
+        not isinstance(name, str) or not name or not name.strip() or name != name.strip()
+        for name in policy.freshness_field_names
+    ) or len(set(policy.freshness_field_names)) != len(policy.freshness_field_names):
         raise ValidationError(
             "Profile policy freshness field names must be non-blank, normalized and unique."
         )
@@ -273,9 +267,7 @@ class BoundedDeterministicSample:
             "advanced_sample_ratio": (
                 sample_size / self.observed_count if self.observed_count else None
             ),
-            "high_cardinality": (
-                self.observed_count > self._policy.high_cardinality_threshold
-            ),
+            "high_cardinality": (self.observed_count > self._policy.high_cardinality_threshold),
         }
 
 
@@ -564,8 +556,7 @@ def _masked_categories_present(*profiles: DataProfile) -> bool:
                 continue
             top_values = field.get("top_values")
             if isinstance(top_values, list) and any(
-                isinstance(item, Mapping) and item.get("masked") is True
-                for item in top_values
+                isinstance(item, Mapping) and item.get("masked") is True for item in top_values
             ):
                 return True
     return False
@@ -749,9 +740,7 @@ def _top_value_set(value: Any) -> set[str] | None:
             return None
         if item.get("masked") is True:
             fingerprint = item.get("category_fingerprint")
-            if not isinstance(fingerprint, str) or not re.fullmatch(
-                r"[0-9a-f]{64}", fingerprint
-            ):
+            if not isinstance(fingerprint, str) or not re.fullmatch(r"[0-9a-f]{64}", fingerprint):
                 return None
             result.add(fingerprint)
             continue

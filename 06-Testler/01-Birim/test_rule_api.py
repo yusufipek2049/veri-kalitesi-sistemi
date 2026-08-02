@@ -57,12 +57,12 @@ def test_fr_023_rule_list_is_dataset_scoped_and_data_minimum() -> None:
             "primary_dimension": "COMPLETENESS",
             "status": "ACTIVE",
             "rule_version_id": "version-rule-a",
-                "version_no": 2,
-                "rule_type": "REQUIRED",
-                "ir_version": "DQ_RULE_IR_V1",
-                "rule_source": "TEMPLATE",
-                "scope_type": "DATASET",
-                "criticality": "HIGH",
+            "version_no": 2,
+            "rule_type": "REQUIRED",
+            "ir_version": "DQ_RULE_IR_V1",
+            "rule_source": "TEMPLATE",
+            "scope_type": "DATASET",
+            "criticality": "HIGH",
             "created_at": "2026-07-22T12:00:00Z",
             "available_actions": ["CREATE_VERSION"],
             "pending_approval_request_id": None,
@@ -337,7 +337,12 @@ def _mutation_app(
                 version="RULE_API_REDACTION_V1",
                 allowed_fields_by_action={
                     "DASHBOARD_SCOPE_AUTHORIZATION": frozenset(
-                        {"policy_version", "permitted_source_count", "can_view_enterprise", "reason_code"}
+                        {
+                            "policy_version",
+                            "permitted_source_count",
+                            "can_view_enterprise",
+                            "reason_code",
+                        }
                     )
                 },
             )

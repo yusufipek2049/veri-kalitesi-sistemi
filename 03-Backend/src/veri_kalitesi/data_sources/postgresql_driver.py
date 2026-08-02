@@ -165,9 +165,7 @@ class SQLAlchemyPostgreSQLDriver:
             statement_timeout_ms=int(config.get("statement_timeout_ms", 5000)),
         )
         preparer = engine.dialect.identifier_preparer
-        table_ref = (
-            f"{preparer.quote(dataset.namespace)}.{preparer.quote(dataset.name)}"
-        )
+        table_ref = f"{preparer.quote(dataset.namespace)}.{preparer.quote(dataset.name)}"
         try:
             with engine.connect() as connection:
                 row_count = int(
@@ -191,26 +189,26 @@ class SQLAlchemyPostgreSQLDriver:
                 }
                 for field in selected:
                     column = preparer.quote(field.name)
-                    base = connection.execute(
-                        text(
-                            f"""
+                    base = (
+                        connection.execute(
+                            text(
+                                f"""
                             SELECT count(*) FILTER (WHERE {column} IS NULL) AS null_count,
                                    count(DISTINCT {column}) AS distinct_count
                             FROM {table_ref}
                             """
+                            )
                         )
-                    ).mappings().one()
+                        .mappings()
+                        .one()
+                    )
                     non_null_count = row_count - int(base["null_count"])
                     field_metrics: dict[str, Any] = {
                         "null_count": int(base["null_count"]),
-                        "null_ratio": (
-                            int(base["null_count"]) / row_count if row_count else None
-                        ),
+                        "null_ratio": (int(base["null_count"]) / row_count if row_count else None),
                         "distinct_count": int(base["distinct_count"]),
                         "distinct_ratio": (
-                            int(base["distinct_count"]) / non_null_count
-                            if non_null_count
-                            else None
+                            int(base["distinct_count"]) / non_null_count if non_null_count else None
                         ),
                         "distinct_measurement": "SOURCE_AGGREGATE",
                     }
@@ -272,9 +270,7 @@ class SQLAlchemyPostgreSQLDriver:
                 if non_null_count
                 else {}
             ),
-            "format_distribution": _source_format_distribution(
-                connection, table_ref, column
-            ),
+            "format_distribution": _source_format_distribution(connection, table_ref, column),
             "top_values": [
                 {
                     "rank": rank,
@@ -304,9 +300,10 @@ class SQLAlchemyPostgreSQLDriver:
             }
             result["outlier_candidates"] = []
             return result
-        summary = connection.execute(
-            text(
-                f"""
+        summary = (
+            connection.execute(
+                text(
+                    f"""
                 SELECT count({column}) AS value_count,
                        min({column})::double precision AS minimum,
                        max({column})::double precision AS maximum,
@@ -320,8 +317,11 @@ class SQLAlchemyPostgreSQLDriver:
                 FROM {table_ref}
                 WHERE {column} IS NOT NULL
                 """
+                )
             )
-        ).mappings().one()
+            .mappings()
+            .one()
+        )
         count = int(summary["value_count"])
         if count < policy.minimum_numeric_sample:
             result["numeric_summary"] = {

@@ -21,7 +21,6 @@ from veri_kalitesi.reporting.models import (
     ReportType,
 )
 from veri_kalitesi.reporting.policies import (
-    ReportExportPolicyRepository,
     check_download_access,
     evaluate_export,
 )
@@ -354,22 +353,17 @@ class TestReportRepository:
         assert r1.version == 2
 
         r2 = repo.update_report_status(
-            r1.report_id, ReportStatus.READY,
+            r1.report_id,
+            ReportStatus.READY,
             online_file_reference="/tmp/test.csv",
             file_size=100,
         )
         assert r2.version == 3
 
     def test_list_reports_by_user(self, repo) -> None:
-        r1 = repo.create_report(
-            ReportRequest(ReportType.SUMMARY, ReportFormat.PDF, {}, "T1"), "user1"
-        )
-        r2 = repo.create_report(
-            ReportRequest(ReportType.DETAIL, ReportFormat.CSV, {}, "T2"), "user1"
-        )
-        repo.create_report(
-            ReportRequest(ReportType.SUMMARY, ReportFormat.PDF, {}, "T3"), "user2"
-        )
+        repo.create_report(ReportRequest(ReportType.SUMMARY, ReportFormat.PDF, {}, "T1"), "user1")
+        repo.create_report(ReportRequest(ReportType.DETAIL, ReportFormat.CSV, {}, "T2"), "user1")
+        repo.create_report(ReportRequest(ReportType.SUMMARY, ReportFormat.PDF, {}, "T3"), "user2")
 
         user1_reports = repo.list_reports_by_user("user1")
         assert len(user1_reports) == 2
@@ -429,7 +423,14 @@ class TestReportSchedule:
                         result.append(s)
                 return tuple(result)
 
-            def advance(self, schedule_id: str, *, triggered_at: datetime, next_run_at: datetime | None, is_active: bool):
+            def advance(
+                self,
+                schedule_id: str,
+                *,
+                triggered_at: datetime,
+                next_run_at: datetime | None,
+                is_active: bool,
+            ):
                 old = self._schedules[schedule_id]
                 new = ReportSchedule(
                     schedule_id=old.schedule_id,
@@ -459,7 +460,6 @@ class TestReportSchedule:
     @pytest.fixture
     def service(self, repo):
         from veri_kalitesi.reporting.service import ReportService
-        from veri_kalitesi.reporting.scheduling import ReportScheduleService
 
         report_service = MagicMock(spec=ReportService)
         return ReportScheduleService(repo, report_service)
@@ -621,6 +621,7 @@ class TestReportWorker:
         class _Repo:
             def get_active_policy(self, sensitivity_level):
                 return None
+
         return _Repo()
 
     @pytest.fixture
@@ -632,7 +633,9 @@ class TestReportWorker:
                 return ("Col1",), (("val1",),)
 
         return ReportWorker(
-            repo, policy_repo, _GoodProvider(),
+            repo,
+            policy_repo,
+            _GoodProvider(),
             settings=ReportWorkerSettings(
                 storage_path="/tmp/reports_test",
                 max_retry_attempts=3,
@@ -662,8 +665,11 @@ class TestReportWorker:
                 return ("Col1",), (("val1",),)
 
         from veri_kalitesi.reporting.worker import ReportWorker, ReportWorkerSettings
+
         retry_worker = ReportWorker(
-            repo, worker._policy_repo, _FailingThenOkProvider(),
+            repo,
+            worker._policy_repo,
+            _FailingThenOkProvider(),
             settings=ReportWorkerSettings(
                 storage_path="/tmp/reports_test",
                 max_retry_attempts=3,
@@ -678,13 +684,17 @@ class TestReportWorker:
 
     def test_retry_exhausted(self, repo, worker):
         """Tum denemeler basarisiz -> FAILED."""
+
         class _AlwaysFailingProvider:
             def fetch_report_data(self, report_type, parameters):
                 raise RuntimeError("Simulated persistent failure")
 
         from veri_kalitesi.reporting.worker import ReportWorker, ReportWorkerSettings
+
         fail_worker = ReportWorker(
-            repo, worker._policy_repo, _AlwaysFailingProvider(),
+            repo,
+            worker._policy_repo,
+            _AlwaysFailingProvider(),
             settings=ReportWorkerSettings(
                 storage_path="/tmp/reports_test",
                 max_retry_attempts=2,
@@ -700,13 +710,17 @@ class TestReportWorker:
 
     def test_non_retryable_error(self, repo, worker):
         """Non-retryable hata -> direkt FAILED, retry yok."""
+
         class _BadProvider:
             def fetch_report_data(self, report_type, parameters):
                 raise ValueError("Invalid parameter — non-retryable")
 
         from veri_kalitesi.reporting.worker import ReportWorker, ReportWorkerSettings
+
         fail_worker = ReportWorker(
-            repo, worker._policy_repo, _BadProvider(),
+            repo,
+            worker._policy_repo,
+            _BadProvider(),
             settings=ReportWorkerSettings(
                 storage_path="/tmp/reports_test",
                 max_retry_attempts=3,
@@ -724,15 +738,20 @@ class TestReportWorker:
 
     def test_timeout_enforcement(self, repo, worker):
         """Timeout asimi -> FAILED."""
+
         class _SlowProvider:
             def fetch_report_data(self, report_type, parameters):
                 import time
+
                 time.sleep(5.0)  # timeout'tan cok daha uzun
                 return ("Col1",), (("val1",),)
 
         from veri_kalitesi.reporting.worker import ReportWorker, ReportWorkerSettings
+
         timeout_worker = ReportWorker(
-            repo, worker._policy_repo, _SlowProvider(),
+            repo,
+            worker._policy_repo,
+            _SlowProvider(),
             settings=ReportWorkerSettings(
                 storage_path="/tmp/reports_test",
                 max_retry_attempts=1,

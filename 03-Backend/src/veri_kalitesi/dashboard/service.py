@@ -55,9 +55,7 @@ class ScoreReader(Protocol):
 
 
 class GovernanceProfileReader(Protocol):
-    def list_governance_profiles(
-        self, asset_ref: str
-    ) -> list[DataAssetGovernanceProfile]: ...
+    def list_governance_profiles(self, asset_ref: str) -> list[DataAssetGovernanceProfile]: ...
 
 
 class DashboardQueryService:
@@ -352,9 +350,7 @@ def _decorate_comparisons(
         DashboardTrendPeriod(
             period_start=period.period_start,
             period_end=period.period_end,
-            observations=tuple(
-                decorated[node.quality_score_id] for node in period.observations
-            ),
+            observations=tuple(decorated[node.quality_score_id] for node in period.observations),
         )
         for period in periods
     ]
@@ -384,9 +380,7 @@ def _apply_governance(
             "Dashboard governance profile query could not be completed.",
             correlation_id,
         ) from exc
-    projection = governance_projection(
-        resolve_active_profile(profiles, score.calculated_at)
-    )
+    projection = governance_projection(resolve_active_profile(profiles, score.calculated_at))
     for key in ("critical_asset_status", "risk_status", "sla_status"):
         if graph.get(key) == "UNKNOWN":
             graph[key] = projection[key]
@@ -424,15 +418,9 @@ def _filter_engineer_graph(
             continue
         dataset_id = component.get("dataset_id")
         source_id = component.get("data_source_id")
-        if (
-            isinstance(dataset_id, str)
-            and dataset_id not in access_scope.allowed_dataset_ids
-        ):
+        if isinstance(dataset_id, str) and dataset_id not in access_scope.allowed_dataset_ids:
             continue
-        if (
-            isinstance(source_id, str)
-            and source_id not in access_scope.allowed_source_ids
-        ):
+        if isinstance(source_id, str) and source_id not in access_scope.allowed_source_ids:
             continue
         visible.append(component)
     return {**graph, "components": visible}

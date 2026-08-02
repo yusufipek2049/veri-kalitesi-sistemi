@@ -149,8 +149,7 @@ class DefaultMaskingPolicy:
                 "Category fingerprint key and key id must be configured together."
             )
         if category_fingerprint_key is not None and (
-            not isinstance(category_fingerprint_key, bytes)
-            or len(category_fingerprint_key) < 32
+            not isinstance(category_fingerprint_key, bytes) or len(category_fingerprint_key) < 32
         ):
             raise ClassificationValidationError(
                 "Category fingerprint key must contain at least 32 bytes."
@@ -274,23 +273,32 @@ class DefaultMaskingPolicy:
                 return False
             return parsed.tzinfo is not None and parsed.utcoffset() is not None
         if key == "distinct_measurement":
-            return value in {"EXACT", "BOUNDED_SAMPLE", "CONFIGURATION_REQUIRED", "SOURCE_AGGREGATE"}
+            return value in {
+                "EXACT",
+                "BOUNDED_SAMPLE",
+                "CONFIGURATION_REQUIRED",
+                "SOURCE_AGGREGATE",
+            }
         if key == "sampling":
-            return isinstance(value, Mapping) and set(value).issubset(
-                {
-                    "strategy",
-                    "seed",
-                    "sample_size_limit",
-                    "high_cardinality_threshold",
-                    "observed_non_null_count",
-                    "advanced_sample_size",
-                    "advanced_sample_ratio",
-                    "high_cardinality",
-                    "raw_rows_transferred",
-                }
-            ) and all(
-                isinstance(item, (str, int, float, bool)) or item is None
-                for item in value.values()
+            return (
+                isinstance(value, Mapping)
+                and set(value).issubset(
+                    {
+                        "strategy",
+                        "seed",
+                        "sample_size_limit",
+                        "high_cardinality_threshold",
+                        "observed_non_null_count",
+                        "advanced_sample_size",
+                        "advanced_sample_ratio",
+                        "high_cardinality",
+                        "raw_rows_transferred",
+                    }
+                )
+                and all(
+                    isinstance(item, (str, int, float, bool)) or item is None
+                    for item in value.values()
+                )
             )
         return False
 
@@ -436,18 +444,22 @@ class DefaultMaskingPolicy:
                 )
             )
         if key == "analysis_execution":
-            return isinstance(value, Mapping) and set(value).issubset(
-                {
-                    "method",
-                    "strategy",
-                    "sample_size_limit",
-                    "sampling_seed",
-                    "query_version",
-                    "raw_rows_transferred",
-                }
-            ) and all(
-                isinstance(item, (str, int, bool)) and not isinstance(item, float)
-                for item in value.values()
+            return (
+                isinstance(value, Mapping)
+                and set(value).issubset(
+                    {
+                        "method",
+                        "strategy",
+                        "sample_size_limit",
+                        "sampling_seed",
+                        "query_version",
+                        "raw_rows_transferred",
+                    }
+                )
+                and all(
+                    isinstance(item, (str, int, bool)) and not isinstance(item, float)
+                    for item in value.values()
+                )
             )
         return False
 

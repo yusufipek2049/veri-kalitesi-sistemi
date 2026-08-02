@@ -319,9 +319,7 @@ class TestLabAdapterGate:
             StaticLabEnvironmentProvider(_lab_evidence()),
             clock=lambda: NOW,
         )
-        with pytest.raises(
-            EnvironmentPolicyBlockedError, match="LAB_GUARD_OPERATION_INVALID"
-        ):
+        with pytest.raises(EnvironmentPolicyBlockedError, match="LAB_GUARD_OPERATION_INVALID"):
             gate.guard("")
 
     def test_guard_passes_with_valid_operation(self) -> None:
@@ -346,8 +344,7 @@ def _strategy_policy(
     return ExecutionStrategyPolicy(
         version="EXECUTION_STRATEGY_V1",
         approved=approved,
-        allowed_strategies=strategies
-        or frozenset(ExecutionStrategy),
+        allowed_strategies=strategies or frozenset(ExecutionStrategy),
     )
 
 

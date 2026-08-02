@@ -52,9 +52,7 @@ def contribution_graph(score: QualityScore) -> dict[str, Any]:
         if not isinstance(component, Mapping):
             continue
         component_score = _decimal_or_none(component.get("score"))
-        weight = _decimal_or_none(
-            component.get("weight", component.get("quality_weight"))
-        )
+        weight = _decimal_or_none(component.get("weight", component.get("quality_weight")))
         contribution = None
         if component_score is not None and weight is not None and weight_sum:
             contribution = component_score * weight / weight_sum
@@ -108,9 +106,7 @@ def contribution_graph(score: QualityScore) -> dict[str, Any]:
         )
 
     versions = {
-        "rule_version": _string_or_none(
-            score.rule_version_id or details.get("rule_set_version")
-        ),
+        "rule_version": _string_or_none(score.rule_version_id or details.get("rule_set_version")),
         "score_model_version": _string_or_none(details.get("formula_version")),
         "policy_version": _string_or_none(details.get("configuration_version")),
         "threshold_version": _string_or_none(details.get("threshold_version")),
@@ -132,9 +128,7 @@ def contribution_graph(score: QualityScore) -> dict[str, Any]:
         "measurement_qualification": _status(details.get("measurement_status")),
         "critical_rule_status": _status(details.get("critical_rule_status")),
         "critical_veto": (
-            details.get("critical_veto")
-            if isinstance(details.get("critical_veto"), bool)
-            else None
+            details.get("critical_veto") if isinstance(details.get("critical_veto"), bool) else None
         ),
         "critical_asset_status": _status(details.get("critical_asset_status")),
         "risk_status": _status(details.get("risk_status")),
@@ -142,9 +136,7 @@ def contribution_graph(score: QualityScore) -> dict[str, Any]:
         "usage_decision": _status(details.get("usage_decision")),
         "coverage_status": _status(details.get("coverage_status")),
         "canonical_counts": _canonical_counts(counts),
-        "evidence_references": _safe_references(
-            details.get("evidence_references")
-        ),
+        "evidence_references": _safe_references(details.get("evidence_references")),
         "diagnosis_status": _status(details.get("diagnosis_status")),
         "diagnosis_evidence_ref": _reference(
             details.get("diagnosis_evidence_ref"),
@@ -161,13 +153,8 @@ def compare_scores(current: QualityScore, previous: QualityScore) -> ScoreCompar
     current_graph = contribution_graph(current)
     previous_graph = contribution_graph(previous)
     if not current_graph["official"] or not previous_graph["official"]:
-        return ScoreComparison(
-            ComparisonStatus.NOT_COMPARABLE, ("NON_OFFICIAL_RESULT",)
-        )
-    if (
-        current.scope_type is not previous.scope_type
-        or current.scope_id != previous.scope_id
-    ):
+        return ScoreComparison(ComparisonStatus.NOT_COMPARABLE, ("NON_OFFICIAL_RESULT",))
+    if current.scope_type is not previous.scope_type or current.scope_id != previous.scope_id:
         return ScoreComparison(ComparisonStatus.NOT_COMPARABLE, ("SCOPE_CHANGED",))
 
     required = (
@@ -213,7 +200,7 @@ def _component_ref(component: Mapping[str, Any]) -> str:
     ):
         value = component.get(key)
         reference = _reference(value)
-        if reference != "UNKNOWN":
+        if reference is not None and reference != "UNKNOWN":
             return reference
     return "UNKNOWN"
 
@@ -233,6 +220,8 @@ def _component_references(component: Mapping[str, Any]) -> dict[str, str | None]
 
 def _component_type(scope_type: object) -> str:
     value = getattr(scope_type, "value", scope_type)
+    if not isinstance(value, str):
+        return "UNKNOWN"
     return {
         "ENTERPRISE": "SOURCE",
         "SOURCE": "DATASET",
@@ -292,7 +281,5 @@ def _safe_references(value: object) -> list[str]:
     if not isinstance(value, list | tuple):
         return []
     return [
-        reference
-        for item in value
-        if (reference := _reference(item, unknown=None)) is not None
+        reference for item in value if (reference := _reference(item, unknown=None)) is not None
     ]

@@ -130,11 +130,7 @@ def job_tables(schema: str = DEFAULT_SCHEMA_NAME) -> JobTables:
         Column(
             "job_id",
             String(36),
-            ForeignKey(
-                f"{schema}.background_jobs.job_id"
-                if schema
-                else "background_jobs.job_id"
-            ),
+            ForeignKey(f"{schema}.background_jobs.job_id" if schema else "background_jobs.job_id"),
             nullable=False,
         ),
         Column("error_class", String(200), nullable=False),
@@ -209,11 +205,7 @@ class PostgreSQLJobQueueRepository:
             )
             if for_update:
                 statement = statement.with_for_update()
-            row = (
-                active_session.execute(statement)
-                .mappings()
-                .one_or_none()
-            )
+            row = active_session.execute(statement).mappings().one_or_none()
             return _row_to_job(row) if row is not None else None
 
         if session is not None:
@@ -313,25 +305,21 @@ class PostgreSQLJobQueueRepository:
             )
             if quota_controlled:
                 session.execute(
-                    select(
-                        func.pg_advisory_xact_lock(
-                            func.hashtext("dq_background_jobs_claim")
-                        )
-                    )
+                    select(func.pg_advisory_xact_lock(func.hashtext("dq_background_jobs_claim")))
                 )
             active_rows: tuple[RowMapping, ...] = ()
             if quota_controlled:
                 active_rows = tuple(
                     session.execute(
                         select(t.c.payload).where(
-                        t.c.status.in_(
-                            (
-                                JobStatus.RUNNING.value,
-                                JobStatus.CANCEL_REQUESTED.value,
-                            )
-                        ),
-                        t.c.lease_expires_at > claimed_at,
-                    )
+                            t.c.status.in_(
+                                (
+                                    JobStatus.RUNNING.value,
+                                    JobStatus.CANCEL_REQUESTED.value,
+                                )
+                            ),
+                            t.c.lease_expires_at > claimed_at,
+                        )
                     )
                     .mappings()
                     .all()
@@ -538,11 +526,7 @@ class PostgreSQLJobQueueRepository:
         dead_letters = self._tables.dead_letters
         with transactional_session(self._session_factory) as session:
             current = (
-                session.execute(
-                    select(jobs)
-                    .where(jobs.c.job_id == job_id)
-                    .with_for_update()
-                )
+                session.execute(select(jobs).where(jobs.c.job_id == job_id).with_for_update())
                 .mappings()
                 .one_or_none()
             )
@@ -556,9 +540,7 @@ class PostgreSQLJobQueueRepository:
                 _require_audit(audit_event, audit_outbox)
             if should_retry:
                 status = JobStatus.QUEUED
-                available_at = failed_at + retry_policy.delay_for_attempt(
-                    current["attempt_count"]
-                )
+                available_at = failed_at + retry_policy.delay_for_attempt(current["attempt_count"])
                 completed_at = None
             else:
                 status = (
@@ -587,10 +569,7 @@ class PostgreSQLJobQueueRepository:
                     updated_at=failed_at,
                 )
             )
-            if (
-                not should_retry
-                and kind is JobFailureKind.RETRYABLE_TECHNICAL
-            ):
+            if not should_retry and kind is JobFailureKind.RETRYABLE_TECHNICAL:
                 session.execute(
                     insert(dead_letters).values(
                         dead_letter_id=str(uuid4()),
@@ -603,11 +582,7 @@ class PostgreSQLJobQueueRepository:
                 )
             if audit_event is not None and audit_outbox is not None:
                 audit_outbox.stage(audit_event, session=session)
-            updated = (
-                session.execute(select(jobs).where(jobs.c.job_id == job_id))
-                .mappings()
-                .one()
-            )
+            updated = session.execute(select(jobs).where(jobs.c.job_id == job_id)).mappings().one()
         return _row_to_job(updated)
 
     def request_cancel(
@@ -628,11 +603,10 @@ class PostgreSQLJobQueueRepository:
         requested_at = _aware_now(now)
         _validate_audit_pair(audit_event, audit_outbox)
         t = self._tables.background_jobs
+
         def _request_cancel(active_session: Session) -> BackgroundJob:
             row = (
-                active_session.execute(
-                    select(t).where(t.c.job_id == job_id).with_for_update()
-                )
+                active_session.execute(select(t).where(t.c.job_id == job_id).with_for_update())
                 .mappings()
                 .one_or_none()
             )
@@ -648,9 +622,7 @@ class PostgreSQLJobQueueRepository:
                 .where(t.c.job_id == job_id, t.c.version == expected_version)
                 .values(
                     status=(
-                        JobStatus.CANCELLED.value
-                        if queued
-                        else JobStatus.CANCEL_REQUESTED.value
+                        JobStatus.CANCELLED.value if queued else JobStatus.CANCEL_REQUESTED.value
                     ),
                     cancel_requested_at=requested_at,
                     cancel_requested_by=requested_by,
@@ -665,11 +637,7 @@ class PostgreSQLJobQueueRepository:
             )
             if audit_event is not None and audit_outbox is not None:
                 audit_outbox.stage(audit_event, session=active_session)
-            updated = (
-                active_session.execute(select(t).where(t.c.job_id == job_id))
-                .mappings()
-                .one()
-            )
+            updated = active_session.execute(select(t).where(t.c.job_id == job_id)).mappings().one()
             return _row_to_job(updated)
 
         if session is not None:
@@ -777,9 +745,7 @@ class PostgreSQLJobQueueRepository:
             )
             audit_outbox.stage(audit_event, session=session)
             updated = (
-                session.execute(
-                    select(jobs).where(jobs.c.job_id == letter["job_id"])
-                )
+                session.execute(select(jobs).where(jobs.c.job_id == letter["job_id"]))
                 .mappings()
                 .one()
             )
@@ -881,16 +847,12 @@ class PostgreSQLJobQueueRepository:
             conditions.append(t.c.job_id == job_id)
         with transactional_session(self._session_factory) as session:
             expiring_cancellations = (
-                session.execute(
-                    select(t).where(*cancel_conditions).with_for_update()
-                )
+                session.execute(select(t).where(*cancel_conditions).with_for_update())
                 .mappings()
                 .all()
             )
             if expiring_cancellations and audit_outbox is None:
-                raise JobValidationError(
-                    "Lease-expiry cancellation requires transactional audit."
-                )
+                raise JobValidationError("Lease-expiry cancellation requires transactional audit.")
             cancelled = session.execute(
                 update(t)
                 .where(*cancel_conditions)
@@ -970,9 +932,7 @@ def _payload_source_ids(payload: object) -> tuple[str, ...]:
     if not isinstance(value, list | tuple):
         return ()
     return tuple(
-        source_id
-        for source_id in value
-        if isinstance(source_id, str) and source_id.strip()
+        source_id for source_id in value if isinstance(source_id, str) and source_id.strip()
     )
 
 
@@ -1078,13 +1038,8 @@ def _validate_worker_id(worker_id: str) -> None:
 
 
 def _validate_code(field_name: str, value: str) -> None:
-    if (
-        not isinstance(value, str)
-        or not re.fullmatch(r"[A-Z][A-Z0-9_.-]{0,99}", value)
-    ):
-        raise JobValidationError(
-            f"Job {field_name} must be a bounded non-sensitive code."
-        )
+    if not isinstance(value, str) or not re.fullmatch(r"[A-Z][A-Z0-9_.-]{0,99}", value):
+        raise JobValidationError(f"Job {field_name} must be a bounded non-sensitive code.")
 
 
 def _aware_now(value: datetime | None) -> datetime:

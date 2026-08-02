@@ -13,12 +13,8 @@ class DataMinimumEvidenceError(ValueError):
 
 _REFERENCE_MAX_LENGTH = 200
 _REFERENCE_SEGMENT = r"[A-Za-z0-9](?:[A-Za-z0-9._~-]{0,62}[A-Za-z0-9])?"
-_REFERENCE_PATH_PATTERN = re.compile(
-    rf"^(?:{_REFERENCE_SEGMENT})(?:/{_REFERENCE_SEGMENT})*$"
-)
-_HMAC_REFERENCE_PATTERN = re.compile(
-    rf"^hmac-sha256://{_REFERENCE_SEGMENT}/[0-9a-f]{{64}}$"
-)
+_REFERENCE_PATH_PATTERN = re.compile(rf"^(?:{_REFERENCE_SEGMENT})(?:/{_REFERENCE_SEGMENT})*$")
+_HMAC_REFERENCE_PATTERN = re.compile(rf"^hmac-sha256://{_REFERENCE_SEGMENT}/[0-9a-f]{{64}}$")
 _SHA256_DIGEST_PATTERN = re.compile(r"^sha256:[0-9a-f]{64}$")
 _FORBIDDEN_REFERENCE_TERMS = {
     "alter",
@@ -111,11 +107,7 @@ def _validate_opaque_reference(value: Any, scheme: str) -> str:
     path = value[len(scheme) :]
     if not _REFERENCE_PATH_PATTERN.fullmatch(path):
         raise DataMinimumEvidenceError("Evidence reference format is invalid.")
-    terms = {
-        term
-        for segment in path.lower().split("/")
-        for term in re.split(r"[._~-]+", segment)
-    }
+    terms = {term for segment in path.lower().split("/") for term in re.split(r"[._~-]+", segment)}
     if terms & _FORBIDDEN_REFERENCE_TERMS:
         raise DataMinimumEvidenceError("Evidence reference format is invalid.")
     return value
@@ -123,8 +115,7 @@ def _validate_opaque_reference(value: Any, scheme: str) -> str:
 
 def _validate_fingerprint(value: Any) -> str:
     if not isinstance(value, str) or not (
-        _SHA256_DIGEST_PATTERN.fullmatch(value)
-        or _HMAC_REFERENCE_PATTERN.fullmatch(value)
+        _SHA256_DIGEST_PATTERN.fullmatch(value) or _HMAC_REFERENCE_PATTERN.fullmatch(value)
     ):
         raise DataMinimumEvidenceError("Evidence fingerprint format is invalid.")
     return value

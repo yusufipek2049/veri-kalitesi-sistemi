@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
 
@@ -47,7 +47,7 @@ class Report:
     online_file_reference: str | None = None
     file_size: int | None = None
     expires_at: datetime | None = None
-    created_at: datetime | None = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: datetime | None = None
     failure_reason: str | None = None
     version: int = 1

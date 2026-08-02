@@ -92,9 +92,7 @@ class DataAssetGovernanceProfile:
     version_number: int
     effective_from: datetime
     effective_to: datetime | None = None
-    attributes: Mapping[str, tuple[GovernanceReference, ...]] = field(
-        default_factory=dict
-    )
+    attributes: Mapping[str, tuple[GovernanceReference, ...]] = field(default_factory=dict)
     related_asset_refs: tuple[str, ...] = ()
     registry_origin: str = SYNTHETIC_REGISTRY_ORIGIN
     system_of_record: str = ENTERPRISE_CATALOG_SYSTEM_OF_RECORD
@@ -145,9 +143,7 @@ def build_governance_profile(
     if effective_to is not None:
         _require_aware("effective_to", effective_to)
         if effective_to <= effective_from:
-            raise LineageValidationError(
-                "Governance profile effectivity range must be increasing."
-            )
+            raise LineageValidationError("Governance profile effectivity range must be increasing.")
     _require_reference("asset_ref", asset_ref)
     _require_reference("registry_origin", registry_origin)
     unknown_keys = tuple(sorted(set(attributes) - set(GOVERNANCE_ATTRIBUTE_KEYS)))
@@ -157,13 +153,9 @@ def build_governance_profile(
         )
     normalized: dict[str, tuple[GovernanceReference, ...]] = {}
     for key, value in attributes.items():
-        references = (
-            (value,) if isinstance(value, GovernanceReference) else tuple(value)
-        )
+        references = (value,) if isinstance(value, GovernanceReference) else tuple(value)
         if not references:
-            raise LineageValidationError(
-                f"{key} must reference at least one canonical surface."
-            )
+            raise LineageValidationError(f"{key} must reference at least one canonical surface.")
         for reference in references:
             if not isinstance(reference, GovernanceReference):
                 raise LineageValidationError(
@@ -175,9 +167,7 @@ def build_governance_profile(
                 _require_value(f"{key}.value", reference.value)
         field_paths = tuple(reference.field_path for reference in references)
         if len(set(field_paths)) != len(field_paths):
-            raise LineageValidationError(
-                f"{key} must not reference the same field path twice."
-            )
+            raise LineageValidationError(f"{key} must not reference the same field path twice.")
         normalized[key] = references
     related = tuple(related_asset_refs)
     if len(set(related)) != len(related):
@@ -228,9 +218,7 @@ def resolve_active_profile(
             None,
             ("OVERLAPPING_EFFECTIVITY_RANGE",),
         )
-    return GovernanceProfileResolution(
-        GovernanceProfileStatus.ACTIVE, candidates[0], ()
-    )
+    return GovernanceProfileResolution(GovernanceProfileStatus.ACTIVE, candidates[0], ())
 
 
 def resolve_attribute_references(
@@ -238,9 +226,7 @@ def resolve_attribute_references(
 ) -> AttributeResolution:
     """Çelişen referanslarda kazanan seçmez; `CONFLICT` bildirir."""
 
-    known = tuple(
-        reference for reference in references if reference.value is not None
-    )
+    known = tuple(reference for reference in references if reference.value is not None)
     if not known:
         return AttributeResolution(GovernanceAttributeStatus.UNKNOWN)
     if len({reference.value for reference in known}) > 1:
@@ -272,16 +258,13 @@ def governance_profile_snapshot(
         "version_number": profile.version_number,
         "effective_from": profile.effective_from.isoformat(),
         "effective_to": (
-            profile.effective_to.isoformat()
-            if profile.effective_to is not None
-            else None
+            profile.effective_to.isoformat() if profile.effective_to is not None else None
         ),
         "registry_origin": profile.registry_origin,
         "system_of_record": profile.system_of_record,
         "related_asset_refs": sorted(profile.related_asset_refs),
         "attributes": {
-            key: _attribute_document(profile, key)
-            for key in sorted(profile.attributes)
+            key: _attribute_document(profile, key) for key in sorted(profile.attributes)
         },
     }
     document["digest"] = f"sha256:{canonical_digest(document)}"
@@ -295,9 +278,7 @@ def routing_decision(
     """Politika veya zorunlu routing alanı eksikse otomatik atama yapılmaz."""
 
     if policy is None:
-        return RoutingDecision(
-            RoutingStatus.FAIL_CLOSED, None, None, ("MISSING_ROUTING_POLICY",)
-        )
+        return RoutingDecision(RoutingStatus.FAIL_CLOSED, None, None, ("MISSING_ROUTING_POLICY",))
     if profile is None:
         return RoutingDecision(
             RoutingStatus.FAIL_CLOSED,
@@ -326,9 +307,7 @@ def routing_decision(
         )
     assignee = resolve_attribute(profile, policy.assignee_attribute_key)
     assert assignee.reference is not None
-    return RoutingDecision(
-        RoutingStatus.ASSIGNED, assignee.reference.value, policy.version, ()
-    )
+    return RoutingDecision(RoutingStatus.ASSIGNED, assignee.reference.value, policy.version, ())
 
 
 def governance_projection(
@@ -405,9 +384,7 @@ def governance_profile_from_snapshot(
         version_number=int(document["version_number"]),
         effective_from=datetime.fromisoformat(str(document["effective_from"])),
         effective_to=(
-            datetime.fromisoformat(str(effective_to_raw))
-            if effective_to_raw is not None
-            else None
+            datetime.fromisoformat(str(effective_to_raw)) if effective_to_raw is not None else None
         ),
         attributes=attributes,
         related_asset_refs=tuple(sorted(document.get("related_asset_refs") or ())),
@@ -433,13 +410,9 @@ def _attribute_document(
     resolution = resolve_attribute(profile, key)
     return {
         "status": resolution.status.value,
-        "value": (
-            resolution.reference.value if resolution.reference is not None else None
-        ),
+        "value": (resolution.reference.value if resolution.reference is not None else None),
         "resolved_field_path": (
-            resolution.reference.field_path
-            if resolution.reference is not None
-            else None
+            resolution.reference.field_path if resolution.reference is not None else None
         ),
         "conflicting_field_paths": list(resolution.conflicting_field_paths),
         "references": [
@@ -448,9 +421,7 @@ def _attribute_document(
                 "field_path": reference.field_path,
                 "value": reference.value,
             }
-            for reference in sorted(
-                profile.attributes[key], key=lambda item: item.field_path
-            )
+            for reference in sorted(profile.attributes[key], key=lambda item: item.field_path)
         ],
     }
 
@@ -467,23 +438,17 @@ def _require_aware(field_name: str, value: datetime) -> None:
 
 def _require_reference(field_name: str, value: str) -> None:
     if not isinstance(value, str) or not _SAFE_REFERENCE.fullmatch(value):
-        raise LineageValidationError(
-            f"{field_name} must be a non-secret governance reference."
-        )
+        raise LineageValidationError(f"{field_name} must be a non-secret governance reference.")
     _reject_secret(field_name, value)
 
 
 def _require_value(field_name: str, value: str) -> None:
     if not isinstance(value, str) or not _SAFE_VALUE.fullmatch(value):
-        raise LineageValidationError(
-            f"{field_name} must be a non-secret governance value."
-        )
+        raise LineageValidationError(f"{field_name} must be a non-secret governance value.")
     _reject_secret(field_name, value)
 
 
 def _reject_secret(field_name: str, value: str) -> None:
     lowered = value.lower()
     if any(lowered.startswith(scheme) for scheme in _SECRET_SCHEMES):
-        raise LineageValidationError(
-            f"{field_name} must not carry a secret reference scheme."
-        )
+        raise LineageValidationError(f"{field_name} must not carry a secret reference scheme.")

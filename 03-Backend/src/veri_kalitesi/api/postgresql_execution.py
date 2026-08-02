@@ -91,22 +91,22 @@ class PostgreSQLExecutionStartService:
         audit_outbox = self._transactional_audit
         audit_event = audit_outbox.prepare(
             AuditEventInput(
-                    actor_id=triggered_by,
-                    actor_type="USER",
-                    correlation_id=correlation_id,
-                    action="EXECUTION_START",
-                    object_type="RuleExecution",
-                    object_id=execution_id,
-                    result=AuditResult.SUCCESS,
-                    reason_code="MANUAL_START",
-                    old_values={},
-                    new_values={
-                        "rule_version_ids": list(rule_version_ids),
-                        "source_ids": list(source_ids),
-                        "status": ExecutionStatus.QUEUED.value,
-                        "execution_mode": execution_mode.value,
-                    },
-                    occurred_at=now,
+                actor_id=triggered_by,
+                actor_type="USER",
+                correlation_id=correlation_id,
+                action="EXECUTION_START",
+                object_type="RuleExecution",
+                object_id=execution_id,
+                result=AuditResult.SUCCESS,
+                reason_code="MANUAL_START",
+                old_values={},
+                new_values={
+                    "rule_version_ids": list(rule_version_ids),
+                    "source_ids": list(source_ids),
+                    "status": ExecutionStatus.QUEUED.value,
+                    "execution_mode": execution_mode.value,
+                },
+                occurred_at=now,
             )
         )
         enqueue_event = audit_outbox.prepare(
@@ -211,9 +211,7 @@ class PostgreSQLExecutionCancelService:
                     for_update=True,
                 )
             except ExecutionNotFoundError:
-                raise ExecutionNotFoundError(
-                    f"Execution {execution_id} not found."
-                ) from None
+                raise ExecutionNotFoundError(f"Execution {execution_id} not found.") from None
 
             if previous.status in {
                 ExecutionStatus.SUCCESS,
@@ -232,9 +230,7 @@ class PostgreSQLExecutionCancelService:
                 for_update=True,
             )
             if job is None:
-                raise ExecutionConflictError(
-                    "Execution has no persistent background job."
-                )
+                raise ExecutionConflictError("Execution has no persistent background job.")
 
             execution_target = (
                 ExecutionStatus.CANCELLED

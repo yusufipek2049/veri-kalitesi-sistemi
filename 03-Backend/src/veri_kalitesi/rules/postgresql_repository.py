@@ -420,9 +420,7 @@ class PostgreSQLRuleRepository:
                     )
                 )
             except IntegrityError as exc:
-                raise RuleValidationError(
-                    "RuleVersion already has an approval request."
-                ) from exc
+                raise RuleValidationError("RuleVersion already has an approval request.") from exc
             audit_outbox.stage(audit_event, session=session)
         return request
 
@@ -590,9 +588,7 @@ def _row_to_version(row: RowMapping) -> RuleVersion:
         criticality=RuleCriticality(row["criticality"]),
         prepared_by_actor_id=row["prepared_by_actor_id"],
         ir_version=str(definition.get("ir_version", "DQ_RULE_IR_V1")),
-        definition_source=RuleDefinitionSource(
-            definition.get("definition_source", "TEMPLATE")
-        ),
+        definition_source=RuleDefinitionSource(definition.get("definition_source", "TEMPLATE")),
         scope_type=RuleScopeType(definition.get("scope_type", "DATASET")),
         created_at=row["created_at"],
     )

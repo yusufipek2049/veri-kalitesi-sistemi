@@ -110,10 +110,7 @@ def test_lineage_evidence_snapshot_and_audit_outbox_are_atomic_and_immutable(
     assert stored.digest == payload["digest"]
     assert repository.get(stored.snapshot_id) == stored
     assert (
-        repository.get_version(
-            LineageSnapshotKind.GOVERNANCE_PROFILE, "dataset-1", "1"
-        )
-        == stored
+        repository.get_version(LineageSnapshotKind.GOVERNANCE_PROFILE, "dataset-1", "1") == stored
     )
     with pg.session_factory() as session:
         assert session.scalar(select(func.count()).select_from(audit.table)) == 1
@@ -130,9 +127,7 @@ def test_lineage_evidence_snapshot_and_audit_outbox_are_atomic_and_immutable(
             audit_outbox=audit,
         )
     assert (
-        repository.get_version(
-            LineageSnapshotKind.GOVERNANCE_PROFILE, "dataset-1", "1"
-        ).digest
+        repository.get_version(LineageSnapshotKind.GOVERNANCE_PROFILE, "dataset-1", "1").digest
         == payload["digest"]
     )
 

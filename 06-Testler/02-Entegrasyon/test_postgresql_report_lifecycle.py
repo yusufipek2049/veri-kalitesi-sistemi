@@ -18,10 +18,8 @@ from alembic.config import Config
 from sqlalchemy import create_engine, text
 
 from veri_kalitesi.audit import (
-    AuditEventInput,
     AuditRedactionPolicy,
     AuditRedactor,
-    AuditResult,
     PostgreSQLTransactionalAudit,
     PreparedAuditEvent,
 )
@@ -34,8 +32,6 @@ from veri_kalitesi.reporting import (
 )
 from veri_kalitesi.reporting.scheduling import (
     ReportSchedule,
-    ReportScheduleCreateRequest,
-    ReportScheduleService,
 )
 from veri_kalitesi.executions.scheduling import ScheduleType
 from veri_kalitesi.reporting.models import (
@@ -152,8 +148,6 @@ def test_fr_075_report_lifecycle_postgresql() -> None:
 def test_fr_075_report_formats_and_export_policy() -> None:
     """FR-075: Rapor formatları ve dışa aktarma politikası."""
     with _postgres_fixture() as fixture:
-        now = datetime.now(timezone.utc)
-
         # ── CSV formatı (harici bağımlılık gerektirmez) ──
         csv_request = ReportRequest(
             report_type=ReportType.DETAIL,

@@ -350,10 +350,7 @@ def test_execution_cancel_rolls_back_execution_and_audit_when_job_cancel_fails(
         )
 
     assert execution_repository.get(execution.execution_id) == execution
-    assert (
-        repository.get_by_idempotency_key("EXECUTION", execution.execution_id)
-        == job_before
-    )
+    assert repository.get_by_idempotency_key("EXECUTION", execution.execution_id) == job_before
     assert audit_outbox.list_pending() == pending_before
 
 
@@ -744,9 +741,7 @@ def test_source_policy_persists_separate_connection_query_and_total_deadlines(
         )
     )
 
-    runtime = policy_repository.resolve_policy(
-        at=datetime.now(timezone.utc)
-    ).default_runtime_policy
+    runtime = policy_repository.resolve_policy(at=datetime.now(timezone.utc)).default_runtime_policy
 
     assert runtime.connection_timeout_seconds == 7
     assert runtime.query_timeout_seconds == 11
@@ -969,11 +964,14 @@ def test_expired_cancel_request_closes_instead_of_requeueing(
         audit_outbox=audit_outbox,
     )
 
-    assert repository.release_expired_claims(
-        now=_at(2),
-        job_id=requested.job_id,
-        audit_outbox=audit_outbox,
-    ) == 1
+    assert (
+        repository.release_expired_claims(
+            now=_at(2),
+            job_id=requested.job_id,
+            audit_outbox=audit_outbox,
+        )
+        == 1
+    )
     closed = repository.require_by_id(requested.job_id)
     assert closed.status is JobStatus.CANCELLED
     assert closed.completed_at == _at(2)
