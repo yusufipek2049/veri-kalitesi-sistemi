@@ -474,7 +474,7 @@ function ScheduleRow({
   onDelete,
 }: {
   schedule: ReportSchedule;
-  onDelete: (scheduleId: string) => void;
+  onDelete: (schedule: ReportSchedule) => void;
 }) {
   return (
     <Box
@@ -536,7 +536,7 @@ function ScheduleRow({
       <Box>
         <Button
           color="error"
-          onClick={() => onDelete(schedule.schedule_id)}
+          onClick={() => onDelete(schedule)}
           size="small"
           startIcon={<Trash2 aria-hidden="true" size={14} />}
           variant="outlined"
@@ -848,7 +848,7 @@ export function ReportsPage({
                 </Paper>
 
                 {state === "loading" ? <Box aria-busy="true" aria-label="Rapor önizlemesi yükleniyor">{Array.from({ length: 6 }, (_, index) => <Skeleton height={88} key={index} />)}</Box> : null}
-                {state === "empty" || state === "error" || state === "unauthorized" ? <StateMessage correlationId={correlationId} onRefresh={onRefresh} state={state} /> : null}
+                {state === "empty" || state === "error" ? <StateMessage correlationId={correlationId} onRefresh={onRefresh} state={state} /> : null}
 
                 {(state === "normal" || state === "long-content") ? (
                   <>

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { ThemeModeProvider } from "../theme/ThemeModeProvider";
@@ -134,6 +134,7 @@ describe("Raporlar ekranı", () => {
   });
 
   it("READY rapor için indirme butonu görünür", () => {
+    const futureExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
     const reportItems: ReportItem[] = [
       {
         report_id: "rpt-1",
@@ -141,7 +142,7 @@ describe("Raporlar ekranı", () => {
         format: "PDF",
         status: "READY",
         file_size: 1024,
-        expires_at: "2026-07-25T10:00:00Z",
+        expires_at: futureExpiry,
         created_at: "2026-07-24T10:00:00Z",
         completed_at: "2026-07-24T10:05:00Z",
         failure_reason: null,
@@ -212,6 +213,28 @@ describe("Raporlar ekranı", () => {
       fireEvent.click(screen.getByRole("button", { name: "Sil" }));
       await waitFor(() => {
         expect(onDeleteSchedule).toHaveBeenCalled();
+      });
+    });
+
+    it("silme onay diyaloğu gerçek zamanlama adını gösterir", () => {
+      renderPage();
+      fireEvent.click(screen.getByText(/Zamanlanmış/));
+      const silButtons = screen.getAllByRole("button", { name: "Sil" });
+      fireEvent.click(silButtons[0]);
+      const dialog = screen.getByRole("dialog", { name: "Zamanlanmış Raporu Sil" });
+      expect(dialog).toHaveTextContent("Günlük Özet Raporu");
+    });
+
+    it("silme onayı gerçek schedule_id ile çağrılır", async () => {
+      const onDeleteSchedule = vi.fn().mockResolvedValue(undefined);
+      renderPage({ onDeleteSchedule });
+      fireEvent.click(screen.getByText(/Zamanlanmış/));
+      const silButtons = screen.getAllByRole("button", { name: "Sil" });
+      fireEvent.click(silButtons[0]);
+      const dialog = screen.getByRole("dialog", { name: "Zamanlanmış Raporu Sil" });
+      fireEvent.click(within(dialog).getByRole("button", { name: "Sil" }));
+      await waitFor(() => {
+        expect(onDeleteSchedule).toHaveBeenCalledWith("sched-daily-1");
       });
     });
   });
