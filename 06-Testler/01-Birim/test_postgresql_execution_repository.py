@@ -56,17 +56,11 @@ def test_execution_tables_unique_constraints() -> None:
 
     attempt_constraints = list(tables.attempts.constraints)
     attempt_uq = [c for c in attempt_constraints if isinstance(c, UniqueConstraint)]
-    assert any(
-        set(c.columns.keys()) == {"execution_id", "attempt_no"}
-        for c in attempt_uq
-    )
+    assert any(set(c.columns.keys()) == {"execution_id", "attempt_no"} for c in attempt_uq)
 
     result_constraints = list(tables.results.constraints)
     result_uq = [c for c in result_constraints if isinstance(c, UniqueConstraint)]
-    assert any(
-        set(c.columns.keys()) == {"execution_id", "rule_version_id"}
-        for c in result_uq
-    )
+    assert any(set(c.columns.keys()) == {"execution_id", "rule_version_id"} for c in result_uq)
 
 
 def test_execution_tables_foreign_keys() -> None:

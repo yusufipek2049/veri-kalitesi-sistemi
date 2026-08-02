@@ -1015,12 +1015,8 @@ class DataSourceService:
             connector_version=options.connector_version,
             policy=policy,
             data_observed_at=data_observed_at,
-            category_fingerprint_algorithm=protected_metrics.get(
-                "category_fingerprint_algorithm"
-            ),
-            category_fingerprint_key_id=protected_metrics.get(
-                "category_fingerprint_key_id"
-            ),
+            category_fingerprint_algorithm=protected_metrics.get("category_fingerprint_algorithm"),
+            category_fingerprint_key_id=protected_metrics.get("category_fingerprint_key_id"),
             analysis_execution=protected_metrics.get("analysis_execution"),
         )
         profile = DataProfile(

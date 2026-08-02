@@ -61,7 +61,9 @@ def upgrade() -> None:
         sa.Column("error_class", sa.String(40), nullable=True),
         sa.Column("message", sa.Text(), nullable=False),
         sa.Column("source_info", sa.JSON(), nullable=False),
-        sa.Column("data_source_revision", sa.Integer(), nullable=False, server_default=sa.text("1")),
+        sa.Column(
+            "data_source_revision", sa.Integer(), nullable=False, server_default=sa.text("1")
+        ),
         sa.Column("tested_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
             ["data_source_id"],
@@ -91,7 +93,9 @@ def upgrade() -> None:
             [f"{schema}.data_sources.data_source_id"],
         ),
         sa.UniqueConstraint(
-            "data_source_id", "namespace", "name",
+            "data_source_id",
+            "namespace",
+            "name",
             name="uq_datasets_source_namespace_name",
         ),
         sa.CheckConstraint(
@@ -119,9 +123,18 @@ def upgrade() -> None:
         sa.Column("native_data_type", sa.String(100), nullable=False),
         sa.Column("is_nullable", sa.Boolean(), nullable=False),
         sa.Column("is_sensitive", sa.Boolean(), nullable=False),
-        sa.Column("classification", sa.String(40), nullable=False, server_default=sa.text("'UNCLASSIFIED'")),
-        sa.Column("classification_policy_version", sa.String(40), nullable=False,
-                  server_default=sa.text("'CLASSIFICATION_POLICY_V1'")),
+        sa.Column(
+            "classification",
+            sa.String(40),
+            nullable=False,
+            server_default=sa.text("'UNCLASSIFIED'"),
+        ),
+        sa.Column(
+            "classification_policy_version",
+            sa.String(40),
+            nullable=False,
+            server_default=sa.text("'CLASSIFICATION_POLICY_V1'"),
+        ),
         sa.ForeignKeyConstraint(
             ["dataset_id"],
             [f"{schema}.datasets.dataset_id"],
@@ -219,7 +232,8 @@ def upgrade() -> None:
             [f"{schema}.data_fields.data_field_id"],
         ),
         sa.UniqueConstraint(
-            "data_field_id", "version_number",
+            "data_field_id",
+            "version_number",
             name="uq_processing_inventory_field_version",
         ),
         sa.CheckConstraint(
@@ -254,7 +268,8 @@ def upgrade() -> None:
             [f"{schema}.data_sources.data_source_id"],
         ),
         sa.UniqueConstraint(
-            "data_source_id", "revision",
+            "data_source_id",
+            "revision",
             name="uq_connection_revisions_source_revision",
         ),
         sa.CheckConstraint(

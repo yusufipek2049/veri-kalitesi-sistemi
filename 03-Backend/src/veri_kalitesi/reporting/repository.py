@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
 from threading import RLock
+from typing import Any, cast
 from uuid import uuid4
 
 from sqlalchemy import (
@@ -21,12 +22,11 @@ from sqlalchemy import (
     Table,
     and_,
     delete,
-    func,
     insert,
     select,
     update,
 )
-from sqlalchemy.engine import RowMapping
+from sqlalchemy.engine import CursorResult, RowMapping
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -37,15 +37,13 @@ from veri_kalitesi.reporting.errors import (
 )
 from veri_kalitesi.reporting.models import (
     Report,
-    ReportExportPolicy,
     ReportFormat,
     ReportRequest,
     ReportScoreObservation,
     ReportStatus,
     ReportType,
 )
-from veri_kalitesi.reporting.policies import ReportExportPolicyRepository
-from veri_kalitesi.reporting.scheduling import ReportSchedule, ReportScheduleRepository
+from veri_kalitesi.reporting.scheduling import ReportSchedule
 from veri_kalitesi.executions.scheduling import ScheduleType
 from veri_kalitesi.scoring.models import (
     QualityScore,
@@ -152,9 +150,7 @@ class PostgreSQLReportRepository:
     ) -> Report:
         def _do_get(s: Session) -> Report:
             row = s.execute(
-                select(self._tables.reports).where(
-                    self._tables.reports.c.report_id == report_id
-                )
+                select(self._tables.reports).where(self._tables.reports.c.report_id == report_id)
             ).one_or_none()
             if row is None:
                 raise ReportNotFoundError(report_id)
@@ -203,9 +199,7 @@ class PostgreSQLReportRepository:
 
         def _do_update(s: Session) -> Report:
             current = s.execute(
-                select(self._tables.reports).where(
-                    self._tables.reports.c.report_id == report_id
-                )
+                select(self._tables.reports).where(self._tables.reports.c.report_id == report_id)
             ).one_or_none()
             if current is None:
                 raise ReportNotFoundError(report_id)
@@ -236,16 +230,12 @@ class PostgreSQLReportRepository:
                 )
                 .values(values)
             )
-            if result.rowcount == 0:
-                raise ReportValidationError(
-                    f"Optimistic lock conflict on report {report_id}"
-                )
+            if cast(CursorResult[Any], result).rowcount == 0:
+                raise ReportValidationError(f"Optimistic lock conflict on report {report_id}")
 
             # Re-read to get full state
             updated = s.execute(
-                select(self._tables.reports).where(
-                    self._tables.reports.c.report_id == report_id
-                )
+                select(self._tables.reports).where(self._tables.reports.c.report_id == report_id)
             ).one()
             return _row_to_report(updated._mapping)
 
@@ -262,11 +252,9 @@ class PostgreSQLReportRepository:
     ) -> None:
         def _do_delete(s: Session) -> None:
             result = s.execute(
-                delete(self._tables.reports).where(
-                    self._tables.reports.c.report_id == report_id
-                )
+                delete(self._tables.reports).where(self._tables.reports.c.report_id == report_id)
             )
-            if result.rowcount == 0:
+            if cast(CursorResult[Any], result).rowcount == 0:
                 raise ReportNotFoundError(report_id)
 
         if session is not None:
@@ -288,7 +276,7 @@ def _row_to_report(row: RowMapping) -> Report:
         online_file_reference=row.get("online_file_reference"),
         file_size=row.get("file_size"),
         expires_at=row.get("expires_at"),
-        created_at=row.get("created_at"),
+        created_at=row["created_at"],
         completed_at=row.get("completed_at"),
         failure_reason=row.get("failure_reason"),
         version=row["version"],
@@ -440,9 +428,7 @@ class PostgreSQLReportScheduleRepository:
         t = self._tables.report_schedules
         with self._session_factory() as session:
             rows = (
-                session.execute(
-                    select(t).order_by(t.c.created_at, t.c.schedule_id)
-                )
+                session.execute(select(t).order_by(t.c.created_at, t.c.schedule_id))
                 .mappings()
                 .all()
             )
@@ -452,14 +438,13 @@ class PostgreSQLReportScheduleRepository:
         t = self._tables.report_schedules
         with self._session_factory() as session:
             row = (
-                session.execute(
-                    select(t).where(t.c.schedule_id == schedule_id)
-                )
+                session.execute(select(t).where(t.c.schedule_id == schedule_id))
                 .mappings()
                 .one_or_none()
             )
         if row is None:
             from veri_kalitesi.reporting.errors import ReportNotFoundError
+
             raise ReportNotFoundError(schedule_id)
         return _row_to_report_schedule(row)
 
@@ -468,11 +453,10 @@ class PostgreSQLReportScheduleRepository:
 
         t = self._tables.report_schedules
         with transactional_session(self._session_factory) as session:
-            result = session.execute(
-                sa_delete(t).where(t.c.schedule_id == schedule_id)
-            )
-            if result.rowcount == 0:
+            result = session.execute(sa_delete(t).where(t.c.schedule_id == schedule_id))
+            if cast(CursorResult[Any], result).rowcount == 0:
                 from veri_kalitesi.reporting.errors import ReportNotFoundError
+
                 raise ReportNotFoundError(schedule_id)
 
     def due(self, now: datetime) -> tuple[ReportSchedule, ...]:
@@ -523,6 +507,7 @@ def _row_to_report_schedule(row: RowMapping) -> ReportSchedule:
     recipients = row["recipients"]
     if isinstance(recipients, str):
         import json
+
         recipients = json.loads(recipients)
 
     return ReportSchedule(

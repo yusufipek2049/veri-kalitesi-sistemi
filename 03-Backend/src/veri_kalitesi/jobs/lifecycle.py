@@ -57,9 +57,7 @@ class DeadLetterReprocessService:
             or not actor_context.roles.intersection(self._policy.allowed_roles)
         ):
             raise JobAuthorizationError("Dead-letter reprocessing is not authorized.")
-        letters = {
-            item.dead_letter_id: item for item in self._repository.list_dead_letters()
-        }
+        letters = {item.dead_letter_id: item for item in self._repository.list_dead_letters()}
         letter = letters.get(dead_letter_id)
         if letter is None:
             raise JobNotFoundError("Open job dead-letter record not found.")

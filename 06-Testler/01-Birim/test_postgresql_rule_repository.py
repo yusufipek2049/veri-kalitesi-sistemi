@@ -23,8 +23,16 @@ def test_rule_tables_uses_dq_schema() -> None:
 def test_rule_tables_has_four_tables() -> None:
     """Dort tablo tanimlanir."""
     tables = rule_tables()
-    names = {t.name for t in (tables.rules, tables.versions, tables.test_results, tables.approval_requests)}
-    assert names == {"quality_rules", "rule_versions", "rule_test_results", "rule_approval_requests"}
+    names = {
+        t.name
+        for t in (tables.rules, tables.versions, tables.test_results, tables.approval_requests)
+    }
+    assert names == {
+        "quality_rules",
+        "rule_versions",
+        "rule_test_results",
+        "rule_approval_requests",
+    }
 
 
 def test_rule_tables_primary_keys() -> None:
@@ -45,9 +53,7 @@ def test_rule_tables_has_unique_constraint_on_versions() -> None:
     tables = rule_tables()
     constraints = list(tables.versions.constraints)
     uq = [c for c in constraints if isinstance(c, UniqueConstraint)]
-    assert any(
-        set(c.columns.keys()) == {"quality_rule_id", "version_no"} for c in uq
-    )
+    assert any(set(c.columns.keys()) == {"quality_rule_id", "version_no"} for c in uq)
 
 
 def test_rule_tables_has_foreign_keys() -> None:

@@ -9,7 +9,6 @@ OPEN-BNK-014: Asenkron disa aktarma, gerekce, maker-checker, DLP, watermark.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Protocol
 
@@ -17,7 +16,6 @@ from veri_kalitesi.reporting.errors import ReportExportDeniedError
 from veri_kalitesi.reporting.models import (
     ExportDecision,
     ReportExportPolicy,
-    ReportFormat,
     ReportRequest,
 )
 
@@ -28,9 +26,7 @@ class ReportExportPolicyRepository(Protocol):
     Politika yoksa None doner — fail-closed davranilir.
     """
 
-    def get_active_policy(
-        self, sensitivity_level: str | None
-    ) -> ReportExportPolicy | None: ...
+    def get_active_policy(self, sensitivity_level: str | None) -> ReportExportPolicy | None: ...
 
 
 def evaluate_export(

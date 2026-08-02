@@ -38,9 +38,7 @@ def test_dq_cap_005_graph_preserves_included_excluded_counts_and_contribution() 
                     "weight": "2",
                 }
             ],
-            "excluded_components": [
-                {"rule_version_id": "rule-v2", "status": "NO_DATA"}
-            ],
+            "excluded_components": [{"rule_version_id": "rule-v2", "status": "NO_DATA"}],
             "critical_rule_status": "FAILED",
             "critical_veto": True,
             "evidence_references": [
@@ -83,28 +81,14 @@ def test_dq_cap_011_only_same_official_contract_is_comparable() -> None:
 def test_dq_cap_011_missing_or_changed_contract_fails_closed() -> None:
     previous = _score("80.00", _versions())
     missing = _score("85.00", {**_versions(), "profile_version": None})
-    changed = _score(
-        "85.00", {**_versions(), "governance_version": "governance-v2"}
-    )
-    changed_rules = _score(
-        "85.00", {**_versions(), "rule_set_version": "rule-set-v2"}
-    )
-    provisional = _score(
-        "85.00", {**_versions(), "included_in_official_aggregation": False}
-    )
+    changed = _score("85.00", {**_versions(), "governance_version": "governance-v2"})
+    changed_rules = _score("85.00", {**_versions(), "rule_set_version": "rule-set-v2"})
+    provisional = _score("85.00", {**_versions(), "included_in_official_aggregation": False})
 
     assert compare_scores(missing, previous).status is ComparisonStatus.UNKNOWN
-    assert (
-        compare_scores(changed, previous).status
-        is ComparisonStatus.NOT_COMPARABLE
-    )
-    assert compare_scores(changed_rules, previous).reason_codes == (
-        "RULE_VERSION_CHANGED",
-    )
-    assert (
-        compare_scores(provisional, previous).reason_codes
-        == ("NON_OFFICIAL_RESULT",)
-    )
+    assert compare_scores(changed, previous).status is ComparisonStatus.NOT_COMPARABLE
+    assert compare_scores(changed_rules, previous).reason_codes == ("RULE_VERSION_CHANGED",)
+    assert compare_scores(provisional, previous).reason_codes == ("NON_OFFICIAL_RESULT",)
 
 
 def _versions() -> dict[str, object]:

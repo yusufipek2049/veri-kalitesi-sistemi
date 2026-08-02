@@ -8,6 +8,7 @@ from typing import Any, Mapping
 
 from sqlalchemy import Column, DateTime, MetaData, String, Table, insert, select
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.engine import RowMapping
 
 from veri_kalitesi.audit import PostgreSQLTransactionalAudit, PreparedAuditEvent
 from veri_kalitesi.persistence import (
@@ -61,9 +62,7 @@ class PostgreSQLContributionGraphRepository:
         audit_outbox: PostgreSQLTransactionalAudit,
     ) -> StoredContributionGraph:
         if created_at.tzinfo is None or created_at.utcoffset() is None:
-            raise ScoringValidationError(
-                "Contribution graph created_at must be timezone-aware."
-            )
+            raise ScoringValidationError("Contribution graph created_at must be timezone-aware.")
         if audit_outbox.session_factory is not self._session_factory:
             raise ScoringValidationError(
                 "Audit outbox must share the contribution graph transaction."
@@ -77,11 +76,15 @@ class PostgreSQLContributionGraphRepository:
             created_at=created_at,
         )
         with transactional_session(self._session_factory) as session:
-            existing = session.execute(
-                select(self._table).where(
-                    self._table.c.quality_score_id == snapshot.quality_score_id
+            existing = (
+                session.execute(
+                    select(self._table).where(
+                        self._table.c.quality_score_id == snapshot.quality_score_id
+                    )
                 )
-            ).mappings().one_or_none()
+                .mappings()
+                .one_or_none()
+            )
             if existing is not None:
                 if dict(existing["graph"]) != dict(snapshot.graph):
                     raise ScoringValidationError(
@@ -103,15 +106,17 @@ class PostgreSQLContributionGraphRepository:
 
     def get(self, quality_score_id: str) -> StoredContributionGraph | None:
         with transactional_session(self._session_factory) as session:
-            row = session.execute(
-                select(self._table).where(
-                    self._table.c.quality_score_id == quality_score_id
+            row = (
+                session.execute(
+                    select(self._table).where(self._table.c.quality_score_id == quality_score_id)
                 )
-            ).mappings().one_or_none()
+                .mappings()
+                .one_or_none()
+            )
         return _from_row(row) if row is not None else None
 
 
-def _from_row(row: Mapping[str, Any]) -> StoredContributionGraph:
+def _from_row(row: RowMapping) -> StoredContributionGraph:
     return StoredContributionGraph(
         quality_score_id=str(row["quality_score_id"]),
         execution_id=str(row["execution_id"]),

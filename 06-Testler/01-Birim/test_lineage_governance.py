@@ -63,10 +63,7 @@ def test_ac_01_versioned_profile_carries_effectivity_range() -> None:
     second = _profile(version_number=2, effective_from=NOW, effective_to=None)
 
     assert resolve_active_profile((first, second), NOW).profile is second
-    assert (
-        resolve_active_profile((first, second), NOW - timedelta(days=1)).profile
-        is first
-    )
+    assert resolve_active_profile((first, second), NOW - timedelta(days=1)).profile is first
     snapshot = governance_profile_snapshot(second)
     assert snapshot["profile_contract_version"] == "DQ_ASSET_GOVERNANCE_PROFILE_V1"
     assert snapshot["version_number"] == 2
@@ -138,9 +135,7 @@ def test_ac_02_existing_owner_surfaces_are_referenced_not_copied() -> None:
 
     dataset_reference = dataset_owner_reference(dataset)
     inventory_reference = inventory_owner_reference(inventory)
-    resolution = resolve_attribute_references(
-        (dataset_reference, inventory_reference)
-    )
+    resolution = resolve_attribute_references((dataset_reference, inventory_reference))
 
     assert dataset_reference.field_path == "data_sources.Dataset.owner_user_id"
     assert inventory_reference.field_path == (
@@ -194,9 +189,7 @@ def test_ac_02_conflicting_owner_records_do_not_create_second_owner() -> None:
         "data_protection.DataProcessingInventory.data_owner_id",
         "data_sources.Dataset.owner_user_id",
     ]
-    assert routing_decision(profile, _routing_policy()).reason_codes == (
-        "CONFLICTING_DATA_OWNER",
-    )
+    assert routing_decision(profile, _routing_policy()).reason_codes == ("CONFLICTING_DATA_OWNER",)
 
 
 def test_ac_09_profile_rejects_secret_and_unsupported_attributes() -> None:
@@ -243,17 +236,13 @@ def test_ac_09_projection_keeps_unsourced_fields_unknown() -> None:
         attributes={"criticality": dataset_criticality_reference(dataset)},
     )
 
-    projection = governance_projection(
-        resolve_active_profile((with_criticality,), NOW)
-    )
+    projection = governance_projection(resolve_active_profile((with_criticality,), NOW))
     empty = governance_projection(resolve_active_profile((), NOW))
 
     assert projection["critical_asset_status"] == "HIGH"
     assert projection["risk_status"] == "UNKNOWN"
     assert projection["sla_status"] == "UNKNOWN"
-    assert projection["governance_version"] == (
-        "DQ_ASSET_GOVERNANCE_PROFILE_V1:dataset-1:3"
-    )
+    assert projection["governance_version"] == ("DQ_ASSET_GOVERNANCE_PROFILE_V1:dataset-1:3")
     assert empty["critical_asset_status"] == "UNKNOWN"
     assert empty["governance_reason_codes"] == ["NO_ACTIVE_GOVERNANCE_PROFILE"]
 
@@ -307,12 +296,15 @@ def test_ac_03_snapshot_is_immutable_and_records_complete_coverage() -> None:
     assert snapshot["coverage_reason_codes"] == []
     assert snapshot["freshness_policy_version"] == "LINEAGE_FRESHNESS_V1"
     assert snapshot["digest"].startswith("sha256:")
-    assert snapshot["digest"] == lineage_snapshot(
-        (_event(),),
-        as_of=NOW,
-        freshness_limit=timedelta(days=1),
-        freshness_policy_version="LINEAGE_FRESHNESS_V1",
-    )["digest"]
+    assert (
+        snapshot["digest"]
+        == lineage_snapshot(
+            (_event(),),
+            as_of=NOW,
+            freshness_limit=timedelta(days=1),
+            freshness_policy_version="LINEAGE_FRESHNESS_V1",
+        )["digest"]
+    )
     assert upstream_dataset_refs(snapshot, "synthetic:curated.customer") == (
         "synthetic:raw.customer",
     )
@@ -325,12 +317,8 @@ def test_ac_03_missing_or_stale_coverage_is_recorded_not_hidden() -> None:
     without_columns = _event(column_edges=())
     stale = _event(observed_at=NOW - timedelta(days=10))
 
-    incomplete = lineage_snapshot(
-        (without_columns,), as_of=NOW, freshness_limit=timedelta(days=1)
-    )
-    stale_snapshot = lineage_snapshot(
-        (stale,), as_of=NOW, freshness_limit=timedelta(days=1)
-    )
+    incomplete = lineage_snapshot((without_columns,), as_of=NOW, freshness_limit=timedelta(days=1))
+    stale_snapshot = lineage_snapshot((stale,), as_of=NOW, freshness_limit=timedelta(days=1))
     without_policy = lineage_snapshot((_event(),), as_of=NOW, freshness_limit=None)
     empty = lineage_snapshot((), as_of=NOW, freshness_limit=timedelta(days=1))
 
@@ -411,9 +399,7 @@ def test_ac_05_impact_components_carry_source_formula_time_and_confidence() -> N
     assert assessment["estimated_component_codes"] == ["CUSTOMER"]
     assert assessment["unknown_component_codes"] == ["REGULATORY"]
     assert assessment["total_impact_value"] is None
-    assert assessment["total_impact_reason_code"] == (
-        "UNSUPPORTED_COMPONENTS_NOT_AGGREGATED"
-    )
+    assert assessment["total_impact_reason_code"] == ("UNSUPPORTED_COMPONENTS_NOT_AGGREGATED")
 
 
 def test_ac_05_monetary_value_without_authority_or_formula_is_unknown() -> None:
@@ -463,9 +449,7 @@ def test_ac_05_monetary_value_without_authority_or_formula_is_unknown() -> None:
 
     assert unsourced["components"][0]["status"] == "UNKNOWN"
     assert unsourced["components"][0]["value"] is None
-    assert unsourced["components"][0]["reason_codes"] == [
-        "NO_AUTHORITATIVE_MONETARY_SOURCE"
-    ]
+    assert unsourced["components"][0]["reason_codes"] == ["NO_AUTHORITATIVE_MONETARY_SOURCE"]
     assert without_policy["components"][0]["reason_codes"] == ["MISSING_IMPACT_POLICY"]
     assert authoritative["components"][0]["status"] == "OBSERVED"
     assert authoritative["supported_totals_by_unit"]["TRY"]["total"] == "100000"
@@ -499,9 +483,7 @@ def test_ac_05_component_without_confidence_or_data_time_is_unknown() -> None:
 
 
 def test_ac_04_root_cause_stays_hypothesis_and_keeps_human_record() -> None:
-    snapshot = lineage_snapshot(
-        (_event(),), as_of=NOW, freshness_limit=timedelta(days=1)
-    )
+    snapshot = lineage_snapshot((_event(),), as_of=NOW, freshness_limit=timedelta(days=1))
 
     hypothesis = root_cause_hypothesis(
         subject_ref="issue-1",
@@ -528,9 +510,7 @@ def test_ac_04_root_cause_stays_hypothesis_and_keeps_human_record() -> None:
             recorded=True,
             evidence_reference_id="evidence-1",
         ),
-        upstream_dataset_refs=upstream_dataset_refs(
-            snapshot, "synthetic:curated.customer"
-        ),
+        upstream_dataset_refs=upstream_dataset_refs(snapshot, "synthetic:curated.customer"),
         downstream_dataset_refs=(),
         similar_incidents=(
             SimilarIncident(
@@ -583,14 +563,8 @@ def test_ac_04_missing_deterioration_or_policy_never_produces_hypothesis() -> No
     assert without_policy["causality_status"] == CausalityStatus.UNKNOWN.value
     assert "MISSING_RECOMMENDATION_POLICY" in without_policy["causality_reason_codes"]
     assert without_policy["recommendations"] == []
-    assert (
-        without_deterioration["causality_status"]
-        == CausalityStatus.INSUFFICIENT_EVIDENCE.value
-    )
-    assert (
-        "NO_OBSERVED_DETERIORATION"
-        in without_deterioration["causality_reason_codes"]
-    )
+    assert without_deterioration["causality_status"] == CausalityStatus.INSUFFICIENT_EVIDENCE.value
+    assert "NO_OBSERVED_DETERIORATION" in without_deterioration["causality_reason_codes"]
     assert "NO_LINEAGE_SNAPSHOT" in without_deterioration["causality_reason_codes"]
 
 
@@ -701,10 +675,9 @@ def test_ac_06_incident_similarity_mechanism_requires_full_evidence() -> None:
         recommendation_policy=_recommendation_policy(),
     )
 
-    assert [
-        item["recommendation_code"]
-        for item in accepted_hypothesis["recommendations"]
-    ] == ["SIMILAR_INCIDENT_FIX"]
+    assert [item["recommendation_code"] for item in accepted_hypothesis["recommendations"]] == [
+        "SIMILAR_INCIDENT_FIX"
+    ]
     assert accepted_hypothesis["recommendations"][0]["mechanism"] == "INCIDENT_SIMILARITY"
     assert rejected_hypothesis["recommendations"] == []
     assert rejected_hypothesis["rejected_recommendations"][0]["rejection_reason_codes"] == [
@@ -765,9 +738,9 @@ def test_ac_06_expert_input_requires_audit_event_ref() -> None:
         recommendation_policy=_recommendation_policy(),
     )
 
-    assert [
-        item["recommendation_code"] for item in with_audit["recommendations"]
-    ] == ["EXPERT_REVIEW"]
+    assert [item["recommendation_code"] for item in with_audit["recommendations"]] == [
+        "EXPERT_REVIEW"
+    ]
     assert with_audit["recommendations"][0]["audit_event_ref"] == "audit:expert-event-1"
     assert without_audit["recommendations"] == []
     assert without_audit["rejected_recommendations"][0]["rejection_reason_codes"] == [
@@ -828,9 +801,7 @@ def _profile(
                 value="unit-1",
             ),
             "criticality": dataset_criticality_reference(_dataset()),
-            "retention": inventory_retention_reference(
-                _inventory(data_owner_id="owner-1")
-            ),
+            "retention": inventory_retention_reference(_inventory(data_owner_id="owner-1")),
         },
         related_asset_refs=("dataset-2",),
     )

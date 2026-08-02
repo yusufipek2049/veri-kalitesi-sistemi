@@ -11,7 +11,7 @@ from uuid import uuid4
 
 from dotenv import load_dotenv
 
-from veri_kalitesi.audit.models import AuditEvent, AuditResult, PreparedAuditEvent
+from veri_kalitesi.audit.models import AuditEvent, PreparedAuditEvent
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 load_dotenv(PROJECT_ROOT / ".env")

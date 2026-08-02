@@ -967,7 +967,9 @@ class DevelopmentExecutionStore:
     """Geliştirme ortamında çalıştırma işlemleri için bellek içi depo."""
 
     def __init__(self) -> None:
-        self._executions = {execution.execution_id: execution for execution in DEVELOPMENT_EXECUTIONS}
+        self._executions = {
+            execution.execution_id: execution for execution in DEVELOPMENT_EXECUTIONS
+        }
         self._lock = RLock()
 
     def start_manual(
@@ -1004,9 +1006,12 @@ class DevelopmentExecutionStore:
             execution = self._executions.get(execution_id)
             if execution is None:
                 raise ExecutionNotFoundError(f"Execution {execution_id} not found.")
-            if execution.status in {ExecutionStatus.SUCCESS, ExecutionStatus.FAILED,
-                                     ExecutionStatus.TECHNICAL_ERROR, ExecutionStatus.CANCELLED,
-                                     ExecutionStatus.TIMEOUT}:
+            if execution.status in {
+                ExecutionStatus.SUCCESS,
+                ExecutionStatus.TECHNICAL_ERROR,
+                ExecutionStatus.CANCELLED,
+                ExecutionStatus.TIMEOUT,
+            }:
                 raise ExecutionConflictError(
                     f"Cannot cancel execution in {execution.status.value} status."
                 )
@@ -1044,6 +1049,7 @@ def _create_development_report_repository(
     from sqlalchemy.orm import sessionmaker
     from sqlalchemy.orm import Session as SaSession
     from veri_kalitesi.reporting.repository import report_tables
+
     engine = create_engine("sqlite://", echo=False)
     tables = report_tables(schema="")
     tables.reports.create(engine, checkfirst=True)
@@ -1053,10 +1059,12 @@ def _create_development_report_repository(
 
 def _create_development_policy_repository() -> ReportExportPolicyRepository:
     class _DevPolicyRepo:
-        def get_active_policy(
-            self, sensitivity_level: str | None
-        ) -> ReportExportPolicy | None:
-            if sensitivity_level and sensitivity_level.upper() in {"HIGH", "CRITICAL", "CONFIDENTIAL"}:
+        def get_active_policy(self, sensitivity_level: str | None) -> ReportExportPolicy | None:
+            if sensitivity_level and sensitivity_level.upper() in {
+                "HIGH",
+                "CRITICAL",
+                "CONFIDENTIAL",
+            }:
                 return None
             return ReportExportPolicy(
                 version="DEVELOPMENT_EXPORT_POLICY_V1",
@@ -1086,7 +1094,13 @@ def _create_development_data_provider() -> ReportDataProvider:
                 ("source-core-banking", "91.80", "CALCULATED", "GOOD", "2026-07-24 12:00 UTC"),
                 ("source-customer-file", "82.40", "PARTIAL", "ACCEPTABLE", "2026-07-24 11:00 UTC"),
                 ("source-risk-mart", "", "NO_DATA", "", "2026-07-24 10:00 UTC"),
-                ("source-regulatory-api", "", "NOT_CALCULATED_TECHNICAL_ERROR", "", "2026-07-24 09:00 UTC"),
+                (
+                    "source-regulatory-api",
+                    "",
+                    "NOT_CALCULATED_TECHNICAL_ERROR",
+                    "",
+                    "2026-07-24 09:00 UTC",
+                ),
             )
             return headers, rows
 
@@ -1155,7 +1169,9 @@ def create_development_app(  # type: ignore[no-untyped-def]
             None,
         ),
     )
-    for index, (source_id, score_value, status, level, official) in enumerate(source_observations):
+    for index, (source_id, observed_score_value, status, level, official) in enumerate(
+        source_observations
+    ):
         calculation_details: dict[str, object] = {"aggregate": True}
         if official is not None:
             calculation_details["included_in_official_aggregation"] = official
@@ -1165,7 +1181,9 @@ def create_development_app(  # type: ignore[no-untyped-def]
                 rule_version_id=None,
                 scope_type=ScoreScopeType.SOURCE,
                 scope_id=source_id,
-                score_value=Decimal(score_value) if score_value is not None else None,
+                score_value=Decimal(observed_score_value)
+                if observed_score_value is not None
+                else None,
                 score_status=status,
                 level=level,
                 calculation_details=calculation_details,
@@ -1255,9 +1273,7 @@ def create_development_app(  # type: ignore[no-untyped-def]
         clock=lambda: datetime.now(timezone.utc),
     )
     governance_reader = (
-        PostgreSQLGovernanceProfileReader(session_factory)
-        if session_factory is not None
-        else None
+        PostgreSQLGovernanceProfileReader(session_factory) if session_factory is not None else None
     )
     lineage_evidence_repository = (
         PostgreSQLLineageEvidenceRepository(session_factory)
@@ -1287,9 +1303,7 @@ def create_development_app(  # type: ignore[no-untyped-def]
     data_source_store = DevelopmentDataSourceStore()
     if session_factory is not None:
         if transactional_audit is None:
-            raise ValueError(
-                "PostgreSQL execution composition requires transactional audit."
-            )
+            raise ValueError("PostgreSQL execution composition requires transactional audit.")
         pg_repository = PostgreSQLExecutionRepository(session_factory)
         job_queue = PostgreSQLJobQueueRepository(session_factory)
         execution_start_service: ExecutionStartService = PostgreSQLExecutionStartService(

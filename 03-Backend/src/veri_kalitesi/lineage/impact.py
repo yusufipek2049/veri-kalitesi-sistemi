@@ -10,7 +10,7 @@ insan tarafından girilen kök neden makine hipoteziyle değiştirilmez.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from enum import Enum
@@ -185,14 +185,10 @@ def root_cause_hypothesis(
         _require_aware("timeline.occurred_at", event.occurred_at)
         if event.dataset_ref is not None:
             _require_reference("timeline.dataset_ref", event.dataset_ref)
-    first_deterioration = next(
-        (event for event in ordered if event.deterioration_observed), None
-    )
+    first_deterioration = next((event for event in ordered if event.deterioration_observed), None)
     accepted, rejected = _filter_recommendations(recommendations, recommendation_policy)
     coverage_status = (
-        str(lineage_snapshot.get("coverage_status"))
-        if lineage_snapshot is not None
-        else "UNKNOWN"
+        str(lineage_snapshot.get("coverage_status")) if lineage_snapshot is not None else "UNKNOWN"
     )
     reason_codes: list[str] = []
     if recommendation_policy is None:
@@ -247,17 +243,13 @@ def root_cause_hypothesis(
                 "incident_ref": incident.incident_ref,
                 "similarity_evidence_ref": incident.similarity_evidence_ref,
             }
-            for incident in sorted(
-                similar_incidents, key=lambda item: item.incident_ref
-            )
+            for incident in sorted(similar_incidents, key=lambda item: item.incident_ref)
         ],
         "impact_assessment_digest": (
             impact_assessment.get("digest") if impact_assessment is not None else None
         ),
         "recommendation_policy_version": (
-            recommendation_policy.version
-            if recommendation_policy is not None
-            else None
+            recommendation_policy.version if recommendation_policy is not None else None
         ),
         "recommendations": accepted,
         "rejected_recommendations": rejected,
@@ -296,9 +288,7 @@ def _filter_recommendations(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     accepted: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
-    for recommendation in sorted(
-        recommendations, key=lambda item: item.recommendation_code
-    ):
+    for recommendation in sorted(recommendations, key=lambda item: item.recommendation_code):
         _require_code("recommendation_code", recommendation.recommendation_code)
         reason_codes: list[str] = []
         if recommendation.mechanism not in ENABLED_RECOMMENDATION_MECHANISMS:
@@ -330,16 +320,12 @@ def _filter_recommendations(
             "mechanism": recommendation.mechanism.value,
             "mechanism_version": recommendation.mechanism_version,
             "evidence_refs": list(evidence),
-            "counter_evidence_refs": list(
-                dict.fromkeys(recommendation.counter_evidence_refs)
-            ),
+            "counter_evidence_refs": list(dict.fromkeys(recommendation.counter_evidence_refs)),
             "confidence_ref": recommendation.confidence_ref,
             "audit_event_ref": recommendation.audit_event_ref,
         }
         if reason_codes:
-            rejected.append(
-                {**document, "rejection_reason_codes": sorted(set(reason_codes))}
-            )
+            rejected.append({**document, "rejection_reason_codes": sorted(set(reason_codes))})
         else:
             accepted.append(document)
     return accepted, rejected
@@ -364,10 +350,7 @@ def _normalized_component(
         if not component.confidence_ref:
             status = ImpactEvidenceStatus.UNKNOWN
             reason_codes.append("MISSING_CONFIDENCE_REFERENCE")
-    if (
-        status is ImpactEvidenceStatus.CALCULATED
-        and component.formula_ref is None
-    ):
+    if status is ImpactEvidenceStatus.CALCULATED and component.formula_ref is None:
         status = ImpactEvidenceStatus.UNKNOWN
         reason_codes.append("MISSING_FORMULA")
     if component.component_code in MONETARY_COMPONENT_CODES:
@@ -383,18 +366,13 @@ def _normalized_component(
         "declared_status": component.status.value,
         "value": (
             str(component.value)
-            if status is not ImpactEvidenceStatus.UNKNOWN
-            and component.value is not None
+            if status is not ImpactEvidenceStatus.UNKNOWN and component.value is not None
             else None
         ),
         "unit": component.unit if status is not ImpactEvidenceStatus.UNKNOWN else None,
         "source_ref": component.source_ref,
         "formula_ref": component.formula_ref,
-        "data_time": (
-            component.data_time.isoformat()
-            if component.data_time is not None
-            else None
-        ),
+        "data_time": (component.data_time.isoformat() if component.data_time is not None else None),
         "confidence_ref": component.confidence_ref,
         "reason_codes": sorted(set(reason_codes)),
     }

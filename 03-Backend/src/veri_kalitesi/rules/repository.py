@@ -582,9 +582,7 @@ def _row_to_version(row: sqlite3.Row) -> RuleVersion:
         criticality=RuleCriticality(row["criticality"]),
         prepared_by_actor_id=row["prepared_by_actor_id"],
         ir_version=str(definition.get("ir_version", "DQ_RULE_IR_V1")),
-        definition_source=RuleDefinitionSource(
-            definition.get("definition_source", "TEMPLATE")
-        ),
+        definition_source=RuleDefinitionSource(definition.get("definition_source", "TEMPLATE")),
         scope_type=RuleScopeType(definition.get("scope_type", "DATASET")),
         created_at=datetime.fromisoformat(row["created_at"]),
     )
@@ -603,9 +601,7 @@ def _row_to_latest_version(row: sqlite3.Row) -> RuleVersion:
         criticality=RuleCriticality(row["latest_criticality"]),
         prepared_by_actor_id=row["latest_prepared_by_actor_id"],
         ir_version=str(definition.get("ir_version", "DQ_RULE_IR_V1")),
-        definition_source=RuleDefinitionSource(
-            definition.get("definition_source", "TEMPLATE")
-        ),
+        definition_source=RuleDefinitionSource(definition.get("definition_source", "TEMPLATE")),
         scope_type=RuleScopeType(definition.get("scope_type", "DATASET")),
         created_at=datetime.fromisoformat(row["latest_created_at"]),
     )

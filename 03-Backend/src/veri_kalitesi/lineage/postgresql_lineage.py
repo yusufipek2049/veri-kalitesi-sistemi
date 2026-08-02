@@ -9,6 +9,7 @@ from typing import Any, Mapping
 
 from sqlalchemy import Column, DateTime, MetaData, String, Table, insert, select
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.engine import RowMapping
 
 from veri_kalitesi.audit import PostgreSQLTransactionalAudit, PreparedAuditEvent
 from veri_kalitesi.lineage.errors import LineageValidationError
@@ -76,18 +77,14 @@ class PostgreSQLLineageEvidenceRepository:
         audit_outbox: PostgreSQLTransactionalAudit,
     ) -> StoredLineageSnapshot:
         if created_at.tzinfo is None or created_at.utcoffset() is None:
-            raise LineageValidationError(
-                "Lineage snapshot created_at must be timezone-aware."
-            )
+            raise LineageValidationError("Lineage snapshot created_at must be timezone-aware.")
         if audit_outbox.session_factory is not self._session_factory:
             raise LineageValidationError(
                 "Audit outbox must share the lineage snapshot transaction."
             )
         digest = payload.get("digest")
         if not isinstance(digest, str) or not digest.startswith("sha256:"):
-            raise LineageValidationError(
-                "Lineage snapshot payload must carry a sha256 digest."
-            )
+            raise LineageValidationError("Lineage snapshot payload must carry a sha256 digest.")
         snapshot = StoredLineageSnapshot(
             snapshot_id=digest.split(":", 1)[1],
             snapshot_kind=snapshot_kind.value,
@@ -98,11 +95,13 @@ class PostgreSQLLineageEvidenceRepository:
             created_at=created_at,
         )
         with transactional_session(self._session_factory) as session:
-            existing = session.execute(
-                select(self._table).where(
-                    self._table.c.snapshot_id == snapshot.snapshot_id
+            existing = (
+                session.execute(
+                    select(self._table).where(self._table.c.snapshot_id == snapshot.snapshot_id)
                 )
-            ).mappings().one_or_none()
+                .mappings()
+                .one_or_none()
+            )
             if existing is not None:
                 if dict(existing["payload"]) != dict(snapshot.payload):
                     raise LineageValidationError(
@@ -125,9 +124,11 @@ class PostgreSQLLineageEvidenceRepository:
 
     def get(self, snapshot_id: str) -> StoredLineageSnapshot | None:
         with transactional_session(self._session_factory) as session:
-            row = session.execute(
-                select(self._table).where(self._table.c.snapshot_id == snapshot_id)
-            ).mappings().one_or_none()
+            row = (
+                session.execute(select(self._table).where(self._table.c.snapshot_id == snapshot_id))
+                .mappings()
+                .one_or_none()
+            )
         return _from_row(row) if row is not None else None
 
     def get_version(
@@ -137,17 +138,21 @@ class PostgreSQLLineageEvidenceRepository:
         version_label: str,
     ) -> StoredLineageSnapshot | None:
         with transactional_session(self._session_factory) as session:
-            row = session.execute(
-                select(self._table).where(
-                    self._table.c.snapshot_kind == snapshot_kind.value,
-                    self._table.c.subject_ref == subject_ref,
-                    self._table.c.version_label == version_label,
+            row = (
+                session.execute(
+                    select(self._table).where(
+                        self._table.c.snapshot_kind == snapshot_kind.value,
+                        self._table.c.subject_ref == subject_ref,
+                        self._table.c.version_label == version_label,
+                    )
                 )
-            ).mappings().one_or_none()
+                .mappings()
+                .one_or_none()
+            )
         return _from_row(row) if row is not None else None
 
 
-def _from_row(row: Mapping[str, Any]) -> StoredLineageSnapshot:
+def _from_row(row: RowMapping) -> StoredLineageSnapshot:
     return StoredLineageSnapshot(
         snapshot_id=str(row["snapshot_id"]),
         snapshot_kind=str(row["snapshot_kind"]),
@@ -173,16 +178,18 @@ class PostgreSQLGovernanceProfileReader:
         self._session_factory = session_factory
         self._table = lineage_snapshot_table(schema)
 
-    def list_governance_profiles(
-        self, asset_ref: str
-    ) -> list[DataAssetGovernanceProfile]:
+    def list_governance_profiles(self, asset_ref: str) -> list[DataAssetGovernanceProfile]:
         with transactional_session(self._session_factory) as session:
-            rows = session.execute(
-                select(self._table).where(
-                    self._table.c.snapshot_kind == LineageSnapshotKind.GOVERNANCE_PROFILE.value,
-                    self._table.c.subject_ref == asset_ref,
+            rows = (
+                session.execute(
+                    select(self._table).where(
+                        self._table.c.snapshot_kind == LineageSnapshotKind.GOVERNANCE_PROFILE.value,
+                        self._table.c.subject_ref == asset_ref,
+                    )
                 )
-            ).mappings().all()
+                .mappings()
+                .all()
+            )
         profiles: list[DataAssetGovernanceProfile] = []
         for row in rows:
             payload = dict(row["payload"])

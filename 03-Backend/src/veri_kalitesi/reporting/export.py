@@ -12,7 +12,6 @@ from __future__ import annotations
 import csv
 import io
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Protocol
 
 from veri_kalitesi.reporting.models import ReportExportPolicy, ReportFormat, ReportType
@@ -93,8 +92,9 @@ def _generate_xlsx(
     watermark_text: str | None,
 ) -> GeneratedFile:
     try:
-        import openpyxl
-        from openpyxl.styles import Font
+        # Gerekce: openpyxl stub paketi ortamda kurulu degil (types-openpyxl).
+        import openpyxl  # type: ignore[import-untyped]
+        from openpyxl.styles import Font  # type: ignore[import-untyped]
     except ImportError:
         raise RuntimeError("openpyxl is required for XLSX export")
 
@@ -133,11 +133,11 @@ def _generate_pdf(
     watermark_text: str | None,
 ) -> GeneratedFile:
     try:
-        from reportlab.lib import colors
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib.styles import getSampleStyleSheet
-        from reportlab.platypus import (
-            PageBreak,
+        # Gerekce: reportlab stub paketi ortamda kurulu degil (types-reportlab).
+        from reportlab.lib import colors  # type: ignore[import-untyped]
+        from reportlab.lib.pagesizes import A4  # type: ignore[import-untyped]
+        from reportlab.lib.styles import getSampleStyleSheet  # type: ignore[import-untyped]
+        from reportlab.platypus import (  # type: ignore[import-untyped]
             Paragraph,
             SimpleDocTemplate,
             Spacer,

@@ -219,9 +219,7 @@ def test_retryable_technical_error_uses_active_policy_retry_limits() -> None:
 
     result = _worker(
         repository,
-        lambda job, **kwargs: (_ for _ in ()).throw(
-            RetryableJobError("TRANSIENT_NETWORK")
-        ),
+        lambda job, **kwargs: (_ for _ in ()).throw(RetryableJobError("TRANSIENT_NETWORK")),
     ).run_once()
 
     assert result is not None
@@ -291,9 +289,7 @@ def test_production_poll_reaps_expired_cancel_request_before_claim() -> None:
             JobCompletionOutcome.QUALITY_FAILURE,
         ),
         (
-            lambda job, **kwargs: (_ for _ in ()).throw(
-                PermanentJobError("INVALID_SQL")
-            ),
+            lambda job, **kwargs: (_ for _ in ()).throw(PermanentJobError("INVALID_SQL")),
             None,
         ),
     ],

@@ -8,12 +8,13 @@ ile calisir.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import datetime, time, timezone
 from typing import Callable, Protocol
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from veri_kalitesi.executions.scheduling import (
+    Schedule as ExecSchedule,
     ScheduleType,
     preview_runs,
 )
@@ -111,7 +112,9 @@ class ReportScheduleService:
         zone = _zone(request.timezone_name)
         parsed_time = _parse_time(request.local_time) if request.local_time is not None else None
 
-        _validate_definition(parsed_type, parsed_time, request.once_at, request.day_of_week, request.day_of_month)
+        _validate_definition(
+            parsed_type, parsed_time, request.once_at, request.day_of_week, request.day_of_month
+        )
 
         now = self._clock().astimezone(timezone.utc)
 
@@ -218,15 +221,13 @@ class ReportScheduleService:
         return tuple(triggered)
 
 
-def _to_schedule_backend(schedule: ReportSchedule) -> object:
+def _to_schedule_backend(schedule: ReportSchedule) -> ExecSchedule:
     """ReportSchedule'i executions.scheduling.Schedule benzeri bir
     nesneye donusturur (preview_runs fonksiyonunun kullanabilmesi icin).
 
     preview_runs su alanlara bakar: schedule_type, once_at, local_time,
     day_of_week, day_of_month, timezone_name.
     """
-    from veri_kalitesi.executions.scheduling import Schedule as ExecSchedule
-
     return ExecSchedule(
         name=schedule.name,
         schedule_type=schedule.schedule_type,
@@ -256,6 +257,7 @@ def _replace(schedule: ReportSchedule, **kwargs: object) -> ReportSchedule:
 
 def dataclass_fields(cls: type) -> tuple:
     from dataclasses import fields
+
     return fields(cls)
 
 
@@ -306,5 +308,6 @@ def _parse_time(value: str) -> time:
 try:
     from zoneinfo import ZoneInfoNotFoundError  # type: ignore[attr-defined]
 except ImportError:
+
     class ZoneInfoNotFoundError(Exception):  # type: ignore[no-redef]
         pass

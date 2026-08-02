@@ -364,9 +364,7 @@ class ReportService:
         self._inline_processing = inline_processing
         if inline_processing and worker is None:
             raise ValueError("Inline report processing requires a report worker.")
-        if not inline_processing and (
-            job_queue is None or transactional_audit is None
-        ):
+        if not inline_processing and (job_queue is None or transactional_audit is None):
             raise ValueError(
                 "Persistent report processing requires a job queue and transactional audit."
             )
@@ -386,6 +384,7 @@ class ReportService:
         context = self._resolve_actor(actor_context)
         policy = self._policy_repo.get_active_policy(request.sensitivity_level)
         decision = evaluate_export(request, policy, context.correlation_id)
+
         def requested_event(report_id: str) -> AuditEventInput:
             return AuditEventInput(
                 actor_id=context.actor_id,
@@ -405,6 +404,7 @@ class ReportService:
                 occurred_at=datetime.now(timezone.utc),
                 session_id=context.session_id,
             )
+
         if self._inline_processing:
             report = self._repo.create_report(request, context.actor_id)
             assert self._worker is not None
@@ -420,18 +420,14 @@ class ReportService:
                 context.actor_id,
                 session=session,
             )
-            prepared = self._transactional_audit.prepare(
-                requested_event(report.report_id)
-            )
+            prepared = self._transactional_audit.prepare(requested_event(report.report_id))
             self._job_queue.enqueue(
                 BackgroundJob(
                     job_id=report.report_id,
                     job_type="REPORT",
                     payload={
                         "report_id": report.report_id,
-                        "source_ids": list(
-                            request.parameters.get("source_ids", ())
-                        ),
+                        "source_ids": list(request.parameters.get("source_ids", ())),
                     },
                     idempotency_key=report.report_id,
                     created_at=report.created_at,
@@ -462,9 +458,7 @@ class ReportService:
     ) -> tuple[Report, ...]:
         """Kullanicinin raporlarini listeler."""
         context = self._resolve_actor(actor_context)
-        return self._repo.list_reports_by_user(
-            context.actor_id, limit=limit, offset=offset
-        )
+        return self._repo.list_reports_by_user(context.actor_id, limit=limit, offset=offset)
 
     def download_report(
         self,

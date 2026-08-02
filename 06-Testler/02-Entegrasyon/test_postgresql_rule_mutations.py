@@ -68,7 +68,9 @@ def pg() -> Iterator[PgFixture]:
     session_factory = create_session_factory(settings)
     engine = create_engine(settings.url)
     alembic_cfg = Config(str(ROOT / "05-Veritabani" / "alembic.ini"))
-    alembic_cfg.set_main_option("sqlalchemy.url", settings.url.render_as_string(hide_password=False))
+    alembic_cfg.set_main_option(
+        "sqlalchemy.url", settings.url.render_as_string(hide_password=False)
+    )
     alembic_cfg.set_main_option("data_quality_schema", settings.schema)
     command.upgrade(alembic_cfg, "head")
     yield PgFixture(
@@ -155,7 +157,8 @@ def test_create_rule_persists_to_postgresql(pg: PgFixture) -> None:
     version = _make_version(rule.quality_rule_id)
 
     repo.add_rule_with_version(
-        rule, version,
+        rule,
+        version,
         audit_event=_prepared(audit, object_id=rule.quality_rule_id),
         audit_outbox=audit,
     )
@@ -176,12 +179,14 @@ def test_add_version_and_list_versions(pg: PgFixture) -> None:
     rule = _make_rule()
     v1 = _make_version(rule.quality_rule_id, version_no=1)
     repo.add_rule_with_version(
-        rule, v1,
+        rule,
+        v1,
         audit_event=_prepared(audit, object_id=rule.quality_rule_id),
         audit_outbox=audit,
     )
-    v2 = _make_version(rule.quality_rule_id, version_no=2,
-                        rule_version_id=str(uuid4()), threshold=90.0)
+    v2 = _make_version(
+        rule.quality_rule_id, version_no=2, rule_version_id=str(uuid4()), threshold=90.0
+    )
     repo.add_version(
         v2,
         audit_event=_prepared(audit, object_id=rule.quality_rule_id),
@@ -200,17 +205,25 @@ def test_list_rules_with_latest_version(pg: PgFixture) -> None:
     audit = _audit(pg)
     r1 = _make_rule(code="RULE-A", dataset_id="ds-1")
     r1_v1 = _make_version(r1.quality_rule_id, version_no=1)
-    repo.add_rule_with_version(r1, r1_v1, audit_event=_prepared(audit, object_id=r1.quality_rule_id), audit_outbox=audit)
+    repo.add_rule_with_version(
+        r1, r1_v1, audit_event=_prepared(audit, object_id=r1.quality_rule_id), audit_outbox=audit
+    )
     r1_v2 = _make_version(r1.quality_rule_id, version_no=2, rule_version_id=str(uuid4()))
-    repo.add_version(r1_v2, audit_event=_prepared(audit, object_id=r1.quality_rule_id), audit_outbox=audit)
+    repo.add_version(
+        r1_v2, audit_event=_prepared(audit, object_id=r1.quality_rule_id), audit_outbox=audit
+    )
 
     r2 = _make_rule(code="RULE-B", dataset_id="ds-1")
     r2_v1 = _make_version(r2.quality_rule_id, version_no=1)
-    repo.add_rule_with_version(r2, r2_v1, audit_event=_prepared(audit, object_id=r2.quality_rule_id), audit_outbox=audit)
+    repo.add_rule_with_version(
+        r2, r2_v1, audit_event=_prepared(audit, object_id=r2.quality_rule_id), audit_outbox=audit
+    )
 
     r3 = _make_rule(code="RULE-C", dataset_id="ds-2")
     r3_v1 = _make_version(r3.quality_rule_id, version_no=1)
-    repo.add_rule_with_version(r3, r3_v1, audit_event=_prepared(audit, object_id=r3.quality_rule_id), audit_outbox=audit)
+    repo.add_rule_with_version(
+        r3, r3_v1, audit_event=_prepared(audit, object_id=r3.quality_rule_id), audit_outbox=audit
+    )
 
     ds1_results = repo.list_rules_with_latest_version(frozenset({"ds-1"}))
     assert len(ds1_results) == 2
@@ -324,7 +337,8 @@ def test_duplicate_rule_code_rejects(pg: PgFixture) -> None:
     version_b = _make_version(rule_b.quality_rule_id)
     with pytest.raises(RuleValidationError, match="unique"):
         repo.add_rule_with_version(
-            rule_b, version_b,
+            rule_b,
+            version_b,
             audit_event=_prepared(audit, object_id=rule_b.quality_rule_id),
             audit_outbox=audit,
         )

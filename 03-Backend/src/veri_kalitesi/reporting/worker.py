@@ -15,12 +15,15 @@ from datetime import datetime, timedelta, timezone
 from threading import Event
 from typing import Protocol
 
+from sqlalchemy.orm import Session
+
 from veri_kalitesi.reporting.errors import ReportNotReadyError, ReportRetryableError
 from veri_kalitesi.reporting.export import GeneratedFile, ReportDataProvider, generate_report
 from veri_kalitesi.reporting.models import (
     Report,
     ReportExportPolicy,
     ReportFormat,
+    ReportRequest,
     ReportStatus,
     ReportType,
 )
@@ -28,9 +31,23 @@ from veri_kalitesi.reporting.policies import ReportExportPolicyRepository
 
 
 class ReportRepository(Protocol):
-    """Rapor repository protocol — worker'in ihtiyac duydugu metodlar."""
+    """Rapor repository protocol — worker ve servisin ihtiyac duydugu metodlar."""
 
     def get_report(self, report_id: str) -> Report: ...
+    def create_report(
+        self,
+        request: ReportRequest,
+        requested_by: str,
+        *,
+        session: Session | None = None,
+    ) -> Report: ...
+    def list_reports_by_user(
+        self,
+        requested_by: str,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[Report, ...]: ...
     def update_report_status(
         self,
         report_id: str,
@@ -96,9 +113,7 @@ class ReportWorker:
             raise ReportNotReadyError(report_id, report.status.value)
 
         # RUNNING -> uretim basliyor
-        report = self._repo.update_report_status(
-            report_id, ReportStatus.RUNNING
-        )
+        report = self._repo.update_report_status(report_id, ReportStatus.RUNNING)
 
         last_exception: Exception | None = None
         max_attempts = max(1, self._settings.max_retry_attempts)
@@ -157,9 +172,7 @@ class ReportWorker:
 
             except Exception as exc:
                 if cancellation_event is not None and cancellation_event.is_set():
-                    raise ReportRetryableError(
-                        "Report generation was cancelled."
-                    ) from exc
+                    raise ReportRetryableError("Report generation was cancelled.") from exc
                 last_exception = exc
                 if not self._is_retryable(exc):
                     # Non-retryable hata — direkt FAILED, retry bilgisi eklenmez

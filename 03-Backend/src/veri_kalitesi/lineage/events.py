@@ -89,9 +89,7 @@ def validate_lineage_event(event: LineageEvent) -> None:
     _require_uri("producer", event.producer)
     _require_uri("schema_url", event.schema_url)
     if not event.inputs and not event.outputs:
-        raise LineageValidationError(
-            "Lineage event must reference at least one dataset."
-        )
+        raise LineageValidationError("Lineage event must reference at least one dataset.")
     for dataset in (*event.inputs, *event.outputs):
         _require_name("dataset.namespace", dataset.namespace)
         _require_name("dataset.name", dataset.name)
@@ -229,9 +227,7 @@ def lineage_snapshot(
         as_of=as_of,
         freshness_limit=freshness_limit,
     )
-    latest_observed_at = (
-        max(event.observed_at for event in ordered) if ordered else None
-    )
+    latest_observed_at = max(event.observed_at for event in ordered) if ordered else None
     document: dict[str, Any] = {
         "snapshot_contract_version": LINEAGE_EVENT_VERSION,
         "as_of": as_of.isoformat(),
@@ -239,9 +235,7 @@ def lineage_snapshot(
         "coverage_reason_codes": list(reason_codes),
         "freshness_policy_version": freshness_policy_version,
         "freshness_limit_seconds": (
-            int(freshness_limit.total_seconds())
-            if freshness_limit is not None
-            else None
+            int(freshness_limit.total_seconds()) if freshness_limit is not None else None
         ),
         "latest_observed_at": (
             latest_observed_at.isoformat() if latest_observed_at is not None else None
@@ -249,11 +243,7 @@ def lineage_snapshot(
         "run_ids": sorted({event.run_id for event in ordered}),
         "source_authorities": sorted({event.source_authority for event in ordered}),
         "dataset_refs": sorted(
-            {
-                dataset.ref
-                for event in ordered
-                for dataset in (*event.inputs, *event.outputs)
-            }
+            {dataset.ref for event in ordered for dataset in (*event.inputs, *event.outputs)}
         ),
         "column_edge_count": sum(len(event.column_edges) for event in ordered),
         "events": documents,
@@ -289,13 +279,8 @@ def _neighbours(
 ) -> tuple[str, ...]:
     found: set[str] = set()
     for document in snapshot.get("events", ()):
-        inputs = {
-            f"{item['namespace']}:{item['name']}" for item in document.get("inputs", ())
-        }
-        outputs = {
-            f"{item['namespace']}:{item['name']}"
-            for item in document.get("outputs", ())
-        }
+        inputs = {f"{item['namespace']}:{item['name']}" for item in document.get("inputs", ())}
+        outputs = {f"{item['namespace']}:{item['name']}" for item in document.get("outputs", ())}
         if upstream and dataset_ref in outputs:
             found |= inputs
         if not upstream and dataset_ref in inputs:
@@ -333,10 +318,7 @@ def _coverage(
             reason_codes.append("MISSING_COLUMN_LINEAGE")
             incomplete = True
         declared_inputs = {dataset.ref for dataset in event.inputs}
-        if any(
-            edge.input_dataset.ref not in declared_inputs
-            for edge in event.column_edges
-        ):
+        if any(edge.input_dataset.ref not in declared_inputs for edge in event.column_edges):
             reason_codes.append("UNDECLARED_INPUT_DATASET")
             incomplete = True
     codes = tuple(sorted(set(reason_codes)))

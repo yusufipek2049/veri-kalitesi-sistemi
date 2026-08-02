@@ -97,9 +97,7 @@ def test_graph_snapshot_and_audit_outbox_are_atomic_and_immutable(
     assert stored.graph["raw_quality_score"] == "88.00"
     assert repository.get(score.quality_score_id) == stored
     with pg.session_factory() as session:
-        assert session.scalar(
-            select(func.count()).select_from(audit.table)
-        ) == 1
+        assert session.scalar(select(func.count()).select_from(audit.table)) == 1
 
     changed = _score("score-1", "91.00")
     with pytest.raises(ScoringValidationError, match="immutable"):

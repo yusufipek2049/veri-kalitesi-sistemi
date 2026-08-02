@@ -327,7 +327,9 @@ class PersistentJobWorker:
         target = (
             JobStatus.TIMEOUT
             if kind is JobFailureKind.TIMEOUT
-            else JobStatus.TECHNICAL_ERROR if terminal else JobStatus.QUEUED
+            else JobStatus.TECHNICAL_ERROR
+            if terminal
+            else JobStatus.QUEUED
         )
         audit = self._audit(
             current,

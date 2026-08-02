@@ -271,9 +271,7 @@ def test_complete_success(
             eligible_for_official_scoring=True,
             evidence={
                 "fingerprint": "sha256:" + ("a" * 64),
-                "masked_samples": [
-                    "hmac-sha256://evidence-key-v1/" + ("b" * 64)
-                ],
+                "masked_samples": ["hmac-sha256://evidence-key-v1/" + ("b" * 64)],
                 "expected_summary": {"failed_count": 0},
                 "actual_summary": {"failed_count": 10},
                 "query_reference": "query-template://rv-001",
@@ -283,8 +281,11 @@ def test_complete_success(
     )
     success_prepared = _prepare_event(audit_outbox, "EXECUTION_SUCCEEDED")
     completed = repository.complete_success(
-        execution.execution_id, results, now,
-        audit_event=success_prepared, audit_outbox=audit_outbox,
+        execution.execution_id,
+        results,
+        now,
+        audit_event=success_prepared,
+        audit_outbox=audit_outbox,
     )
     assert completed.status is ExecutionStatus.SUCCESS
     assert completed.finished_at is not None
@@ -357,8 +358,11 @@ def test_complete_technical_error(
     now = _now()
     error_prepared = _prepare_event(audit_outbox, "EXECUTION_TECHNICAL_ERROR")
     failed = repository.complete_technical_error(
-        execution.execution_id, "CONNECTION_TIMEOUT", now,
-        audit_event=error_prepared, audit_outbox=audit_outbox,
+        execution.execution_id,
+        "CONNECTION_TIMEOUT",
+        now,
+        audit_event=error_prepared,
+        audit_outbox=audit_outbox,
     )
     assert failed.status is ExecutionStatus.TECHNICAL_ERROR
     assert failed.error_class == "CONNECTION_TIMEOUT"
@@ -410,8 +414,10 @@ def test_cancel_running_execution(
     # Complete the cancellation
     complete_prepared = _prepare_event(audit_outbox, "EXECUTION_CANCELLED")
     cancelled = repository.complete_cancelled(
-        execution.execution_id, _now(),
-        audit_event=complete_prepared, audit_outbox=audit_outbox,
+        execution.execution_id,
+        _now(),
+        audit_event=complete_prepared,
+        audit_outbox=audit_outbox,
     )
     assert cancelled.status is ExecutionStatus.CANCELLED
 
@@ -444,9 +450,7 @@ def test_complete_timeout_partial(
             eligible_for_official_scoring=False,
             evidence={
                 "fingerprint": "sha256:" + ("c" * 64),
-                "masked_samples": [
-                    "hmac-sha256://evidence-key-v1/" + ("d" * 64)
-                ],
+                "masked_samples": ["hmac-sha256://evidence-key-v1/" + ("d" * 64)],
                 "expected_summary": {"failed_count": 0},
                 "actual_summary": {"failed_count": 5},
                 "query_reference": "query-template://rv-001",
@@ -456,8 +460,12 @@ def test_complete_timeout_partial(
     )
     timeout_prepared = _prepare_event(audit_outbox, "EXECUTION_TIMEOUT")
     partial = repository.complete_timeout(
-        execution.execution_id, "QUERY_TIMEOUT", partial_results, now,
-        audit_event=timeout_prepared, audit_outbox=audit_outbox,
+        execution.execution_id,
+        "QUERY_TIMEOUT",
+        partial_results,
+        now,
+        audit_event=timeout_prepared,
+        audit_outbox=audit_outbox,
     )
     assert partial.status is ExecutionStatus.PARTIAL
 
@@ -474,8 +482,12 @@ def test_complete_timeout_no_results(
 
     timeout_prepared = _prepare_event(audit_outbox, "EXECUTION_TIMEOUT")
     timeout = repository.complete_timeout(
-        execution.execution_id, "TOTAL_TIMEOUT", (), _now(),
-        audit_event=timeout_prepared, audit_outbox=audit_outbox,
+        execution.execution_id,
+        "TOTAL_TIMEOUT",
+        (),
+        _now(),
+        audit_event=timeout_prepared,
+        audit_outbox=audit_outbox,
     )
     assert timeout.status is ExecutionStatus.TIMEOUT
 
@@ -655,7 +667,10 @@ def test_complete_success_cancel_requested_during_run(
     )
     success_prepared = _prepare_event(audit_outbox, "EXECUTION_CANCELLED")
     completed = repository.complete_success(
-        execution.execution_id, results, now,
-        audit_event=success_prepared, audit_outbox=audit_outbox,
+        execution.execution_id,
+        results,
+        now,
+        audit_event=success_prepared,
+        audit_outbox=audit_outbox,
     )
     assert completed.status is ExecutionStatus.CANCELLED

@@ -143,7 +143,6 @@ def downgrade() -> None:
     op.create_check_constraint(
         "ck_background_jobs_status",
         "background_jobs",
-        "status IN ('QUEUED', 'RUNNING', 'SUCCESS', 'TECHNICAL_ERROR', "
-        "'TIMEOUT', 'CANCELLED')",
+        "status IN ('QUEUED', 'RUNNING', 'SUCCESS', 'TECHNICAL_ERROR', 'TIMEOUT', 'CANCELLED')",
         schema=schema,
     )

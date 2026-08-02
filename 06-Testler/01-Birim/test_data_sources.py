@@ -1017,10 +1017,7 @@ def test_fr_016_fr_018_csv_profile_without_advanced_policy_keeps_basic_metrics(
 ) -> None:
     csv_file = tmp_path / "basic-no-policy.csv"
     csv_file.write_text(
-        "order_id,line_no,segment\n"
-        "1,1,retail\n"
-        "1,1,retail\n"
-        "1,2,\n",
+        "order_id,line_no,segment\n1,1,retail\n1,1,retail\n1,2,\n",
         encoding="utf-8",
     )
     repository = SQLiteDataSourceRepository()
@@ -1458,10 +1455,7 @@ def test_dq_cap_001_002_csv_profile_produces_policy_versioned_advanced_aggregate
         "category_fingerprint": segment["top_values"][0]["category_fingerprint"],
     }
     assert len(segment["top_values"][0]["category_fingerprint"]) == 64
-    assert (
-        profile.metrics["profile_contract"]["category_fingerprint_algorithm"]
-        == "HMAC_SHA256_V1"
-    )
+    assert profile.metrics["profile_contract"]["category_fingerprint_algorithm"] == "HMAC_SHA256_V1"
     assert profile.metrics["profile_contract"]["category_fingerprint_key_id"]
     assert "retail" not in str(profile.metrics)
     assert profile.metrics["profile_contract"]["data_observed_at"] == "2026-07-20T11:00:00+00:00"
@@ -1521,9 +1515,7 @@ def test_dq_cap_006_csv_freshness_scope_flows_from_profile_to_comparison(
     )
 
     freshness_signals = [
-        signal
-        for signal in comparison.result["signals"]
-        if signal["kind"] == "FRESHNESS_DELAY"
+        signal for signal in comparison.result["signals"] if signal["kind"] == "FRESHNESS_DELAY"
     ]
     assert baseline.metrics["profile_contract"]["freshness_field_names"] == ["observed_at"]
     assert baseline.metrics["fields"]["observed_at"]["freshness_max"].endswith("+00:00")
@@ -1706,10 +1698,7 @@ def test_dq_cap_006_missing_fingerprint_config_persists_fail_closed_non_verdict(
 
     assert comparison.status is ProfileComparisonStatus.CONFIGURATION_ERROR
     assert comparison.anomaly_candidate is None
-    assert (
-        comparison.result["configuration_error"]
-        == "CATEGORY_FINGERPRINT_KEY_UNAVAILABLE"
-    )
+    assert comparison.result["configuration_error"] == "CATEGORY_FINGERPRINT_KEY_UNAVAILABLE"
     assert "category_fingerprint" not in str(baseline.metrics["fields"]["segment"])
     assert repository.list_profile_comparisons(dataset.dataset_id) == [comparison]
 
