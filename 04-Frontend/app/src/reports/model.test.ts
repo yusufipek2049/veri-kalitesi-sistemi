@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reportScheduleFromApi, reportSummaryFromApi, type ReportCreateApiResponse, type ReportItem, type ReportListApiResponse, type ReportSchedule, type ReportSummaryApiResponse } from "./model";
+import { reportScheduleFromApi, reportSummaryFromApi, syntheticSchedules, type ReportCreateApiResponse, type ReportItem, type ReportListApiResponse, type ReportSchedule, type ReportSummaryApiResponse } from "./model";
 
 describe("report model", () => {
   it("ondalık skorları dönüştürür, eksik ve teknik skorları null bırakır", () => {
@@ -122,7 +122,6 @@ describe("report schedule model", () => {
   });
 
   it("sentetik schedule verisi doğru yapıda", () => {
-    const { syntheticSchedules } = require("./model");
     expect(syntheticSchedules).toHaveLength(3);
     expect(syntheticSchedules[0].schedule_type).toBe("DAILY");
     expect(syntheticSchedules[1].schedule_type).toBe("WEEKLY");
