@@ -8,8 +8,10 @@ data_sources/postgresql_repository.py sablonunu izler.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, cast
 
 from sqlalchemy import (
     CheckConstraint,
@@ -191,11 +193,7 @@ class PostgreSQLExecutionRepository:
             )
             if for_update:
                 statement = statement.with_for_update()
-            row = (
-                active_session.execute(statement)
-                .mappings()
-                .one_or_none()
-            )
+            row = active_session.execute(statement).mappings().one_or_none()
             if row is None:
                 raise ExecutionNotFoundError("RuleExecution not found.")
             return _row_to_execution(row)
@@ -235,7 +233,7 @@ class PostgreSQLExecutionRepository:
         # Filtreleme: yalnız tamamı yetkili kaynaklara bağlı çalıştırmalar
         result: list[RuleExecution] = []
         for row in rows:
-            exec_source_ids = set(_from_json(row["source_ids"]))
+            exec_source_ids = set(cast(Iterable[str], _from_json(row["source_ids"])))
             if exec_source_ids and exec_source_ids.issubset(allowed_source_ids):
                 result.append(_row_to_execution(row))
         return result
@@ -245,8 +243,12 @@ class PostgreSQLExecutionRepository:
             rows = (
                 session.execute(
                     select(self._tables.executions)
-                    .where(self._tables.executions.c.status == ExecutionStatus.CANCEL_REQUESTED.value)
-                    .order_by(self._tables.executions.c.started_at, self._tables.executions.c.execution_id)
+                    .where(
+                        self._tables.executions.c.status == ExecutionStatus.CANCEL_REQUESTED.value
+                    )
+                    .order_by(
+                        self._tables.executions.c.started_at, self._tables.executions.c.execution_id
+                    )
                 )
                 .mappings()
                 .all()
@@ -295,7 +297,8 @@ class PostgreSQLExecutionRepository:
             existing = (
                 active_session.execute(
                     select(self._tables.executions).where(
-                        self._tables.executions.c.idempotency_key_hash == execution.idempotency_key_hash
+                        self._tables.executions.c.idempotency_key_hash
+                        == execution.idempotency_key_hash
                     )
                 )
                 .mappings()
@@ -372,9 +375,7 @@ class PostgreSQLExecutionRepository:
 
             # Check running executions for concurrency policy
             running_rows = (
-                session.execute(
-                    select(t).where(t.c.status == ExecutionStatus.RUNNING.value)
-                )
+                session.execute(select(t).where(t.c.status == ExecutionStatus.RUNNING.value))
                 .mappings()
                 .all()
             )
@@ -446,9 +447,7 @@ class PostgreSQLExecutionRepository:
                 if audit_outbox is not None and audit_event is not None:
                     audit_outbox.stage(audit_event, session=session)
             except IntegrityError as exc:
-                raise ExecutionConflictError(
-                    "Execution attempt could not be recorded."
-                ) from exc
+                raise ExecutionConflictError("Execution attempt could not be recorded.") from exc
 
     def complete_success(
         self,
@@ -494,7 +493,9 @@ class PostgreSQLExecutionRepository:
                             else None
                         ),
                         completed_partitions=list(result.completed_partitions),
-                        eligible_for_official_scoring=1 if result.eligible_for_official_scoring else 0,
+                        eligible_for_official_scoring=1
+                        if result.eligible_for_official_scoring
+                        else 0,
                         eligible_for_notification=1 if result.eligible_for_notification else 0,
                         eligible_for_sla=1 if result.eligible_for_sla else 0,
                         eligible_for_auto_issue=1 if result.eligible_for_auto_issue else 0,
@@ -623,18 +624,23 @@ class PostgreSQLExecutionRepository:
     ) -> RuleExecution:
         def _request_cancel(active_session: Session) -> RuleExecution:
             t = self._tables.executions
-            current = active_session.execute(
-                select(t)
-                .where(t.c.execution_id == execution_id)
-                .with_for_update()
-            ).mappings().one_or_none()
+            current = (
+                active_session.execute(
+                    select(t).where(t.c.execution_id == execution_id).with_for_update()
+                )
+                .mappings()
+                .one_or_none()
+            )
             if current is None:
                 raise ExecutionNotFoundError("RuleExecution not found.")
 
             current_status = ExecutionStatus(current["status"])
             if current_status is ExecutionStatus.CANCEL_REQUESTED:
                 return _row_to_execution(current)
-            if current_status is ExecutionStatus.CANCELLED and current["cancel_requested_at"] is not None:
+            if (
+                current_status is ExecutionStatus.CANCELLED
+                and current["cancel_requested_at"] is not None
+            ):
                 return _row_to_execution(current)
 
             if current_status is ExecutionStatus.QUEUED:
@@ -665,9 +671,7 @@ class PostgreSQLExecutionRepository:
             if audit_outbox is not None and audit_event is not None:
                 audit_outbox.stage(audit_event, session=active_session)
             updated = (
-                active_session.execute(
-                    select(t).where(t.c.execution_id == execution_id)
-                )
+                active_session.execute(select(t).where(t.c.execution_id == execution_id))
                 .mappings()
                 .one()
             )
@@ -701,7 +705,9 @@ class PostgreSQLExecutionRepository:
                 audit_outbox.stage(audit_event, session=session)
         return result
 
-    def _write_cancelled(self, session: Session, execution_id: str, cancelled_at: datetime) -> RuleExecution:
+    def _write_cancelled(
+        self, session: Session, execution_id: str, cancelled_at: datetime
+    ) -> RuleExecution:
         session.execute(
             update(self._tables.executions)
             .where(self._tables.executions.c.execution_id == execution_id)
@@ -730,16 +736,18 @@ class PostgreSQLExecutionRepository:
 # Row conversion helpers
 # ------------------------------------------------------------------
 
-_ACTIVE_STATUSES = frozenset({
-    ExecutionStatus.QUEUED.value,
-    ExecutionStatus.RUNNING.value,
-    ExecutionStatus.CANCEL_REQUESTED.value,
-    ExecutionStatus.SUCCESS.value,
-    ExecutionStatus.PARTIAL.value,
-    ExecutionStatus.TECHNICAL_ERROR.value,
-    ExecutionStatus.TIMEOUT.value,
-    ExecutionStatus.CANCELLED.value,
-})
+_ACTIVE_STATUSES = frozenset(
+    {
+        ExecutionStatus.QUEUED.value,
+        ExecutionStatus.RUNNING.value,
+        ExecutionStatus.CANCEL_REQUESTED.value,
+        ExecutionStatus.SUCCESS.value,
+        ExecutionStatus.PARTIAL.value,
+        ExecutionStatus.TECHNICAL_ERROR.value,
+        ExecutionStatus.TIMEOUT.value,
+        ExecutionStatus.CANCELLED.value,
+    }
+)
 
 
 def _from_json(value: object) -> object:
@@ -760,11 +768,11 @@ def _row_to_execution(row: RowMapping) -> RuleExecution:
         status=ExecutionStatus(row["status"]),
         idempotency_key_hash=row["idempotency_key_hash"],
         payload_hash=row["payload_hash"],
-        rule_version_ids=tuple(_from_json(row["rule_version_ids"])),
-        scope=dict(_from_json(row["scope"])),
+        rule_version_ids=tuple(cast(Iterable[str], _from_json(row["rule_version_ids"]))),
+        scope=dict(cast(Mapping[str, Any], _from_json(row["scope"]))),
         triggered_by=row["triggered_by"],
         correlation_id=row["correlation_id"],
-        source_ids=tuple(_from_json(row["source_ids"])),
+        source_ids=tuple(cast(Iterable[str], _from_json(row["source_ids"]))),
         workload_class=WorkloadClass(row["workload_class"]),
         execution_mode=ExecutionMode(row["execution_mode"]),
         error_class=row["error_class"],
@@ -809,12 +817,12 @@ def _row_to_result(row: RowMapping) -> RuleExecutionResult:
             if row["measurement_status"] is not None
             else None
         ),
-        completed_partitions=tuple(_from_json(row["completed_partitions"])),
+        completed_partitions=tuple(cast(Iterable[str], _from_json(row["completed_partitions"]))),
         eligible_for_official_scoring=bool(row["eligible_for_official_scoring"]),
         eligible_for_notification=bool(row["eligible_for_notification"]),
         eligible_for_sla=bool(row["eligible_for_sla"]),
         eligible_for_auto_issue=bool(row["eligible_for_auto_issue"]),
-        evidence=dict(_from_json(row["evidence"])),
+        evidence=dict(cast(Mapping[str, Any], _from_json(row["evidence"]))),
     )
 
 

@@ -124,13 +124,9 @@ class ResolvedSourceUsagePolicy:
         if not policies:
             return self.default_runtime_policy
         return SourceRuntimePolicy(
-            connection_timeout_seconds=min(
-                item.connection_timeout_seconds for item in policies
-            ),
+            connection_timeout_seconds=min(item.connection_timeout_seconds for item in policies),
             query_timeout_seconds=min(item.query_timeout_seconds for item in policies),
-            total_job_timeout_seconds=min(
-                item.total_job_timeout_seconds for item in policies
-            ),
+            total_job_timeout_seconds=min(item.total_job_timeout_seconds for item in policies),
             retry_count=min(item.retry_count for item in policies),
             retry_delay_seconds=max(item.retry_delay_seconds for item in policies),
         )

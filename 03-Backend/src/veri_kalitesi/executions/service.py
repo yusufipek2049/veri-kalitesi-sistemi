@@ -318,9 +318,7 @@ class ExecutionService(Generic[_RepoT]):
                         eligible_for_notification=(
                             execution.execution_mode is ExecutionMode.OFFICIAL
                         ),
-                        eligible_for_sla=(
-                            execution.execution_mode is ExecutionMode.OFFICIAL
-                        ),
+                        eligible_for_sla=(execution.execution_mode is ExecutionMode.OFFICIAL),
                         eligible_for_auto_issue=(
                             execution.execution_mode is ExecutionMode.OFFICIAL
                         ),

@@ -74,8 +74,18 @@ from veri_kalitesi.executions.source_usage_policies import (
     SourceUsagePolicyStatus,
     SourceUsageWindow,
 )
+from veri_kalitesi.executions.strategy_engine import (
+    CheckpointState,
+    ExecutionStrategy,
+    ExecutionStrategyEngine,
+    ExecutionStrategyPolicy,
+    StrategyResolution,
+    StrategyResolutionStatus,
+    WatermarkContract,
+)
 
 __all__ = [
+    "CheckpointState",
     "ConcurrencyPolicy",
     "DefaultWorkloadClassifier",
     "ExecutionAttempt",
@@ -92,6 +102,9 @@ __all__ = [
     "ExecutionRepository",
     "ExecutionService",
     "ExecutionStatus",
+    "ExecutionStrategy",
+    "ExecutionStrategyEngine",
+    "ExecutionStrategyPolicy",
     "ExecutionTables",
     "ExecutionTechnicalError",
     "ExecutionTimeouts",
@@ -124,6 +137,9 @@ __all__ = [
     "SourceUsagePolicyUnavailableError",
     "SourceUsageTables",
     "SourceUsageWindow",
+    "StrategyResolution",
+    "StrategyResolutionStatus",
+    "WatermarkContract",
     "WorkloadClass",
     "WorkloadClassifier",
     "execution_tables",

@@ -9,7 +9,7 @@ daha pahalı stratejiye otomatik geçilmez.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Mapping
@@ -194,9 +194,7 @@ class ExecutionStrategyEngine:
 
         # PARTITION resume requires completed checkpoint
         if requested is ExecutionStrategy.PARTITION and checkpoints:
-            incomplete = [
-                pid for pid, cp in checkpoints.items() if not cp.completed
-            ]
+            incomplete = [pid for pid, cp in checkpoints.items() if not cp.completed]
             if incomplete:
                 return StrategyResolution(
                     strategy=None,

@@ -24,6 +24,13 @@ from veri_kalitesi.enterprise_lab import (
     SyntheticIdentityPolicy,
     build_enterprise_lab_application_adapters,
 )
+from veri_kalitesi.environment_security import (
+    EnvironmentPolicyBlockedError,
+    LabAdapterGate,
+    LabGateEvidence,
+    LabGateStatus,
+    StaticLabEnvironmentProvider,
+)
 from veri_kalitesi.identity import is_trusted_actor_context
 from veri_kalitesi.servicenow import (
     ServiceNowAdapterError,
@@ -395,6 +402,65 @@ def test_siem_audit_transfer_failure_is_fail_closed(
 
     with pytest.raises(AuditWriteError, match="could not be transferred"):
         adapter.append(_audit_event())
+
+
+def test_closed_lab_gate_blocks_synthetic_adapter_operation() -> None:
+    gate = LabAdapterGate(
+        StaticLabEnvironmentProvider(_lab_gate_evidence(gate_status=LabGateStatus.CLOSED)),
+        clock=lambda: NOW,
+    )
+    adapter = FakeServiceNowHttpAdapter(
+        "http://fake-servicenow:8080",
+        transport=StubHttpTransport([]),
+        gate=gate,
+    )
+
+    with pytest.raises(EnvironmentPolicyBlockedError, match="LAB_GATE_CLOSED"):
+        adapter.create_ticket(_servicenow_request())
+
+
+def test_missing_lab_evidence_blocks_synthetic_adapter_operation() -> None:
+    gate = LabAdapterGate(StaticLabEnvironmentProvider(None), clock=lambda: NOW)
+    adapter = FailClosedSiemAuditAdapter(
+        "http://siem-collector:8080",
+        transport=StubHttpTransport([]),
+        gate=gate,
+    )
+
+    with pytest.raises(EnvironmentPolicyBlockedError, match="LAB_EVIDENCE_MISSING"):
+        adapter.append(_audit_event())
+
+
+def test_build_wires_open_lab_gate_so_synthetic_operations_pass(tmp_path: Path) -> None:
+    token_path = tmp_path / "secret-manager-token"
+    token_path.write_text("synthetic-token", encoding="utf-8")
+    transport = StubHttpTransport(
+        [_json_response(201, {"sys_id": "synthetic-sys-1", "number": "LAB0001"})]
+    )
+
+    adapters = build_enterprise_lab_application_adapters(
+        CONFIGURATION_PATH,
+        identity_policy=_identity_policy(),
+        secret_manager_token_path=token_path,
+        transport=transport,
+    )
+
+    response = adapters.servicenow.create_ticket(_servicenow_request())
+
+    assert response.ticket_number == "LAB0001"
+
+
+def _lab_gate_evidence(*, gate_status: LabGateStatus) -> LabGateEvidence:
+    return LabGateEvidence(
+        lab_id="ENTERPRISE-LAB",
+        policy_version="ENTERPRISE-LAB-01-v1",
+        classification="PrototypeVerified",
+        environment="LOCAL",
+        data_origin="SYNTHETIC",
+        gate_status=gate_status,
+        verified_at=NOW,
+        checks=("PINNED_CONFIGURATION_VERIFIED",),
+    )
 
 
 def _identity_policy() -> SyntheticIdentityPolicy:

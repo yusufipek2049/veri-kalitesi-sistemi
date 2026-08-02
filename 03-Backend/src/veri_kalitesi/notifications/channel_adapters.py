@@ -14,7 +14,6 @@ from enum import Enum
 from typing import Callable, Mapping, Protocol
 
 from veri_kalitesi.notifications.errors import (
-    NotificationTechnicalError,
     NotificationValidationError,
 )
 from veri_kalitesi.notifications.models import NotificationEvent, NotificationEventType
@@ -196,9 +195,7 @@ class NotificationChannelDispatcher:
 
         # Resolve routes for this event type
         matching_routes = tuple(
-            route
-            for route in self._policy.routes
-            if event.event_type in route.event_types
+            route for route in self._policy.routes if event.event_type in route.event_types
         )
         if not matching_routes:
             return DispatchOutcome(event_id=event.event_id, results=())
