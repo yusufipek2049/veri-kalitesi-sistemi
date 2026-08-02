@@ -59,7 +59,7 @@ Ek kontroller:
 
 ## Onaylar
 
-- Teknik doğrulayan: Codex teknik uygulama ajanı
+- Teknik doğrulayan: mühendislik ekibi
 - Bilgi güvenliği: ComplianceReviewRequired
 - Veri yönetişimi: ComplianceReviewRequired
 - İç kontrol: ComplianceReviewRequired

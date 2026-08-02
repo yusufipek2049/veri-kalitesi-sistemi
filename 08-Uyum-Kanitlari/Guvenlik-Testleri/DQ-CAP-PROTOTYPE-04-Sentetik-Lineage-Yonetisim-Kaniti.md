@@ -14,7 +14,7 @@ control_ids:
   - DQ-CAP-010
 version: DQ_CAP_PROTOTYPE_04
 date: 2026-07-31
-producer_role: Qoder
+producer_role: engineering
 ---
 
 # DQ-CAP-PROTOTYPE-04 Sentetik Lineage ve Yönetişim Profili Kanıtı
@@ -84,11 +84,11 @@ producer_role: Qoder
 
 ## Onaylar
 
-- Teknik doğrulayan: Qoder (uygulayıcı/testçi)
+- Teknik doğrulayan: mühendislik ekibi (uygulayıcı/testçi)
 - Bilgi güvenliği: `ComplianceReviewRequired`
 - İç kontrol: `ComplianceReviewRequired`
 - Hukuk/uyum: `ComplianceReviewRequired`
 - İş sahibi: `ComplianceReviewRequired`
 
-Onay yoksa `ComplianceReviewRequired` yazılır. Reviewer (Claude) onayı bu
+Onay yoksa `ComplianceReviewRequired` yazılır. Bağımsız teknik review onayı bu
 kanıtın production uygunluğu değil, prototip doğrulama adımıdır.

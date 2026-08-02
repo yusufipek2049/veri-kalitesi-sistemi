@@ -15,7 +15,7 @@ control_ids:
   - NFR-USA-006
 version: ITERATION_30D
 date: 2026-07-22
-producer_role: Codex
+producer_role: engineering
 ---
 
 # İterasyon 30D Dashboard Referans İçerik Kanıtı

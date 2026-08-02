@@ -7,7 +7,7 @@ control_ids:
   - NFR-CMP-005
 version: ITERATION_29A
 date: 2026-07-20
-producer_role: Codex
+producer_role: engineering
 ---
 
 # İterasyon 29A Teknik Kanıt Manifesti Kanıtı

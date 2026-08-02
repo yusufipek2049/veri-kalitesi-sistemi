@@ -122,8 +122,8 @@ merkezi iptal ve üretim store uygulaması ile LDAP policy sürümü gerekir.
 - CI/CD, immutable artifact, SAST/SCA/secret gate ve SBOM vardır.
 - Log/metric/trace/SIEM, on-call ve runbook doğrulanır.
 - Backup/restore ve banka onaylı RTO/RPO tatbikatı geçer.
-- Teknik kontrol kanıtları ilgili banka karar sahibine sunulur; Codex kendi başına
-  `ApprovedByBank` sonucu vermez.
+- Teknik kontrol kanıtları ilgili banka karar sahibine sunulur; uygulayıcı rolü
+  kendi başına `ApprovedByBank` sonucu vermez.
 
 ## P1 - Güvenlik, Bütünlük ve Operasyon
 
