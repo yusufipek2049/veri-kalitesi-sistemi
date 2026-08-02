@@ -3,7 +3,7 @@
 import { Box, Button, Card, CardContent, Typography, Chip, Stack, CircularProgress } from "@mui/material";
 import { useDevelopmentUser } from "./UserContext";
 
-const ROLE_COLORS: Record<string, "primary" | "success" | "warning" | "info" | "error" | "default"> = {
+const ROLE_COLORS: Record<string, "primary" | "secondary" | "success" | "warning" | "info" | "error" | "default"> = {
   DATA_VIEWER: "info",
   DATA_STEWARD: "primary",
   DATA_OWNER: "success",
@@ -12,7 +12,7 @@ const ROLE_COLORS: Record<string, "primary" | "success" | "warning" | "info" | "
   AUDIT_VIEWER: "error",
 };
 
-function getRoleColor(role: string): "primary" | "success" | "warning" | "info" | "error" | "default" {
+function getRoleColor(role: string): "primary" | "secondary" | "success" | "warning" | "info" | "error" | "default" {
   return ROLE_COLORS[role] ?? "default";
 }
 
@@ -61,7 +61,7 @@ export function DevelopmentLoginPage() {
               <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                 {user.display_name}
               </Typography>
-              <Stack direction="row" spacing={1} sx={{ mt: 1 }} flexWrap="wrap" useFlexGap>
+              <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: "wrap" }} useFlexGap>
                 {user.roles.split(" / ").map((role) => (
                   <Chip
                     key={role}

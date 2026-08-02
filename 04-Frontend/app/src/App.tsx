@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, useNavigate } from "react-router-dom";
 import { Alert, Box, Button, Typography } from "@mui/material";
 import { DevelopmentLoginPage, DevelopmentUserSwitcher } from "./development/DevelopmentLoginPage";
 import { DevelopmentUserProvider, useDevelopmentUser } from "./development/UserContext";
@@ -50,7 +50,7 @@ import {
   withdrawRuleApproval,
   activateRule,
 } from "./rules/api";
-import { rulesFromApi, syntheticRules, type RuleCreateRequest, type RuleListItem, type RuleState, type RuleTestResult, type RuleVersionCreateRequest } from "./rules/model";
+import { ruleFromApi, rulesFromApi, syntheticRules, type RuleCreateRequest, type RuleListItem, type RuleState, type RuleTestResult, type RuleVersionCreateRequest } from "./rules/model";
 import { createReport, createSchedule, deleteSchedule, fetchReportSummary, fetchSchedules, listReports, ReportApiError, triggerDownload } from "./reports/api";
 import { reportSummaryFromApi, syntheticReportSummary, type ReportItem, type ReportRequest, type ReportSchedule, type ReportScheduleCreateRequest, type ReportState, type ReportSummary } from "./reports/model";
 import {
@@ -181,17 +181,17 @@ function RulesRoute() {
 
   const handleCreateRule = useCallback(async (payload: RuleCreateRequest) => {
     const response = await createRule(payload);
-    const updated = rulesFromApi(response);
-    setItems((current) => [...current, ...updated]);
+    const updated = ruleFromApi(response);
+    setItems((current) => [...current, updated]);
     setCorrelationId(response.correlation_id);
   }, []);
 
   const handleCreateVersion = useCallback(
     async (item: RuleListItem, data: RuleVersionCreateRequest) => {
       const response = await createRuleVersion(item.id, data);
-      const updated = rulesFromApi(response);
+      const updated = ruleFromApi(response);
       setItems((current) => current.map((candidate) =>
-        candidate.id === updated[0].id ? updated[0] : candidate,
+        candidate.id === updated.id ? updated : candidate,
       ));
       setCorrelationId(response.correlation_id);
     },
@@ -209,18 +209,18 @@ function RulesRoute() {
 
   const handleActivateRule = useCallback(async (item: RuleListItem) => {
     const response = await activateRule(item.id);
-    const updated = rulesFromApi(response);
+    const updated = ruleFromApi(response);
     setItems((current) => current.map((candidate) =>
-      candidate.id === updated[0].id ? updated[0] : candidate,
+      candidate.id === updated.id ? updated : candidate,
     ));
     setCorrelationId(response.correlation_id);
   }, []);
 
   const handleRequestApproval = useCallback(async (item: RuleListItem) => {
     const response = await requestRuleApproval(item.id);
-    const updated = rulesFromApi(response);
+    const updated = ruleFromApi(response);
     setItems((current) => current.map((candidate) =>
-      candidate.id === updated[0].id ? updated[0] : candidate,
+      candidate.id === updated.id ? updated : candidate,
     ));
     setCorrelationId(response.correlation_id);
   }, []);
@@ -228,9 +228,9 @@ function RulesRoute() {
   const handleDecideApproval = useCallback(
     async (item: RuleListItem, approvalRequestId: string, decision: "APPROVE" | "REJECT", reasonCode: string) => {
       const response = await decideRuleApproval(approvalRequestId, { approval_request_id: approvalRequestId, decision, reason_code: reasonCode });
-      const updated = rulesFromApi(response);
+      const updated = ruleFromApi(response);
       setItems((current) => current.map((candidate) =>
-        candidate.id === updated[0].id ? updated[0] : candidate,
+        candidate.id === updated.id ? updated : candidate,
       ));
       setCorrelationId(response.correlation_id);
     },
@@ -240,9 +240,9 @@ function RulesRoute() {
   const handleWithdrawApproval = useCallback(
     async (item: RuleListItem, approvalRequestId: string, reasonCode: string) => {
       const response = await withdrawRuleApproval(approvalRequestId, { approval_request_id: approvalRequestId, reason_code: reasonCode });
-      const updated = rulesFromApi(response);
+      const updated = ruleFromApi(response);
       setItems((current) => current.map((candidate) =>
-        candidate.id === updated[0].id ? updated[0] : candidate,
+        candidate.id === updated.id ? updated : candidate,
       ));
       setCorrelationId(response.correlation_id);
     },
@@ -251,9 +251,9 @@ function RulesRoute() {
 
   const handlePassivateRule = useCallback(async (item: RuleListItem) => {
     const response = await passivateRule(item.id);
-    const updated = rulesFromApi(response);
+    const updated = ruleFromApi(response);
     setItems((current) => current.map((candidate) =>
-      candidate.id === updated[0].id ? updated[0] : candidate,
+      candidate.id === updated.id ? updated : candidate,
     ));
     setCorrelationId(response.correlation_id);
   }, []);

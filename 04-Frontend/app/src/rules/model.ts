@@ -142,8 +142,10 @@ export interface RuleMutationApiResponse {
   };
 }
 
-export function rulesFromApi(response: RuleListApiResponse): RuleListItem[] {
-  return response.items.map((item) => ({
+type RuleApiItem = RuleListApiResponse["items"][number];
+
+function ruleItemFromApi(item: RuleApiItem): RuleListItem {
+  return {
     id: item.quality_rule_id,
     code: item.code,
     name: item.name,
@@ -161,5 +163,13 @@ export function rulesFromApi(response: RuleListApiResponse): RuleListItem[] {
     availableActions: item.available_actions ?? [],
     version: 0,
     pendingApprovalRequestId: item.pending_approval_request_id,
-  }));
+  };
+}
+
+export function rulesFromApi(response: RuleListApiResponse): RuleListItem[] {
+  return response.items.map(ruleItemFromApi);
+}
+
+export function ruleFromApi(response: RuleMutationApiResponse): RuleListItem {
+  return ruleItemFromApi(response.item);
 }
