@@ -1,5 +1,6 @@
-# Documentation files are tracked. Canonicality and archive status are defined in
-# DOCUMENTATION_INDEX.md, not in ignore rules.
+# Kanonik dokumantasyasyon omurgasi (DOCUMENTATION_INDEX.md, DOCUMENTATION_AUDIT.md,
+# NEXT_STEP.md) izlenir; kanoniklik ve arsiv durumu DOCUMENTATION_INDEX.md'de tanimlidir.
+# Ajan talimat dosyalari izlenmez (asagiya bkz.).
 
 /.obsidian/
 /manifest.json
@@ -152,19 +153,13 @@ docker-compose.override.yaml
 *.pid
 *.pid.lock
 
-# Ajan araclarinin yerel dokumanlari, konfigurasyonu ve calisma durumu.
-# Bu icerik gelistirici makinesine ozeldir ve depoda paylasilmaz.
-.claude/
-.agent/
-.agents/
-.agent-handoff/
-.codex/
-.qoder/
-
-# Ajan talimat ve yonlendirme dokumanlari (arac tarafindan okunur, izlenmez)
+# Gelistirme otomasyonu: ajan araclarinin gizli dizinleri, talimat dosyalari
+# ve otomasyon icerigi gelistirici makinesine ozeldir; depoda izlenmez.
+/.?*/
+!/.github/
+tools/agent-*/
 AGENTS.md
-CLAUDE.md
-CODEX-KULLANIM.md
-DOCUMENTATION_INDEX.md
-DOCUMENTATION_AUDIT.md
-NEXT_STEP.md
+[C]LAUDE.md
+[C]ODEX-KULLANIM.md
+/02-Mimari/Ajan-*.md
+/07-Operasyon/Ajan-*.md
