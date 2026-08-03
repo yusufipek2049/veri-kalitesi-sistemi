@@ -173,7 +173,14 @@ def build_enterprise_lab_application_adapters(
     if not isinstance(endpoints, dict):
         raise EnterpriseLabAdapterError("LAB_ADAPTER_ENDPOINTS_INVALID")
     active_transport = transport or UrllibHttpTransport()
-    gate = LabAdapterGate(StaticLabEnvironmentProvider(_derive_lab_gate_evidence(evidence)))
+    # Prototip laboratuvari kanit omeru: 3600 sn. Degerin kanonik kaynagi
+    # YOKTUR; kapida kaynaksiz esik kalmamasi icin composition kökünde acik
+    # verilmistir. Surumlu politikaya/lab yapilandirmasina baglanana kadar
+    # gecici bir bosluktur (MAINT-04).
+    gate = LabAdapterGate(
+        StaticLabEnvironmentProvider(_derive_lab_gate_evidence(evidence)),
+        max_evidence_age_seconds=3600,
+    )
     return EnterpriseLabApplicationAdapters(
         identity=KeycloakActorContextResolver(
             _endpoint_value(endpoints, "identity"),

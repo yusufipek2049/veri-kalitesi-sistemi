@@ -57,15 +57,15 @@ class LabAdapterGate:
     - Kanıt yaşı maksimum ömrü aştıysa işlem engellenir.
     """
 
-    MAX_EVIDENCE_AGE_SECONDS = 3600
-
     def __init__(
         self,
         provider: LabEnvironmentProvider,
         *,
+        max_evidence_age_seconds: int,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ) -> None:
         self._provider = provider
+        self._max_evidence_age_seconds = max_evidence_age_seconds
         self._clock = clock
 
     def verify_open(self) -> LabGateEvidence:
@@ -94,7 +94,7 @@ class LabAdapterGate:
         if now.tzinfo is None:
             raise EnvironmentPolicyBlockedError("LAB_CLOCK_NOT_AWARE")
         age = (now - evidence.verified_at).total_seconds()
-        if age > self.MAX_EVIDENCE_AGE_SECONDS or age < 0:
+        if age > self._max_evidence_age_seconds or age < 0:
             raise EnvironmentPolicyBlockedError("LAB_EVIDENCE_EXPIRED")
 
         return evidence

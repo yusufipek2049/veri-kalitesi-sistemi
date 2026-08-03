@@ -2,7 +2,7 @@
 type: architecture-decision-log
 project: Veri Kalitesi İzleme ve Skorlama Sistemi
 status: seed
-last_updated: 2026-07-23
+last_updated: 2026-08-03
 tags:
   - architecture
   - adr
@@ -32,6 +32,34 @@ tags:
 | ADR-018 | Değişken üretim değerlerinde sürümlü ve fail-closed politika çözümleme | KararAlındı; açık karar yerine uygulama/konfigürasyon kapısı |
 | ADR-019 | Kanıta dayalı, politika farkındalıklı karar desteği ve üretim verisini değiştirmeyen öneri/remediation sınırı | KararAlındı; `OPEN-026–OPEN-036` yönleri kesin, runtime ve banka incelemeleri açık |
 | ADR-020 | PostgreSQL-only uygulama kalıcılığı ve güvenlik bağımlılık sıralı yazılabilir arayüz geçişi | KararAlındı; issue/rule/data-source teknik geçişleri mevcut, execution cutover ve 36F açık |
+| ADR-021 | Teslim standardı: composition kökünde kayıt ve üretim erişilebilirliği kabul kriteri | Kabul edildi |
+
+## ADR-021 — Teslim Standardı: Composition Kökünde Kayıt ve Üretim Erişilebilirliği
+
+**Bağlam:** Son iki ürün yeteneği paketi (`DQ-CAP-PROTOTYPE-04` ve
+`DQ-CAP-PROTOTYPE-05`) yalnız kütüphane olarak teslim edilmiş, hiçbir çalışma
+akışına bağlanmamış ve her ikisi de ayrı bir bağlantı turu gerektirmiştir. Mevcut
+görev şablonunun kabul kriterleri davranışın uygulandığını ve test edildiğini
+doğrulamakta, ancak uygulanan davranışın üretim yollarından erişilebilir olduğunu
+doğrulamamaktadır. Bir modül eksiksiz yazılıp tam test edilip hiçbir yerden
+çağrılmadan "tamamlandı" sayılabilmektedir; şablon düzeltilmediği sürece sonraki
+paketler aynı sonucu üretecektir.
+
+**Karar:** Görev kabul kriterlerine ölçülebilir bir erişilebilirlik maddesi
+eklenmiştir: teslim edilen modül composition kökünde kayıtlı olmalı ve en az bir
+üretim çağrı yolundan erişilebilir olmalıdır; yalnız testlerden çağrılan modül
+tamamlanmış sayılmaz. Bu standart hem görev şablonunda (`tools/agent-loop/lib.sh`
+kabul kriteri listesi, `AC-08`) hem de bu ADR'de kayıtlıdır; şablon tek başına
+kaybolursa standart ADR'de korunur. Madde doğrulanabilir biçimde yazılmıştır —
+"iyi entegre edilmiş olmalıdır" gibi öznel ifade içermez; composition kökünde
+kayıt ve en az bir üretim çağrı yolu denetlenebilir koşullardır.
+
+**Sonuç:** Standart geriye dönük olarak kapanmış paketleri yeniden açmaz;
+`DQ-CAP-PROTOTYPE-04` ve `DQ-CAP-PROTOTYPE-05` durumları değiştirilmez. Yeni ve
+devam eden paketler için `AC-08` bağlayıcıdır. Bir domainin migration/repository'sinin
+bulunması tek başına composition köküne taşındığını kanıtlamaz (bkz.
+[Backend Modül Haritası](../03-Backend/BACKEND-INDEX.md)). Bu karar runtime
+uygulaması, banka onayı veya mevzuat uyumluluğu değildir.
 
 ## ADR-020 — PostgreSQL-only Kalıcılık ve Yazılabilir Arayüz Geçişi
 

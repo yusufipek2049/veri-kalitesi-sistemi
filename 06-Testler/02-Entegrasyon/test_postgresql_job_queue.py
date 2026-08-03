@@ -96,6 +96,21 @@ def db_settings() -> DatabaseSettings:
 
 @pytest.fixture(scope="module")
 def alembic_up_to_date(db_settings: DatabaseSettings) -> None:
+    # Drop and recreate the schema to ensure a clean state.  If the database
+    # was already at head, ``upgrade head`` is a no-op and stale or missing
+    # tables are never recreated.  Dropping first guarantees every migration
+    # runs from scratch.
+    reset_engine = create_engine(
+        db_settings.url.render_as_string(hide_password=False),
+        pool_pre_ping=True,
+    )
+    try:
+        with reset_engine.begin() as connection:
+            connection.execute(
+                text(f'DROP SCHEMA IF EXISTS "{db_settings.schema}" CASCADE')
+            )
+    finally:
+        reset_engine.dispose()
     config = _alembic_config(db_settings, db_settings.schema)
     command.upgrade(config, "head")
 
@@ -108,6 +123,8 @@ def session_factory(db_settings: DatabaseSettings, alembic_up_to_date: None) -> 
     )
     with engine.begin() as connection:
         connection.execute(text(f"DELETE FROM {db_settings.schema}.job_dead_letters"))
+        connection.execute(text(f"DELETE FROM {db_settings.schema}.audit_outbox"))
+        connection.execute(text(f"DELETE FROM {db_settings.schema}.reports"))
         connection.execute(text(f"DELETE FROM {db_settings.schema}.background_jobs"))
         connection.execute(text(f"DELETE FROM {db_settings.schema}.source_usage_policies"))
     return create_session_factory(db_settings, engine=engine)
@@ -358,6 +375,7 @@ def test_report_request_uses_persistent_job_instead_of_inline_worker(
     repository: PostgreSQLJobQueueRepository,
     audit_outbox: PostgreSQLTransactionalAudit,
     session_factory: SessionFactory,
+    db_settings: DatabaseSettings,
 ) -> None:
     class _Policy:
         def get_active_policy(self, sensitivity_level):
@@ -379,7 +397,7 @@ def test_report_request_uses_persistent_job_instead_of_inline_worker(
             raise AssertionError("Production report request must use transactional outbox.")
 
     service = ReportService(
-        PostgreSQLReportRepository(session_factory),
+        PostgreSQLReportRepository(session_factory, schema=db_settings.schema),
         _Policy(),  # type: ignore[arg-type]
         None,
         _UnusedAudit(),  # type: ignore[arg-type]
@@ -1190,11 +1208,12 @@ def test_migration_upgrades_explicit_previous_head(db_settings: DatabaseSettings
 def test_conditional_heartbeat_update_affects_zero_rows_for_stale_version(
     repository: PostgreSQLJobQueueRepository,
     session_factory: SessionFactory,
+    db_settings: DatabaseSettings,
 ) -> None:
     repository.enqueue(_job())
     claimed = repository.claim_next("worker-a", JobLeasePolicy(), now=_at())
     assert claimed is not None
-    table = job_tables().background_jobs
+    table = job_tables(schema=db_settings.schema).background_jobs
 
     with session_factory.begin() as session:
         result = session.execute(

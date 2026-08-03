@@ -37,9 +37,13 @@ sonucu vermiştir; bağlantı ve davranış maddeleri aşağıda açıktır.
   sınırdan devam edecek şekilde henüz uygulanmamıştır. Modül
   `executions/__init__.py`'den export edilmemiştir.
 - Eşik varsayılanları (`MAX_EVIDENCE_AGE_SECONDS = 3600`,
-  `dedup_window_seconds = 300`, `timeout_seconds = 3600`) prototip varsayılanıdır
-  ve kanonik karar kaydına dayandırılmamıştır; review bunların kanonik karara
-  dayandırılmasını veya zorunlu parametre yapılmasını istemiştir.
+  `dedup_window_seconds = 300`, `timeout_seconds = 3600`) MAINT-02 ile kapatılmıştır:
+  `dedup_window_seconds` ve `timeout_seconds` zorunlu parametreye çevrilmiştir;
+  `MAX_EVIDENCE_AGE_SECONDS` gate sınıfından kaldırılmış ve composition köküne
+  (`adapters.py`) açık parametre olarak taşınmıştır. Lab kanıt ömrünün sürümlü
+  politikaya/lab yapılandırmasına bağlanması MAINT-04 ile açık iş olarak takip
+  edilir. `ExecutionStrategyPolicy` ve `NotificationChannelPolicy` artık zorunlu
+  alan ister; bu kırıcı bir değişikliktir.
 
 ## Doğrulama
 
