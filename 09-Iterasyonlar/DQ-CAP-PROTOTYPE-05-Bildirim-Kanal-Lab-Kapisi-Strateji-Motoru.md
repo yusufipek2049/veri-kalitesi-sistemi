@@ -1,7 +1,8 @@
 ---
 type: iteration-record
-status: in_progress
+status: PrototypeVerified
 work_package: DQ-CAP-PROTOTYPE-05
+completed_at: 2026-08-03
 ---
 
 # DQ-CAP-PROTOTYPE-05 — Bildirim Kanal Adaptörleri, Lab Güvenlik Kapısı ve Deterministik Yürütme Strateji Motoru
