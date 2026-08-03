@@ -217,7 +217,9 @@ def test_repository_manifest_generates_expected_direct_inventory() -> None:
         "packaging",
         "psycopg",
         "psycopg-binary",
+        "pydantic",
         "sqlalchemy",
+        "starlette",
         "tomli",
     ]
     assert all("hashes" not in component for component in payload["components"])
