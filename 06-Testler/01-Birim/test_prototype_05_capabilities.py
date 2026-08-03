@@ -41,6 +41,18 @@ from veri_kalitesi.notifications.models import (
 
 NOW = datetime(2026, 7, 31, 12, 0, tzinfo=timezone.utc)
 
+# Prototip laboratuvari kanit omeri (DQ-CAP-012); surumlu politikaya
+# tasinana kadar testlerde kapida acik verilir.
+_LAB_EVIDENCE_AGE_SECONDS = 3600
+
+
+def _lab_gate(provider, *, clock=lambda: NOW):
+    return LabAdapterGate(
+        provider,
+        max_evidence_age_seconds=_LAB_EVIDENCE_AGE_SECONDS,
+        clock=clock,
+    )
+
 
 # ---------------------------------------------------------------------------
 # DQ-CAP-009: Notification channel adapters
@@ -98,6 +110,14 @@ class TestNotificationChannelPolicy:
     def test_negative_dedup_window_rejected(self) -> None:
         with pytest.raises(NotificationValidationError):
             _policy(dedup_window_seconds=-1)
+
+    def test_policy_requires_dedup_window(self) -> None:
+        # dedup_window_seconds artik zorunlu; verilmeden kurulamaz (fail-closed).
+        with pytest.raises(TypeError):
+            NotificationChannelPolicy(
+                version="NOTIFICATION_CHANNEL_V1",
+                routes=(),
+            )
 
 
 class TestNotificationChannelDispatcher:
@@ -256,7 +276,7 @@ def _lab_evidence(
 
 class TestLabAdapterGate:
     def test_open_lab_passes(self) -> None:
-        gate = LabAdapterGate(
+        gate = _lab_gate(
             StaticLabEnvironmentProvider(_lab_evidence()),
             clock=lambda: NOW,
         )
@@ -264,7 +284,7 @@ class TestLabAdapterGate:
         assert evidence.gate_status is LabGateStatus.OPEN
 
     def test_missing_evidence_fails_closed(self) -> None:
-        gate = LabAdapterGate(
+        gate = _lab_gate(
             StaticLabEnvironmentProvider(None),
             clock=lambda: NOW,
         )
@@ -272,7 +292,7 @@ class TestLabAdapterGate:
             gate.verify_open()
 
     def test_closed_gate_blocks(self) -> None:
-        gate = LabAdapterGate(
+        gate = _lab_gate(
             StaticLabEnvironmentProvider(_lab_evidence(gate_status=LabGateStatus.CLOSED)),
             clock=lambda: NOW,
         )
@@ -280,7 +300,7 @@ class TestLabAdapterGate:
             gate.verify_open()
 
     def test_wrong_classification_blocks(self) -> None:
-        gate = LabAdapterGate(
+        gate = _lab_gate(
             StaticLabEnvironmentProvider(_lab_evidence(classification="ProductionReady")),
             clock=lambda: NOW,
         )
@@ -288,7 +308,7 @@ class TestLabAdapterGate:
             gate.verify_open()
 
     def test_non_synthetic_origin_blocks(self) -> None:
-        gate = LabAdapterGate(
+        gate = _lab_gate(
             StaticLabEnvironmentProvider(_lab_evidence(data_origin="BANK_PRODUCTION")),
             clock=lambda: NOW,
         )
@@ -296,7 +316,7 @@ class TestLabAdapterGate:
             gate.verify_open()
 
     def test_production_environment_blocks(self) -> None:
-        gate = LabAdapterGate(
+        gate = _lab_gate(
             StaticLabEnvironmentProvider(_lab_evidence(environment="PRODUCTION")),
             clock=lambda: NOW,
         )
@@ -307,7 +327,7 @@ class TestLabAdapterGate:
 
     def test_expired_evidence_blocks(self) -> None:
         old = NOW - timedelta(seconds=3601)
-        gate = LabAdapterGate(
+        gate = _lab_gate(
             StaticLabEnvironmentProvider(_lab_evidence(verified_at=old)),
             clock=lambda: NOW,
         )
@@ -315,7 +335,7 @@ class TestLabAdapterGate:
             gate.verify_open()
 
     def test_guard_requires_operation_name(self) -> None:
-        gate = LabAdapterGate(
+        gate = _lab_gate(
             StaticLabEnvironmentProvider(_lab_evidence()),
             clock=lambda: NOW,
         )
@@ -323,12 +343,17 @@ class TestLabAdapterGate:
             gate.guard("")
 
     def test_guard_passes_with_valid_operation(self) -> None:
-        gate = LabAdapterGate(
+        gate = _lab_gate(
             StaticLabEnvironmentProvider(_lab_evidence()),
             clock=lambda: NOW,
         )
         evidence = gate.guard("servicenow.create_ticket")
         assert evidence.lab_id == "LAB-01"
+
+    def test_gate_requires_max_evidence_age_seconds(self) -> None:
+        # max_evidence_age_seconds artik zorunlu; verilmeden kurulamaz.
+        with pytest.raises(TypeError):
+            LabAdapterGate(StaticLabEnvironmentProvider(_lab_evidence()))
 
 
 # ---------------------------------------------------------------------------
@@ -344,6 +369,8 @@ def _strategy_policy(
     return ExecutionStrategyPolicy(
         version="EXECUTION_STRATEGY_V1",
         approved=approved,
+        # Prototip timeout'u (DQ-CAP-013); surumlu politikaya tasinana kadar.
+        timeout_seconds=3600,
         allowed_strategies=strategies or frozenset(ExecutionStrategy),
     )
 
@@ -484,5 +511,15 @@ class TestExecutionStrategyEngine:
             ExecutionStrategyPolicy(
                 version="",
                 approved=True,
+                timeout_seconds=3600,
                 allowed_strategies=frozenset({ExecutionStrategy.FULL}),
+            )
+
+    def test_policy_requires_timeout_seconds(self) -> None:
+        # timeout_seconds artik zorunlu; verilmeden kurulamaz.
+        with pytest.raises(TypeError):
+            ExecutionStrategyPolicy(
+                version="EXECUTION_STRATEGY_V1",
+                approved=True,
+                allowed_strategies=frozenset(ExecutionStrategy),
             )

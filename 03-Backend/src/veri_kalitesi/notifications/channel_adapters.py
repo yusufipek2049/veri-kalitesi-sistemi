@@ -58,7 +58,7 @@ class NotificationChannelPolicy:
 
     version: str
     routes: tuple[ChannelRoute, ...]
-    dedup_window_seconds: int = 300
+    dedup_window_seconds: int
     suppression_window_seconds: int = 0
     max_delivery_attempts: int = 1
 

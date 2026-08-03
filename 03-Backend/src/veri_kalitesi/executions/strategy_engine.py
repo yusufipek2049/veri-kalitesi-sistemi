@@ -81,8 +81,8 @@ class ExecutionStrategyPolicy:
     version: str
     approved: bool
     allowed_strategies: frozenset[ExecutionStrategy]
+    timeout_seconds: int
     max_concurrency: int = 1
-    timeout_seconds: int = 3600
     cost_budget_units: int | None = None
     working_window_start: str | None = None
     working_window_end: str | None = None

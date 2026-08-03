@@ -407,6 +407,8 @@ def test_siem_audit_transfer_failure_is_fail_closed(
 def test_closed_lab_gate_blocks_synthetic_adapter_operation() -> None:
     gate = LabAdapterGate(
         StaticLabEnvironmentProvider(_lab_gate_evidence(gate_status=LabGateStatus.CLOSED)),
+        # Prototip laboratuvari kanit omeri (DQ-CAP-012); testlerde acik verilir.
+        max_evidence_age_seconds=3600,
         clock=lambda: NOW,
     )
     adapter = FakeServiceNowHttpAdapter(
@@ -420,7 +422,11 @@ def test_closed_lab_gate_blocks_synthetic_adapter_operation() -> None:
 
 
 def test_missing_lab_evidence_blocks_synthetic_adapter_operation() -> None:
-    gate = LabAdapterGate(StaticLabEnvironmentProvider(None), clock=lambda: NOW)
+    gate = LabAdapterGate(
+        StaticLabEnvironmentProvider(None),
+        max_evidence_age_seconds=3600,
+        clock=lambda: NOW,
+    )
     adapter = FailClosedSiemAuditAdapter(
         "http://siem-collector:8080",
         transport=StubHttpTransport([]),
