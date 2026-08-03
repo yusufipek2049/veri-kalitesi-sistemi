@@ -30,8 +30,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install tomli
-          pip install $(python -c "import tomli; print(' '.join(tomli.load(open('pyproject.toml','rb'))['project']['dependencies']))")
-          pip install pytest==9.0.3
+          pip install $(python -c "import tomli; data = tomli.load(open('pyproject.toml', 'rb')); print(' '.join(data['project']['dependencies'] + data['project']['optional-dependencies']['test']))")
       - name: pytest çalıştır
         run: pytest -q
 
@@ -79,8 +78,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install tomli
-          pip install $(python -c "import tomli; print(' '.join(tomli.load(open('pyproject.toml','rb'))['project']['dependencies']))")
-          pip install pytest==9.0.3
+          pip install $(python -c "import tomli; data = tomli.load(open('pyproject.toml', 'rb')); print(' '.join(data['project']['dependencies'] + data['project']['optional-dependencies']['test']))")
       - name: pytest çalıştır (skipped=0 zorunlu)
         run: |
           set -o pipefail
@@ -117,7 +115,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install tomli
-          pip install $(python -c "import tomli; print(' '.join(tomli.load(open('pyproject.toml','rb'))['project']['dependencies']))")
+          pip install $(python -c "import tomli; data = tomli.load(open('pyproject.toml', 'rb')); print(' '.join(data['project']['dependencies'] + data['project']['optional-dependencies']['test']))")
           pip install mypy==2.1.0
       - name: mypy çalıştır
         run: mypy 03-Backend/src
@@ -132,7 +130,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 20
           cache: npm
           cache-dependency-path: 04-Frontend/app/package-lock.json
       - name: Bağımlılıkları kur (npm ci)
