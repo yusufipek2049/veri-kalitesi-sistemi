@@ -22,12 +22,10 @@ from veri_kalitesi.audit.policies import build_default_redaction_policy
 from veri_kalitesi.audit.redaction import AuditRedactor
 from veri_kalitesi.audit.repository import SQLiteAuditRepository
 from veri_kalitesi.audit.service import AuditService
-from veri_kalitesi.dashboard import DashboardQueryService
 from veri_kalitesi.identity import (
+    ActorContext,
     ActorContextIssuer,
     ActorType,
-    DashboardAuthorizationPolicy,
-    PolicyAuthorizationService,
     SessionDeniedError,
     SessionPolicy,
     SessionService,
@@ -73,11 +71,11 @@ def test_fr_005_nfr_sec_009_session_grant_uses_exact_secure_cookie_contract() ->
     assert row["csrf_token_digest"] != setup.grant.csrf_token.hex()
 
 
-def test_fr_005_fr_081_bff_cookie_resolves_authorized_dashboard_context() -> None:
+def test_fr_005_fr_081_bff_cookie_resolves_authorized_score_context() -> None:
     setup = _setup()
 
     response = setup.client.get(
-        "/api/v1/dashboard/summary",
+        "/api/v1/scores",
         headers={
             "Cookie": setup.cookie_header,
             "X-Actor-ID": "forged-user",
@@ -87,12 +85,7 @@ def test_fr_005_fr_081_bff_cookie_resolves_authorized_dashboard_context() -> Non
     )
 
     assert response.status_code == 200
-    observations = [
-        observation
-        for period in response.json()["periods"]
-        for observation in period["observations"]
-    ]
-    assert [observation["scope_id"] for observation in observations] == ["source-a"]
+    assert [item["scope_id"] for item in response.json()["items"]] == ["source-a"]
 
 
 @pytest.mark.parametrize(
@@ -106,7 +99,7 @@ def test_fr_081_missing_or_malformed_bff_cookie_fails_closed(
     setup = _setup()
     headers = {"Cookie": cookie_header} if cookie_header else {}
 
-    response = setup.client.get("/api/v1/dashboard/summary", headers=headers)
+    response = setup.client.get("/api/v1/scores", headers=headers)
 
     assert response.status_code == 401
     assert response.headers["content-type"].startswith("application/problem+json")
@@ -137,7 +130,7 @@ def test_fr_005_nfr_sec_007_valid_csrf_logout_revokes_and_clears_session() -> No
     assert row["status"] == "REVOKED"
 
     reused = setup.client.get(
-        "/api/v1/dashboard/summary",
+        "/api/v1/scores",
         headers={"Cookie": setup.cookie_header},
     )
     assert reused.status_code == 401
@@ -165,7 +158,7 @@ def test_nfr_sec_007_missing_or_changed_csrf_is_denied_without_logout(
     assert "invalid-csrf-value" not in response.text
     assert (
         setup.client.get(
-            "/api/v1/dashboard/summary",
+            "/api/v1/scores",
             headers={"Cookie": setup.cookie_header},
         ).status_code
         == 200
@@ -206,7 +199,7 @@ def test_nfr_sec_007_get_cannot_perform_logout() -> None:
     assert response.status_code == 405
     assert (
         setup.client.get(
-            "/api/v1/dashboard/summary",
+            "/api/v1/scores",
             headers={"Cookie": setup.cookie_header},
         ).status_code
         == 200
@@ -245,7 +238,7 @@ def test_fr_005_session_store_failure_returns_safe_503() -> None:
     setup.session_repository.connection.close()
 
     response = setup.client.get(
-        "/api/v1/dashboard/summary",
+        "/api/v1/scores",
         headers={"Cookie": setup.cookie_header},
     )
 
@@ -330,16 +323,11 @@ class BffSetup:
         scores = SQLiteScoreRepository()
         scores.add_or_get(_score("authorized", "source-a", "84.20"))
         scores.add_or_get(_score("forbidden", "source-forbidden", "99.90"))
-        authorization = PolicyAuthorizationService(
-            DashboardAuthorizationPolicy(version=DASHBOARD_POLICY_VERSION),
-            audit_service,
-            clock=lambda: NOW,
-        )
         app = create_dashboard_api(
-            DashboardQueryService(scores, authorization, clock=lambda: NOW),
             bff_session_boundary=boundary,
             allowed_origins=(ORIGIN,),
             data_origin="test",
+            score_query_service=_ScopedScoreQueryService(scores),
         )
         self.client = TestClient(app, base_url=ORIGIN)
 
@@ -351,6 +339,22 @@ class BffSetup:
             "Referer": f"{ORIGIN}/dashboard",
             "Sec-Fetch-Site": "same-origin",
         }
+
+
+class _ScopedScoreQueryService:
+    def __init__(self, scores: SQLiteScoreRepository) -> None:
+        self.scores = scores
+
+    def list_scores(self, actor_context: ActorContext, **_: object) -> list[QualityScore]:
+        return [
+            score
+            for score in self.scores.list_for_dashboard_trend(
+                NOW - timedelta(days=1),
+                NOW + timedelta(days=1),
+                actor_context.permitted_source_ids,
+                actor_context.can_view_enterprise,
+            )
+        ]
 
 
 def _setup() -> BffSetup:

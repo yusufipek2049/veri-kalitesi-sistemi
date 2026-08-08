@@ -232,17 +232,13 @@ def create_dashboard_api(
         resolver=resolver,
         data_origin=data_origin,
     )
+    if bff_session_boundary is not None:
 
-    @app.post("/api/v1/session/logout", status_code=204, tags=["session"])
-    async def logout(request: Request, response: Response) -> Response:
-        if bff_session_boundary is None:
-            raise ApiAuthenticationError(
-                "Authenticated session could not be established.",
-                request.state.correlation_id,
-            )
-        bff_session_boundary.logout(request, response)
-        response.status_code = 204
-        return response
+        @app.post("/api/v1/session/logout", status_code=204, tags=["session"])
+        async def logout(request: Request, response: Response) -> Response:
+            bff_session_boundary.logout(request, response)
+            response.status_code = 204
+            return response
 
     # ██████ Geliştirme Kullanıcıları ██████
 
