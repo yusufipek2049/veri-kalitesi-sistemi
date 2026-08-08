@@ -1,0 +1,24 @@
+rules:
+  - id: nested-function
+    pattern: |
+      def $OUTER(...):
+          ...
+          def $INNER(...):
+              ...
+          ...
+    message: >
+      Function `$INNER` is nested inside `$OUTER`. Nested functions are
+      often used to capture closure state — if no closure state is needed,
+      consider extracting `$INNER` to module level or a method.
+      If the nesting is intentional (closure, decorator factory, retry
+      wrapper), add a comment explaining why.
+    severity: WARNING
+    languages: [python]
+    metadata:
+      category: code-smell
+      precision: medium
+      confidence: medium
+      blocking: false
+      triage: "Many legitimate uses (closures, decorators, factories)."
+      technology:
+        - python

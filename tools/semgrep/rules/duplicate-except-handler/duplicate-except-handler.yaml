@@ -1,0 +1,30 @@
+rules:
+  - id: duplicate-except-handler
+    patterns:
+      - pattern: |
+          try:
+              ...
+          except $E1:
+              $BODY
+          except $E2:
+              $BODY
+      - pattern-not: |
+          try:
+              ...
+          except $E1 as $V1:
+              $BODY
+          except $E2 as $V2:
+              $BODY
+    message: >
+      Two except blocks in the same try statement have identical bodies.
+      Combine them: `except ($E1, $E2):` or extract the handler into a
+      named function. If the duplication is coincidental (different error
+      contexts), add a comment explaining why they differ semantically.
+    severity: WARNING
+    languages: [python]
+    metadata:
+      category: code-smell
+      precision: medium
+      confidence: medium
+      technology:
+        - python

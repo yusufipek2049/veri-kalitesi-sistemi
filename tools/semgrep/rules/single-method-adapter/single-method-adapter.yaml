@@ -1,0 +1,31 @@
+rules:
+  - id: single-method-adapter
+    patterns:
+      - pattern: |
+          class $CLS(...):
+              def $M(self, ...):
+                  ...
+      - pattern-not: |
+          class $CLS(...):
+              def __call__(self, ...):
+                  ...
+      - pattern-not-inside: |
+          class $CLS($BASE):
+              ...
+    message: >
+      Class `$CLS` has a single method `$M` and no constructor state.
+      Unless it implements an interface/protocol or provides a framework
+      boundary (adapter, strategy, handler), consider using a plain function.
+      If the class is required by a framework contract, add a comment.
+      NOTE: classes with __init__ state are not automatically excluded;
+      review manually.
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: code-smell
+      precision: very-low
+      confidence: low
+      blocking: false
+      triage: "Requires Graphify/call-site review. Semgrep cannot count methods per class."
+      technology:
+        - python

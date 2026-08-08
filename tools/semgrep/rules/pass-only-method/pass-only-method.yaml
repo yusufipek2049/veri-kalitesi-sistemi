@@ -1,0 +1,33 @@
+rules:
+  - id: pass-only-method
+    patterns:
+      - pattern: |
+          class $CLS:
+              ...
+              def $M(self, ...):
+                  pass
+              ...
+      - pattern-not: |
+          class $CLS:
+              ...
+              def __init__(self, ...):
+                  pass
+              ...
+      - pattern-not: |
+          class $CLS:
+              ...
+              def __del__(self, ...):
+                  pass
+              ...
+    message: >
+      Method `$M` in class `$CLS` contains only `pass`. This may be dead code
+      or an unimplemented hook. Dunder methods like __init__ are excluded.
+      If intentional, add a docstring explaining why.
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: code-smell
+      precision: high
+      confidence: high
+      technology:
+        - python

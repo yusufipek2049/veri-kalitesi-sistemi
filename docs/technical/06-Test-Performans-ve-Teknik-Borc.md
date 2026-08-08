@@ -2,7 +2,7 @@
 
 ## Test Yapısı
 
-`06-Testler/01-Birim/` altında 34 pytest dosyası vardır. Aşağıdaki tablo ana test
+`tests/unit/` altında 34 pytest dosyası vardır. Aşağıdaki tablo ana test
 alanlarını özetler:
 
 | Test alanı | Kapsanan ana davranış |
@@ -61,9 +61,9 @@ Projenin mevcut doğrulama yüzeyi:
 python3 -m pytest -q
 python3 -m ruff check .
 python3 -m ruff format --check .
-python3 -m mypy 03-Backend/src 06-Testler
-python3 -m compileall -q 03-Backend/src 06-Testler
-PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc .
+python3 -m mypy docs/backend/src tests
+python3 -m compileall -q docs/backend/src tests
+PYTHONPATH=docs/backend/src python3 -m veri_kalitesi.secure_sdlc .
 ```
 
 Güncel baseline'da 1029 test, Ruff lint/format ve 159 kaynak dosyalık tam mypy

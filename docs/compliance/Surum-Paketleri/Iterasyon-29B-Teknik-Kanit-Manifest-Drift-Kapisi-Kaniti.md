@@ -1,0 +1,60 @@
+---
+type: technical-evidence
+status: TechnicallyVerified
+control_ids:
+  - BFR-SDLC-002
+  - NFR-CMP-002
+  - NFR-CMP-005
+version: ITERATION_29B
+date: 2026-07-20
+producer_role: engineering
+---
+
+# İterasyon 29B Teknik Kanıt Manifest Drift Kapısı Kanıtı
+
+## Kapsam
+
+- Politika: `29B-v1`
+- Katalog: [İterasyon 29A Teknik Kanıt Kataloğu](Iterasyon-29A-Teknik-Kanit-Katalogu.json)
+- Saklanan manifest: [İterasyon 29A Teknik Kanıt Manifesti](Iterasyon-29A-Teknik-Kanit-Manifesti.json)
+- Doğrulanan saklanan/üretilen SHA-256:
+  `e83a5e1664c03c5d3506871f64b83f82237b2128b2a8d533dcb30d3571ed5db9`
+
+## Doğrulanan Teknik Davranış
+
+- Manifest katalog ve kanıt artifact'larından kanonik baytlarla yeniden üretilir.
+- Saklanan manifestle bayt düzeyinde eşleşme `MATCH`, içerik değişikliği `DRIFT`
+  üretir.
+- CLI çıkış kodları `0=MATCH`, `1=DRIFT`, `2=VALIDATION_ERROR/TECHNICAL_ERROR`
+  sözleşmesine uyar.
+- Saklanan manifest yalnız sürüm paketi dizinindeki kanonik `.json` yolundan,
+  salt okunur ve symlink reddedilerek açılır.
+- Sonuç manifest veya kanıt içeriği yerine yalnız politika, durum ve iki SHA-256
+  özeti taşır.
+
+## Çalıştırılan Kontroller
+
+```bash
+pytest -q tests/unit/test_secure_sdlc_evidence.py tests/unit/test_secure_sdlc_evidence_gate.py
+PYTHONPATH=docs/backend/src python3 -m veri_kalitesi.secure_sdlc.evidence_gate docs/compliance/Surum-Paketleri/Iterasyon-29A-Teknik-Kanit-Katalogu.json docs/compliance/Surum-Paketleri/Iterasyon-29A-Teknik-Kanit-Manifesti.json .
+```
+
+Hedefte 52, güvenli SDLC grubunda 184 ve tam regresyonda 682 test geçti. Ruff lint,
+hedef format/mypy ve derleme kontrolleri başarılıdır. Yerel secret taraması 338
+dosyada sıfır bulguyla `CLEAN` tamamlandı; SBOM byte düzeyinde yeniden üretildi ve
+gerçek artifact doğrulaması `MATCH` ile çıkış kodu `0` üretti. Tam depo formatında
+dört eski dosya ve tam mypy'de yedi dosyada 27 eski hata değişmemiştir.
+
+## Güvenlik ve Veri Gizliliği
+
+Kapı depo dışı ve kanıt paketi dışı manifest yollarını fail-closed reddeder. Çıktı
+ham manifest, kanıt içeriği, müşteri/banka verisi, kullanıcı kimliği veya secret
+içermez. Drift teknik hataya, teknik hata da temiz sonuca dönüştürülmez.
+
+## Sınırlar ve Geri Alma
+
+Bu teknik doğrulama CI/CD zorlaması, elektronik imza, değişmez kurumsal saklama,
+istisna/risk kabulü, BDDK/KVKK uyumu veya banka onayı değildir. Güvenli
+pasifleştirme komutu release sürecine bağlamamaktır; geri alma `evidence_gate.py`,
+ilgili model/export ve testleri tek commit üzerinden kaldırmaktır. 29A katalog,
+manifest ve önceki kanıtlar değiştirilmez.

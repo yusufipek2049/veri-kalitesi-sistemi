@@ -40,6 +40,7 @@ venv.bak/
 
 # Packaging and build output
 build/
+graphify-out/
 dist/
 develop-eggs/
 downloads/
@@ -70,9 +71,9 @@ temp/
 data/
 exports/
 reports/
-!/04-Frontend/app/src/reports/
-!/04-Frontend/app/src/reports/*.ts
-!/04-Frontend/app/src/reports/*.tsx
+!/frontend/src/reports/
+!/frontend/src/reports/*.ts
+!/frontend/src/reports/*.tsx
 artifacts/
 
 # Secrets, credentials and local configuration
@@ -144,7 +145,8 @@ override.tf.json
 *_override.tf.json
 docker-compose.override.yml
 docker-compose.override.yaml
-/infrastructure/enterprise-lab/runtime-secrets/
+/infra/enterprise-lab/runtime-secrets/
+/infra/development/runtime-secrets/
 
 # Notebook and profiling output
 .ipynb_checkpoints/
@@ -158,8 +160,14 @@ docker-compose.override.yaml
 /.?*/
 !/.github/
 tools/agent-*/
+# İstisna: agent-loop controller KAYNAK kodudur (runtime artefaktı değil).
+# İzlenmediği sürece hiçbir değişikliğin git revert yolu yoktu, CI görmüyordu ve
+# worktree'ler arasında sessizce ayrışıyordu. Ayrıca worktree_fingerprint
+# (ledger.sh) ignored dosyaları görmediği için loop kendi kodundaki değişikliği
+# "ilerleme" sayamıyordu. Runtime state (.agent-handoff, .agent) ignored kalır.
+!tools/agent-loop/
 AGENTS.md
 [C]LAUDE.md
 [C]ODEX-KULLANIM.md
-/02-Mimari/Ajan-*.md
-/07-Operasyon/Ajan-*.md
+/docs/architecture/Ajan-*.md
+/docs/operations/Ajan-*.md

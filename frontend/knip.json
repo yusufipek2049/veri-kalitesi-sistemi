@@ -1,0 +1,35 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+
+  "entry": [
+    "src/main.tsx",
+    "src/test/setup.ts",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "playwright.config.ts",
+    "eslint.config.js"
+  ],
+  "project": ["src/**/*.{ts,tsx}"],
+
+  "ignore": [
+    "src/test/**",
+    "src/**/*.test.*",
+    "src/**/*.spec.*",
+    "storybook-static/**",
+    "dist/**"
+  ],
+
+  "ignoreDependencies": [
+    "@emotion/react",
+    "@emotion/styled"
+  ],
+
+  "vitest": {
+    "config": ["vitest.config.ts"],
+    "entry": ["src/**/*.{test,spec}.{ts,tsx}"]
+  },
+  "playwright": {
+    "config": ["playwright.config.ts"],
+    "entry": ["e2e/**/*.{ts,tsx}"]
+  }
+}

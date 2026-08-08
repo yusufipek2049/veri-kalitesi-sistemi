@@ -1,0 +1,29 @@
+rules:
+  - id: pass-through-param
+    patterns:
+      - pattern: |
+          def $F(..., $P, ...):
+              ...
+              return $G(..., $P, ...)
+      - pattern-not: |
+          def $F(..., $P, ...):
+              ...
+              $P = ...
+              ...
+              return $G(..., $P, ...)
+    message: >
+      Parameter `$P` is passed unchanged from `$F` to `$G`. This may indicate
+      a pass-through chain where the intermediate function adds no value for
+      this parameter. If the parameter is part of a documented interface
+      contract or API boundary, add a comment. Otherwise consider letting
+      callers invoke `$G` directly.
+    severity: WARNING
+    languages: [python]
+    metadata:
+      category: code-smell
+      precision: low
+      confidence: low
+      blocking: false
+      triage: "Warning only. Cross-file chain analysis recommended."
+      technology:
+        - python

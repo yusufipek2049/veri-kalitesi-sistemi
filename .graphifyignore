@@ -1,0 +1,28 @@
+# Dependencies & build output
+node_modules/
+dist/
+build/
+
+# Python caches
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Graphify own output (GRAPHIFY_OUT=build/graphify)
+build/graphify/
+graphify-out/
+
+# Archive
+archive/
+
+# Documentation & project memory
+docs/
+
+# Infrastructure / enterprise lab
+infra/
+
+# Tooling & scripts (not application source)
+tools/
+scripts/
+.github/

@@ -319,8 +319,8 @@ saklama/imha kanıtı ayrı üretim altyapısı artımlarıdır.
 ## Başlangıç İçin Okunacak Notlar
 
 - [Bankacılık Geçiş Durumu](Bankacilik-Gecis-Durumu.md)
-- [İterasyon 19](../../../archive/iterations/19/Iterasyon-19-Maker-Checker.md)
+- [İterasyon 19](../../../docs/archive/iterations/19/Iterasyon-19-Maker-Checker.md)
 - [Bankacılık Kontrol Gereksinimleri](../../../01-SRS/17-Bankacilik-Uyum/17.02-Bankacilik-Kontrol-Gereksinimleri.md)
 - [Maker-Checker Mimarisi](../../../02-Mimari/Guvenlik/Maker-Checker.md)
-- [İterasyon 20](../../../archive/iterations/20/Iterasyon-20-LDAP-RBAC-Entegrasyonu.md)
+- [İterasyon 20](../../../docs/archive/iterations/20/Iterasyon-20-LDAP-RBAC-Entegrasyonu.md)
 - [Kimlik ve Yetki Ajanı](../../../03-Backend/01-Kimlik-ve-Yetki/AGENTS.md)

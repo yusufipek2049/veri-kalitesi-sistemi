@@ -1,0 +1,64 @@
+rules:
+  - id: bare-noqa
+    patterns:
+      - pattern-regex: '#\s*noqa\s*$'
+    message: >
+      Bare `# noqa` without a rule code and justification comment.
+      Every suppression must cite the specific rule (e.g. `# noqa: E501`)
+      and include a short reason on the same or preceding line.
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: code-smell
+      precision: high
+      confidence: high
+      technology:
+        - python
+
+  - id: bare-type-ignore
+    patterns:
+      - pattern-regex: '#\s*type:\s*ignore\s*$'
+    message: >
+      Bare `# type: ignore` without a rule code or justification.
+      Add the specific error code (e.g. `# type: ignore[arg-type]`)
+      and a short reason.
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: code-smell
+      precision: high
+      confidence: high
+      technology:
+        - python
+
+  - id: bare-ts-ignore
+    patterns:
+      - pattern-regex: '//\s*@ts-ignore\s*$'
+    message: >
+      Bare `@ts-ignore` without justification.
+      Prefer `@ts-expect-error` with a comment explaining why.
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      category: code-smell
+      precision: high
+      confidence: high
+      technology:
+        - typescript
+        - javascript
+
+  - id: bare-eslint-disable
+    patterns:
+      - pattern-regex: '/\*\s*eslint-disable\s*\*/'
+    message: >
+      File-level `/* eslint-disable */` without specific rule names.
+      Disable only the specific rules needed (e.g. `/* eslint-disable no-console */`).
+    severity: ERROR
+    languages: [typescript, javascript]
+    metadata:
+      category: code-smell
+      precision: high
+      confidence: high
+      technology:
+        - typescript
+        - javascript

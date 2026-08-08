@@ -9,7 +9,7 @@ minimizasyonu zorunludur. LLM veya başka bir öneri mekanizması tek başına �
 verisini değiştiremez. `SuggestOnly` varsayılandır; `AutoFixLowRisk` üretim
 dışıdır, chaos yalnız izole üretim dışı ortam ve sentetik veriyle çalışır,
 hassas erişim ve kanıt dışa aktarma altyapısı yoksa fail-closed uygulanır.
-Ayrıntı [kanonik mimaridedir](../../02-Mimari/Kanita-Dayali-Karar-Sistemi.md).
+Ayrıntı [kanonik mimaridedir](../../architecture/Kanita-Dayali-Karar-Sistemi.md).
 
 ## Kapsam ve Sonuç Sınırı
 

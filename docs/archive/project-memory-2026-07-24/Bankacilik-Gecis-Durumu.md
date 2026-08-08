@@ -130,5 +130,5 @@ Aşağıdaki maddeler tamamlanmadan üretim HTTP yüzeyi, hassas dışa aktarma 
 
 - [Bankacılık Uyum Modülü](../../../01-SRS/17-Bankacilik-Uyum/INDEX.md)
 - [Güvenlik Mimarisi](../../../02-Mimari/Guvenlik/INDEX.md)
-- [Bankacılık Geçiş İterasyonları](../../../09-Iterasyonlar/ITERASYON-INDEX.md)
-- [Uyum Kanıtları](../../../08-Uyum-Kanitlari/KANIT-INDEX.md)
+- [Bankacılık Geçiş İterasyonları](../../../09-Iterasyonlar/iterations/)
+- [Uyum Kanıtları](../../../08-Uyum-Kanitlari/compliance/)

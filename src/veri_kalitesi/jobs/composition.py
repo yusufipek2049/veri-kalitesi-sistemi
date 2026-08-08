@@ -1,0 +1,88 @@
+"""PostgreSQL-only production worker composition."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from dataclasses import dataclass
+
+from veri_kalitesi.audit.postgresql_outbox import PostgreSQLTransactionalAudit
+from veri_kalitesi.executions.postgresql_source_usage import PostgreSQLSourceUsagePolicyRepository
+from veri_kalitesi.jobs.lifecycle import (
+    DeadLetterReprocessPolicy,
+    DeadLetterReprocessService,
+)
+from veri_kalitesi.jobs.models import JobLeasePolicy
+from veri_kalitesi.jobs.handlers import (
+    CancellableExecutionCommand,
+    CancellableMetadataDiscoveryCommand,
+    ExecutionJobHandler,
+    MetadataDiscoveryJobHandler,
+    ReportJobHandler,
+)
+from veri_kalitesi.jobs.postgresql_repository import PostgreSQLJobQueueRepository
+from veri_kalitesi.jobs.worker import PersistentJobWorker
+from veri_kalitesi.persistence import DEFAULT_SCHEMA_NAME, SessionFactory
+from veri_kalitesi.reporting.worker import ReportWorker
+
+
+@dataclass(frozen=True)
+class PersistentJobRuntime:
+    repository: PostgreSQLJobQueueRepository
+    worker: PersistentJobWorker
+    dead_letter_service: DeadLetterReprocessService
+
+
+def create_persistent_job_runtime(
+    session_factory: SessionFactory,
+    *,
+    transactional_audit: PostgreSQLTransactionalAudit,
+    execution_command: CancellableExecutionCommand,
+    worker_id: str,
+    worker_hostname: str = "localhost",
+    worker_capacity: int = 1,
+    lease_policy: JobLeasePolicy,
+    reprocess_policy: DeadLetterReprocessPolicy,
+    report_worker: ReportWorker | None = None,
+    metadata_discovery_command: CancellableMetadataDiscoveryCommand | None = None,
+    score_publication_handler: object | None = None,
+    notification_delivery_handler: object | None = None,
+    source_types_by_id: Mapping[str, str] | None = None,
+    schema: str = DEFAULT_SCHEMA_NAME,
+) -> PersistentJobRuntime:
+    """Üretim bileşimini kalıcı queue/policy/audit bağımlılıklarıyla kurar."""
+
+    repository = PostgreSQLJobQueueRepository(session_factory, schema=schema)
+    policy_repository = PostgreSQLSourceUsagePolicyRepository(
+        session_factory,
+        schema=schema,
+        source_types_by_id=source_types_by_id,
+    )
+    handlers: dict[str, object] = {
+        "EXECUTION": ExecutionJobHandler(execution_command),
+    }
+    if report_worker is not None:
+        handlers["REPORT"] = ReportJobHandler(report_worker)
+    if metadata_discovery_command is not None:
+        handlers["METADATA_DISCOVERY"] = MetadataDiscoveryJobHandler(metadata_discovery_command)
+    if score_publication_handler is not None:
+        handlers["SCORE_PUBLICATION"] = score_publication_handler
+    if notification_delivery_handler is not None:
+        handlers["NOTIFICATION_DELIVERY"] = notification_delivery_handler
+    return PersistentJobRuntime(
+        repository=repository,
+        worker=PersistentJobWorker(
+            repository=repository,
+            policy_resolver=policy_repository,
+            handlers=handlers,
+            transactional_audit=transactional_audit,
+            worker_id=worker_id,
+            lease_policy=lease_policy,
+            hostname=worker_hostname,
+            capacity=worker_capacity,
+        ),
+        dead_letter_service=DeadLetterReprocessService(
+            repository,
+            transactional_audit,
+            reprocess_policy,
+        ),
+    )

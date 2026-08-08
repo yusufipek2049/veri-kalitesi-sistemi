@@ -1,0 +1,21 @@
+# Vulture whitelist — symbols that appear unused but are referenced by
+# framework magic, dynamic dispatch, or Pydantic/SQLAlchemy declarative models.
+#
+# Format: one fully-qualified name per line.
+# Add entries as vulture reports false positives.
+
+# ── FastAPI / Starlette lifecycle ──
+# FastAPI discovers these via decorator or lifespan parameter; vulture
+# cannot trace the reference.
+veri_kalitesi.api.app:create_app
+veri_kalitesi.api.app:lifespan
+
+# ── Pydantic model_config / inner classes ──
+# Pydantic v2 reads model_config as a class attribute; vulture sees it
+# as unreferenced.
+
+# ── SQLAlchemy event listeners ──
+# Registered via @event.listens_for; vulture cannot trace decorator refs.
+
+# ── Alembic migration entry points ──
+# Alembic imports upgrade()/downgrade() dynamically.

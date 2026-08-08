@@ -33,7 +33,7 @@ EXCLUDED_DIRS = {
 # Kök düzeyindeki ajan/araç talimat dosyaları izlenmez ve doğrulanmaz.
 ROOT_TOOL_FILES = {"AGENTS.md", "CLAUDE.md", "CODEX-KULLANIM.md"}
 ARCHIVE_PREFIXES = ("archive/", "docs/archive/", "docs/technical/")
-DUPLICATE_SCAN_EXCLUDED_PREFIXES = ("08-Uyum-Kanitlari/", "09-Iterasyonlar/")
+DUPLICATE_SCAN_EXCLUDED_PREFIXES = ("docs/compliance/", "docs/iterations/")
 
 
 def all_markdown(root: Path):
@@ -80,35 +80,35 @@ def canonical_id_definitions(root: Path) -> dict[str, list[str]]:
                     if identifier:
                         definitions[identifier].append(f"{rel}:{line_no}")
 
-    scan_table(root / "01-SRS/03-Is-Gereksinimleri.md", re.compile(r"^\|\s*`?(BR-\d{3})`?\s*\|"))
-    scan_table(root / "01-SRS/06-Is-Kurallari.md", re.compile(r"^\|\s*`?(RULE-\d{3})`?\s*\|"))
+    scan_table(root / "docs/srs/03-Is-Gereksinimleri.md", re.compile(r"^\|\s*`?(BR-\d{3})`?\s*\|"))
+    scan_table(root / "docs/srs/06-Is-Kurallari.md", re.compile(r"^\|\s*`?(RULE-\d{3})`?\s*\|"))
     scan_table(
-        root / "01-SRS/10-Kabul-Kriterleri.md",
+        root / "docs/srs/10-Kabul-Kriterleri.md",
         re.compile(r"^\|\s*`?(AC-\d{3})`?\s*\|\s*`?(TS-\d{3})`?\s*\|"),
     )
     scan_table(
-        root / "01-SRS/04-Fonksiyonel-Gereksinimler/04.06-Skorlama.md",
+        root / "docs/srs/04-Fonksiyonel-Gereksinimler/04.06-Skorlama.md",
         re.compile(r"^\|\s*`?(DQ-SCR-\d{3})`?\s*\|"),
     )
 
-    for path in (root / "01-SRS/09-Fonksiyonel-Olmayan-Gereksinimler").rglob("*.md"):
+    for path in (root / "docs/srs/09-Fonksiyonel-Olmayan-Gereksinimler").rglob("*.md"):
         scan_table(path, re.compile(r"^\|\s*`?(NFR-[A-Z]+-\d{3})`?\s*\|"))
 
-    for path in (root / "01-SRS/04-Fonksiyonel-Gereksinimler").rglob("*.md"):
+    for path in (root / "docs/srs/04-Fonksiyonel-Gereksinimler").rglob("*.md"):
         rel = path.relative_to(root).as_posix()
         for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             match = re.match(r"^#{1,6}\s+(FR-\d{3})\b", line)
             if match:
                 definitions[match.group(1)].append(f"{rel}:{line_no}")
 
-    for path in (root / "01-SRS/05-Kullanim-Senaryolari").glob("UC-*.md"):
+    for path in (root / "docs/srs/05-Kullanim-Senaryolari").glob("UC-*.md"):
         rel = path.relative_to(root).as_posix()
         for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             match = re.match(r"^#\s+(UC-\d{3})\b", line)
             if match:
                 definitions[match.group(1)].append(f"{rel}:{line_no}")
 
-    adr_path = root / "02-Mimari/Mimari-Kararlar.md"
+    adr_path = root / "docs/architecture/Mimari-Kararlar.md"
     adr_rel = adr_path.relative_to(root).as_posix()
     adr_headings: set[str] = set()
     lines = adr_path.read_text(encoding="utf-8").splitlines()
@@ -122,8 +122,8 @@ def canonical_id_definitions(root: Path) -> dict[str, list[str]]:
         if match and match.group(1) not in adr_headings:
             definitions[match.group(1)].append(f"{adr_rel}:{line_no}")
 
-    decision_paths = list((root / "00-Proje-Hafizasi/Karar-Kayitlari").glob("*.md"))
-    decision_paths.append(root / "00-Proje-Hafizasi/Acik-Konular.md")
+    decision_paths = list((root / "docs/memory/Karar-Kayitlari").glob("*.md"))
+    decision_paths.append(root / "docs/memory/Acik-Konular.md")
     decision_pattern = re.compile(
         r"^\|\s*`?((?:OPEN(?:-BNK)?|DQ-CAP|API|FE-(?:DEC|DS)|PG-MIG|UI-WRITE)-\d{3})`?\s*\|"
     )
@@ -184,8 +184,8 @@ def main() -> int:
         "README.md",
         "DOCUMENTATION_INDEX.md",
         "DOCUMENTATION_AUDIT.md",
-        "00-Proje-Hafizasi/Mevcut-Durum.md",
-        "00-Proje-Hafizasi/Acik-Konular.md",
+        "docs/memory/Mevcut-Durum.md",
+        "docs/memory/Acik-Konular.md",
     ]
     for rel in required:
         if not (root / rel).exists():

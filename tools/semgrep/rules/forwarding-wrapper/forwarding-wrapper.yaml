@@ -1,0 +1,26 @@
+rules:
+  - id: forwarding-wrapper
+    patterns:
+      - pattern: |
+          def $F(...):
+              return $G(...)
+      - pattern-not: |
+          def __init__(self, ...):
+              return $G(...)
+      - pattern-not: |
+          def __call__(self, ...):
+              return $G(...)
+    message: >
+      Function `$F` merely forwards to `$G` without adding validation,
+      transformation, documentation, or any other value. Consider having
+      callers invoke `$G` directly, or document why the indirection exists.
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: code-smell
+      precision: low
+      confidence: medium
+      blocking: false
+      triage: "High false-positive rate in layered architectures. Review call-site graph."
+      technology:
+        - python

@@ -3,7 +3,7 @@
 > endpoint envanteri, test baseline'ı veya production readiness için kanonik
 > kaynak değildir. Güncel yönlendirme için
 > [Dokümantasyon İndeksi](../../DOCUMENTATION_INDEX.md) ve
-> [Mevcut Durum](../../00-Proje-Hafizasi/Mevcut-Durum.md) kullanılır.
+> [Mevcut Durum](../../docs/memory/Mevcut-Durum.md) kullanılır.
 
 # Teknik Mimari ve Sistem Analizi
 
@@ -13,9 +13,9 @@ belgeler hedef resmi açıklamak için kullanılmış; uygulanmışlık kararı 
 SQLite şemaları ve testlerle verilmiştir.
 
 Hedef skorlama ve ölçüm yeterliliği sözleşmesi için
-[kanonik mimari tasarım](../../02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md)
-ve [sentetik veri ve gizlilik hedef tasarımı](../../02-Mimari/Sentetik-Veri-ve-Gizlilik-Stratejisi.md)
-ile [kanıta dayalı karar sistemi hedef tasarımı](../../02-Mimari/Kanita-Dayali-Karar-Sistemi.md)
+[kanonik mimari tasarım](../../architecture/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md)
+ve [sentetik veri ve gizlilik hedef tasarımı](../../architecture/Sentetik-Veri-ve-Gizlilik-Stratejisi.md)
+ile [kanıta dayalı karar sistemi hedef tasarımı](../../architecture/Kanita-Dayali-Karar-Sistemi.md)
 esas alınır; bu teknik analiz mevcut runtime farklarını ayrıca belirtir. Son hedef
 ikinci faz sözleşmesidir ve uygulanmış runtime olarak değerlendirilmez.
 
@@ -58,24 +58,24 @@ ikinci faz sözleşmesidir ve uygulanmış runtime olarak değerlendirilmez.
 
 | Konu | Dosya | Sınıf/Fonksiyon/Bölüm | Açıklama |
 | --- | --- | --- | --- |
-| Veri kaynağı orkestrasyonu | `03-Backend/src/veri_kalitesi/data_sources/service.py` | `DataSourceService` | Tanım, test, keşif, profil ve işleme envanteri |
-| CSV erişimi | `03-Backend/src/veri_kalitesi/data_sources/connectors.py` | `CSVConnector` | Dosya okuma, metadata ve süreç içi profil |
-| PostgreSQL sınırı | `03-Backend/src/veri_kalitesi/data_sources/postgresql.py` | `PostgreSQLConnector`, `PostgreSQLDriver` | Salt-okunur kontrol ve sürücü protokolü |
-| Kural yönetimi | `03-Backend/src/veri_kalitesi/rules/service.py` | `RuleService` | Sürüm, test, aktivasyon ve maker-checker |
-| Kural şablonları | `03-Backend/src/veri_kalitesi/rules/templates.py` | `build_rule_plan` | Sekiz kural tipinin doğrulanmış planı |
-| Çalıştırma | `03-Backend/src/veri_kalitesi/executions/service.py` | `ExecutionService` | Kuyruk, idempotency, retry, timeout ve iptal |
-| Zamanlama | `03-Backend/src/veri_kalitesi/executions/scheduling.py` | `SchedulingService` | ONCE/DAILY/WEEKLY/MONTHLY tetikleme |
-| Skorlama | `03-Backend/src/veri_kalitesi/scoring/service.py` | `ScoringService` | Kuraldan kurum seviyesine agregasyon |
-| Dashboard | `03-Backend/src/veri_kalitesi/dashboard/service.py` | `DashboardQueryService` | Yetki filtreli ağaç, detay ve 30 günlük trend |
-| Kimlik | `03-Backend/src/veri_kalitesi/identity/ldap.py` | `LdapAuthenticationService` | LDAP assertion ve grup-rol/scope eşleme sınırı |
-| Oturum | `03-Backend/src/veri_kalitesi/identity/sessions.py` | `SessionService` | Opak credential özetiyle oturum yaşam döngüsü |
-| Audit | `03-Backend/src/veri_kalitesi/audit/repository.py` | `SQLiteAuditRepository` | Hash-chain audit ve bütünlük doğrulama |
-| Bildirim | `03-Backend/src/veri_kalitesi/notifications/service.py` | `NotificationService` | Veri-minimum sistem içi bildirim |
-| Sorun yönetimi | `03-Backend/src/veri_kalitesi/issues/service.py` | `IssueService` | Atama, çözüm, doğrulama, kapanış ve recurrence |
-| ServiceNow | `03-Backend/src/veri_kalitesi/servicenow/service.py` | `ServiceNowService` | Allowlist projeksiyon, retry, DLQ ve circuit breaker |
-| Olay müdahalesi | `03-Backend/src/veri_kalitesi/incident_response/service.py` | `IncidentResponseService` | Güvenlik olayı ve ihlal şüphesi kanıt akışı |
-| Raporlama | `03-Backend/src/veri_kalitesi/reporting/service.py` | `ReportPreviewService` | Yetki filtreli maskeli özet önizleme |
-| Güvenli SDLC | `03-Backend/src/veri_kalitesi/secure_sdlc/` | `RepositorySecretScanner`, `PythonDependencyInventoryBuilder`, `SastReleaseGate`, `DependencyVulnerabilityReleaseGate`, `PentestFindingTracker`, `TechnicalEvidenceManifestBuilder`, `TechnicalEvidenceManifestGate`, `LocalReleasePreflight` | Yerel tarama/kapılar, teknik kanıt manifesti/drift doğrulaması ve birleşik preflight |
+| Veri kaynağı orkestrasyonu | `src/veri_kalitesi/data_sources/service.py` | `DataSourceService` | Tanım, test, keşif, profil ve işleme envanteri |
+| CSV erişimi | `src/veri_kalitesi/data_sources/connectors.py` | `CSVConnector` | Dosya okuma, metadata ve süreç içi profil |
+| PostgreSQL sınırı | `src/veri_kalitesi/data_sources/postgresql.py` | `PostgreSQLConnector`, `PostgreSQLDriver` | Salt-okunur kontrol ve sürücü protokolü |
+| Kural yönetimi | `src/veri_kalitesi/rules/service.py` | `RuleService` | Sürüm, test, aktivasyon ve maker-checker |
+| Kural şablonları | `src/veri_kalitesi/rules/templates.py` | `build_rule_plan` | Sekiz kural tipinin doğrulanmış planı |
+| Çalıştırma | `src/veri_kalitesi/executions/service.py` | `ExecutionService` | Kuyruk, idempotency, retry, timeout ve iptal |
+| Zamanlama | `src/veri_kalitesi/executions/scheduling.py` | `SchedulingService` | ONCE/DAILY/WEEKLY/MONTHLY tetikleme |
+| Skorlama | `src/veri_kalitesi/scoring/service.py` | `ScoringService` | Kuraldan kurum seviyesine agregasyon |
+| Dashboard | `src/veri_kalitesi/dashboard/service.py` | `DashboardQueryService` | Yetki filtreli ağaç, detay ve 30 günlük trend |
+| Kimlik | `src/veri_kalitesi/identity/ldap.py` | `LdapAuthenticationService` | LDAP assertion ve grup-rol/scope eşleme sınırı |
+| Oturum | `src/veri_kalitesi/identity/sessions.py` | `SessionService` | Opak credential özetiyle oturum yaşam döngüsü |
+| Audit | `src/veri_kalitesi/audit/repository.py` | `SQLiteAuditRepository` | Hash-chain audit ve bütünlük doğrulama |
+| Bildirim | `src/veri_kalitesi/notifications/service.py` | `NotificationService` | Veri-minimum sistem içi bildirim |
+| Sorun yönetimi | `src/veri_kalitesi/issues/service.py` | `IssueService` | Atama, çözüm, doğrulama, kapanış ve recurrence |
+| ServiceNow | `src/veri_kalitesi/servicenow/service.py` | `ServiceNowService` | Allowlist projeksiyon, retry, DLQ ve circuit breaker |
+| Olay müdahalesi | `src/veri_kalitesi/incident_response/service.py` | `IncidentResponseService` | Güvenlik olayı ve ihlal şüphesi kanıt akışı |
+| Raporlama | `src/veri_kalitesi/reporting/service.py` | `ReportPreviewService` | Yetki filtreli maskeli özet önizleme |
+| Güvenli SDLC | `src/veri_kalitesi/secure_sdlc/` | `RepositorySecretScanner`, `PythonDependencyInventoryBuilder`, `SastReleaseGate`, `DependencyVulnerabilityReleaseGate`, `PentestFindingTracker`, `TechnicalEvidenceManifestBuilder`, `TechnicalEvidenceManifestGate`, `LocalReleasePreflight` | Yerel tarama/kapılar, teknik kanıt manifesti/drift doğrulaması ve birleşik preflight |
 
 ### Özellik Durumu
 
@@ -118,14 +118,14 @@ ikinci faz sözleşmesidir ve uygulanmış runtime olarak değerlendirilmez.
 | SQLite | Python stdlib ile gelen, sabitlenmemiş | Yerel kalıcılık, kuyruk, oturum ve audit | `*/repository.py`, `identity/*.py` |
 | `packaging` | `26.0` | SBOM bağımlılık ayrıştırma | `pyproject.toml`, `secure_sdlc/sbom.py` |
 | `tomli` | `2.4.1` | `pyproject.toml` okuma | `pyproject.toml`, `secure_sdlc/sbom.py` |
-| pytest | Manifestte sabitlenmemiş; ortam `9.0.3` | Birim test | `pyproject.toml`, `06-Testler/01-Birim/` |
+| pytest | Manifestte sabitlenmemiş; ortam `9.0.3` | Birim test | `pyproject.toml`, `tests/unit/` |
 | Ruff | Manifestte sabitlenmemiş; ortam `0.15.13` | Lint/format | `pyproject.toml` |
 | mypy | Manifestte sabitlenmemiş; ortam `2.1.0` | Statik tip kontrolü | Komut/kanıt belgeleri; config yok |
-| Mermaid | Runtime bağımlılığı değil | Dokümantasyon diyagramları | `02-Mimari/`, bu rapor |
+| Mermaid | Runtime bağımlılığı değil | Dokümantasyon diyagramları | `docs/architecture/`, bu rapor |
 | FastAPI | `0.135.3` | Dashboard özeti ve BFF logout HTTP sınırı | `pyproject.toml`, `api/app.py` |
 | SQLAlchemy | `2.0.51` | Onaylı üretim veri erişimi bağımlılığı; genel repository geçişi tamamlanmadı | `pyproject.toml` |
 | Alembic | `1.18.4` | Sürümlü migration altyapısı | `pyproject.toml`, `alembic/` |
-| React/Vite | Manifestte sabitlenmiş | Dashboard, tema, Storybook ve görsel test | `04-Frontend/app/package.json` |
+| React/Vite | Manifestte sabitlenmiş | Dashboard, tema, Storybook ve görsel test | `frontend/package.json` |
 
 ### API Envanteri
 
