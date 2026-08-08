@@ -31,8 +31,6 @@ import { DataSourcesRoute } from "./dataSources/DataSourcesRoute";
 import { ExecutionsRoute } from "./executions/ExecutionsRoute";
 import { IssuesRoute } from "./issues/IssuesRoute";
 import { fetchChannels, fetchInbox, fetchSubscriptions, fetchUnreadCount, markDeliveryRead } from "./notifications/api";
-import { ProfilingRoute } from "./profiling/ProfilingRoute";
-import { ReportsRoute } from "./reports/ReportsRoute";
 import { RulesRoute } from "./rules/RulesRoute";
 
 function InvestigationRoute() {
