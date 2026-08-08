@@ -1,5 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
-import { Route, Routes, useNavigate } from "react-router-dom";
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { Alert, Box, Button, Typography } from "@mui/material";
 import { DevelopmentLoginPage, DevelopmentUserSwitcher } from "./development/DevelopmentLoginPage";
 import { DevelopmentUserProvider, useDevelopmentUser } from "./development/UserContext";
@@ -27,7 +27,6 @@ import {
   type FieldDetailState,
   type MetadataDiff,
 } from "./catalog/model";
-import { DashboardRoute } from "./dashboard/DashboardRoute";
 import { DataSourcesRoute } from "./dataSources/DataSourcesRoute";
 import { ExecutionsRoute } from "./executions/ExecutionsRoute";
 import { IssuesRoute } from "./issues/IssuesRoute";
@@ -419,29 +418,32 @@ function AppContent() {
 
   return (
     <Suspense fallback={<Box aria-busy="true" aria-label="Sayfa yükleniyor" sx={{ minHeight: "100vh" }} />}>
-      <Routes>
-        <Route element={<DashboardRoute />} path="/" />
-        <Route element={<DataSourcesRoute />} path="/data-sources" />
-        <Route element={<CatalogRoute />} path="/catalog" />
-        <Route element={<DatasetDetailRoute />} path="/catalog/datasets/:datasetId" />
-        <Route element={<FieldDetailRoute />} path="/catalog/fields/:fieldId" />
-        <Route element={<ProfilingRoute />} path="/profiling" />
-        <Route element={<RulesRoute />} path="/rules" />
-        <Route element={<ExecutionsRoute />} path="/executions" />
-        <Route element={<ScoresPage />} path="/scores" />
-        <Route element={<ScoreDetailPage />} path="/scores/:scoreId" />
-        <Route element={<ScoreComparisonPage />} path="/scores/comparison" />
-        <Route element={<IssuesRoute />} path="/issues" />
-        <Route element={<InvestigationRoute />} path="/investigation" />
-        <Route element={<RouteBoundary unauthorized />} path="/unauthorized" />
-        <Route element={<ReportsRoute />} path="/reports" />
-        <Route element={<AuditRoute />} path="/audit" />
-        <Route element={<NotificationsRoute />} path="/notifications" />
-        <Route element={<NotificationPreferencesRoute />} path="/notifications/preferences" />
-        <Route element={<NotificationChannelsRoute />} path="/notifications/channels" />
-        <Route element={<NotificationDeliveriesRoute />} path="/notifications/deliveries" />
-        <Route element={<RouteBoundary />} path="*" />
-      </Routes>
+      <ApplicationRoutes />
     </Suspense>
+  );
+}
+
+export function ApplicationRoutes() {
+  return (
+    <Routes>
+      <Route element={<Navigate replace to="/data-sources" />} path="/" />
+      <Route element={<DataSourcesRoute />} path="/data-sources" />
+      <Route element={<CatalogRoute />} path="/catalog" />
+      <Route element={<DatasetDetailRoute />} path="/catalog/datasets/:datasetId" />
+      <Route element={<FieldDetailRoute />} path="/catalog/fields/:fieldId" />
+      <Route element={<RulesRoute />} path="/rules" />
+      <Route element={<ExecutionsRoute />} path="/executions" />
+      <Route element={<ScoresPage />} path="/scores" />
+      <Route element={<ScoreDetailPage />} path="/scores/:scoreId" />
+      <Route element={<ScoreComparisonPage />} path="/scores/comparison" />
+      <Route element={<IssuesRoute />} path="/issues" />
+      <Route element={<RouteBoundary unauthorized />} path="/unauthorized" />
+      <Route element={<AuditRoute />} path="/audit" />
+      <Route element={<NotificationsRoute />} path="/notifications" />
+      <Route element={<NotificationPreferencesRoute />} path="/notifications/preferences" />
+      <Route element={<NotificationChannelsRoute />} path="/notifications/channels" />
+      <Route element={<NotificationDeliveriesRoute />} path="/notifications/deliveries" />
+      <Route element={<RouteBoundary />} path="*" />
+    </Routes>
   );
 }

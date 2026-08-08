@@ -820,9 +820,8 @@ def _app(
         can_view_enterprise=False,
         clock=lambda: NOW,
     )
-    dashboard = DashboardQueryService(SQLiteScoreRepository(), authorization, clock=lambda: NOW)
+    DashboardQueryService(SQLiteScoreRepository(), authorization, clock=lambda: NOW)
     return create_dashboard_api(
-        dashboard,
         actor_context_resolver=resolver,
         issue_query_service=IssueQueryService(reader, authorization),
         data_origin="synthetic-test",
@@ -854,13 +853,12 @@ def _mutation_app(
         audit_service,
         clock=lambda: NOW,
     )
-    dashboard = DashboardQueryService(
+    DashboardQueryService(
         SQLiteScoreRepository(),
         authorization,
         clock=lambda: NOW,
     )
     return create_dashboard_api(
-        dashboard,
         bff_session_boundary=boundary,  # type: ignore[arg-type]
         allowed_origins=("https://app.example",),
         issue_query_service=(

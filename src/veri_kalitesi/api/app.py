@@ -24,7 +24,6 @@ from veri_kalitesi.api.identity import (
     UnavailableActorContextResolver,
 )
 from veri_kalitesi.api.models import DevelopmentUserInfoResponse, DevelopmentUserListResponse
-from veri_kalitesi.api.dashboard_router import register_dashboard_routes
 from veri_kalitesi.api.data_sources_router import (
     DataSourceMutationService,
     ProfileComparisonService,
@@ -80,7 +79,6 @@ class StateChangeBoundary(Protocol):
 
 
 def create_dashboard_api(
-    dashboard_service: DashboardQueryService,
     *,
     actor_context_resolver: ActorContextResolver | None = None,
     bff_session_boundary: BffSessionBoundary | None = None,
@@ -227,23 +225,6 @@ def create_dashboard_api(
     register_scores_routes(
         app,
         score_query_service=score_query_service,
-        score_publication_service=score_publication_service,
-        resolver=resolver,
-        data_origin=data_origin,
-    )
-    register_reports_routes(
-        app,
-        report_preview_service=report_preview_service,
-        report_service=report_service,
-        report_schedule_service=report_schedule_service,
-        resolver=resolver,
-        data_origin=data_origin,
-        clock=clock,
-    )
-
-    register_dashboard_routes(
-        app,
-        dashboard_service=dashboard_service,
         resolver=resolver,
         data_origin=data_origin,
     )

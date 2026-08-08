@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, cast
+from typing import Callable
 
 from sqlalchemy import inspect, text
 
@@ -35,7 +35,6 @@ from veri_kalitesi.audit.service import (
     AuditQueryService,
     AuditService,
 )
-from veri_kalitesi.dashboard import DashboardQueryError, DashboardQueryService
 from veri_kalitesi.data_sources.connectors import ConnectorRegistry
 from veri_kalitesi.data_sources.models import DataSourceCommandPolicy
 from veri_kalitesi.data_sources.postgresql import PostgreSQLConnector
@@ -153,14 +152,6 @@ class PhaseBProviders:
             raise ValueError("All trusted DS-02 Phase B providers are required.")
 
 
-class UnavailableDashboardService:
-    """S1-only production composition'da kapsam dışı dashboard için fail-closed sınır."""
-
-    def get_overview(self, actor_context: object, *, filters: object = None) -> Any:
-        correlation_id = getattr(actor_context, "correlation_id", "dashboard-unavailable")
-        raise DashboardQueryError("Dashboard service is not composed.", correlation_id)
-
-
 class UnavailableIssueAssignmentResolver:
     """Faz A'da kullanılmayan issue-create bağımlılığını fail-closed tutar."""
 
@@ -212,7 +203,6 @@ def create_application(
     identity_provider: ActorContextResolver | BffSessionBoundary,
     *,
     secret_resolver: SecretResolver,
-    dashboard_service: Any | None = None,
     development_user_registry: DevelopmentUserRegistry | None = None,
     phase_b_providers: PhaseBProviders | None = None,
 ):
@@ -405,7 +395,6 @@ def create_application(
     bff = identity_provider if isinstance(identity_provider, BffSessionBoundary) else None
     resolver = None if bff is not None else identity_provider
     app = create_dashboard_api(
-        cast(DashboardQueryService, dashboard_service or UnavailableDashboardService()),
         actor_context_resolver=resolver,
         bff_session_boundary=bff,
         allowed_origins=settings.allowed_origins,

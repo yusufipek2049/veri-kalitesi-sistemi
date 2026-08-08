@@ -217,14 +217,13 @@ def _app(
         can_view_enterprise=False,
         clock=lambda: NOW,
     )
-    dashboard = DashboardQueryService(
+    DashboardQueryService(
         SQLiteScoreRepository(),
         authorization,
         clock=lambda: NOW,
     )
     return TestClient(
         create_dashboard_api(
-            dashboard,
             actor_context_resolver=resolver,
             issue_investigation_evidence_service=service,
             data_origin="synthetic-test",
@@ -443,14 +442,13 @@ def test_service_unavailable_returns_503() -> None:
         can_view_enterprise=False,
         clock=lambda: NOW,
     )
-    dashboard = DashboardQueryService(
+    DashboardQueryService(
         SQLiteScoreRepository(),
         authorization,
         clock=lambda: NOW,
     )
     # issue_investigation_evidence_service=None (fail-closed)
     app = create_dashboard_api(
-        dashboard,
         actor_context_resolver=resolver,
         data_origin="synthetic-test",
     )

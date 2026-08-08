@@ -190,9 +190,8 @@ def _app(
         can_view_enterprise=False,
         clock=lambda: NOW,
     )
-    dashboard = DashboardQueryService(SQLiteScoreRepository(), authorization, clock=lambda: NOW)
+    DashboardQueryService(SQLiteScoreRepository(), authorization, clock=lambda: NOW)
     return create_dashboard_api(
-        dashboard,
         actor_context_resolver=resolver,
         rule_query_service=RuleQueryService(reader, authorization),
         data_origin="synthetic-test",
@@ -367,10 +366,9 @@ def _mutation_app(
         clock=lambda: NOW,
     )
     resolver = FakeRuleMutationResolver(dataset_ids=dataset_ids)
-    dashboard = DashboardQueryService(SQLiteScoreRepository(), authorization, clock=lambda: NOW)
+    DashboardQueryService(SQLiteScoreRepository(), authorization, clock=lambda: NOW)
     return TestClient(
         create_dashboard_api(
-            dashboard,
             actor_context_resolver=resolver,
             rule_query_service=RuleQueryService(reader or FakeRuleReader((rule,)), authorization),
             rule_creator_service=FakeRuleCreatorService(),
@@ -587,10 +585,9 @@ def test_rule_mutation_without_services_returns_503() -> None:
         clock=lambda: NOW,
     )
     resolver = FakeRuleMutationResolver(dataset_ids=frozenset({"dataset-a"}))
-    dashboard = DashboardQueryService(SQLiteScoreRepository(), authorization, clock=lambda: NOW)
+    DashboardQueryService(SQLiteScoreRepository(), authorization, clock=lambda: NOW)
     client = TestClient(
         create_dashboard_api(
-            dashboard,
             actor_context_resolver=resolver,
             data_origin="synthetic-test",
         )
