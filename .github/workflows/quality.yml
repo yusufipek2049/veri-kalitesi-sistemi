@@ -4,11 +4,11 @@
 #   - backend-test, integration, backend-lint, backend-types ve frontend
 #     ZORUNLUdur; başarısız olursa iş akışı kırmızıdır.
 #   - integration işi PostgreSQL servis konteyneriyle çalışır, yalnız
-#     06-Testler/02-Entegrasyon dizinini koşar ve pytest çıktısında
+#     tests/integration dizinini koşar ve pytest çıktısında
 #     skipped=0 olduğunu zorlar (skip varsa iş başarısız olur).
 #
 # Bağımlılık kurulumu: pyproject.toml'da [build-system] tanımlı değildir ve
-# paket standart dışı konumdadır (03-Backend/src). Bu nedenle `pip install .`
+# paket standart dışı konumdadır (src/). Bu nedenle `pip install .`
 # kullanılamaz; bağımlılıklar pyproject.toml'dan okunup doğrudan kurulur.
 
 name: Kalite Kapıları
@@ -82,7 +82,7 @@ jobs:
       - name: pytest çalıştır (skipped=0 zorunlu)
         run: |
           set -o pipefail
-          python -m pytest -q 06-Testler/02-Entegrasyon 2>&1 | tee pytest-integration.txt
+          python -m pytest -q tests/integration 2>&1 | tee pytest-integration.txt
           if grep -qE '[0-9]+ skipped' pytest-integration.txt; then
             echo "::error::Entegrasyon işinde skip edilen test var (skipped != 0). PostgreSQL servis veya env değişkenleri eksik olabilir."
             exit 1
@@ -118,21 +118,21 @@ jobs:
           pip install $(python -c "import tomli; data = tomli.load(open('pyproject.toml', 'rb')); print(' '.join(data['project']['dependencies'] + data['project']['optional-dependencies']['test']))")
           pip install mypy==2.1.0
       - name: mypy çalıştır
-        run: mypy 03-Backend/src
+        run: mypy src
 
   frontend:
     name: "Frontend (test + typecheck + build) — ZORUNLU"
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: 04-Frontend/app
+        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: 04-Frontend/app/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
       - name: Bağımlılıkları kur (npm ci)
         run: npm ci
       - name: Test çalıştır (vitest)

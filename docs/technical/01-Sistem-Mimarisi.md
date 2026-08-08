@@ -4,19 +4,19 @@
 
 | Dizin | Amaç ve içerik | Aktiflik |
 | --- | --- | --- |
-| `00-Proje-Hafizasi/` | İterasyon durumu, kararlar, açık konular ve backlog | Aktif süreç belgesi |
-| `01-SRS/` | BR/FR/UC/RULE/NFR, veri modeli ve bankacılık kontrolleri | Taslak gereksinim kaynağı |
-| `02-Mimari/` | Hedef bağlam, mantıksal mimari ve güvenlik kararları | Hedef + kısmi uygulama açıklaması |
-| `03-Backend/src/veri_kalitesi/` | Çalışan Python domain, servis ve repository kodu | Aktif ana ürün kodu |
-| `03-Backend/01-*` ... `12-*` | Modül talimatları ve backend indeksi | Kod değil, yönlendirme |
-| `04-Frontend/` | React/Vite frontend, tasarım sözleşmeleri ve alan modülleri | Dashboard/theme uygulanmış; alan ekranları planlı |
-| `05-Veritabani/` | Veritabanı çalışma alanı | Plan; migration kodu burada yok |
-| `06-Testler/01-Birim/` | 34 test dosyası; tam depoda 1029 test | Aktif |
-| `06-Testler/02-Entegrasyon/` | PostgreSQL yapay dataset entegrasyonu | İki opt-in test |
-| `06-Testler/03-Uctan-Uca/` | Frontend görsel/E2E stratejisi ve Playwright | 14 test |
-| `07-Operasyon/` | Runbook ve politika taslakları | Belge; çalışan otomasyon değil |
-| `08-Uyum-Kanitlari/` | İterasyon bazlı teknik kanıtlar | Aktif belge |
-| `09-Iterasyonlar/` | Bankacılık geçiş iterasyonları | Aktif plan/rapor |
+| `docs/memory/` | İterasyon durumu, kararlar, açık konular ve backlog | Aktif süreç belgesi |
+| `docs/srs/` | BR/FR/UC/RULE/NFR, veri modeli ve bankacılık kontrolleri | Taslak gereksinim kaynağı |
+| `docs/architecture/` | Hedef bağlam, mantıksal mimari ve güvenlik kararları | Hedef + kısmi uygulama açıklaması |
+| `src/veri_kalitesi/` | Çalışan Python domain, servis ve repository kodu | Aktif ana ürün kodu |
+| `docs/backend/01-*` ... `12-*` | Modül talimatları ve backend indeksi | Kod değil, yönlendirme |
+| `docs/design/frontend/` | React/Vite frontend, tasarım sözleşmeleri ve alan modülleri | Dashboard/theme uygulanmış; alan ekranları planlı |
+| `docs/database/` | Veritabanı çalışma alanı | Plan; migration kodu burada yok |
+| `tests/unit/` | 34 test dosyası; tam depoda 1029 test | Aktif |
+| `tests/integration/` | PostgreSQL yapay dataset entegrasyonu | İki opt-in test |
+| `tests/e2e/` | Frontend görsel/E2E stratejisi ve Playwright | 14 test |
+| `docs/operations/` | Runbook ve politika taslakları | Belge; çalışan otomasyon değil |
+| `docs/compliance/` | İterasyon bazlı teknik kanıtlar | Aktif belge |
+| `docs/iterations/` | Bankacılık geçiş iterasyonları | Aktif plan/rapor |
 | `pyproject.toml` | Proje metadata, doğrudan bağımlılık, pytest/Ruff ayarı | Aktif fakat eksik build/dev dependency tanımı |
 
 ## Teknoloji Yığını

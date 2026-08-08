@@ -1,0 +1,812 @@
+"""Yalnız legacy aktarım fixture'ları için SQLite issue test deposu."""
+
+from __future__ import annotations
+
+import sqlite3
+from datetime import datetime
+from threading import RLock
+
+from veri_kalitesi.audit.models import PreparedAuditEvent
+from veri_kalitesi.audit.outbox import SQLiteTransactionalAudit
+from veri_kalitesi.issues.errors import (
+    IssueConflictError,
+    IssueNotFoundError,
+    IssueRelationshipError,
+    IssueValidationError,
+)
+from veri_kalitesi.issues.models import (
+    DataQualityIssue,
+    IssueHistoryEntry,
+    IssuePriority,
+    IssueRelationship,
+    IssueRelationshipType,
+    IssueResolutionRecord,
+    IssueScopeType,
+    IssueSourceEventType,
+    IssueStatus,
+    IssueTriggerType,
+    IssueVerificationOutcome,
+    IssueVerificationRecord,
+)
+
+
+class SQLiteIssueRepository:
+    def __init__(self, database: str = ":memory:") -> None:
+        self.connection = sqlite3.connect(database, check_same_thread=False)
+        self.connection.row_factory = sqlite3.Row
+        self.connection.execute("PRAGMA foreign_keys = ON")
+        self._lock = RLock()
+        self._create_schema()
+
+    def _create_schema(self) -> None:
+        self.connection.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS data_quality_issues (
+                issue_id TEXT PRIMARY KEY,
+                issue_no TEXT NOT NULL UNIQUE,
+                source_event_id TEXT NOT NULL,
+                source_event_type TEXT NOT NULL
+                    CHECK (source_event_type IN ('QUALITY', 'TECHNICAL')),
+                trigger_type TEXT NOT NULL
+                    CHECK (trigger_type IN (
+                        'QUALITY_THRESHOLD', 'CRITICAL_RULE_FAILURE', 'TECHNICAL_ERROR'
+                    )),
+                scope_type TEXT NOT NULL CHECK (scope_type IN ('DATASET', 'SOURCE')),
+                scope_id TEXT NOT NULL,
+                status TEXT NOT NULL CHECK (status IN (
+                    'NEW', 'ASSIGNED', 'INVESTIGATING', 'WAITING_FOR_RESOLUTION',
+                    'RESOLVED', 'VERIFIED', 'CLOSED', 'CANCELLED'
+                )),
+                priority TEXT NOT NULL CHECK (priority IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+                assignee_user_id TEXT NOT NULL,
+                deduplication_key_digest TEXT NOT NULL UNIQUE,
+                payload_digest TEXT NOT NULL,
+                occurrence_count INTEGER NOT NULL CHECK (occurrence_count >= 1),
+                version INTEGER NOT NULL DEFAULT 1 CHECK (version >= 1),
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                last_seen_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS issue_history (
+                sequence_no INTEGER PRIMARY KEY AUTOINCREMENT,
+                history_id TEXT NOT NULL UNIQUE,
+                issue_id TEXT NOT NULL,
+                action TEXT NOT NULL,
+                actor_id TEXT NOT NULL,
+                old_status TEXT CHECK (old_status IS NULL OR old_status IN (
+                    'NEW', 'ASSIGNED', 'INVESTIGATING', 'WAITING_FOR_RESOLUTION',
+                    'RESOLVED', 'VERIFIED', 'CLOSED', 'CANCELLED'
+                )),
+                new_status TEXT NOT NULL CHECK (new_status IN (
+                    'NEW', 'ASSIGNED', 'INVESTIGATING', 'WAITING_FOR_RESOLUTION',
+                    'RESOLVED', 'VERIFIED', 'CLOSED', 'CANCELLED'
+                )),
+                old_assignee_user_id TEXT,
+                new_assignee_user_id TEXT,
+                old_priority TEXT CHECK (old_priority IS NULL OR old_priority IN (
+                    'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'
+                )),
+                new_priority TEXT CHECK (new_priority IS NULL OR new_priority IN (
+                    'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'
+                )),
+                resolution_id TEXT,
+                verification_id TEXT,
+                occurred_at TEXT NOT NULL,
+                FOREIGN KEY (issue_id) REFERENCES data_quality_issues(issue_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS issue_resolutions (
+                sequence_no INTEGER PRIMARY KEY AUTOINCREMENT,
+                resolution_id TEXT NOT NULL UNIQUE,
+                issue_id TEXT NOT NULL,
+                root_cause TEXT NOT NULL CHECK (
+                    length(trim(root_cause)) BETWEEN 1 AND 2000
+                    AND instr(root_cause, '<') = 0 AND instr(root_cause, '>') = 0
+                ),
+                corrective_action TEXT NOT NULL CHECK (
+                    length(trim(corrective_action)) BETWEEN 1 AND 2000
+                    AND instr(corrective_action, '<') = 0
+                    AND instr(corrective_action, '>') = 0
+                ),
+                evidence_reference_id TEXT NOT NULL,
+                completed_at TEXT NOT NULL,
+                protection_policy_version TEXT NOT NULL,
+                created_by TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (issue_id) REFERENCES data_quality_issues(issue_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS issue_verifications (
+                sequence_no INTEGER PRIMARY KEY AUTOINCREMENT,
+                verification_id TEXT NOT NULL UNIQUE,
+                issue_id TEXT NOT NULL,
+                verification_reference_id TEXT NOT NULL UNIQUE,
+                execution_id TEXT NOT NULL,
+                score_id TEXT,
+                scope_type TEXT NOT NULL CHECK (scope_type IN ('DATASET', 'SOURCE')),
+                scope_id TEXT NOT NULL,
+                outcome TEXT NOT NULL CHECK (outcome IN (
+                    'QUALITY_FAILED', 'PARTIAL', 'TECHNICAL_ERROR', 'QUALITY_PASSED'
+                )),
+                completed_at TEXT NOT NULL,
+                recorded_by TEXT NOT NULL,
+                recorded_at TEXT NOT NULL,
+                FOREIGN KEY (issue_id) REFERENCES data_quality_issues(issue_id)
+            );
+
+            CREATE TABLE IF NOT EXISTS issue_relationships (
+                sequence_no INTEGER PRIMARY KEY AUTOINCREMENT,
+                relationship_id TEXT NOT NULL UNIQUE,
+                predecessor_issue_id TEXT NOT NULL,
+                successor_issue_id TEXT NOT NULL,
+                relationship_type TEXT NOT NULL CHECK (relationship_type IN ('RECURRENCE')),
+                created_at TEXT NOT NULL,
+                UNIQUE (predecessor_issue_id, successor_issue_id, relationship_type),
+                FOREIGN KEY (predecessor_issue_id) REFERENCES data_quality_issues(issue_id),
+                FOREIGN KEY (successor_issue_id) REFERENCES data_quality_issues(issue_id)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_issues_assignee_status_time
+            ON data_quality_issues(assignee_user_id, status, updated_at DESC);
+
+            CREATE INDEX IF NOT EXISTS idx_issue_history_issue_time
+            ON issue_history(issue_id, sequence_no);
+
+            CREATE INDEX IF NOT EXISTS idx_issue_resolutions_issue_time
+            ON issue_resolutions(issue_id, sequence_no);
+
+            CREATE INDEX IF NOT EXISTS idx_issue_verifications_issue_time
+            ON issue_verifications(issue_id, sequence_no);
+
+            CREATE INDEX IF NOT EXISTS idx_issue_relationships_predecessor_time
+            ON issue_relationships(predecessor_issue_id, sequence_no);
+            """
+        )
+        self._ensure_issue_version_column()
+        self._ensure_history_assignment_columns()
+        self.connection.commit()
+
+    def _ensure_issue_version_column(self) -> None:
+        existing = {
+            row["name"]
+            for row in self.connection.execute("PRAGMA table_info(data_quality_issues)").fetchall()
+        }
+        if "version" not in existing:
+            self.connection.execute(
+                "ALTER TABLE data_quality_issues ADD COLUMN version INTEGER NOT NULL DEFAULT 1"
+            )
+
+    def _ensure_history_assignment_columns(self) -> None:
+        existing = {
+            row["name"]
+            for row in self.connection.execute("PRAGMA table_info(issue_history)").fetchall()
+        }
+        additions = {
+            "old_assignee_user_id": "TEXT",
+            "new_assignee_user_id": "TEXT",
+            "old_priority": "TEXT",
+            "new_priority": "TEXT",
+            "resolution_id": "TEXT",
+            "verification_id": "TEXT",
+        }
+        for column, column_type in additions.items():
+            if column not in existing:
+                self.connection.execute(
+                    f"ALTER TABLE issue_history ADD COLUMN {column} {column_type}"
+                )
+
+    def add_or_increment(
+        self,
+        issue: DataQualityIssue,
+        history: IssueHistoryEntry,
+        *,
+        payload_digest: str,
+        source_event_occurred_at: datetime,
+        relationship: IssueRelationship | None,
+        relationship_history: IssueHistoryEntry | None,
+        audit_event: PreparedAuditEvent,
+        reopen_audit_event: PreparedAuditEvent,
+        relationship_audit_event: PreparedAuditEvent | None,
+        audit_outbox: SQLiteTransactionalAudit,
+        notification_batch: object = None,
+    ) -> DataQualityIssue:
+        self._require_shared_audit_transaction(audit_outbox)
+        with self._lock, self.connection:
+            existing = self.connection.execute(
+                """
+                SELECT issue_id, payload_digest, status, updated_at
+                FROM data_quality_issues
+                WHERE deduplication_key_digest = ?
+                """,
+                (issue.deduplication_key_digest,),
+            ).fetchone()
+            if existing is not None:
+                if existing["payload_digest"] != payload_digest:
+                    raise IssueConflictError(
+                        "Deduplication key was reused with a different issue payload."
+                    )
+                current_status = IssueStatus(existing["status"])
+                reopened = (
+                    current_status is IssueStatus.CLOSED
+                    and issue.source_event_type is IssueSourceEventType.QUALITY
+                    and source_event_occurred_at >= datetime.fromisoformat(existing["updated_at"])
+                )
+                target_status = IssueStatus.WAITING_FOR_RESOLUTION if reopened else current_status
+                updated_at = (
+                    issue.updated_at
+                    if reopened or current_status is not IssueStatus.CLOSED
+                    else datetime.fromisoformat(existing["updated_at"])
+                )
+                self.connection.execute(
+                    """
+                    UPDATE data_quality_issues
+                    SET occurrence_count = occurrence_count + 1,
+                        last_seen_at = ?, updated_at = ?, source_event_id = ?, status = ?,
+                        version = version + 1
+                    WHERE issue_id = ?
+                    """,
+                    (
+                        issue.last_seen_at.isoformat(),
+                        updated_at.isoformat(),
+                        issue.source_event_id,
+                        target_status.value,
+                        existing["issue_id"],
+                    ),
+                )
+                repeated_history = IssueHistoryEntry(
+                    issue_id=existing["issue_id"],
+                    action=(
+                        "ISSUE_REOPENED_BY_RECURRING_QUALITY_FAILURE"
+                        if reopened
+                        else "ISSUE_REPEATED"
+                    ),
+                    actor_id=history.actor_id,
+                    old_status=current_status,
+                    new_status=target_status,
+                    occurred_at=history.occurred_at,
+                )
+                self._insert_history(repeated_history)
+                issue_id = existing["issue_id"]
+                audit_event = reopen_audit_event if reopened else audit_event
+            else:
+                self.connection.execute(
+                    """
+                    INSERT INTO data_quality_issues (
+                        issue_id, issue_no, source_event_id, source_event_type,
+                        trigger_type, scope_type, scope_id, status, priority,
+                        assignee_user_id, deduplication_key_digest, payload_digest,
+                        occurrence_count, version, created_at, updated_at, last_seen_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        issue.issue_id,
+                        issue.issue_no,
+                        issue.source_event_id,
+                        issue.source_event_type.value,
+                        issue.trigger_type.value,
+                        issue.scope_type.value,
+                        issue.scope_id,
+                        issue.status.value,
+                        issue.priority.value,
+                        issue.assignee_user_id,
+                        issue.deduplication_key_digest,
+                        payload_digest,
+                        issue.occurrence_count,
+                        issue.version,
+                        issue.created_at.isoformat(),
+                        issue.updated_at.isoformat(),
+                        issue.last_seen_at.isoformat(),
+                    ),
+                )
+                self._insert_history(history)
+                issue_id = issue.issue_id
+                if relationship is not None:
+                    if relationship_history is None or relationship_audit_event is None:
+                        raise IssueValidationError(
+                            "Issue relationship history and audit event are required."
+                        )
+                    self._insert_relationship(
+                        issue,
+                        relationship,
+                        relationship_history,
+                        source_event_occurred_at,
+                    )
+            audit_outbox.stage(audit_event)
+            if existing is None and relationship_audit_event is not None:
+                audit_outbox.stage(relationship_audit_event)
+        return self.get(issue_id)
+
+    def transition_status(
+        self,
+        issue_id: str,
+        expected_status: IssueStatus,
+        target_status: IssueStatus,
+        updated_at: datetime,
+        history: IssueHistoryEntry,
+        *,
+        expected_version: int,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: SQLiteTransactionalAudit,
+    ) -> DataQualityIssue:
+        self._require_shared_audit_transaction(audit_outbox)
+        with self._lock, self.connection:
+            row = self.connection.execute(
+                "SELECT status, version FROM data_quality_issues WHERE issue_id = ?",
+                (issue_id,),
+            ).fetchone()
+            if row is None:
+                raise IssueNotFoundError("Issue not found.")
+            if IssueStatus(row["status"]) is not expected_status:
+                raise IssueValidationError("Issue status transition is no longer valid.")
+            if row["version"] != expected_version:
+                raise IssueConflictError("Issue status version changed.")
+            self.connection.execute(
+                """
+                UPDATE data_quality_issues
+                SET status = ?, updated_at = ?, version = version + 1
+                WHERE issue_id = ?
+                """,
+                (target_status.value, updated_at.isoformat(), issue_id),
+            )
+            self._insert_history(history)
+            audit_outbox.stage(audit_event)
+        return self.get(issue_id)
+
+    def update_assignment(
+        self,
+        issue_id: str,
+        *,
+        expected_version: int,
+        expected_status: IssueStatus,
+        expected_assignee_user_id: str,
+        expected_priority: IssuePriority,
+        assignee_user_id: str,
+        priority: IssuePriority,
+        updated_at: datetime,
+        history: IssueHistoryEntry,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: SQLiteTransactionalAudit,
+        notification_batch: object = None,
+    ) -> DataQualityIssue:
+        self._require_shared_audit_transaction(audit_outbox)
+        with self._lock, self.connection:
+            cursor = self.connection.execute(
+                """
+                UPDATE data_quality_issues
+                SET status = ?, assignee_user_id = ?, priority = ?, updated_at = ?,
+                    version = version + 1
+                WHERE issue_id = ? AND version = ? AND status = ?
+                    AND assignee_user_id = ? AND priority = ?
+                """,
+                (
+                    IssueStatus.ASSIGNED.value,
+                    assignee_user_id,
+                    priority.value,
+                    updated_at.isoformat(),
+                    issue_id,
+                    expected_version,
+                    expected_status.value,
+                    expected_assignee_user_id,
+                    expected_priority.value,
+                ),
+            )
+            if cursor.rowcount != 1:
+                exists = self.connection.execute(
+                    "SELECT 1 FROM data_quality_issues WHERE issue_id = ?",
+                    (issue_id,),
+                ).fetchone()
+                if exists is None:
+                    raise IssueNotFoundError("Issue not found.")
+                raise IssueValidationError("Issue assignment is no longer valid.")
+            self._insert_history(history)
+            audit_outbox.stage(audit_event)
+        return self.get(issue_id)
+
+    def resolve(
+        self,
+        issue_id: str,
+        *,
+        expected_version: int,
+        expected_status: IssueStatus,
+        expected_assignee_user_id: str,
+        resolution: IssueResolutionRecord,
+        updated_at: datetime,
+        history: IssueHistoryEntry,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: SQLiteTransactionalAudit,
+    ) -> DataQualityIssue:
+        self._require_shared_audit_transaction(audit_outbox)
+        with self._lock, self.connection:
+            cursor = self.connection.execute(
+                """
+                UPDATE data_quality_issues
+                SET status = ?, updated_at = ?, version = version + 1
+                WHERE issue_id = ? AND version = ? AND status = ? AND assignee_user_id = ?
+                """,
+                (
+                    IssueStatus.RESOLVED.value,
+                    updated_at.isoformat(),
+                    issue_id,
+                    expected_version,
+                    expected_status.value,
+                    expected_assignee_user_id,
+                ),
+            )
+            if cursor.rowcount != 1:
+                exists = self.connection.execute(
+                    "SELECT 1 FROM data_quality_issues WHERE issue_id = ?",
+                    (issue_id,),
+                ).fetchone()
+                if exists is None:
+                    raise IssueNotFoundError("Issue not found.")
+                raise IssueValidationError("Issue resolution is no longer valid.")
+            self.connection.execute(
+                """
+                INSERT INTO issue_resolutions (
+                    resolution_id, issue_id, root_cause, corrective_action,
+                    evidence_reference_id, completed_at, protection_policy_version,
+                    created_by, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    resolution.resolution_id,
+                    resolution.issue_id,
+                    resolution.root_cause,
+                    resolution.corrective_action,
+                    resolution.evidence_reference_id,
+                    resolution.completed_at.isoformat(),
+                    resolution.protection_policy_version,
+                    resolution.created_by,
+                    resolution.created_at.isoformat(),
+                ),
+            )
+            self._insert_history(history)
+            audit_outbox.stage(audit_event)
+        return self.get(issue_id)
+
+    def record_verification(
+        self,
+        issue_id: str,
+        *,
+        expected_status: IssueStatus,
+        target_status: IssueStatus,
+        verification: IssueVerificationRecord,
+        updated_at: datetime,
+        history: IssueHistoryEntry,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: SQLiteTransactionalAudit,
+    ) -> DataQualityIssue:
+        self._require_shared_audit_transaction(audit_outbox)
+        with self._lock, self.connection:
+            cursor = self.connection.execute(
+                """
+                UPDATE data_quality_issues
+                SET status = ?, updated_at = ?, version = version + 1
+                WHERE issue_id = ? AND status = ?
+                """,
+                (
+                    target_status.value,
+                    updated_at.isoformat(),
+                    issue_id,
+                    expected_status.value,
+                ),
+            )
+            if cursor.rowcount != 1:
+                exists = self.connection.execute(
+                    "SELECT 1 FROM data_quality_issues WHERE issue_id = ?",
+                    (issue_id,),
+                ).fetchone()
+                if exists is None:
+                    raise IssueNotFoundError("Issue not found.")
+                raise IssueValidationError("Issue verification is no longer valid.")
+            self.connection.execute(
+                """
+                INSERT INTO issue_verifications (
+                    verification_id, issue_id, verification_reference_id,
+                    execution_id, score_id, scope_type, scope_id, outcome,
+                    completed_at, recorded_by, recorded_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    verification.verification_id,
+                    verification.issue_id,
+                    verification.verification_reference_id,
+                    verification.execution_id,
+                    verification.score_id,
+                    verification.scope_type.value,
+                    verification.scope_id,
+                    verification.outcome.value,
+                    verification.completed_at.isoformat(),
+                    verification.recorded_by,
+                    verification.recorded_at.isoformat(),
+                ),
+            )
+            self._insert_history(history)
+            audit_outbox.stage(audit_event)
+        return self.get(issue_id)
+
+    def get(self, issue_id: str) -> DataQualityIssue:
+        with self._lock:
+            row = self.connection.execute(
+                "SELECT * FROM data_quality_issues WHERE issue_id = ?",
+                (issue_id,),
+            ).fetchone()
+        if row is None:
+            raise IssueNotFoundError("Issue not found.")
+        return _row_to_issue(row)
+
+    def list_issues_for_scopes(
+        self,
+        allowed_source_ids: frozenset[str],
+        allowed_dataset_ids: frozenset[str],
+        *,
+        limit: int = 100,
+    ) -> list[DataQualityIssue]:
+        """Yalnız güvenilir kaynak veya dataset kapsamındaki son sorunları döndürür."""
+
+        if not 1 <= limit <= 100:
+            raise IssueValidationError("Issue query limit must be between 1 and 100.")
+        clauses: list[str] = []
+        parameters: list[str | int] = []
+        if allowed_source_ids:
+            source_ids = sorted(allowed_source_ids)
+            placeholders = ", ".join("?" for _ in source_ids)
+            clauses.append(f"(scope_type = 'SOURCE' AND scope_id IN ({placeholders}))")
+            parameters.extend(source_ids)
+        if allowed_dataset_ids:
+            dataset_ids = sorted(allowed_dataset_ids)
+            placeholders = ", ".join("?" for _ in dataset_ids)
+            clauses.append(f"(scope_type = 'DATASET' AND scope_id IN ({placeholders}))")
+            parameters.extend(dataset_ids)
+        if not clauses:
+            return []
+        parameters.append(limit)
+        with self._lock:
+            rows = self.connection.execute(
+                f"""
+                SELECT * FROM data_quality_issues
+                WHERE {" OR ".join(clauses)}
+                ORDER BY updated_at DESC, issue_id DESC
+                LIMIT ?
+                """,
+                parameters,
+            ).fetchall()
+        return [_row_to_issue(row) for row in rows]
+
+    def list_history(self, issue_id: str) -> tuple[IssueHistoryEntry, ...]:
+        with self._lock:
+            rows = self.connection.execute(
+                """
+                SELECT * FROM issue_history
+                WHERE issue_id = ?
+                ORDER BY sequence_no
+                """,
+                (issue_id,),
+            ).fetchall()
+        return tuple(_row_to_history(row) for row in rows)
+
+    def get_history(self, history_id: str) -> IssueHistoryEntry:
+        with self._lock:
+            row = self.connection.execute(
+                "SELECT * FROM issue_history WHERE history_id = ?",
+                (history_id,),
+            ).fetchone()
+        if row is None:
+            raise IssueNotFoundError("Issue history not found.")
+        return _row_to_history(row)
+
+    def get_latest_resolution(self, issue_id: str) -> IssueResolutionRecord:
+        with self._lock:
+            row = self.connection.execute(
+                """
+                SELECT * FROM issue_resolutions
+                WHERE issue_id = ?
+                ORDER BY sequence_no DESC
+                LIMIT 1
+                """,
+                (issue_id,),
+            ).fetchone()
+        if row is None:
+            raise IssueNotFoundError("Issue resolution not found.")
+        return _row_to_resolution(row)
+
+    def get_latest_verification(self, issue_id: str) -> IssueVerificationRecord:
+        with self._lock:
+            row = self.connection.execute(
+                """
+                SELECT * FROM issue_verifications
+                WHERE issue_id = ?
+                ORDER BY sequence_no DESC
+                LIMIT 1
+                """,
+                (issue_id,),
+            ).fetchone()
+        if row is None:
+            raise IssueNotFoundError("Issue verification not found.")
+        return _row_to_verification(row)
+
+    def list_relationships(self, issue_id: str) -> tuple[IssueRelationship, ...]:
+        with self._lock:
+            rows = self.connection.execute(
+                """
+                SELECT * FROM issue_relationships
+                WHERE predecessor_issue_id = ? OR successor_issue_id = ?
+                ORDER BY sequence_no
+                """,
+                (issue_id, issue_id),
+            ).fetchall()
+        return tuple(_row_to_relationship(row) for row in rows)
+
+    def count(self) -> int:
+        with self._lock:
+            return self.connection.execute("SELECT COUNT(*) FROM data_quality_issues").fetchone()[0]
+
+    def _insert_history(self, history: IssueHistoryEntry) -> None:
+        self.connection.execute(
+            """
+            INSERT INTO issue_history (
+                history_id, issue_id, action, actor_id,
+                old_status, new_status, old_assignee_user_id,
+                new_assignee_user_id, old_priority, new_priority,
+                occurred_at, resolution_id, verification_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                history.history_id,
+                history.issue_id,
+                history.action,
+                history.actor_id,
+                history.old_status.value if history.old_status else None,
+                history.new_status.value,
+                history.old_assignee_user_id,
+                history.new_assignee_user_id,
+                history.old_priority.value if history.old_priority else None,
+                history.new_priority.value if history.new_priority else None,
+                history.occurred_at.isoformat(),
+                history.resolution_id,
+                history.verification_id,
+            ),
+        )
+
+    def _insert_relationship(
+        self,
+        successor: DataQualityIssue,
+        relationship: IssueRelationship,
+        history: IssueHistoryEntry,
+        source_event_occurred_at: datetime,
+    ) -> None:
+        if (
+            relationship.successor_issue_id != successor.issue_id
+            or relationship.predecessor_issue_id == successor.issue_id
+            or relationship.relationship_type is not IssueRelationshipType.RECURRENCE
+            or history.issue_id != relationship.predecessor_issue_id
+            or history.old_status is not IssueStatus.CLOSED
+            or history.new_status is not IssueStatus.CLOSED
+        ):
+            raise IssueRelationshipError("Issue relationship is inconsistent.")
+        predecessor = self.connection.execute(
+            """
+            SELECT source_event_type, trigger_type, scope_type, scope_id, status, updated_at
+            FROM data_quality_issues
+            WHERE issue_id = ?
+            """,
+            (relationship.predecessor_issue_id,),
+        ).fetchone()
+        if predecessor is None:
+            raise IssueRelationshipError("Predecessor issue was not found.")
+        if IssueStatus(predecessor["status"]) is not IssueStatus.CLOSED:
+            raise IssueRelationshipError("Predecessor issue must be closed.")
+        if (
+            IssueSourceEventType(predecessor["source_event_type"])
+            is not IssueSourceEventType.QUALITY
+            or successor.source_event_type is not IssueSourceEventType.QUALITY
+        ):
+            raise IssueRelationshipError("Only quality issues can be related as recurrence.")
+        if (
+            IssueTriggerType(predecessor["trigger_type"]) is not successor.trigger_type
+            or IssueScopeType(predecessor["scope_type"]) is not successor.scope_type
+            or predecessor["scope_id"] != successor.scope_id
+        ):
+            raise IssueRelationshipError("Predecessor issue scope or trigger does not match.")
+        if source_event_occurred_at < datetime.fromisoformat(predecessor["updated_at"]):
+            raise IssueRelationshipError("Related quality event predates issue closure.")
+        self.connection.execute(
+            """
+            INSERT INTO issue_relationships (
+                relationship_id, predecessor_issue_id, successor_issue_id,
+                relationship_type, created_at
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                relationship.relationship_id,
+                relationship.predecessor_issue_id,
+                relationship.successor_issue_id,
+                relationship.relationship_type.value,
+                relationship.created_at.isoformat(),
+            ),
+        )
+        self._insert_history(history)
+
+    def _require_shared_audit_transaction(self, audit_outbox: SQLiteTransactionalAudit) -> None:
+        if audit_outbox.connection is not self.connection:
+            raise IssueValidationError("Audit outbox must share the issue transaction.")
+
+
+def _row_to_issue(row: sqlite3.Row) -> DataQualityIssue:
+    return DataQualityIssue(
+        issue_id=row["issue_id"],
+        issue_no=row["issue_no"],
+        source_event_id=row["source_event_id"],
+        source_event_type=IssueSourceEventType(row["source_event_type"]),
+        trigger_type=IssueTriggerType(row["trigger_type"]),
+        scope_type=IssueScopeType(row["scope_type"]),
+        scope_id=row["scope_id"],
+        status=IssueStatus(row["status"]),
+        priority=IssuePriority(row["priority"]),
+        assignee_user_id=row["assignee_user_id"],
+        deduplication_key_digest=row["deduplication_key_digest"],
+        occurrence_count=row["occurrence_count"],
+        version=row["version"],
+        created_at=datetime.fromisoformat(row["created_at"]),
+        updated_at=datetime.fromisoformat(row["updated_at"]),
+        last_seen_at=datetime.fromisoformat(row["last_seen_at"]),
+    )
+
+
+def _row_to_history(row: sqlite3.Row) -> IssueHistoryEntry:
+    return IssueHistoryEntry(
+        history_id=row["history_id"],
+        issue_id=row["issue_id"],
+        action=row["action"],
+        actor_id=row["actor_id"],
+        old_status=IssueStatus(row["old_status"]) if row["old_status"] else None,
+        new_status=IssueStatus(row["new_status"]),
+        occurred_at=datetime.fromisoformat(row["occurred_at"]),
+        old_assignee_user_id=row["old_assignee_user_id"],
+        new_assignee_user_id=row["new_assignee_user_id"],
+        old_priority=IssuePriority(row["old_priority"]) if row["old_priority"] else None,
+        new_priority=IssuePriority(row["new_priority"]) if row["new_priority"] else None,
+        resolution_id=row["resolution_id"],
+        verification_id=row["verification_id"],
+    )
+
+
+def _row_to_resolution(row: sqlite3.Row) -> IssueResolutionRecord:
+    return IssueResolutionRecord(
+        resolution_id=row["resolution_id"],
+        issue_id=row["issue_id"],
+        root_cause=row["root_cause"],
+        corrective_action=row["corrective_action"],
+        evidence_reference_id=row["evidence_reference_id"],
+        completed_at=datetime.fromisoformat(row["completed_at"]),
+        protection_policy_version=row["protection_policy_version"],
+        created_by=row["created_by"],
+        created_at=datetime.fromisoformat(row["created_at"]),
+    )
+
+
+def _row_to_verification(row: sqlite3.Row) -> IssueVerificationRecord:
+    return IssueVerificationRecord(
+        verification_id=row["verification_id"],
+        issue_id=row["issue_id"],
+        verification_reference_id=row["verification_reference_id"],
+        execution_id=row["execution_id"],
+        score_id=row["score_id"],
+        scope_type=IssueScopeType(row["scope_type"]),
+        scope_id=row["scope_id"],
+        outcome=IssueVerificationOutcome(row["outcome"]),
+        completed_at=datetime.fromisoformat(row["completed_at"]),
+        recorded_by=row["recorded_by"],
+        recorded_at=datetime.fromisoformat(row["recorded_at"]),
+    )
+
+
+def _row_to_relationship(row: sqlite3.Row) -> IssueRelationship:
+    return IssueRelationship(
+        relationship_id=row["relationship_id"],
+        predecessor_issue_id=row["predecessor_issue_id"],
+        successor_issue_id=row["successor_issue_id"],
+        relationship_type=IssueRelationshipType(row["relationship_type"]),
+        created_at=datetime.fromisoformat(row["created_at"]),
+    )

@@ -7,7 +7,7 @@ audit varlıklarını yeniden kullanır. Bağımsız yaşam döngüsü gereken
 `UseCaseScoreProfile`, `RunManifest`, `EvidenceItem`, `EvidenceLink`, ayrı
 `ConfidenceAssessment` türleri, lineage/değişiklik/teşhis, öneri/remediation,
 etki/kalite borcu, veri kontratı, chaos ve kanıt paketi mantıksal varlıkları
-[kanonik veri modeli](../../01-SRS/07-Veri-Modeli/Kanit-ve-Karar-Destegi-Varliklari.md)
+[kanonik veri modeli](../../docs/srs/07-Veri-Modeli/Kanit-ve-Karar-Destegi-Varliklari.md)
 belgesinde tanımlıdır. Bunlar migration uygulanmış tablo envanteri değildir.
 
 ## Domain Kavramları
@@ -62,8 +62,8 @@ katılmaz. Bu ayrım bilinçli ve kodla doğrulanmıştır.
 ## Mevcut Runtime Skorlama Modeli
 
 Bu bölüm kodun bugünkü davranışını tarif eder. Kabul edilen hedef sözleşme
-`DQ-SCR-001`–`DQ-SCR-033`, [ADR-015](../../02-Mimari/Mimari-Kararlar.md) ve
-[kanonik skorlama/ölçüm yeterliliği tasarımı](../../02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md)
+`DQ-SCR-001`–`DQ-SCR-033`, [ADR-015](../../architecture/Mimari-Kararlar.md) ve
+[kanonik skorlama/ölçüm yeterliliği tasarımı](../../architecture/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md)
 ile tanımlanmıştır; aşağıdaki mevcut davranışların tamamı hedef mimari değildir.
 
 ### Kural Skoru

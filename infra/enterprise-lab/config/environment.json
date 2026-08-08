@@ -1,0 +1,21 @@
+{
+  "schema_version": 2,
+  "lab_id": "ENTERPRISE-LAB-01",
+  "policy_version": "ENTERPRISE-LAB-01-v1",
+  "classification": "PrototypeVerified",
+  "trust_contract_version": "27A-trusted-source-v1",
+  "environment": "LOCAL",
+  "data_origin": "SYNTHETIC",
+  "secret_reference": "secret://local/enterprise-lab",
+  "max_evidence_age_seconds": 3600,
+  "endpoints": {
+    "identity": "http://keycloak:8080",
+    "secret_manager": "http://local-secret-manager:8080",
+    "postgres_primary": "postgresql://postgres-primary:5432",
+    "postgres_standby": "postgresql://postgres-standby:5432",
+    "message_broker": "amqp://rabbitmq:5672",
+    "servicenow": "http://fake-servicenow:8080",
+    "siem": "http://siem-collector:8080",
+    "evidence_store": "http://evidence-store:8080"
+  }
+}

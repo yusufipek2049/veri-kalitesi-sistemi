@@ -1,0 +1,93 @@
+services:
+  postgres:
+    build:
+      context: ../..
+      dockerfile: infra/development/postgres/Dockerfile
+    environment:
+      POSTGRES_DB: data_quality
+      POSTGRES_USER: dq_app
+      POSTGRES_PASSWORD: ${DQ_POSTGRES_PASSWORD:?set DQ_POSTGRES_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dq_app -d data_quality"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "55432:5432"
+    volumes:
+      - dq-postgres:/var/lib/postgresql/data
+      - dq-postgres-tls:/run/postgres-tls
+      - ./runtime-secrets/data-sources:/run/secrets/data-sources:ro
+
+  migrate:
+    build:
+      context: ../..
+      dockerfile: infra/application/Dockerfile
+    command: ["alembic", "-c", "alembic.ini", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment: &api-environment
+      DATA_QUALITY_DATABASE_URL: postgresql+psycopg://dq_app:${DQ_POSTGRES_PASSWORD}@postgres:5432/data_quality
+      DATA_QUALITY_DATABASE_SCHEMA: dq
+      DATA_QUALITY_RUNTIME_ENVIRONMENT: development
+      DATA_QUALITY_ALLOWED_ORIGINS: http://127.0.0.1:5173,http://localhost:5173
+      DATA_QUALITY_ACTOR_POLICY_VERSION: DEVELOPMENT_DASHBOARD_POLICY_V1
+      DATA_QUALITY_LOCAL_SECRET_DIR: /run/secrets/data-sources
+
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/application/Dockerfile
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment: *api-environment
+    ports:
+      - "8000:8000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./runtime-secrets/data-sources:/run/secrets/data-sources:ro
+      - dq-postgres-tls:/run/postgres-tls:ro
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: infra/application/Dockerfile
+    command: ["dq-worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      <<: *api-environment
+      DQ_WORKER_ID: worker-dev-01
+      DQ_WORKER_HOSTNAME: worker-dev-01
+      DQ_WORKER_CAPACITY: "1"
+    read_only: true
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./runtime-secrets/data-sources:/run/secrets/data-sources:ro
+      - dq-postgres-tls:/run/postgres-tls:ro
+
+  frontend:
+    image: node:22.17-alpine
+    working_dir: /workspace/frontend
+    command: ["sh", "-c", "npm ci && npm run dev -- --host 0.0.0.0"]
+    depends_on:
+      api:
+        condition: service_started
+    environment:
+      VITE_API_PROXY_TARGET: http://api:8000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ../..:/workspace
+      - frontend-node-modules:/workspace/frontend/node_modules
+
+volumes:
+  dq-postgres:
+  dq-postgres-tls:
+  frontend-node-modules:

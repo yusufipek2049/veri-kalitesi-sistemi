@@ -29,7 +29,7 @@ reddedilir.
 
 İkinci faz kanıt, lineage, öneri, yeniden üretim, remediation, chaos ve kanıt
 paketi operasyon sınıfları `FR-097–FR-111` ile tanımlıdır. Nihai endpoint adları
-uydurulmamış; [kanonik hedef mimaride](../../02-Mimari/Kanita-Dayali-Karar-Sistemi.md)
+uydurulmamış; [kanonik hedef mimaride](../../architecture/Kanita-Dayali-Karar-Sistemi.md)
 işlem sınıfı, IAM, idempotency ve uzun iş davranışı belirlenmiştir.
 
 ## Python Servis API Envanteri
@@ -53,7 +53,7 @@ Bu yüzeyler HTTP endpoint'i değil, application/domain servis metotlarıdır.
 | `IncidentResponseService` | incident/breach/decision/timeline | Güvenilir roller, farklı karar aktörü |
 
 `DQ-SCR-001`–`DQ-SCR-033` ve
-[kanonik tasarım](../../02-Mimari/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md)
+[kanonik tasarım](../../architecture/Veri-Kalitesi-Skorlama-ve-Olcum-Yeterliligi.md)
 hedefinde HTTP skorlama yanıtı `raw_quality_score`, `final_quality_score`,
 `quality_status`, `measurement_qualification_status`, `critical_rule_status`,
 `usage_decision`, `execution_status`, kapsam/örneklem/güven/geçerlilik,

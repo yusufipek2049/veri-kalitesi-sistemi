@@ -1,0 +1,28 @@
+{
+  "threshold": 6,
+  "minLines": 5,
+  "maxLines": 1000,
+  "languages": [
+    { "language": "python", "extensions": [".py"] },
+    { "language": "typescript", "extensions": [".ts", ".tsx"] }
+  ],
+  "ignore": [
+    "node_modules/**",
+    "dist/**",
+    "build/**",
+    "build/**",
+    ".git/**",
+    "__pycache__/**",
+    ".pytest_cache/**",
+    ".ruff_cache/**",
+    ".mypy_cache/**",
+    "archive/**",
+    "graphify-out/**",
+    "docs/**",
+    "alembic/versions/**",
+    "*.test.*",
+    "*.spec.*"
+  ],
+  "reporters": ["console"],
+  "output": "./build/jscpd/report.json"
+}

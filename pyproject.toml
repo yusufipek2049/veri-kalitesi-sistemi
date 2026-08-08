@@ -16,16 +16,103 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
+    "complexipy==6.2.0",
     "httpx==0.28.1",
     "pytest==9.0.3",
+    "pytest-cov==7.1.0",
     "python-dotenv==1.2.2",
+    "vulture==2.16",
 ]
 
+[project.scripts]
+dq-worker = "veri_kalitesi.jobs.entrypoint:main"
+
 [tool.pytest.ini_options]
-pythonpath = ["03-Backend/src", "06-Testler/support"]
-testpaths = ["06-Testler"]
+pythonpath = ["src", "tests/support"]
+testpaths = ["tests"]
 python_files = ["test_*.py"]
+addopts = [
+    "--cov=src",
+    "--cov-report=term-missing",
+    "--cov-report=html:build/coverage/python",
+    "--cov-report=json:build/coverage/python/coverage.json",
+]
+
+# ── Coverage thresholds (advisory; not yet blocking) ──
+# Minimum coverage percentages per-category.  These are documented here for
+# baseline tracking; enforcement will be enabled in a future iteration once
+# the baseline is established in docs/quality/TOOL_BASELINE.md.
+# [tool.coverage.report]
+# fail_under = 70
+# show_missing = true
+# exclude_lines = [
+#     "pragma: no cover",
+#     "if TYPE_CHECKING:",
+#     "\\.\\.\\.",
+#     "raise NotImplementedError",
+# ]
 
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+exclude = [
+    "tools/semgrep/tests/**.py",   # Semgrep fixtures — intentionally contain errors
+    "tools/semgrep/rules/**/**.py", # Semgrep fixtures — intentionally contain errors
+]
+
+# ── Blocking rules (CI gate) ──
+# Only E (pycodestyle errors) and F (Pyflakes) are enforced in CI.
+# Extended advisory rules are defined in scripts/check_quality.sh and
+# reported in docs/quality/TOOL_BASELINE.md.
+[tool.ruff.lint]
+select = ["E", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+# Alembic migrations contain long SQL strings that cannot be wrapped.
+"alembic/versions/*" = ["E501"]
+
+# ── Extended advisory rules (non-blocking) ──
+# Run with:  ruff check --select E,F,W,I,B,UP,SIM,TCH,A,PTH,RUF .
+# These will be promoted to blocking after legacy violations are resolved.
+# Full rule list:
+#   W   - pycodestyle warnings
+#   I   - isort
+#   B   - flake8-bugbear
+#   UP  - pyupgrade
+#   SIM - flake8-simplify
+#   TCH - flake8-type-checking
+#   A   - flake8-builtins
+#   PTH - flake8-use-pathlib
+#   RUF - Ruff-specific rules
+
+# ── mypy ──
+# Baseline: 72 errors in 20 files (pre-existing).
+# Strict mode is documented here but NOT yet enabled in CI.
+# Enable incrementally per-module as violations are resolved.
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+check_untyped_defs = true
+ignore_missing_imports = true
+exclude = ["tests/", "alembic/"]
+
+# ── Vulture ──
+# Dead-code detection.  Whitelist file lists symbols that appear unused but
+# are actually referenced (framework callbacks, Pydantic fields, etc.).
+# Run:  vulture src/ --min-confidence 80
+[tool.vulture]
+paths = ["src/"]
+min_confidence = 80
+
+# Cognitive complexity is a human-readability signal, not a correctness gate.
+# Existing findings remain advisory; new/refactored functions should stay at
+# or below the threshold unless the domain logic genuinely requires otherwise.
+[tool.complexipy]
+paths = ["src"]
+max-complexity-allowed = 15
+exclude = ["tests/**", "alembic/**", "tools/**"]
+check-script = false
+color = "auto"
+sort = "desc"

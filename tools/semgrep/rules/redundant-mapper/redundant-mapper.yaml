@@ -1,0 +1,22 @@
+rules:
+  - id: redundant-mapper
+    patterns:
+      - pattern: |
+          def $F($X):
+              return $X
+      - pattern-not: |
+          def $F($X: $T) -> $T:
+              return $X
+    message: >
+      Function `$F` returns its argument unchanged. This is a no-op mapper
+      that adds call overhead without transformation. If it serves as a
+      default/fallback callable (strategy pattern), add a comment. Otherwise
+      remove it and use the value directly.
+    severity: WARNING
+    languages: [python]
+    metadata:
+      category: code-smell
+      precision: medium
+      confidence: medium
+      technology:
+        - python

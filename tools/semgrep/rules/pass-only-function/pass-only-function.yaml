@@ -1,0 +1,17 @@
+rules:
+  - id: pass-only-function
+    pattern: |
+      def $F(...):
+          pass
+    message: >
+      Function `$F` contains only `pass`. This is likely dead code or an
+      unimplemented stub. If intentional (e.g. callback placeholder), add a
+      docstring explaining why.
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: code-smell
+      precision: high
+      confidence: high
+      technology:
+        - python

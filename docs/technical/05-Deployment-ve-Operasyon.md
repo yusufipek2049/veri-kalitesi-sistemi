@@ -7,7 +7,7 @@ reproduction başarısı, öneri kabul/başarı, rollback, chaos detection cover
 MTTD, MTTDiagnosis, MTTR ve olay tekrar oranını log/metric/trace correlation ile
 izlemeyi hedefler. Remediation `SuggestOnly` güvenli varsayılanıyla başlar;
 dry-run, canary, yeniden doğrulama, rollback ve alarm olmadan yükseltilemez.
-Operatör akışı [runbook'ta](../../07-Operasyon/Kanita-Dayali-Karar-ve-Remediation-Runbook.md)
+Operatör akışı [runbook'ta](../../docs/operations/Kanita-Dayali-Karar-ve-Remediation-Runbook.md)
 tanımlıdır; bu hedef çalışan üretim altyapısı değildir.
 
 ## Mevcut Çalıştırılabilirlik
@@ -19,12 +19,12 @@ yüzeyler testler ve güvenli SDLC CLI modülleridir.
 ```bash
 python3 -m pytest -q
 python3 -m ruff check .
-python3 -m compileall -q 03-Backend/src 06-Testler
-PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc .
-PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc.sbom pyproject.toml
-PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc.evidence 08-Uyum-Kanitlari/Surum-Paketleri/Iterasyon-29A-Teknik-Kanit-Katalogu.json .
-PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc.evidence_gate 08-Uyum-Kanitlari/Surum-Paketleri/Iterasyon-29A-Teknik-Kanit-Katalogu.json 08-Uyum-Kanitlari/Surum-Paketleri/Iterasyon-29A-Teknik-Kanit-Manifesti.json .
-PYTHONPATH=03-Backend/src python3 -m veri_kalitesi.secure_sdlc.preflight <rapor-paketi.json> .
+python3 -m compileall -q docs/backend/src tests
+PYTHONPATH=docs/backend/src python3 -m veri_kalitesi.secure_sdlc .
+PYTHONPATH=docs/backend/src python3 -m veri_kalitesi.secure_sdlc.sbom pyproject.toml
+PYTHONPATH=docs/backend/src python3 -m veri_kalitesi.secure_sdlc.evidence docs/compliance/Surum-Paketleri/Iterasyon-29A-Teknik-Kanit-Katalogu.json .
+PYTHONPATH=docs/backend/src python3 -m veri_kalitesi.secure_sdlc.evidence_gate docs/compliance/Surum-Paketleri/Iterasyon-29A-Teknik-Kanit-Katalogu.json docs/compliance/Surum-Paketleri/Iterasyon-29A-Teknik-Kanit-Manifesti.json .
+PYTHONPATH=docs/backend/src python3 -m veri_kalitesi.secure_sdlc.preflight <rapor-paketi.json> .
 ```
 
 `pyproject.toml` proje adı/sürümü, Python sınırı, iki runtime bağımlılığı ve

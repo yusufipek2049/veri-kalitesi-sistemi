@@ -8,10 +8,10 @@ güvenilir sınırlar içinde yazılabilir; kaynak üretim verisi değiştirilem
 ## Başlangıç
 
 1. [Dokümantasyon İndeksi](DOCUMENTATION_INDEX.md)
-2. [Mevcut Durum](00-Proje-Hafizasi/Mevcut-Durum.md)
+2. [Mevcut Durum](docs/memory/Mevcut-Durum.md)
 3. [Son Tamamlanan Çalışma Paketi](NEXT_STEP.md)
-4. [Aktif Backlog](00-Proje-Hafizasi/Sonraki-Adimlar.md)
-5. [Aktif Son Yedi İterasyon](09-Iterasyonlar/ITERASYON-INDEX.md)
+4. [Aktif Backlog](docs/memory/Sonraki-Adimlar.md)
+5. [Aktif Son Yedi İterasyon](docs/iterations/)
 
 ## Güncel Teknik Özet
 
@@ -38,10 +38,10 @@ güvenilir sınırlar içinde yazılabilir; kaynak üretim verisi değiştirilem
 
 | Alan | Kaynak |
 | --- | --- |
-| Gereksinimler/kabul | [SRS](01-SRS/SRS-INDEX.md) |
-| Mimari kararlar | [ADR](02-Mimari/Mimari-Kararlar.md) |
-| Kesinleşmiş diğer kararlar | [Karar indeksi](00-Proje-Hafizasi/Alinan-Kararlar.md) |
-| Açık kararlar | [Açık konular](00-Proje-Hafizasi/Acik-Konular.md) |
+| Gereksinimler/kabul | [SRS](docs/srs/) |
+| Mimari kararlar | [ADR](docs/architecture/Mimari-Kararlar.md) |
+| Kesinleşmiş diğer kararlar | [Karar indeksi](docs/memory/Alinan-Kararlar.md) |
+| Açık kararlar | [Açık konular](docs/memory/Acik-Konular.md) |
 | Uygulama/test/operasyon | [Dokümantasyon indeksi](DOCUMENTATION_INDEX.md) |
 | Tarihsel iterasyonlar | [Arşiv indeksi](archive/iterations/README.md) |
 
