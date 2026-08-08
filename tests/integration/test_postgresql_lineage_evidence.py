@@ -12,12 +12,9 @@ from uuid import uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
-from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, func, select, text
 from sqlalchemy.exc import IntegrityError
 
-from veri_kalitesi.api import create_dashboard_api
-from veri_kalitesi.api.identity import DevelopmentActorContextResolver
 from veri_kalitesi.audit.models import (
     AuditEventInput,
     AuditResult,
@@ -35,7 +32,6 @@ from veri_kalitesi.lineage import (
     LineageEventType,
     LineageSnapshotKind,
     LineageValidationError,
-    PostgreSQLGovernanceProfileReader,
     PostgreSQLLineageEvidenceRepository,
     build_governance_profile,
     governance_profile_snapshot,
@@ -194,66 +190,6 @@ def test_lineage_snapshot_kinds_and_digest_constraints_are_enforced(
         )
     with pg.session_factory() as session:
         assert session.scalar(select(func.count()).select_from(audit.table)) == 1
-
-
-def test_governance_projection_endpoint_serves_active_profile_from_evidence(
-    pg: PgFixture,
-) -> None:
-    repository = PostgreSQLLineageEvidenceRepository(
-        pg.session_factory,
-        schema=pg.schema,
-    )
-    audit = _audit(pg)
-    payload = governance_profile_snapshot(_profile(criticality="HIGH"))
-    stored = repository.add_snapshot(
-        LineageSnapshotKind.GOVERNANCE_PROFILE,
-        "dataset-1",
-        "1",
-        payload,
-        created_at=NOW,
-        audit_event=_event(audit, "GOVERNANCE_PROFILE", "dataset-1"),
-        audit_outbox=audit,
-    )
-    app = create_dashboard_api(
-        _NoopDashboardService(),
-        actor_context_resolver=DevelopmentActorContextResolver(
-            runtime_environment="development",
-            policy_version="TEST_POLICY_V1",
-            permitted_source_ids=frozenset(),
-            permitted_dataset_ids=frozenset({"dataset-1"}),
-            can_view_enterprise=False,
-            clock=lambda: NOW,
-        ),
-        data_origin="test",
-        lineage_evidence_repository=repository,
-        governance_profile_reader=PostgreSQLGovernanceProfileReader(
-            pg.session_factory, schema=pg.schema
-        ),
-        clock=lambda: NOW,
-    )
-    client = TestClient(app)
-
-    projection = client.get("/api/v1/governance/dataset-1/projection")
-
-    assert projection.status_code == 200
-    body = projection.json()
-    assert body["governance_profile_status"] == "ACTIVE"
-    assert body["governance_asset_ref"] == "dataset-1"
-    assert body["critical_asset_status"] == "HIGH"
-    assert body["risk_status"] == "UNKNOWN"
-    assert body["sla_status"] == "UNKNOWN"
-    assert projection.headers["cache-control"] == "no-store"
-
-    snapshot_response = client.get(f"/api/v1/lineage/snapshots/{stored.snapshot_id}")
-    assert snapshot_response.status_code == 200
-    snapshot_body = snapshot_response.json()
-    assert snapshot_body["snapshot_kind"] == "GOVERNANCE_PROFILE"
-    assert snapshot_body["subject_ref"] == "dataset-1"
-    assert snapshot_body["digest"] == payload["digest"]
-
-
-class _NoopDashboardService:
-    """Lineage endpoint testi için minimum dashboard servis double'ı."""
 
 
 def _audit(pg: PgFixture) -> PostgreSQLTransactionalAudit:

@@ -2,12 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   assigneeOptionsFromApi,
   evidenceComponentValueText,
-  governanceProjectionFromApi,
   investigationEvidenceFromApi,
-  isHypothesisSnapshotKind,
   issuesFromApi,
-  lineageSnapshotFromApi,
-  sourceClassLabel,
 } from "./model";
 
 describe("issue API modeli", () => {
@@ -130,82 +126,6 @@ describe("DS-05: title, source refs ve page-level available_actions", () => {
     expect(issue.title).toBe("");
     expect(issue.sourceExecutionId).toBeNull();
     expect(issue.sourceRuleVersionId).toBeNull();
-  });
-});
-
-describe("evidence investigation modeli", () => {
-  it("lineage snapshot yanıtını istemci modeline dönüştürür", () => {
-    const snapshot = lineageSnapshotFromApi({
-      api_version: "v1",
-      data_origin: "synthetic-test",
-      correlation_id: "snap-1",
-      snapshot_id: "snap-abc",
-      snapshot_kind: "LINEAGE_EVENTS",
-      subject_ref: "source-customer",
-      version_label: "v3",
-      digest: "sha256:abc123",
-      created_at: "2026-08-01T10:00:00Z",
-      payload: { events: [] },
-    });
-    expect(snapshot).toMatchObject({
-      snapshotId: "snap-abc",
-      snapshotKind: "LINEAGE_EVENTS",
-      subjectRef: "source-customer",
-      versionLabel: "v3",
-      digest: "sha256:abc123",
-    });
-  });
-
-  it("yönetişim projeksiyonunu istemci modeline dönüştürür", () => {
-    const projection = governanceProjectionFromApi({
-      api_version: "v1",
-      data_origin: "synthetic-test",
-      correlation_id: "gov-1",
-      asset_ref: "source-customer",
-      governance_profile_status: "ACTIVE",
-      governance_reason_codes: [],
-      governance_version: "GP_V1:source-customer:2",
-      governance_asset_ref: "source-customer",
-      critical_asset_status: "Observed",
-      risk_status: "Calculated",
-      sla_status: "UNKNOWN",
-    });
-    expect(projection).toMatchObject({
-      assetRef: "source-customer",
-      governanceProfileStatus: "ACTIVE",
-      criticalAssetStatus: "Observed",
-      riskStatus: "Calculated",
-      slaStatus: "Unknown",
-    });
-  });
-
-  it("geçersiz kaynak sınıflandırmasını Unknown'a çeker", () => {
-    const projection = governanceProjectionFromApi({
-      api_version: "v1",
-      data_origin: "test",
-      correlation_id: "gov-2",
-      asset_ref: "source-x",
-      governance_profile_status: "NO_ACTIVE_PROFILE",
-      governance_reason_codes: ["MISSING_CRITICALITY"],
-      governance_version: null,
-      governance_asset_ref: null,
-      critical_asset_status: "INVALID_TOKEN",
-      risk_status: "",
-      sla_status: "Estimated",
-    });
-    expect(projection.criticalAssetStatus).toBe("Unknown");
-    expect(projection.riskStatus).toBe("Unknown");
-    expect(projection.slaStatus).toBe("Estimated");
-  });
-
-  it("ROOT_CAUSE_HYPOTHESIS hipotez olarak işaretlenir", () => {
-    expect(isHypothesisSnapshotKind("ROOT_CAUSE_HYPOTHESIS")).toBe(true);
-    expect(isHypothesisSnapshotKind("LINEAGE_EVENTS")).toBe(false);
-  });
-
-  it("kaynak sınıflandırması etiketleri Türkçe'dir", () => {
-    expect(sourceClassLabel("Observed")).toBe("Gözlemlenen");
-    expect(sourceClassLabel("Unknown")).toBe("Bilinmeyen");
   });
 });
 

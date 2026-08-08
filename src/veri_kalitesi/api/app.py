@@ -56,7 +56,6 @@ from veri_kalitesi.api.executions_router import (
 from veri_kalitesi.api.scores_router import register_scores_routes
 from veri_kalitesi.api.audit_router import register_audit_routes
 from veri_kalitesi.api.notifications_router import register_notifications_routes
-from veri_kalitesi.api.lineage_router import register_lineage_routes
 from veri_kalitesi.audit.service import AuditQueryService
 from veri_kalitesi.data_sources.query import DataSourceQueryService
 from veri_kalitesi.executions.query import ExecutionQueryService
@@ -95,8 +94,6 @@ def create_dashboard_api(
     rule_creator_service: RuleCreatorService | None = None,
     rule_mutation_service: RuleMutationService | None = None,
     audit_query_service: AuditQueryService | None = None,
-    lineage_evidence_repository: PostgreSQLLineageEvidenceRepository | None = None,
-    governance_profile_reader: PostgreSQLGovernanceProfileReader | None = None,
     metadata_command_service: MetadataCommandService | None = None,
     catalog_query_service: CatalogService | None = None,
     score_query_service: ScoreQueryService | None = None,
@@ -234,14 +231,6 @@ def create_dashboard_api(
         notification_delivery_service=notification_delivery_service,
         resolver=resolver,
         data_origin=data_origin,
-    )
-    register_lineage_routes(
-        app,
-        lineage_evidence_repository=lineage_evidence_repository,
-        governance_profile_reader=governance_profile_reader,
-        resolver=resolver,
-        data_origin=data_origin,
-        clock=clock,
     )
 
     @app.post("/api/v1/session/logout", status_code=204, tags=["session"])

@@ -33,14 +33,6 @@ import { IssuesRoute } from "./issues/IssuesRoute";
 import { fetchChannels, fetchInbox, fetchSubscriptions, fetchUnreadCount, markDeliveryRead } from "./notifications/api";
 import { RulesRoute } from "./rules/RulesRoute";
 
-function InvestigationRoute() {
-  const params = new URLSearchParams(window.location.search);
-  const assetRef = params.get("assetRef") ?? "";
-  const snapshotId = params.get("snapshotId") ?? undefined;
-  return <InvestigationPage assetRef={assetRef} snapshotId={snapshotId} />;
-}
-
-const InvestigationPage = lazy(() => import("./issues/InvestigationPage").then((module) => ({ default: module.InvestigationPage })));
 const CatalogPage = lazy(() => import("./catalog/CatalogPage").then((module) => ({ default: module.CatalogPage })));
 const DatasetDetailPage = lazy(() => import("./catalog/DatasetDetailPage").then((module) => ({ default: module.DatasetDetailPage })));
 const FieldDetailPage = lazy(() => import("./catalog/FieldDetailPage").then((module) => ({ default: module.FieldDetailPage })));

@@ -1,5 +1,5 @@
 export type IssueState = "normal" | "loading" | "empty" | "error" | "unauthorized" | "long-content";
-export type IssueAction = "START_INVESTIGATION" | "REASSIGN" | "RESOLVE" | "VERIFY" | "CLOSE" | "CREATE_ISSUE";
+type IssueAction = "START_INVESTIGATION" | "REASSIGN" | "RESOLVE" | "VERIFY" | "CLOSE" | "CREATE_ISSUE";
 export type IssuePriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
 export interface IssueAssigneeOption {
@@ -129,88 +129,6 @@ export type EvidenceSourceClass =
   | "Estimated"
   | "Unknown";
 
-export type GovernanceProjectionStatus =
-  | "ACTIVE"
-  | "NO_ACTIVE_PROFILE"
-  | "AMBIGUOUS_EFFECTIVITY";
-
-export interface LineageSnapshot {
-  snapshotId: string;
-  snapshotKind: string;
-  subjectRef: string;
-  versionLabel: string;
-  digest: string;
-  createdAt: string;
-  payload: Record<string, unknown>;
-}
-
-export interface LineageSnapshotApiResponse {
-  api_version: "v1";
-  data_origin: string;
-  correlation_id: string;
-  snapshot_id: string;
-  snapshot_kind: string;
-  subject_ref: string;
-  version_label: string;
-  digest: string;
-  created_at: string;
-  payload: Record<string, unknown>;
-}
-
-export interface GovernanceProjection {
-  assetRef: string;
-  governanceProfileStatus: GovernanceProjectionStatus | string;
-  governanceReasonCodes: string[];
-  governanceVersion: string | null;
-  governanceAssetRef: string | null;
-  criticalAssetStatus: EvidenceSourceClass;
-  riskStatus: EvidenceSourceClass;
-  slaStatus: EvidenceSourceClass;
-}
-
-export interface GovernanceProjectionApiResponse {
-  api_version: "v1";
-  data_origin: string;
-  correlation_id: string;
-  asset_ref: string;
-  governance_profile_status: string;
-  governance_reason_codes: string[];
-  governance_version: string | null;
-  governance_asset_ref: string | null;
-  critical_asset_status: string;
-  risk_status: string;
-  sla_status: string;
-}
-
-export function lineageSnapshotFromApi(
-  response: LineageSnapshotApiResponse,
-): LineageSnapshot {
-  return {
-    snapshotId: response.snapshot_id,
-    snapshotKind: response.snapshot_kind,
-    subjectRef: response.subject_ref,
-    versionLabel: response.version_label,
-    digest: response.digest,
-    createdAt: response.created_at,
-    payload: response.payload,
-  };
-}
-
-export function governanceProjectionFromApi(
-  response: GovernanceProjectionApiResponse,
-): GovernanceProjection {
-  return {
-    assetRef: response.asset_ref,
-    governanceProfileStatus: response.governance_profile_status,
-    governanceReasonCodes: response.governance_reason_codes,
-    governanceVersion: response.governance_version,
-    governanceAssetRef: response.governance_asset_ref,
-    criticalAssetStatus: normalizeSourceClass(response.critical_asset_status),
-    riskStatus: normalizeSourceClass(response.risk_status),
-    slaStatus: normalizeSourceClass(response.sla_status),
-  };
-}
-
 const VALID_SOURCE_CLASSES: ReadonlySet<EvidenceSourceClass> = new Set([
   "Observed",
   "Calculated",
@@ -221,20 +139,6 @@ const VALID_SOURCE_CLASSES: ReadonlySet<EvidenceSourceClass> = new Set([
 function normalizeSourceClass(raw: string): EvidenceSourceClass {
   const normalized = raw.trim() as EvidenceSourceClass;
   return VALID_SOURCE_CLASSES.has(normalized) ? normalized : "Unknown";
-}
-
-export function isHypothesisSnapshotKind(snapshotKind: string): boolean {
-  return snapshotKind === "ROOT_CAUSE_HYPOTHESIS";
-}
-
-export function sourceClassLabel(sourceClass: EvidenceSourceClass): string {
-  const labels: Record<EvidenceSourceClass, string> = {
-    Observed: "Gözlemlenen",
-    Calculated: "Hesaplanan",
-    Estimated: "Tahmin edilen",
-    Unknown: "Bilinmeyen",
-  };
-  return labels[sourceClass];
 }
 
 // ---------------------------------------------------------------------------

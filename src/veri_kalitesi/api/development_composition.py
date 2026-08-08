@@ -25,7 +25,6 @@ from veri_kalitesi.api.development_execution_store import (
 from veri_kalitesi.api.development_fixtures import (
     DEVELOPMENT_RULES,
     DEVELOPMENT_SOURCES,
-    DEVELOPMENT_TREND_POLICY,
     POLICY_VERSION,
 )
 from veri_kalitesi.api.development_issue_store import DevelopmentIssueStore
@@ -54,7 +53,6 @@ from veri_kalitesi.audit.service import (
     AuditQueryService,
     AuditService,
 )
-from veri_kalitesi.dashboard import DashboardQueryService
 from veri_kalitesi.data_sources.query import DataSourceQueryService
 from veri_kalitesi.executions.postgresql_repository import (
     PostgreSQLExecutionRepository,
@@ -67,10 +65,6 @@ from veri_kalitesi.identity import (
 )
 from veri_kalitesi.issues import IssueQueryService
 from veri_kalitesi.jobs import PostgreSQLJobQueueRepository
-from veri_kalitesi.lineage import (
-    PostgreSQLGovernanceProfileReader,
-    PostgreSQLLineageEvidenceRepository,
-)
 from veri_kalitesi.persistence import SessionFactory
 from veri_kalitesi.reporting import (
     ReportExportPolicy,
@@ -322,21 +316,6 @@ def create_development_app(  # type: ignore[no-untyped-def]
         audit_service,
         clock=lambda: datetime.now(timezone.utc),
     )
-    governance_reader = (
-        PostgreSQLGovernanceProfileReader(session_factory) if session_factory is not None else None
-    )
-    lineage_evidence_repository = (
-        PostgreSQLLineageEvidenceRepository(session_factory)
-        if session_factory is not None
-        else None
-    )
-    service = DashboardQueryService(
-        repository,
-        authorization,
-        clock=lambda: datetime.now(timezone.utc),
-        governance_reader=governance_reader,
-        trend_policy=DEVELOPMENT_TREND_POLICY,
-    )
     development_origins = frozenset({"http://127.0.0.1:5173", "http://localhost:5173"})
     effective_registry = user_registry or DEVELOPMENT_USER_REGISTRY
     resolver = DevelopmentActorContextResolver(
@@ -373,7 +352,6 @@ def create_development_app(  # type: ignore[no-untyped-def]
         execution_start_service = execution_store  # type: ignore[assignment]
         execution_cancel_service = execution_store  # type: ignore[assignment]
     return create_dashboard_api(
-        service,
         rule_creator_service=rule_store,
         actor_context_resolver=resolver,
         allowed_origins=tuple(development_origins),
@@ -405,6 +383,4 @@ def create_development_app(  # type: ignore[no-untyped-def]
             clock=lambda: datetime.now(timezone.utc),
         ),
         clock=lambda: datetime.now(timezone.utc),
-        lineage_evidence_repository=lineage_evidence_repository,
-        governance_profile_reader=governance_reader,
     )
