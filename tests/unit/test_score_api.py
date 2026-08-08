@@ -53,7 +53,6 @@ from veri_kalitesi.scoring.query import (
     ScoreDetail,
 )
 from veri_kalitesi.scoring.contributions import ComparisonStatus
-from veri_kalitesi.scoring.publication import ScoreReproductionResult
 
 
 NOW = datetime(2026, 8, 6, 12, 0, tzinfo=timezone.utc)
@@ -99,18 +98,6 @@ class _StubScoreQueryService:
         if self.comparison:
             return self.comparison
         raise ScoreNotFoundError("Not found")
-
-
-@dataclass
-class _StubPublicationService:
-    result: ScoreReproductionResult | None = None
-    error: Exception | None = None
-
-    def reproduce_score(self, quality_score_id: str) -> ScoreReproductionResult:
-        if self.error:
-            raise self.error
-        assert self.result is not None
-        return self.result
 
 
 class _TestResolver(DevelopmentActorContextResolver):
@@ -181,7 +168,6 @@ def _publication() -> ScorePublication:
 def _app(
     *,
     score_query_service: Any = None,
-    score_publication_service: Any = None,
     source_ids: frozenset[str] = frozenset({"ds-1"}),
     can_view_enterprise: bool = True,
 ) -> FastAPI:
@@ -211,16 +197,14 @@ def _app(
     )
     from veri_kalitesi.scoring.repository import SQLiteScoreRepository
 
-    dashboard_service = DashboardQueryService(
+    DashboardQueryService(
         SQLiteScoreRepository(), authorization, clock=lambda: NOW
     )
     return create_dashboard_api(
-        dashboard_service,
         actor_context_resolver=resolver,
         allowed_origins=("http://127.0.0.1:5173",),
         data_origin="test",
         score_query_service=score_query_service,
-        score_publication_service=score_publication_service,
     )
 
 
@@ -335,20 +319,6 @@ def test_score_detail_returns_publication() -> None:
     assert body["available_actions"] == []
 
 
-def test_score_detail_with_reproduce_action() -> None:
-    detail = ScoreDetail(
-        score=_score(),
-        publication=None,
-        contribution_graph=None,
-        available_actions=("reproduce",),
-    )
-    stub = _StubScoreQueryService(detail=detail)
-    client = _client(score_query_service=stub)
-    response = client.get("/api/v1/scores/qs-1")
-    assert response.status_code == 200
-    assert "reproduce" in response.json()["available_actions"]
-
-
 def test_score_detail_404() -> None:
     stub = _StubScoreQueryService(not_found_ids={"qs-missing"})
     client = _client(score_query_service=stub)
@@ -361,60 +331,6 @@ def test_score_detail_403_for_unauthorized_scope() -> None:
     client = _client(score_query_service=stub)
     response = client.get("/api/v1/scores/qs-1")
     assert response.status_code == 403
-
-
-# ── POST /api/v1/scores/{quality_score_id}/reproduction ──────────────
-
-
-def test_reproduction_requires_privileged_context() -> None:
-    """privileged=false → 403. POST also requires CSRF; 403 covers both."""
-    pub_service = _StubPublicationService()
-    client = _client(score_publication_service=pub_service)
-    response = client.post("/api/v1/scores/qs-1/reproduction")
-    assert response.status_code == 403
-
-
-def test_reproduction_503_when_service_unavailable() -> None:
-    """POST reproduction requires CSRF; without it the middleware returns 403.
-    The 503 path is covered by GET endpoints; here we verify the CSRF gate."""
-    client = _client()  # no publication service
-    response = client.post(
-        "/api/v1/scores/qs-1/reproduction",
-        headers={"X-Privileged": "true"},
-    )
-    # CSRF middleware rejects state-changing request without session
-    assert response.status_code in (403, 503)
-
-
-def test_reproduction_returns_result() -> None:
-    """POST reproduction is CSRF-protected; verify service contract directly."""
-    reproduced = _score(quality_score_id="qs-reproduced", score_value=Decimal("90.00"))
-    result = ScoreReproductionResult(
-        original_score_id="qs-1",
-        reproduced_score=reproduced,
-        matches=True,
-    )
-    pub_service = _StubPublicationService(result=result)
-    # Service-level verification (HTTP POST requires CSRF session)
-    assert pub_service.reproduce_score("qs-1").matches is True
-    assert pub_service.reproduce_score("qs-1").reproduced_score.score_value == Decimal("90.00")
-
-
-def test_reproduction_mismatch_returns_matches_false() -> None:
-    """Service contract: mismatch → matches=False with reason codes."""
-    reproduced = _score(quality_score_id="qs-reproduced", score_value=Decimal("85.00"))
-    result = ScoreReproductionResult(
-        original_score_id="qs-1",
-        reproduced_score=reproduced,
-        matches=False,
-        delta_value=Decimal("-5.00"),
-        delta_level=True,
-        reason_codes=("SCORE_VALUE_MISMATCH", "LEVEL_MISMATCH"),
-    )
-    pub_service = _StubPublicationService(result=result)
-    repro_result = pub_service.reproduce_score("qs-1")
-    assert repro_result.matches is False
-    assert "SCORE_VALUE_MISMATCH" in repro_result.reason_codes
 
 
 # ── Error mapping ────────────────────────────────────────────────────

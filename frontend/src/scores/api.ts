@@ -2,7 +2,6 @@ import type {
   ScoreComparisonApiResponse,
   ScoreDetailApiResponse,
   ScoreListApiResponse,
-  ScoreReproductionApiResponse,
   ScoreRuleHistoryApiResponse,
 } from "./model";
 import { developmentFetch } from "../development/fetch";
@@ -111,18 +110,4 @@ export async function fetchScoreComparison(
     },
   );
   return handleResponse<ScoreComparisonApiResponse>(response);
-}
-
-export async function reproduceScore(
-  qualityScoreId: string,
-): Promise<ScoreReproductionApiResponse> {
-  const response = await developmentFetch(
-    `/api/v1/scores/${qualityScoreId}/reproduction`,
-    {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-    },
-  );
-  return handleResponse<ScoreReproductionApiResponse>(response);
 }

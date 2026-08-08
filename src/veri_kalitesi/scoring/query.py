@@ -264,7 +264,4 @@ def _compute_available_actions(
     score: QualityScore,
     scope: ScoreQueryScope,
 ) -> tuple[str, ...]:
-    actions: list[str] = []
-    if actor_context is not None and getattr(actor_context, "privileged", False):
-        actions.append("reproduce")
-    return tuple(actions)
+    return ()
