@@ -105,97 +105,6 @@ def test_development_api_exposes_only_synthetic_data_source_projection() -> None
     assert "development-reference-only" not in response.text
 
 
-def test_dq_cap_006_profile_comparison_api_preserves_non_verdict_configuration_state() -> None:
-    service = FakeProfileComparisonService()
-    client = TestClient(
-        _app(
-            FakeDataSourceReader((_source("source-a", "Kaynak A"),)),
-            frozenset({"source-a"}),
-            profile_comparison_service=service,
-        )
-    )
-
-    response = client.post(
-        "/api/v1/profile-comparisons",
-        headers={
-            CSRF_HEADER_NAME: "development-request-proof-v1",
-            "Origin": "https://dq.test",
-            "Referer": "https://dq.test/profiles",
-            "Sec-Fetch-Site": "same-origin",
-        },
-        json={
-            "dataset_id": "dataset-a",
-            "baseline_profile_id": "profile-1",
-            "current_profile_id": "profile-2",
-            "policy_version": None,
-        },
-    )
-
-    assert response.status_code == 200
-    assert response.headers["cache-control"] == "no-store"
-    assert response.json()["item"]["status"] == "CONFIGURATION_ERROR"
-    assert response.json()["item"]["anomaly_candidate"] is None
-    assert service.actor_context is not None
-
-
-@pytest.mark.parametrize(
-    ("baseline_profile_id", "current_profile_id"),
-    (("unknown-profile", "profile-2"), ("profile-1", "unknown-profile")),
-)
-def test_profile_comparison_api_maps_unknown_profile_ids_to_validation_response(
-    baseline_profile_id: str,
-    current_profile_id: str,
-) -> None:
-    client = TestClient(
-        _app(
-            FakeDataSourceReader((_source("source-a", "Kaynak A"),)),
-            frozenset({"source-a"}),
-            profile_domain_service=FakeComparisonDomainService("validation"),
-        )
-    )
-
-    response = client.post(
-        "/api/v1/profile-comparisons",
-        headers=_command_headers(),
-        json={
-            "dataset_id": "dataset-a",
-            "baseline_profile_id": baseline_profile_id,
-            "current_profile_id": current_profile_id,
-            "policy_version": None,
-        },
-    )
-
-    assert response.status_code == 400
-    assert response.json()["title"] == "Invalid request"
-    assert response.json()["detail"] == ("The profile comparison request could not be validated.")
-    assert "unknown profile contains secret" not in response.text
-
-
-def test_profile_comparison_api_preserves_technical_error_classification() -> None:
-    client = TestClient(
-        _app(
-            FakeDataSourceReader((_source("source-a", "Kaynak A"),)),
-            frozenset({"source-a"}),
-            profile_domain_service=FakeComparisonDomainService("technical"),
-        )
-    )
-
-    response = client.post(
-        "/api/v1/profile-comparisons",
-        headers=_command_headers(),
-        json={
-            "dataset_id": "dataset-a",
-            "baseline_profile_id": "profile-1",
-            "current_profile_id": "profile-2",
-            "policy_version": None,
-        },
-    )
-
-    assert response.status_code == 503
-    assert response.json()["title"] == "Data sources temporarily unavailable"
-    assert "database contains secret" not in response.text
-
-
 class FakeDataSourceReader:
     def __init__(self, sources: tuple[DataSource, ...]) -> None:
         self.sources = sources
@@ -321,19 +230,17 @@ def _app(
         allowed_origins=("https://dq.test",),
         clock=lambda: NOW,
     )
-    dashboard = DashboardQueryService(SQLiteScoreRepository(), authorization, clock=lambda: NOW)
+    DashboardQueryService(SQLiteScoreRepository(), authorization, clock=lambda: NOW)
     if profile_domain_service is not None:
-        profile_comparison_service = ProfileComparisonCommandService(
+        ProfileComparisonCommandService(
             profile_domain_service,  # type: ignore[arg-type]
             authorization,
         )
     return create_dashboard_api(
-        dashboard,
         actor_context_resolver=resolver,
         allowed_origins=("https://dq.test",),
         data_source_query_service=DataSourceQueryService(reader, authorization),
         data_source_mutation_service=data_source_mutation_service,
-        profile_comparison_service=profile_comparison_service,
         data_origin="synthetic-test",
     )
 

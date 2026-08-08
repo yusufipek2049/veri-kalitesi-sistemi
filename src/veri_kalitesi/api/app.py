@@ -26,7 +26,6 @@ from veri_kalitesi.api.identity import (
 from veri_kalitesi.api.models import DevelopmentUserInfoResponse, DevelopmentUserListResponse
 from veri_kalitesi.api.data_sources_router import (
     DataSourceMutationService,
-    ProfileComparisonService,
     register_data_sources_routes,
 )
 from veri_kalitesi.api.catalog_router import (
@@ -60,8 +59,7 @@ from veri_kalitesi.api.audit_router import register_audit_routes
 from veri_kalitesi.api.notifications_router import register_notifications_routes
 from veri_kalitesi.api.lineage_router import register_lineage_routes
 from veri_kalitesi.audit.service import AuditQueryService
-from veri_kalitesi.data_sources.query import DataSourceQueryService, ProfileSnapshotQueryService
-from veri_kalitesi.dashboard import DashboardQueryService
+from veri_kalitesi.data_sources.query import DataSourceQueryService
 from veri_kalitesi.executions.query import ExecutionQueryService
 from veri_kalitesi.identity import ActorContext
 from veri_kalitesi.issues import IssueInvestigationEvidenceService, IssueQueryService
@@ -86,8 +84,6 @@ def create_dashboard_api(
     data_origin: str = "runtime",
     data_source_query_service: DataSourceQueryService | None = None,
     data_source_mutation_service: DataSourceMutationService | None = None,
-    profile_comparison_service: ProfileComparisonService | None = None,
-    profile_snapshot_query_service: ProfileSnapshotQueryService | None = None,
     execution_start_service: ExecutionStartService | None = None,
     execution_cancel_service: ExecutionCancelService | None = None,
     development_user_registry: DevelopmentUserRegistry | None = None,
@@ -232,8 +228,6 @@ def create_dashboard_api(
         app,
         data_source_query_service=data_source_query_service,
         data_source_mutation_service=data_source_mutation_service,
-        profile_comparison_service=profile_comparison_service,
-        profile_snapshot_query_service=profile_snapshot_query_service,
         resolver=resolver,
         data_origin=data_origin,
     )
