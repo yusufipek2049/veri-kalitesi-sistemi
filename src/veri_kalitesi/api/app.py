@@ -54,7 +54,6 @@ from veri_kalitesi.api.executions_router import (
     register_executions_routes,
 )
 from veri_kalitesi.api.scores_router import register_scores_routes
-from veri_kalitesi.api.reports_router import register_reports_routes
 from veri_kalitesi.api.audit_router import register_audit_routes
 from veri_kalitesi.api.notifications_router import register_notifications_routes
 from veri_kalitesi.api.lineage_router import register_lineage_routes
@@ -63,11 +62,6 @@ from veri_kalitesi.data_sources.query import DataSourceQueryService
 from veri_kalitesi.executions.query import ExecutionQueryService
 from veri_kalitesi.identity import ActorContext
 from veri_kalitesi.issues import IssueInvestigationEvidenceService, IssueQueryService
-from veri_kalitesi.lineage import (
-    PostgreSQLGovernanceProfileReader,
-    PostgreSQLLineageEvidenceRepository,
-)
-from veri_kalitesi.reporting import ReportPreviewService, ReportScheduleService, ReportService
 from veri_kalitesi.rules import RuleQueryService
 from veri_kalitesi.scoring.query import ScoreQueryService
 
@@ -100,9 +94,6 @@ def create_dashboard_api(
     issue_creation_service: IssueCreationService | None = None,
     rule_creator_service: RuleCreatorService | None = None,
     rule_mutation_service: RuleMutationService | None = None,
-    report_preview_service: ReportPreviewService | None = None,
-    report_service: ReportService | None = None,
-    report_schedule_service: ReportScheduleService | None = None,
     audit_query_service: AuditQueryService | None = None,
     lineage_evidence_repository: PostgreSQLLineageEvidenceRepository | None = None,
     governance_profile_reader: PostgreSQLGovernanceProfileReader | None = None,

@@ -59,15 +59,6 @@ from veri_kalitesi.issues import (
     IssueTechnicalError,
     IssueValidationError,
 )
-from veri_kalitesi.reporting import (
-    ReportAuthorizationError,
-    ReportExportDeniedError,
-    ReportExpiredError,
-    ReportNotFoundError,
-    ReportNotReadyError,
-    ReportTechnicalError,
-    ReportValidationError,
-)
 from veri_kalitesi.scoring.errors import (
     ScoreNotFoundError,
     ScorePublicationError,
@@ -324,28 +315,6 @@ _SIMPLE_HANDLERS: list[tuple[type[Exception], int, str, str | None]] = [
         "Issue action temporarily unavailable",
         "The issue action could not be completed.",
     ),
-    # Reports
-    (
-        ReportAuthorizationError,
-        403,
-        "Access denied",
-        "The requested report scope is not available.",
-    ),
-    (
-        ReportTechnicalError,
-        503,
-        "Reports temporarily unavailable",
-        "The report preview could not be completed.",
-    ),
-    (
-        ReportValidationError,
-        503,
-        "Reports temporarily unavailable",
-        "The report preview could not be completed.",
-    ),
-    (ReportNotFoundError, 404, "Report not found", "The requested report does not exist."),
-    (ReportExportDeniedError, 403, "Export denied", "Report export denied by policy."),
-    (ReportExpiredError, 410, "Report expired", "The report download link has expired."),
     # Audit
     (
         AuditQueryAuthorizationError,
@@ -403,17 +372,6 @@ def register_exception_handlers(app: FastAPI) -> None:
 
         app.exception_handler(exc_cls)(
             _make_handler(status, title, fixed_detail),
-        )
-
-    # ── ReportNotReadyError (uses error.status in detail) ──
-    @app.exception_handler(ReportNotReadyError)
-    async def handle_report_not_ready(request: Request, error: ReportNotReadyError) -> JSONResponse:
-        return problem(
-            request,
-            status=409,
-            title="Report not ready",
-            detail=f"The report is {error.status}.",
-            correlation_id=_correlation_id(error, request),
         )
 
     # ── DataSourceCommandError (uses _command_problem with code lookup) ──
