@@ -10,17 +10,14 @@ import {
   Stack,
   Typography,
 } from "@mui/material";
-import { fetchScoreDetail, reproduceScore, ScoreApiError } from "./api";
+import { fetchScoreDetail, ScoreApiError } from "./api";
 import { scoreDetailFromApi, type ScoreDetail, type ScoreState } from "./model";
 import { AppShell } from "../components/AppShell";
-
-type ReproductionState = "idle" | "loading" | "match" | "mismatch" | "error";
 
 export function ScoreDetailPage() {
   const { scoreId } = useParams<{ scoreId: string }>();
   const [state, setState] = useState<ScoreState>("loading");
   const [detail, setDetail] = useState<ScoreDetail | null>(null);
-  const [reproduction, setReproduction] = useState<ReproductionState>("idle");
   const [errorKind, setErrorKind] = useState<string | null>(null);
 
   const load = useCallback(
@@ -54,17 +51,6 @@ export function ScoreDetailPage() {
     void load(controller.signal);
     return () => controller.abort();
   }, [load]);
-
-  const handleReproduce = async () => {
-    if (!scoreId) return;
-    setReproduction("loading");
-    try {
-      const result = await reproduceScore(scoreId);
-      setReproduction(result.matches ? "match" : "mismatch");
-    } catch {
-      setReproduction("error");
-    }
-  };
 
   if (state === "loading") {
     return (
@@ -121,26 +107,6 @@ export function ScoreDetailPage() {
                   {detail.publication.period} — {detail.publication.status}
                 </Typography>
               </>
-            )}
-            {detail.availableActions.includes("reproduce") && (
-              <Box sx={{ mt: 2 }}>
-                <Button
-                  disabled={reproduction === "loading"}
-                  onClick={handleReproduce}
-                  variant="outlined"
-                >
-                  {reproduction === "loading" ? "Yeniden üretiliyor…" : "Yeniden Üret"}
-                </Button>
-                {reproduction === "match" && (
-                  <Alert severity="success" sx={{ mt: 1 }}>Yeniden üretim eşleşti.</Alert>
-                )}
-                {reproduction === "mismatch" && (
-                  <Alert severity="warning" sx={{ mt: 1 }}>Yeniden üretim eşleşmedi.</Alert>
-                )}
-                {reproduction === "error" && (
-                  <Alert severity="error" sx={{ mt: 1 }}>Yeniden üretim başarısız.</Alert>
-                )}
-              </Box>
             )}
           </Stack>
         </Paper>

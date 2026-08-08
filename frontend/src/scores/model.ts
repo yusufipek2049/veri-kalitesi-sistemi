@@ -44,16 +44,6 @@ export interface ScoreComparisonResult {
   deltaValue: number | null;
 }
 
-export interface ScoreReproductionResult {
-  originalScoreId: string;
-  matches: boolean;
-  deltaValue: number | null;
-  deltaLevel: boolean;
-  reasonCodes: string[];
-  reproducedValue: number | null;
-  reproducedLevel: ScoreLevel | null;
-}
-
 // ── API response shapes ──
 
 export interface ScoreListApiResponse {
@@ -106,18 +96,6 @@ export interface ScoreComparisonApiResponse {
   comparison_status: string;
   reason_codes: string[];
   delta_value: string | null;
-}
-
-export interface ScoreReproductionApiResponse {
-  data_origin: string;
-  correlation_id: string;
-  original_score_id: string;
-  matches: boolean;
-  delta_value: string | null;
-  delta_level: boolean;
-  reason_codes: string[];
-  reproduced_value: string | null;
-  reproduced_level: string | null;
 }
 
 // ── Mapping helpers ──
@@ -174,17 +152,5 @@ export function comparisonFromApi(response: ScoreComparisonApiResponse): ScoreCo
     comparisonStatus: response.comparison_status as ComparisonStatus,
     reasonCodes: response.reason_codes ?? [],
     deltaValue: parseDecimal(response.delta_value),
-  };
-}
-
-export function reproductionFromApi(response: ScoreReproductionApiResponse): ScoreReproductionResult {
-  return {
-    originalScoreId: response.original_score_id,
-    matches: response.matches,
-    deltaValue: parseDecimal(response.delta_value),
-    deltaLevel: response.delta_level,
-    reasonCodes: response.reason_codes ?? [],
-    reproducedValue: parseDecimal(response.reproduced_value),
-    reproducedLevel: (response.reproduced_level as ScoreLevel | null) ?? null,
   };
 }

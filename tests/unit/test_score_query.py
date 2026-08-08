@@ -242,13 +242,13 @@ def test_get_score_detail_raises_for_unauthorized_scope() -> None:
         service.get_score_detail(actor, "qs-1")
 
 
-def test_get_score_detail_available_actions_for_privileged() -> None:
+def test_get_score_detail_does_not_advertise_unreachable_reproduction() -> None:
     score = _score()
     actor = _actor(permitted_source_ids={"ds-1"}, privileged=True)
     repo = _StubScoreRepository(scores={"qs-1": score})
     service = ScoreQueryService(repo, _StubGraphRepository())  # type: ignore[arg-type]
     detail = service.get_score_detail(actor, "qs-1")
-    assert "reproduce" in detail.available_actions
+    assert detail.available_actions == ()
 
 
 def test_get_score_detail_no_actions_for_non_privileged() -> None:

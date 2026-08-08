@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, Any, Protocol
+from typing import Annotated, Protocol
 
-from fastapi import FastAPI, Query as FastApiQuery, Request, Response
+from fastapi import FastAPI, Query as FastApiQuery, Request
 
 from veri_kalitesi.api.models import (
     ScoreComparisonResponse,
@@ -13,12 +13,10 @@ from veri_kalitesi.api.models import (
     ScoreItemResponse,
     ScoreListResponse,
     ScorePublicationResponse,
-    ScoreReproductionResponse,
     ScoreRuleHistoryResponse,
 )
 from veri_kalitesi.dashboard import DashboardQueryError
 from veri_kalitesi.identity import ActorContext
-from veri_kalitesi.scoring.errors import ScoringAuthorizationError
 from veri_kalitesi.scoring.models import ScoreScopeType
 from veri_kalitesi.scoring.query import ScoreQueryService
 
@@ -31,7 +29,6 @@ def register_scores_routes(
     app: FastAPI,
     *,
     score_query_service: ScoreQueryService | None,
-    score_publication_service: Any | None,
     resolver: _Resolver,
     data_origin: str,
 ) -> None:
@@ -153,38 +150,4 @@ def register_scores_routes(
             publication=pub_response,
             available_actions=detail.available_actions,
             has_contribution_graph=detail.contribution_graph is not None,
-        )
-
-    @app.post(
-        "/api/v1/scores/{quality_score_id}/reproduction",
-        response_model=ScoreReproductionResponse,
-        tags=["scores"],
-    )
-    async def reproduce_score(
-        request: Request,
-        response: Response,
-        quality_score_id: str,
-    ) -> ScoreReproductionResponse:
-        if score_publication_service is None:
-            raise DashboardQueryError(
-                "Score publication service is not available.", request.state.correlation_id
-            )
-        actor_context = resolver.resolve(request)
-        if actor_context is None or not getattr(actor_context, "privileged", False):
-            raise ScoringAuthorizationError(
-                "Privileged actor context is required for reproduction."
-            )
-        result = score_publication_service.reproduce_score(quality_score_id)
-        return ScoreReproductionResponse(
-            data_origin=data_origin,
-            correlation_id=request.state.correlation_id,
-            original_score_id=result.original_score_id,
-            matches=result.matches,
-            delta_value=result.delta_value,
-            delta_level=result.delta_level,
-            reason_codes=result.reason_codes,
-            reproduced_value=result.reproduced_score.score_value,
-            reproduced_level=(
-                result.reproduced_score.level.value if result.reproduced_score.level else None
-            ),
         )

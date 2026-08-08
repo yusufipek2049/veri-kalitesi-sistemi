@@ -916,18 +916,3 @@ class ScoreComparisonResponse(BaseModel):
     comparison_status: str
     reason_codes: tuple[str, ...]
     delta_value: float | None = None
-
-
-class ScoreReproductionResponse(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    api_version: str = "v1"
-    data_origin: str
-    correlation_id: str
-    original_score_id: str
-    matches: bool
-    delta_value: float | None = None
-    delta_level: bool = False
-    reason_codes: tuple[str, ...] = ()
-    reproduced_value: float | None = None
-    reproduced_level: str | None = None

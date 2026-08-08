@@ -71,7 +71,6 @@ from veri_kalitesi.reporting import (
 from veri_kalitesi.scoring.errors import (
     ScoreNotFoundError,
     ScorePublicationError,
-    ScoreReproductionError,
     ScoringAuthorizationError,
     ScoringConflictError,
     ScoringValidationError,
@@ -371,7 +370,6 @@ _SIMPLE_HANDLERS: list[tuple[type[Exception], int, str, str | None]] = [
     ),
     (ScoringConflictError, 409, "Score conflict", None),
     (ScorePublicationError, 422, "Score publication failed", None),
-    (ScoreReproductionError, 422, "Score reproduction failed", None),
     (ScoringValidationError, 400, "Invalid request", None),
 ]
 

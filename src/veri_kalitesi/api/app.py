@@ -109,7 +109,6 @@ def create_dashboard_api(
     metadata_command_service: MetadataCommandService | None = None,
     catalog_query_service: CatalogService | None = None,
     score_query_service: ScoreQueryService | None = None,
-    score_publication_service: object | None = None,
     notification_query_service: object | None = None,
     notification_delivery_service: object | None = None,
     clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
