@@ -20,9 +20,7 @@ from veri_kalitesi.audit.service import (
     AuditQueryService,
     AuditService,
 )
-from veri_kalitesi.dashboard import DashboardQueryService
 from veri_kalitesi.identity import DashboardAuthorizationPolicy, PolicyAuthorizationService
-from veri_kalitesi.scoring.repository import SQLiteScoreRepository
 
 NOW = datetime(2026, 7, 23, 12, 0, tzinfo=timezone.utc)
 POLICY_VERSION = "AUDIT_API_TEST_V1"
@@ -148,7 +146,7 @@ def _app(
     *,
     roles: frozenset[str] = frozenset({"AUDIT_VIEWER"}),
 ):
-    authorization = PolicyAuthorizationService(
+    PolicyAuthorizationService(
         DashboardAuthorizationPolicy(version=POLICY_VERSION),
         audit_service,
         clock=lambda: NOW,
@@ -162,11 +160,6 @@ def _app(
         clock=lambda: NOW,
     )
     return create_dashboard_api(
-        DashboardQueryService(
-            SQLiteScoreRepository(),
-            authorization,
-            clock=lambda: NOW,
-        ),
         actor_context_resolver=resolver,
         audit_query_service=AuditQueryService(
             repository,

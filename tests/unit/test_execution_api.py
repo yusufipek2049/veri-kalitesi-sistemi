@@ -228,9 +228,8 @@ def _app(
         can_view_enterprise=False,
         clock=lambda: NOW,
     )
-    dashboard = DashboardQueryService(SQLiteScoreRepository(), authorization, clock=lambda: NOW)
+    DashboardQueryService(SQLiteScoreRepository(), authorization, clock=lambda: NOW)
     return create_dashboard_api(
-        dashboard,
         actor_context_resolver=resolver,
         execution_query_service=ExecutionQueryService(reader, authorization),
         data_origin="synthetic-test",

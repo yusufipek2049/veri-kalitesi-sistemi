@@ -5,9 +5,6 @@ import {
   BarChart3,
   Bell,
   Database,
-  FileSearch,
-  FileText,
-  LayoutDashboard,
   Library,
   ListChecks,
   Moon,
@@ -31,10 +28,8 @@ const navigationGroups: Array<{ label: string; items: NavigationItem[] }> = [
   {
     label: "ANALİZ",
     items: [
-      { label: "Genel Bakış", icon: LayoutDashboard, href: "/" },
       { label: "Veri Kaynakları", icon: Database, href: "/data-sources" },
       { label: "Katalog", icon: Library, href: "/catalog" },
-      { label: "Profiller", icon: FileSearch, href: "/profiling" },
       { label: "Kurallar", icon: ListChecks, href: "/rules" },
       { label: "Çalıştırmalar", icon: PlayCircle, href: "/executions" },
       { label: "Skorlar", icon: BarChart3, href: "/scores" },
@@ -45,7 +40,6 @@ const navigationGroups: Array<{ label: string; items: NavigationItem[] }> = [
     items: [
       { label: "Sorunlar", icon: AlertCircle, href: "/issues" },
       { label: "Bildirimler", icon: Bell, href: "/notifications" },
-      { label: "Raporlar", icon: FileText, href: "/reports" },
       { label: "Denetim", icon: ScrollText, href: "/audit" },
     ],
   },
