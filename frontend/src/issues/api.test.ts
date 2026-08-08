@@ -1,11 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   EvidenceApiError,
-  fetchGovernanceProjection,
   fetchInvestigationEvidence,
   fetchIssueAssignmentOptions,
   fetchIssues,
-  fetchLineageSnapshot,
   createIssue,
   IssueApiError,
   reassignIssue,
@@ -310,75 +308,6 @@ describe("issue API istemcisi", () => {
 });
 
 describe("evidence API istemcisi", () => {
-  it("lineage snapshot başarılı yanıtı döndürür", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
-      api_version: "v1",
-      data_origin: "synthetic-test",
-      correlation_id: "snap-ok",
-      snapshot_id: "snap-1",
-      snapshot_kind: "LINEAGE_EVENTS",
-      subject_ref: "source-a",
-      version_label: "v1",
-      digest: "sha256:abc",
-      created_at: "2026-08-01T10:00:00Z",
-      payload: {},
-    })));
-    await expect(fetchLineageSnapshot("snap-1")).resolves.toMatchObject({
-      correlation_id: "snap-ok",
-      snapshot_id: "snap-1",
-    });
-  });
-
-  it("yönetişim projeksiyonu başarılı yanıtı döndürür", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
-      api_version: "v1",
-      data_origin: "synthetic-test",
-      correlation_id: "gov-ok",
-      asset_ref: "source-a",
-      governance_profile_status: "ACTIVE",
-      governance_reason_codes: [],
-      governance_version: "GP_V1:source-a:1",
-      governance_asset_ref: "source-a",
-      critical_asset_status: "Observed",
-      risk_status: "UNKNOWN",
-      sla_status: "UNKNOWN",
-    })));
-    await expect(fetchGovernanceProjection("source-a")).resolves.toMatchObject({
-      correlation_id: "gov-ok",
-      asset_ref: "source-a",
-    });
-  });
-
-  it("503 yanıtında EvidenceApiError unavailable döndürür", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("", {
-      status: 503,
-      headers: { "X-Correlation-ID": "evidence-unavail" },
-    })));
-    await expect(fetchGovernanceProjection("source-a")).rejects.toEqual(
-      new EvidenceApiError("unavailable", "evidence-unavail"),
-    );
-  });
-
-  it("403 yanıtında EvidenceApiError unauthorized döndürür", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("", {
-      status: 403,
-      headers: { "X-Correlation-ID": "evidence-forbidden" },
-    })));
-    await expect(fetchLineageSnapshot("snap-1")).rejects.toEqual(
-      new EvidenceApiError("unauthorized", "evidence-forbidden"),
-    );
-  });
-
-  it("404 yanıtında EvidenceApiError not-found döndürür", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("", {
-      status: 404,
-      headers: { "X-Correlation-ID": "evidence-missing" },
-    })));
-    await expect(fetchLineageSnapshot("snap-missing")).rejects.toEqual(
-      new EvidenceApiError("not-found", "evidence-missing"),
-    );
-  });
-
   it("investigation evidence başarılı yanıtı döndürür", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
       api_version: "v1",

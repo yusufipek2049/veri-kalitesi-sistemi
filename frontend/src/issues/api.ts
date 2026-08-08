@@ -1,11 +1,9 @@
 import { developmentFetch } from '../development/fetch';
 import type {
-  GovernanceProjectionApiResponse,
   InvestigationEvidenceApiResponse,
   IssueAssigneeOptionsApiResponse,
   IssueListApiResponse,
   IssuePriority,
-  LineageSnapshotApiResponse,
 } from "./model";
 
 export interface IssueCreatePayload {
@@ -295,50 +293,6 @@ export class EvidenceApiError extends Error {
             : "Kanıt yüklenemedi. Yeniden deneyin.",
     );
   }
-}
-
-export async function fetchLineageSnapshot(
-  snapshotId: string,
-  signal?: AbortSignal,
-): Promise<LineageSnapshotApiResponse> {
-  const response = await developmentFetch(
-    `/api/v1/lineage/snapshots/${encodeURIComponent(snapshotId)}`,
-    {
-      credentials: "same-origin",
-      headers: { Accept: "application/json" },
-      signal,
-    },
-  );
-  if (!response.ok) {
-    const correlationId = response.headers.get("X-Correlation-ID") ?? undefined;
-    throw new EvidenceApiError(
-      evidenceErrorKind(response.status),
-      correlationId,
-    );
-  }
-  return response.json() as Promise<LineageSnapshotApiResponse>;
-}
-
-export async function fetchGovernanceProjection(
-  assetRef: string,
-  signal?: AbortSignal,
-): Promise<GovernanceProjectionApiResponse> {
-  const response = await developmentFetch(
-    `/api/v1/governance/${encodeURIComponent(assetRef)}/projection`,
-    {
-      credentials: "same-origin",
-      headers: { Accept: "application/json" },
-      signal,
-    },
-  );
-  if (!response.ok) {
-    const correlationId = response.headers.get("X-Correlation-ID") ?? undefined;
-    throw new EvidenceApiError(
-      evidenceErrorKind(response.status),
-      correlationId,
-    );
-  }
-  return response.json() as Promise<GovernanceProjectionApiResponse>;
 }
 
 export async function fetchInvestigationEvidence(

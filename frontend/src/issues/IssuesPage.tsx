@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -149,26 +148,13 @@ function formatDate(value: string): string {
 }
 
 function ScopeLink({ scopeId }: { scopeId: string }) {
-  const navigate = useNavigate();
   return (
     <Typography
       noWrap
       sx={{
-        color: "primary.main",
-        cursor: "pointer",
         fontWeight: 500,
-        textDecoration: "none",
-        "&:hover": { textDecoration: "underline" },
       }}
       variant="body2"
-      onClick={() => navigate(`/investigation?assetRef=${encodeURIComponent(scopeId)}`)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") {
-          navigate(`/investigation?assetRef=${encodeURIComponent(scopeId)}`);
-        }
-      }}
-      role="link"
-      tabIndex={0}
     >
       {scopeId}
     </Typography>
