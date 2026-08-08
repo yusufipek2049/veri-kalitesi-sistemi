@@ -75,12 +75,6 @@ from veri_kalitesi.persistence import SessionFactory
 from veri_kalitesi.reporting import (
     ReportExportPolicy,
     ReportFormat,
-    ReportPreviewAccessPolicy,
-    ReportPreviewService,
-    ReportService,
-    ReportWorker,
-    ReportWorkerSettings,
-    SQLiteReportPreviewReader,
 )
 from veri_kalitesi.reporting.models import ReportType
 from veri_kalitesi.reporting.repository import (
@@ -401,27 +395,6 @@ def create_development_app(  # type: ignore[no-untyped-def]
         execution_start_service=execution_start_service,
         execution_cancel_service=execution_cancel_service,
         development_user_registry=effective_registry,
-        report_preview_service=ReportPreviewService(
-            SQLiteReportPreviewReader(repository.connection),
-            audit_service,
-            ReportPreviewAccessPolicy(
-                version="DEVELOPMENT_REPORT_POLICY_V1",
-                actor_policy_version=POLICY_VERSION,
-            ),
-            clock=lambda: datetime.now(timezone.utc),
-        ),
-        report_service=ReportService(
-            _create_development_report_repository(session_factory),
-            _DevPolicyRepository(),  # type: ignore[arg-type]
-            ReportWorker(
-                _create_development_report_repository(session_factory),
-                _DevPolicyRepository(),  # type: ignore[arg-type]
-                _DevReportDataProvider(),  # type: ignore[arg-type]
-                ReportWorkerSettings(storage_path="/tmp/reports-dev"),
-            ),
-            audit_service,
-            inline_processing=True,
-        ),
         audit_query_service=AuditQueryService(
             audit_repository,
             audit_service,
