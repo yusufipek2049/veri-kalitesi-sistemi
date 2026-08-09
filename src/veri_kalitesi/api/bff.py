@@ -127,34 +127,6 @@ class BffSessionBoundary:
         request.state.actor_context = context
         return context
 
-    def logout(self, request: Request, response: Response) -> None:
-        credential = getattr(request.state, "session_credential", None)
-        if not isinstance(credential, bytes):
-            raise ApiAuthenticationError(
-                "Authenticated session could not be established.",
-                request.state.correlation_id,
-            )
-        try:
-            self.session_service.logout(credential, request.state.correlation_id)
-        except (ActorContextValidationError, SessionDeniedError) as exc:
-            raise ApiAuthenticationError(
-                "Authenticated session could not be established.",
-                request.state.correlation_id,
-            ) from exc
-        except SessionUnavailableError as exc:
-            raise ApiSessionUnavailableError(
-                "Session service is unavailable.",
-                request.state.correlation_id,
-            ) from exc
-        response.delete_cookie(
-            key=SESSION_COOKIE_NAME,
-            path="/",
-            secure=True,
-            httponly=True,
-            samesite="lax",
-        )
-        response.headers["Cache-Control"] = "no-store"
-
     def _session_credential(self, request: Request) -> bytes:
         cookie_value = request.cookies.get(SESSION_COOKIE_NAME)
         if cookie_value is None:
