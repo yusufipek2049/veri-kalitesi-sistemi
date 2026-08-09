@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from typing import Protocol
 from uuid import uuid4
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from veri_kalitesi.api.bff import BffSessionBoundary, CSRF_HEADER_NAME
@@ -232,14 +232,6 @@ def create_dashboard_api(
         resolver=resolver,
         data_origin=data_origin,
     )
-    if bff_session_boundary is not None:
-
-        @app.post("/api/v1/session/logout", status_code=204, tags=["session"])
-        async def logout(request: Request, response: Response) -> Response:
-            bff_session_boundary.logout(request, response)
-            response.status_code = 204
-            return response
-
     # ██████ Geliştirme Kullanıcıları ██████
 
     @app.get(

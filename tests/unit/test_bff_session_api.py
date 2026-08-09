@@ -107,33 +107,23 @@ def test_fr_081_missing_or_malformed_bff_cookie_fails_closed(
     assert "not-valid-base64" not in response.text
 
 
-def test_fr_005_nfr_sec_007_valid_csrf_logout_revokes_and_clears_session() -> None:
+def test_unowned_logout_surface_is_absent_from_bff_composition() -> None:
     setup = _setup()
 
+    assert "/api/v1/session/logout" not in setup.client.app.openapi()["paths"]
     response = setup.client.post(
         "/api/v1/session/logout",
         headers=setup.state_changing_headers(),
     )
 
-    assert response.status_code == 204
-    assert response.headers["cache-control"] == "no-store"
-    set_cookie = response.headers["set-cookie"]
-    assert set_cookie.startswith(f'{SESSION_COOKIE_NAME}=""')
-    assert "Max-Age=0" in set_cookie
-    assert "Secure" in set_cookie
-    assert "HttpOnly" in set_cookie
-    row = setup.session_repository.connection.execute(
-        "SELECT credential_digest, csrf_token_digest, status FROM identity_sessions"
-    ).fetchone()
-    assert row["credential_digest"] is None
-    assert row["csrf_token_digest"] is None
-    assert row["status"] == "REVOKED"
-
-    reused = setup.client.get(
-        "/api/v1/scores",
-        headers={"Cookie": setup.cookie_header},
+    assert response.status_code == 404
+    assert (
+        setup.client.get(
+            "/api/v1/scores",
+            headers={"Cookie": setup.cookie_header},
+        ).status_code
+        == 200
     )
-    assert reused.status_code == 401
 
 
 @pytest.mark.parametrize(
@@ -141,7 +131,7 @@ def test_fr_005_nfr_sec_007_valid_csrf_logout_revokes_and_clears_session() -> No
     [None, "invalid-csrf-value"],
     ids=("missing", "changed"),
 )
-def test_nfr_sec_007_missing_or_changed_csrf_is_denied_without_logout(
+def test_nfr_sec_007_missing_or_changed_csrf_is_denied_without_mutation(
     csrf_value: str | None,
 ) -> None:
     setup = _setup()
@@ -151,7 +141,7 @@ def test_nfr_sec_007_missing_or_changed_csrf_is_denied_without_logout(
     else:
         headers[CSRF_HEADER_NAME] = csrf_value
 
-    response = setup.client.post("/api/v1/session/logout", headers=headers)
+    response = setup.client.post("/api/v1/rules", headers=headers)
 
     assert response.status_code == 403
     assert response.json()["detail"] == "The state-changing request could not be verified."
@@ -182,35 +172,17 @@ def test_nfr_sec_007_untrusted_request_metadata_is_denied(
     headers = setup.state_changing_headers()
     headers[header_name] = header_value
 
-    response = setup.client.post("/api/v1/session/logout", headers=headers)
+    response = setup.client.post("/api/v1/rules", headers=headers)
 
     assert response.status_code == 403
     assert response.json()["title"] == "Request rejected"
-
-
-def test_nfr_sec_007_get_cannot_perform_logout() -> None:
-    setup = _setup()
-
-    response = setup.client.get(
-        "/api/v1/session/logout",
-        headers={"Cookie": setup.cookie_header},
-    )
-
-    assert response.status_code == 405
-    assert (
-        setup.client.get(
-            "/api/v1/scores",
-            headers={"Cookie": setup.cookie_header},
-        ).status_code
-        == 200
-    )
 
 
 def test_nfr_sec_007_cors_preflight_allows_only_configured_origin_and_csrf_header() -> None:
     setup = _setup()
 
     allowed = setup.client.options(
-        "/api/v1/session/logout",
+        "/api/v1/rules",
         headers={
             "Origin": ORIGIN,
             "Access-Control-Request-Method": "POST",
@@ -218,7 +190,7 @@ def test_nfr_sec_007_cors_preflight_allows_only_configured_origin_and_csrf_heade
         },
     )
     denied = setup.client.options(
-        "/api/v1/session/logout",
+        "/api/v1/rules",
         headers={
             "Origin": "https://untrusted.example",
             "Access-Control-Request-Method": "POST",
