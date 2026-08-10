@@ -1,0 +1,380 @@
+{
+  "analyzed_commit": {
+    "sha": "debd90359ba2c978a33a877c54f79c64c70e65b7",
+    "branch": "agent/36h1-persistent-job-core",
+    "working_tree": "clean"
+  },
+  "runtime_processes": [
+    {
+      "name": "api",
+      "entrypoint_chain": [
+        "infra/application/Dockerfile CMD → uvicorn scripts.run_dev:app",
+        "scripts/run_dev.py → create_development_app()",
+        "src/veri_kalitesi/api/development_runtime.py → create_application()",
+        "src/veri_kalitesi/api/composition.py → create_dashboard_api()",
+        "src/veri_kalitesi/api/app.py → FastAPI instance"
+      ],
+      "bind": "0.0.0.0:8000",
+      "compose_service": "api"
+    },
+    {
+      "name": "worker",
+      "entrypoint_chain": [
+        "infra/development/compose.yaml command → dq-worker",
+        "pyproject.toml [project.scripts] dq-worker = veri_kalitesi.jobs.entrypoint:main",
+        "src/veri_kalitesi/jobs/entrypoint.py → create_production_worker()",
+        "src/veri_kalitesi/jobs/production.py → create_persistent_job_runtime()",
+        "src/veri_kalitesi/jobs/composition.py → PersistentJobWorker",
+        "src/veri_kalitesi/jobs/worker.py → run_forever() poll loop"
+      ],
+      "compose_service": "worker"
+    },
+    {
+      "name": "migrate",
+      "entrypoint_chain": [
+        "infra/development/compose.yaml command → alembic upgrade head",
+        "alembic/env.py → DatabaseSettings.from_url() → run_migrations_online()"
+      ],
+      "compose_service": "migrate",
+      "depends_on": "postgres (healthy)"
+    },
+    {
+      "name": "frontend",
+      "entrypoint_chain": [
+        "infra/development/compose.yaml → node:22.17-alpine npm run dev",
+        "frontend/vite.config.ts dev server"
+      ],
+      "bind": "0.0.0.0:5173",
+      "compose_service": "frontend"
+    }
+  ],
+  "backend_modules": [
+    {"name": "api", "path": "src/veri_kalitesi/api/", "files": 36, "role": "HTTP composition, routers, identity, BFF"},
+    {"name": "audit", "path": "src/veri_kalitesi/audit/", "files": 11, "role": "Transactional audit outbox, repository, redaction"},
+    {"name": "dashboard", "path": "src/veri_kalitesi/dashboard/", "files": 5, "role": "Dashboard query service (UNWIRED in persistent composition)"},
+    {"name": "data_protection", "path": "src/veri_kalitesi/data_protection/", "files": 4, "role": "Data protection utilities"},
+    {"name": "data_sources", "path": "src/veri_kalitesi/data_sources/", "files": 15, "role": "Data source domain, connectors, PostgreSQL repository, secrets, catalog"},
+    {"name": "enterprise_lab", "path": "src/veri_kalitesi/enterprise_lab/", "files": 4, "role": "Enterprise lab adapters"},
+    {"name": "environment_security", "path": "src/veri_kalitesi/environment_security/", "files": 5, "role": "Environment security checks"},
+    {"name": "executions", "path": "src/veri_kalitesi/executions/", "files": 14, "role": "Rule execution domain, strategy engine, PostgreSQL repository"},
+    {"name": "identity", "path": "src/veri_kalitesi/identity/", "files": 7, "role": "Actor context, authorization policies"},
+    {"name": "incident_response", "path": "src/veri_kalitesi/incident_response/", "files": 5, "role": "Incident response module"},
+    {"name": "issues", "path": "src/veri_kalitesi/issues/", "files": 11, "role": "Issue domain, assignment, investigation, resolution, verification"},
+    {"name": "jobs", "path": "src/veri_kalitesi/jobs/", "files": 13, "role": "Background job queue, worker lifecycle, handlers"},
+    {"name": "lineage", "path": "src/veri_kalitesi/lineage/", "files": 7, "role": "Lineage evidence, governance projection, impact analysis"},
+    {"name": "notifications", "path": "src/veri_kalitesi/notifications/", "files": 12, "role": "Notification channels, delivery, batch staging"},
+    {"name": "persistence", "path": "src/veri_kalitesi/persistence/", "files": 2, "role": "Database settings, session factory (PostgreSQL-only)"},
+    {"name": "reporting", "path": "src/veri_kalitesi/reporting/", "files": 9, "role": "Report generation, scheduling, export, worker"},
+    {"name": "retention", "path": "src/veri_kalitesi/retention/", "files": 9, "role": "Data retention, archival, disposal, legal hold"},
+    {"name": "rules", "path": "src/veri_kalitesi/rules/", "files": 9, "role": "Quality rules domain, approval, templates"},
+    {"name": "scoring", "path": "src/veri_kalitesi/scoring/", "files": 13, "role": "Score computation, contribution graphs, publication, trends"},
+    {"name": "secure_sdlc", "path": "src/veri_kalitesi/secure_sdlc/", "files": 13, "role": "SAST, SBOM, pentest, evidence gates, vulnerability tracking"},
+    {"name": "servicenow", "path": "src/veri_kalitesi/servicenow/", "files": 5, "role": "ServiceNow integration"},
+    {"name": "synthetic_data", "path": "src/veri_kalitesi/synthetic_data/", "files": 12, "role": "Synthetic data generation, oracle, temporal, PostgreSQL dataset"}
+  ],
+  "frontend_routes": [
+    {"path": "/", "component": "DashboardRoute", "page": "DashboardPage"},
+    {"path": "/data-sources", "component": "DataSourcesRoute", "page": "DataSourcesPage"},
+    {"path": "/catalog", "component": "CatalogRoute", "page": "CatalogPage (lazy)"},
+    {"path": "/catalog/datasets/:datasetId", "component": "DatasetDetailRoute", "page": "DatasetDetailPage (lazy)"},
+    {"path": "/catalog/fields/:fieldId", "component": "FieldDetailRoute", "page": "FieldDetailPage (lazy)"},
+    {"path": "/profiling", "component": "ProfilingRoute", "page": "ProfilingPage"},
+    {"path": "/rules", "component": "RulesRoute", "page": "RulesPage"},
+    {"path": "/executions", "component": "ExecutionsRoute", "page": "ExecutionsPage"},
+    {"path": "/scores", "component": "ScoresPage (lazy)", "page": "ScoresPage"},
+    {"path": "/scores/:scoreId", "component": "ScoreDetailPage (lazy)", "page": "ScoreDetailPage"},
+    {"path": "/scores/comparison", "component": "ScoreComparisonPage (lazy)", "page": "ScoreComparisonPage"},
+    {"path": "/issues", "component": "IssuesRoute", "page": "IssuesPage"},
+    {"path": "/investigation", "component": "InvestigationRoute", "page": "InvestigationPage (lazy)"},
+    {"path": "/unauthorized", "component": "RouteBoundary", "page": "Unauthorized boundary"},
+    {"path": "/reports", "component": "ReportsRoute", "page": "ReportsPage"},
+    {"path": "/audit", "component": "AuditRoute", "page": "AuditPage"},
+    {"path": "/notifications", "component": "NotificationsRoute", "page": "NotificationsPage (lazy)"},
+    {"path": "/notifications/preferences", "component": "NotificationPreferencesRoute", "page": "NotificationPreferencesPage (lazy)"},
+    {"path": "/notifications/channels", "component": "NotificationChannelsRoute", "page": "NotificationChannelsPage (lazy)"},
+    {"path": "/notifications/deliveries", "component": "NotificationDeliveriesRoute", "page": "NotificationDeliveriesPage (lazy)"},
+    {"path": "*", "component": "RouteBoundary", "page": "404 boundary"}
+  ],
+  "api_routes": [
+    {"method": "GET", "path": "/api/v1/dashboard/summary", "tag": "dashboard", "service": "DashboardQueryService", "wired": false, "note": "UnavailableDashboardService in composition → raises DashboardQueryError"},
+    {"method": "GET", "path": "/api/v1/data-sources", "tag": "data-sources", "service": "DataSourceQueryService", "wired": true},
+    {"method": "POST", "path": "/api/v1/data-sources", "tag": "data-sources", "service": "DataSourceCommandAdapter", "wired": true},
+    {"method": "GET", "path": "/api/v1/data-sources/{id}/test", "tag": "data-sources", "service": "DataSourceCommandAdapter", "wired": true},
+    {"method": "POST", "path": "/api/v1/data-sources/{id}/activation", "tag": "data-sources", "service": "DataSourceCommandAdapter", "wired": true},
+    {"method": "POST", "path": "/api/v1/data-source-activation-requests/{id}/decision", "tag": "data-sources", "service": "DataSourceCommandAdapter", "wired": true},
+    {"method": "POST", "path": "/api/v1/data-sources/{id}/passivation", "tag": "data-sources", "service": "DataSourceCommandAdapter", "wired": true},
+    {"method": "GET", "path": "/api/v1/profile-comparisons", "tag": "data-sources", "service": "ProfileComparisonService", "wired": false, "note": "Not passed from composition.py"},
+    {"method": "GET", "path": "/api/v1/profile-snapshots", "tag": "data-sources", "service": "ProfileSnapshotQueryService", "wired": false, "note": "Not passed from composition.py"},
+    {"method": "GET", "path": "/api/v1/profile-snapshots/{id}", "tag": "data-sources", "service": "ProfileSnapshotQueryService", "wired": false},
+    {"method": "GET", "path": "/api/v1/profile-snapshots/{id}/drift", "tag": "data-sources", "service": "ProfileSnapshotQueryService", "wired": false},
+    {"method": "GET", "path": "/api/v1/rules", "tag": "rules", "service": "RuleQueryService", "wired": true},
+    {"method": "POST", "path": "/api/v1/rules", "tag": "rules", "service": "RuleCommandAdapter", "wired": true, "note": "Phase B only; None without phase_b_providers"},
+    {"method": "POST", "path": "/api/v1/rules/{id}/versions", "tag": "rules", "service": "RuleQueryService", "wired": true},
+    {"method": "POST", "path": "/api/v1/rules/{id}/test", "tag": "rules", "service": "RuleCommandAdapter", "wired": true, "note": "Phase B only"},
+    {"method": "POST", "path": "/api/v1/rules/{id}/activation", "tag": "rules", "service": "RuleCommandAdapter", "wired": true, "note": "Phase B only"},
+    {"method": "POST", "path": "/api/v1/rules/{id}/approval", "tag": "rules", "service": "RuleCommandAdapter", "wired": true, "note": "Phase B only"},
+    {"method": "POST", "path": "/api/v1/rules/approval/{id}/decide", "tag": "rules", "service": "RuleCommandAdapter", "wired": true, "note": "Phase B only"},
+    {"method": "POST", "path": "/api/v1/rules/approval/{id}/withdraw", "tag": "rules", "service": "RuleCommandAdapter", "wired": true, "note": "Phase B only"},
+    {"method": "POST", "path": "/api/v1/rules/{id}/passivation", "tag": "rules", "service": "RuleCommandAdapter", "wired": true, "note": "Phase B only"},
+    {"method": "GET", "path": "/api/v1/issues", "tag": "issues", "service": "IssueQueryService", "wired": true},
+    {"method": "POST", "path": "/api/v1/issues", "tag": "issues", "service": "IssueService", "wired": true},
+    {"method": "POST", "path": "/api/v1/issues/{id}/investigation", "tag": "issues", "service": "IssueService", "wired": true},
+    {"method": "GET", "path": "/api/v1/issues/{id}/investigation/evidence", "tag": "issues", "service": "IssueService", "wired": true},
+    {"method": "GET", "path": "/api/v1/issues/{id}/assignment-options", "tag": "issues", "service": "IssueService", "wired": true, "note": "Phase B only"},
+    {"method": "POST", "path": "/api/v1/issues/{id}/assignment", "tag": "issues", "service": "IssueService", "wired": true, "note": "Phase B only"},
+    {"method": "POST", "path": "/api/v1/issues/{id}/resolution", "tag": "issues", "service": "IssueService", "wired": true, "note": "Phase B only"},
+    {"method": "POST", "path": "/api/v1/issues/{id}/verification", "tag": "issues", "service": "IssueService", "wired": true, "note": "Phase B only"},
+    {"method": "POST", "path": "/api/v1/issues/{id}/closure", "tag": "issues", "service": "IssueService", "wired": true},
+    {"method": "GET", "path": "/api/v1/executions", "tag": "executions", "service": "ExecutionQueryService", "wired": true},
+    {"method": "GET", "path": "/api/v1/executions/{id}", "tag": "executions", "service": "ExecutionQueryService", "wired": true},
+    {"method": "POST", "path": "/api/v1/executions", "tag": "executions", "service": "PostgreSQLExecutionStartService", "wired": true},
+    {"method": "POST", "path": "/api/v1/executions/{id}/cancel", "tag": "executions", "service": "PostgreSQLExecutionCancelService", "wired": true},
+    {"method": "GET", "path": "/api/v1/scores", "tag": "scores", "service": "ScoreQueryService", "wired": true},
+    {"method": "GET", "path": "/api/v1/scores/rules/{id}", "tag": "scores", "service": "ScoreQueryService", "wired": true},
+    {"method": "GET", "path": "/api/v1/scores/comparison", "tag": "scores", "service": "ScoreQueryService", "wired": true},
+    {"method": "GET", "path": "/api/v1/scores/{id}", "tag": "scores", "service": "ScoreQueryService", "wired": true},
+    {"method": "POST", "path": "/api/v1/scores/{id}/reproduction", "tag": "scores", "service": "ScorePublicationService", "wired": false, "note": "score_publication_service not passed from composition.py"},
+    {"method": "GET", "path": "/api/v1/reports/summary", "tag": "reports", "service": "ReportPreviewService", "wired": false, "note": "None in composition → 503"},
+    {"method": "POST", "path": "/api/v1/reports/", "tag": "reports", "service": "ReportService", "wired": false, "note": "None in composition → 503"},
+    {"method": "GET", "path": "/api/v1/reports/", "tag": "reports", "service": "ReportService", "wired": false},
+    {"method": "GET", "path": "/api/v1/reports/{id}", "tag": "reports", "service": "ReportService", "wired": false},
+    {"method": "GET", "path": "/api/v1/reports/{id}/download", "tag": "reports", "service": "ReportService", "wired": false},
+    {"method": "GET", "path": "/api/v1/report-schedules", "tag": "reports", "service": "ReportScheduleService", "wired": false},
+    {"method": "POST", "path": "/api/v1/report-schedules", "tag": "reports", "service": "ReportScheduleService", "wired": false},
+    {"method": "DELETE", "path": "/api/v1/report-schedules/{id}", "tag": "reports", "service": "ReportScheduleService", "wired": false},
+    {"method": "POST", "path": "/api/v1/report-schedules/trigger-due", "tag": "reports", "service": "ReportScheduleService", "wired": false},
+    {"method": "GET", "path": "/api/v1/audit/events", "tag": "audit", "service": "AuditQueryService", "wired": true},
+    {"method": "GET", "path": "/api/v1/notifications/inbox", "tag": "notifications", "service": "NotificationQueryService", "wired": true},
+    {"method": "GET", "path": "/api/v1/notifications/inbox/unread-count", "tag": "notifications", "service": "NotificationQueryService", "wired": true},
+    {"method": "GET", "path": "/api/v1/notifications/deliveries/{id}", "tag": "notifications", "service": "NotificationQueryService", "wired": true},
+    {"method": "POST", "path": "/api/v1/notifications/deliveries/{id}/read", "tag": "notifications", "service": "NotificationDeliveryService", "wired": true},
+    {"method": "GET", "path": "/api/v1/notifications/events/{id}", "tag": "notifications", "service": "NotificationQueryService", "wired": true},
+    {"method": "GET", "path": "/api/v1/notifications/subscriptions", "tag": "notifications", "service": "NotificationQueryService", "wired": true},
+    {"method": "GET", "path": "/api/v1/notifications/channels", "tag": "notifications", "service": "NotificationQueryService", "wired": true},
+    {"method": "GET", "path": "/api/v1/lineage/snapshots/{id}", "tag": "lineage", "service": "PostgreSQLLineageEvidenceRepository", "wired": false, "note": "None in composition → 503"},
+    {"method": "GET", "path": "/api/v1/governance/{asset_ref}/projection", "tag": "lineage", "service": "PostgreSQLGovernanceProfileReader", "wired": false, "note": "None in composition → 503"},
+    {"method": "POST", "path": "/api/v1/data-sources/{id}/metadata-discoveries", "tag": "catalog", "service": "PostgreSQLMetadataCommandService", "wired": true},
+    {"method": "PUT", "path": "/api/v1/data-sources/{id}/discovery-scope", "tag": "catalog", "service": "PostgreSQLMetadataCommandService", "wired": true},
+    {"method": "GET", "path": "/api/v1/data-sources/{id}/discovery-scope", "tag": "catalog", "service": "PostgreSQLMetadataCommandService", "wired": true},
+    {"method": "GET", "path": "/api/v1/metadata-discoveries/{id}", "tag": "catalog", "service": "CatalogQueryService", "wired": true},
+    {"method": "GET", "path": "/api/v1/metadata-discoveries/{id}/diff", "tag": "catalog", "service": "CatalogQueryService", "wired": true},
+    {"method": "POST", "path": "/api/v1/metadata-diffs/{id}/application", "tag": "catalog", "service": "PostgreSQLMetadataCommandService", "wired": true},
+    {"method": "GET", "path": "/api/v1/datasets", "tag": "catalog", "service": "CatalogQueryService", "wired": true},
+    {"method": "GET", "path": "/api/v1/datasets/{id}", "tag": "catalog", "service": "CatalogQueryService", "wired": true},
+    {"method": "GET", "path": "/api/v1/datasets/{id}/fields", "tag": "catalog", "service": "CatalogQueryService", "wired": true},
+    {"method": "GET", "path": "/api/v1/fields/{id}", "tag": "catalog", "service": "CatalogQueryService", "wired": true},
+    {"method": "POST", "path": "/api/v1/session/logout", "tag": "session", "service": "BffSessionBoundary", "wired": false, "note": "Only with BFF identity provider; dev uses resolver"},
+    {"method": "GET", "path": "/api/v1/development/users", "tag": "development", "service": "DevelopmentUserRegistry", "wired": true, "note": "Development-only endpoint"},
+    {"method": "GET", "path": "/api/v1/openapi.json", "tag": "openapi", "service": "FastAPI built-in", "wired": true}
+  ],
+  "worker_job_types": [
+    {
+      "job_type": "EXECUTION",
+      "handler": "ExecutionJobHandler",
+      "wired": true,
+      "chain": "composition.py → ExecutionJobHandler(execution_command) → PersistentExecutionCommandAdapter → ExecutionService → PostgreSQLRuleExecutionExecutor"
+    },
+    {
+      "job_type": "REPORT",
+      "handler": "ReportJobHandler",
+      "wired": false,
+      "note": "report_worker=None in create_persistent_job_runtime call from production.py"
+    },
+    {
+      "job_type": "METADATA_DISCOVERY",
+      "handler": "MetadataDiscoveryJobHandler",
+      "wired": true,
+      "chain": "production.py → PersistentMetadataDiscoveryCommandAdapter → DataSourceService"
+    },
+    {
+      "job_type": "SCORE_PUBLICATION",
+      "handler": "ScorePublicationJobHandler",
+      "wired": false,
+      "note": "Only wired when providers is not None; entrypoint.py calls create_production_worker(settings) without providers"
+    },
+    {
+      "job_type": "NOTIFICATION_DELIVERY",
+      "handler": "NotificationDeliveryJobHandler",
+      "wired": false,
+      "note": "Only wired when providers is not None; entrypoint.py calls create_production_worker(settings) without providers"
+    }
+  ],
+  "persistence_and_migrations": {
+    "database": "PostgreSQL (postgresql+psycopg driver)",
+    "orm": "SQLAlchemy 2.0.51",
+    "migration_tool": "Alembic 1.18.4",
+    "default_schema": "dq",
+    "default_database_name": "data_quality",
+    "migration_chain": [
+      {"revision": "20260723_01", "name": "issue_baseline", "down_revision": null},
+      {"revision": "20260723_02", "name": "rule_baseline", "down_revision": "20260723_01"},
+      {"revision": "20260724_03", "name": "data_source_baseline", "down_revision": "20260723_02"},
+      {"revision": "20260724_04", "name": "execution_baseline", "down_revision": "20260724_03"},
+      {"revision": "20260724_05", "name": "scheduling_and_policy_baseline", "down_revision": "20260724_04"},
+      {"revision": "20260724_06", "name": "reporting_baseline", "down_revision": "20260724_05"},
+      {"revision": "20260724_07", "name": "report_schedules", "down_revision": "20260724_06"},
+      {"revision": "20260728_08", "name": "job_queue", "down_revision": "20260724_07"},
+      {"revision": "20260729_09", "name": "job_lifecycle", "down_revision": "20260728_08"},
+      {"revision": "20260729_10", "name": "source_policy_deadlines", "down_revision": "20260729_09"},
+      {"revision": "20260729_11", "name": "profile_comparisons", "down_revision": "20260729_10"},
+      {"revision": "20260730_12", "name": "rule_ir_shadow_evidence", "down_revision": "20260729_11"},
+      {"revision": "20260730_13", "name": "score_contribution_graphs", "down_revision": "20260730_12"},
+      {"revision": "20260730_14", "name": "lineage_governance_evidence", "down_revision": "20260730_13"},
+      {"revision": "20260805_15", "name": "data_source_command_slice", "down_revision": "20260730_14"},
+      {"revision": "20260805_16", "name": "execution_worker_runtime", "down_revision": "20260805_15"},
+      {"revision": "20260805_17", "name": "catalog_metadata_discovery", "down_revision": "20260805_16"},
+      {"revision": "20260806_18", "name": "issue_generation", "down_revision": "20260805_17"},
+      {"revision": "20260806_19", "name": "score_publication", "down_revision": "20260806_18"},
+      {"revision": "20260806_20", "name": "notification_delivery", "down_revision": "20260806_19"}
+    ],
+    "required_tables_validated_by_composition": [
+      "data_sources", "data_source_activation_requests", "datasets", "data_fields",
+      "quality_rules", "rule_versions", "rule_test_results", "rule_approval_requests",
+      "data_quality_issues", "issue_history", "issue_resolutions", "issue_verifications",
+      "issue_relationships", "rule_executions", "score_contribution_graphs",
+      "scoring_configurations", "scoring_configuration_approvals",
+      "dataset_partial_score_policies", "score_publications", "quality_scores",
+      "audit_outbox", "audit_events", "background_jobs", "job_dead_letters",
+      "workers", "source_usage_policies", "metadata_discovery_results",
+      "discovery_scopes", "metadata_diffs", "notification_channels",
+      "notification_events", "notification_subscriptions", "notification_deliveries"
+    ]
+  },
+  "environment_variables": {
+    "database": [
+      {"name": "DATA_QUALITY_DATABASE_URL", "required": true, "source": "persistence/database.py", "format": "postgresql+psycopg://user:pass@host:5432/data_quality"},
+      {"name": "DATA_QUALITY_DATABASE_SCHEMA", "required": false, "default": "dq", "source": "persistence/database.py"}
+    ],
+    "api_settings": [
+      {"name": "DATA_QUALITY_RUNTIME_ENVIRONMENT", "required": false, "default": "production", "source": "api/settings.py", "allowed": ["production", "development", "test"]},
+      {"name": "DATA_QUALITY_ALLOWED_ORIGINS", "required": true, "source": "api/settings.py", "format": "comma-separated URLs"},
+      {"name": "DATA_QUALITY_AUDIT_POLICY_VERSION", "required": false, "default": "AUDIT_OUTBOX_V1", "source": "api/settings.py"},
+      {"name": "DATA_QUALITY_DATA_SOURCE_POLICY_VERSION", "required": false, "default": "DATA_SOURCE_COMMAND_POLICY_V1", "source": "api/settings.py"},
+      {"name": "DATA_QUALITY_RULE_POLICY_VERSION", "required": false, "default": "RULE_APPROVAL_POLICY_V1", "source": "api/settings.py"},
+      {"name": "DATA_QUALITY_ISSUE_POLICY_VERSION", "required": false, "default": "ISSUE_ACCESS_POLICY_V1", "source": "api/settings.py"},
+      {"name": "DATA_QUALITY_ACTOR_POLICY_VERSION", "required": false, "default": "DASHBOARD_POLICY_V1", "source": "api/settings.py"},
+      {"name": "DATA_QUALITY_EXECUTION_COMMAND_POLICY_VERSION", "required": false, "default": "EXECUTION_COMMAND_POLICY_V1", "source": "api/settings.py"},
+      {"name": "DATA_QUALITY_SCORING_CONFIGURATION_VERSION", "required": false, "default": "DEFAULT_SCORING_V1", "source": "api/settings.py"},
+      {"name": "DATA_QUALITY_LOCAL_SECRET_DIR", "required": false, "source": "api/settings.py", "note": "Dev-only; rejected in production"}
+    ],
+    "worker_settings": [
+      {"name": "DQ_WORKER_ID", "required": false, "default": "worker-01", "source": "jobs/settings.py"},
+      {"name": "DQ_WORKER_HOSTNAME", "required": false, "default": "localhost", "source": "jobs/settings.py"},
+      {"name": "DQ_WORKER_CAPACITY", "required": false, "default": "1", "source": "jobs/settings.py"},
+      {"name": "DQ_WORKER_LEASE_SECONDS", "required": false, "default": "300", "source": "jobs/settings.py"},
+      {"name": "DQ_WORKER_IDLE_WAIT_SECONDS", "required": false, "default": "0.5", "source": "jobs/settings.py"},
+      {"name": "DQ_WORKER_SHUTDOWN_GRACE_SECONDS", "required": false, "default": "5.0", "source": "jobs/settings.py"}
+    ],
+    "ci_test_variables": [
+      {"name": "DATA_QUALITY_POSTGRES_TEST_URL", "source": ".github/workflows/quality.yml", "note": "Integration test DB URL"},
+      {"name": "SYNTHETIC_POSTGRES_TEST", "source": ".github/workflows/quality.yml", "note": "Enables synthetic PG tests (value: 1)"},
+      {"name": "PGHOST", "source": ".github/workflows/quality.yml"},
+      {"name": "PGPORT", "source": ".github/workflows/quality.yml"},
+      {"name": "PGDATABASE", "source": ".github/workflows/quality.yml"},
+      {"name": "PGUSER", "source": ".github/workflows/quality.yml"},
+      {"name": "PGPASSWORD", "source": ".github/workflows/quality.yml"}
+    ],
+    "frontend": [
+      {"name": "VITE_API_PROXY_TARGET", "source": "infra/development/compose.yaml", "default": "http://api:8000"}
+    ]
+  },
+  "test_and_ci_commands": {
+    "backend_unit_tests": "pytest -q tests/unit (via pytest -q which runs all testpaths)",
+    "backend_integration_tests": "pytest -q tests/integration (requires PostgreSQL, skipped=0 enforced)",
+    "backend_lint": "ruff check . --output-format=github && ruff format --check .",
+    "backend_types": "mypy src",
+    "frontend_unit_tests": "cd frontend && npm test (vitest run)",
+    "frontend_typecheck": "cd frontend && npm run typecheck (tsc -b)",
+    "frontend_build": "cd frontend && npm run build (tsc -b && vite build)",
+    "frontend_e2e": "cd frontend && npm run test:e2e (playwright test)",
+    "frontend_lint": "cd frontend && npm run lint (eslint src/ --max-warnings 0)",
+    "frontend_dead_code": "cd frontend && npm run dead-code (knip)",
+    "alembic_migration": "alembic -c alembic.ini upgrade head",
+    "dev_server": "uvicorn scripts.run_dev:app --host 0.0.0.0 --port 8000",
+    "worker": "dq-worker (console script → veri_kalitesi.jobs.entrypoint:main)",
+    "full_compose": "docker compose -f infra/development/compose.yaml up"
+  },
+  "capability_matrix": [
+    {"capability": "Dashboard Summary", "status": "UNWIRED", "evidence": "DashboardQueryService is UnavailableDashboardService in composition.py; route returns 503"},
+    {"capability": "Data Source Query", "status": "REACHABLE", "evidence": "GET /api/v1/data-sources → DataSourceQueryService wired in composition.py"},
+    {"capability": "Data Source Commands (create/activate/passivate/test)", "status": "REACHABLE", "evidence": "POST routes → DataSourceCommandAdapter wired in composition.py"},
+    {"capability": "Profile Comparison / Snapshot / Drift", "status": "UNWIRED", "evidence": "ProfileComparisonService and ProfileSnapshotQueryService not passed from composition.py"},
+    {"capability": "Rules Query", "status": "REACHABLE", "evidence": "GET /api/v1/rules → RuleQueryService wired in composition.py"},
+    {"capability": "Rules Commands (create/approve/activate/test/passivate)", "status": "REACHABLE", "evidence": "POST routes → RuleCommandAdapter wired when PhaseBProviders given; None in dev composition"},
+    {"capability": "Issues Query", "status": "REACHABLE", "evidence": "GET /api/v1/issues → IssueQueryService wired in composition.py"},
+    {"capability": "Issues Create / Investigate / Close", "status": "REACHABLE", "evidence": "POST routes → IssueService wired in composition.py"},
+    {"capability": "Issues Assignment / Resolution / Verification", "status": "REACHABLE", "evidence": "POST routes → IssueService wired; Phase B providers optional"},
+    {"capability": "Executions Query", "status": "REACHABLE", "evidence": "GET /api/v1/executions → ExecutionQueryService wired in composition.py"},
+    {"capability": "Executions Start / Cancel", "status": "REACHABLE", "evidence": "POST routes → PostgreSQLExecutionStartService/CancelService wired in composition.py"},
+    {"capability": "Scores Query (list/detail/history/comparison)", "status": "REACHABLE", "evidence": "GET /api/v1/scores/* → ScoreQueryService wired in composition.py"},
+    {"capability": "Score Reproduction", "status": "UNWIRED", "evidence": "POST /api/v1/scores/{id}/reproduction → score_publication_service=None in composition.py"},
+    {"capability": "Reports (all endpoints)", "status": "UNWIRED", "evidence": "All 9 report routes → services are None in composition.py → 503"},
+    {"capability": "Audit Events Query", "status": "REACHABLE", "evidence": "GET /api/v1/audit/events → AuditQueryService wired in composition.py"},
+    {"capability": "Notifications (inbox/deliveries/channels/subscriptions)", "status": "REACHABLE", "evidence": "All 7 notification routes → NotificationQueryService/DeliveryService wired in composition.py"},
+    {"capability": "Lineage Evidence / Governance Projection", "status": "UNWIRED", "evidence": "Both lineage routes → repository/reader are None in composition.py → 503"},
+    {"capability": "Catalog / Metadata Discovery", "status": "REACHABLE", "evidence": "All 10 catalog routes → PostgreSQLMetadataCommandService/CatalogQueryService wired in composition.py"},
+    {"capability": "Development Users", "status": "DEV_ONLY", "evidence": "GET /api/v1/development/users → DevelopmentUserRegistry; only in development runtime"},
+    {"capability": "Worker: EXECUTION job", "status": "REACHABLE", "evidence": "ExecutionJobHandler always registered in composition.py"},
+    {"capability": "Worker: METADATA_DISCOVERY job", "status": "REACHABLE", "evidence": "MetadataDiscoveryJobHandler wired in production.py"},
+    {"capability": "Worker: REPORT job", "status": "UNWIRED", "evidence": "ReportJobHandler requires report_worker; not passed from production.py"},
+    {"capability": "Worker: SCORE_PUBLICATION job", "status": "UNWIRED", "evidence": "ScorePublicationJobHandler only when providers!=None; entrypoint calls without providers"},
+    {"capability": "Worker: NOTIFICATION_DELIVERY job", "status": "UNWIRED", "evidence": "NotificationDeliveryJobHandler only when providers!=None; entrypoint calls without providers"},
+    {"capability": "Retention / Archival / Disposal / Legal Hold", "status": "TEST_ONLY", "evidence": "Full domain under src/veri_kalitesi/retention/ with unit tests; no API routes or worker handlers"},
+    {"capability": "Synthetic Data Generation", "status": "TEST_ONLY", "evidence": "Full domain under src/veri_kalitesi/synthetic_data/ with unit+integration tests; no API routes"},
+    {"capability": "Secure SDLC (SAST/SBOM/Pentest/Evidence)", "status": "TEST_ONLY", "evidence": "Full module under src/veri_kalitesi/secure_sdlc/ with 7 test files; CLI tool; no API routes"},
+    {"capability": "ServiceNow Integration", "status": "TEST_ONLY", "evidence": "Module under src/veri_kalitesi/servicenow/ with unit test; no API routes or worker handlers"},
+    {"capability": "Incident Response", "status": "TEST_ONLY", "evidence": "Module under src/veri_kalitesi/incident_response/ with unit test; no API routes"},
+    {"capability": "Enterprise Lab", "status": "TEST_ONLY", "evidence": "Module under src/veri_kalitesi/enterprise_lab/ with 2 test files; no API routes"}
+  ],
+  "contradictions": [
+    {
+      "topic": "Dashboard capability",
+      "observation": "Dashboard route is registered and frontend has DashboardRoute, but composition uses UnavailableDashboardService which raises DashboardQueryError on every call.",
+      "evidence_paths": ["src/veri_kalitesi/api/composition.py L156-161", "src/veri_kalitesi/api/dashboard_router.py L124"]
+    },
+    {
+      "topic": "Rules mutation in development",
+      "observation": "Rule mutation routes (POST /api/v1/rules, test, approval, etc.) require RuleCommandAdapter which is None when phase_b_providers is absent. Dev composition does not provide PhaseBProviders, so rule mutations return errors in dev.",
+      "evidence_paths": ["src/veri_kalitesi/api/composition.py L360-376", "src/veri_kalitesi/api/development_runtime.py L15-47"]
+    },
+    {
+      "topic": "Worker SCORE_PUBLICATION and NOTIFICATION_DELIVERY",
+      "observation": "production.py wires these handlers only when providers is not None, but entrypoint.py calls create_production_worker(settings) without providers argument. These job types are dead code in the default worker process.",
+      "evidence_paths": ["src/veri_kalitesi/jobs/entrypoint.py L19-21", "src/veri_kalitesi/jobs/production.py L62-66, L209-262"]
+    },
+    {
+      "topic": "Report and Lineage routes always return 503",
+      "observation": "Report and lineage routers register routes but all backing services are None in the persistent composition. Routes exist in OpenAPI spec but always fail at runtime.",
+      "evidence_paths": ["src/veri_kalitesi/api/composition.py L407-440", "src/veri_kalitesi/api/reports_router.py L60-61", "src/veri_kalitesi/api/lineage_router.py L55-62"]
+    }
+  ],
+  "unresolved_questions": [
+    "How is the production API composed? production.py requires BffSessionBoundary and PhaseBProviders which are not instantiated in this repo — they must come from an external deployment package.",
+    "The dashboard service is always UnavailableDashboardService in the persistent composition. Is there an alternate composition that provides a real DashboardQueryService?",
+    "Report and Lineage services exist with full domain logic and tests but are never wired. Are they awaiting a future iteration's composition integration?",
+    "Worker SCORE_PUBLICATION and NOTIFICATION_DELIVERY handlers require PhaseBProviders-style injection. Is there a separate worker entrypoint that provides these?",
+    "The retention, synthetic_data, secure_sdlc, servicenow, incident_response, and enterprise_lab modules have domain logic and tests but zero runtime wiring. Are these planned for future API exposure?",
+    "No [build-system] is defined in pyproject.toml; CI installs dependencies by parsing the TOML directly. Is this intentional or a packaging gap?"
+  ],
+  "evidence": [
+    {"claim": "API entrypoint is uvicorn scripts.run_dev:app", "path": "infra/application/Dockerfile", "symbol_or_line": "CMD line 19"},
+    {"claim": "Dev composition creates FastAPI via create_development_app()", "path": "scripts/run_dev.py", "symbol_or_line": "L3-5"},
+    {"claim": "Composition root validates 31 required tables", "path": "src/veri_kalitesi/api/composition.py", "symbol_or_line": "REQUIRED_TABLES L87-123"},
+    {"claim": "Migration head is 20260806_20", "path": "src/veri_kalitesi/api/composition.py", "symbol_or_line": "CURRENT_MIGRATION_HEAD L86"},
+    {"claim": "Worker entrypoint is dq-worker console script", "path": "pyproject.toml", "symbol_or_line": "[project.scripts] L28"},
+    {"claim": "Worker poll loop uses fork-based subprocess isolation", "path": "src/veri_kalitesi/jobs/worker.py", "symbol_or_line": "_execute_handler L309-436"},
+    {"claim": "Database is PostgreSQL-only with psycopg driver", "path": "src/veri_kalitesi/persistence/database.py", "symbol_or_line": "L45-46"},
+    {"claim": "20 Alembic migrations in linear chain", "path": "alembic/versions/", "symbol_or_line": "20 files with sequential revision chain"},
+    {"claim": "Frontend has 20 client-facing routes", "path": "frontend/src/App.tsx", "symbol_or_line": "L422-443"},
+    {"claim": "Frontend has 12 api.ts client modules", "path": "frontend/src/", "symbol_or_line": "12 api.ts files found"},
+    {"claim": "65 unit test files and 17 integration test files", "path": "tests/", "symbol_or_line": "find results"},
+    {"claim": "31 frontend unit test files and 8 e2e specs", "path": "frontend/", "symbol_or_line": "find results"},
+    {"claim": "8 Storybook story files", "path": "frontend/src/", "symbol_or_line": "find results"},
+    {"claim": "CI has 5 mandatory jobs", "path": ".github/workflows/quality.yml", "symbol_or_line": "jobs: backend-test, integration, backend-lint, backend-types, frontend"},
+    {"claim": "Dashboard service is UnavailableDashboardService in composition", "path": "src/veri_kalitesi/api/composition.py", "symbol_or_line": "L156-161, L408"},
+    {"claim": "Reports routes always get None services", "path": "src/veri_kalitesi/api/composition.py", "symbol_or_line": "L407 create_dashboard_api call omits report_* args"},
+    {"claim": "Lineage routes always get None repository/reader", "path": "src/veri_kalitesi/api/composition.py", "symbol_or_line": "L407 create_dashboard_api call omits lineage_* args"},
+    {"claim": "Worker entrypoint does not pass providers", "path": "src/veri_kalitesi/jobs/entrypoint.py", "symbol_or_line": "L19-21"},
+    {"claim": "Score publication and notification delivery handlers are conditional on providers", "path": "src/veri_kalitesi/jobs/production.py", "symbol_or_line": "L209, L245"}
+  ]
+}

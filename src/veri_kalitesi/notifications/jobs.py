@@ -7,6 +7,7 @@ teslimat durum makinesi geçişlerini yönetir.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -36,7 +37,7 @@ class NotificationDeliveryJobPayload:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> NotificationDeliveryJobPayload:
+    def from_dict(cls, data: Mapping[str, Any]) -> NotificationDeliveryJobPayload:
         delivery_id = data.get("delivery_id")
         event_id = data.get("event_id")
         if not isinstance(delivery_id, str) or not delivery_id.strip():

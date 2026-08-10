@@ -47,14 +47,6 @@ from veri_kalitesi.api.postgresql_execution import (
     PostgreSQLExecutionCancelService,
     PostgreSQLExecutionStartService,
 )
-from veri_kalitesi.reporting.models import (
-    ReportExportPolicy,
-    ReportFormat,
-    ReportRequest,
-    ReportType,
-)
-from veri_kalitesi.reporting.repository import PostgreSQLReportRepository
-from veri_kalitesi.reporting.service import ReportService
 from veri_kalitesi.jobs import (
     BackgroundJob,
     DeadLetterReprocessPolicy,
@@ -397,71 +389,6 @@ def test_execution_cancel_rolls_back_execution_and_audit_when_job_cancel_fails(
     assert audit_outbox.list_pending() == pending_before
 
 
-def test_report_request_uses_persistent_job_instead_of_inline_worker(
-    repository: PostgreSQLJobQueueRepository,
-    audit_outbox: PostgreSQLTransactionalAudit,
-    session_factory: SessionFactory,
-    db_settings: DatabaseSettings,
-) -> None:
-    class _Policy:
-        def get_active_policy(self, sensitivity_level):
-            return ReportExportPolicy(
-                version="TEST_REPORT_POLICY",
-                policy_name="test-report",
-                sensitivity_level=sensitivity_level,
-                max_file_size=1_000_000,
-                online_duration_seconds=3600,
-                require_justification=False,
-                require_maker_checker=False,
-                watermark_enabled=False,
-                dlp_enabled=False,
-                allowed_formats=frozenset({ReportFormat.CSV}),
-            )
-
-    class _UnusedAudit:
-        def append(self, event):
-            raise AssertionError("Production report request must use transactional outbox.")
-
-    service = ReportService(
-        PostgreSQLReportRepository(session_factory, schema=db_settings.schema),
-        _Policy(),  # type: ignore[arg-type]
-        None,
-        _UnusedAudit(),  # type: ignore[arg-type]
-        job_queue=repository,
-        transactional_audit=audit_outbox,
-    )
-    context = ActorContextIssuer().issue(
-        actor_id="reporter-a",
-        actor_type=ActorType.USER,
-        authentication_source="TEST_IDP",
-        session_id="session-report",
-        roles=frozenset({"DATA_STEWARD"}),
-        permitted_source_ids=frozenset({"source-a"}),
-        permitted_dataset_ids=frozenset(),
-        can_view_enterprise=False,
-        privileged=False,
-        issued_at=_at(),
-        expires_at=_at() + timedelta(hours=1),
-        policy_version="TEST_REPORT_POLICY",
-        correlation_id="report-correlation",
-    )
-
-    report = service.request_report(
-        ReportRequest(
-            report_type=ReportType.SUMMARY,
-            format=ReportFormat.CSV,
-            parameters={"source_ids": ["source-a"]},
-            reason_code="TEST",
-        ),
-        context,
-    )
-
-    job = repository.get_by_idempotency_key("REPORT", report.report_id)
-    assert job is not None
-    assert job.payload["report_id"] == report.report_id
-    assert job.payload["source_ids"] == ("source-a",)
-
-
 def test_idempotent_enqueue_creates_one_row(
     repository: PostgreSQLJobQueueRepository,
     session_factory: SessionFactory,
@@ -504,7 +431,7 @@ def test_same_key_is_independent_between_job_types(
     db_settings: DatabaseSettings,
 ) -> None:
     repository.enqueue(_job(job_type="EXECUTION", idempotency_key="shared-key"))
-    repository.enqueue(_job(job_type="REPORT", idempotency_key="shared-key"))
+    repository.enqueue(_job(job_type="METADATA_DISCOVERY", idempotency_key="shared-key"))
     table = job_tables(db_settings.schema).background_jobs
 
     with session_factory() as session:

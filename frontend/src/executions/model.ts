@@ -18,7 +18,7 @@ export interface ExecutionListItem {
   finishedAt?: string;
 }
 
-export interface ExecutionResultSummary {
+interface ExecutionResultSummary {
   ruleVersionId: string;
   populationCount: number | null;
   passedCount: number | null;

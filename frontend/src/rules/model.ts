@@ -118,10 +118,6 @@ export interface RuleApprovalWithdrawRequest {
   reason_code: string;
 }
 
-export interface RulePassivationRequest {
-  quality_rule_id: string;
-}
-
 export interface RuleMutationApiResponse {
   api_version: "v1";
   data_origin: string;

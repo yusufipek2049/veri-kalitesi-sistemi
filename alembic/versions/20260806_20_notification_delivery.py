@@ -193,7 +193,9 @@ def upgrade() -> None:
         ),
         schema=schema,
     )
-    op.create_unique_constraint(
+    # Functional unique constraint requires a unique INDEX because PostgreSQL
+    # UNIQUE constraints only accept plain column names, not expressions.
+    op.create_index(
         "uq_notification_subscription",
         "notification_subscriptions",
         [
@@ -203,6 +205,7 @@ def upgrade() -> None:
             sa.text("COALESCE(scope_id, '')"),
             "channel_id",
         ],
+        unique=True,
         schema=schema,
     )
     op.create_check_constraint(

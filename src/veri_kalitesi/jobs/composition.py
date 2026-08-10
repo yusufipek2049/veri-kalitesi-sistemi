@@ -17,12 +17,10 @@ from veri_kalitesi.jobs.handlers import (
     CancellableMetadataDiscoveryCommand,
     ExecutionJobHandler,
     MetadataDiscoveryJobHandler,
-    ReportJobHandler,
 )
 from veri_kalitesi.jobs.postgresql_repository import PostgreSQLJobQueueRepository
-from veri_kalitesi.jobs.worker import PersistentJobWorker
+from veri_kalitesi.jobs.worker import JobHandler, PersistentJobWorker
 from veri_kalitesi.persistence import DEFAULT_SCHEMA_NAME, SessionFactory
-from veri_kalitesi.reporting.worker import ReportWorker
 
 
 @dataclass(frozen=True)
@@ -42,10 +40,8 @@ def create_persistent_job_runtime(
     worker_capacity: int = 1,
     lease_policy: JobLeasePolicy,
     reprocess_policy: DeadLetterReprocessPolicy,
-    report_worker: ReportWorker | None = None,
-    metadata_discovery_command: CancellableMetadataDiscoveryCommand | None = None,
-    score_publication_handler: object | None = None,
-    notification_delivery_handler: object | None = None,
+    metadata_discovery_command: CancellableMetadataDiscoveryCommand,
+    notification_delivery_handler: JobHandler,
     source_types_by_id: Mapping[str, str] | None = None,
     schema: str = DEFAULT_SCHEMA_NAME,
 ) -> PersistentJobRuntime:
@@ -57,17 +53,11 @@ def create_persistent_job_runtime(
         schema=schema,
         source_types_by_id=source_types_by_id,
     )
-    handlers: dict[str, object] = {
+    handlers: dict[str, JobHandler] = {
         "EXECUTION": ExecutionJobHandler(execution_command),
+        "METADATA_DISCOVERY": MetadataDiscoveryJobHandler(metadata_discovery_command),
+        "NOTIFICATION_DELIVERY": notification_delivery_handler,
     }
-    if report_worker is not None:
-        handlers["REPORT"] = ReportJobHandler(report_worker)
-    if metadata_discovery_command is not None:
-        handlers["METADATA_DISCOVERY"] = MetadataDiscoveryJobHandler(metadata_discovery_command)
-    if score_publication_handler is not None:
-        handlers["SCORE_PUBLICATION"] = score_publication_handler
-    if notification_delivery_handler is not None:
-        handlers["NOTIFICATION_DELIVERY"] = notification_delivery_handler
     return PersistentJobRuntime(
         repository=repository,
         worker=PersistentJobWorker(

@@ -9,8 +9,6 @@ from typing import Protocol
 
 from veri_kalitesi.jobs.models import BackgroundJob, JobCompletionOutcome
 from veri_kalitesi.jobs.worker import PermanentJobError
-from veri_kalitesi.reporting.models import ReportStatus
-from veri_kalitesi.reporting.worker import ReportWorker
 
 ProgressCallback = Callable[[int], None]
 
@@ -87,35 +85,6 @@ class ExecutionJobHandler:
         finally:
             finished.set()
             watcher.join(timeout=0.2)
-
-
-@dataclass(frozen=True)
-class ReportJobHandler:
-    worker: ReportWorker
-
-    def __call__(
-        self,
-        job: BackgroundJob,
-        *,
-        connection_timeout_seconds: int,
-        query_timeout_seconds: int,
-        total_timeout_seconds: int,
-        cancellation_event: Event,
-        progress_callback: ProgressCallback = lambda _percent: None,
-    ) -> JobCompletionOutcome:
-        report_id = job.payload.get("report_id")
-        if not isinstance(report_id, str) or not report_id.strip():
-            raise PermanentJobError("INVALID_REPORT_JOB_PAYLOAD")
-        report = self.worker.process_report(
-            report_id,
-            timeout_seconds=min(query_timeout_seconds, total_timeout_seconds),
-            cancellation_event=cancellation_event,
-        )
-        if cancellation_event.is_set():
-            raise PermanentJobError("REPORT_CANCELLED")
-        if report.status is ReportStatus.READY:
-            return JobCompletionOutcome.SUCCESS
-        raise PermanentJobError("REPORT_GENERATION_FAILED")
 
 
 @dataclass(frozen=True)

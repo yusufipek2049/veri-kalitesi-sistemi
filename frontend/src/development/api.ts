@@ -11,7 +11,7 @@ export interface DevelopmentUserListResponse {
   items: DevelopmentUserInfo[];
 }
 
-export class DevelopmentUserApiError extends Error {
+class DevelopmentUserApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,

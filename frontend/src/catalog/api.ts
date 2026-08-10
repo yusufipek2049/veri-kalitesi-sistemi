@@ -4,9 +4,7 @@ import type {
   CatalogFieldListApiResponse,
   CatalogFieldDetailApiResponse,
   DiscoveryStatusApiResponse,
-  DiscoveryDiffApiResponse,
   DiscoveryResponse,
-  DiscoveryScopeApiResponse,
   DiffApplicationApiResponse,
 } from "./model";
 import { developmentFetch } from "../development/fetch";
@@ -66,10 +64,6 @@ function commandHeaders(): Record<string, string> {
   return { [CSRF_HEADER]: csrfProof, "Content-Type": "application/json" };
 }
 
-export function refreshCsrfProof(proof: string): void {
-  csrfProof = proof;
-}
-
 // ── GET endpoints ───────────────────────────────────────────────────
 
 export async function listCatalogDatasets(params?: {
@@ -124,26 +118,6 @@ export async function getDiscoveryStatus(
   return (await response.json()) as DiscoveryStatusApiResponse;
 }
 
-export async function getDiscoveryDiff(
-  discoveryId: number,
-): Promise<DiscoveryDiffApiResponse> {
-  const response = await developmentFetch(
-    `/api/v1/metadata-discoveries/${discoveryId}/diff`,
-  );
-  if (!response.ok) throw await catalogApiError(response);
-  return (await response.json()) as DiscoveryDiffApiResponse;
-}
-
-export async function getDiscoveryScope(
-  dataSourceId: string,
-): Promise<DiscoveryScopeApiResponse> {
-  const response = await developmentFetch(
-    `/api/v1/data-sources/${encodeURIComponent(dataSourceId)}/discovery-scope`,
-  );
-  if (!response.ok) throw await catalogApiError(response);
-  return (await response.json()) as DiscoveryScopeApiResponse;
-}
-
 // ── Command endpoints ───────────────────────────────────────────────
 
 export async function requestMetadataDiscovery(
@@ -160,30 +134,6 @@ export async function requestMetadataDiscovery(
   );
   if (!response.ok) throw await catalogApiError(response);
   return (await response.json()) as DiscoveryResponse;
-}
-
-export async function updateDiscoveryScope(
-  dataSourceId: string,
-  payload: {
-    include_patterns: string[];
-    exclude_patterns: string[];
-    page_size: number;
-    max_objects: number;
-    timeout_seconds: number;
-    expected_version: number;
-    policy_version: string;
-  },
-): Promise<DiscoveryScopeApiResponse> {
-  const response = await developmentFetch(
-    `/api/v1/data-sources/${encodeURIComponent(dataSourceId)}/discovery-scope`,
-    {
-      method: "PUT",
-      headers: commandHeaders(),
-      body: JSON.stringify(payload),
-    },
-  );
-  if (!response.ok) throw await catalogApiError(response);
-  return (await response.json()) as DiscoveryScopeApiResponse;
 }
 
 export async function applyMetadataDiff(

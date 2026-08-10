@@ -1,9 +1,9 @@
 export type ScoreState = "normal" | "loading" | "empty" | "error" | "unauthorized";
 
-export type ScoreScopeType = "RULE" | "DATASET" | "DIMENSION" | "SOURCE" | "ENTERPRISE";
-export type ScoreStatus = "CALCULATED" | "NOT_CALCULATED" | "NO_DATA" | "PARTIAL" | "NOT_CALCULATED_TECHNICAL_ERROR" | "CONFIG_ERROR";
-export type ScoreLevel = "GOOD" | "ACCEPTABLE" | "RISKY" | "CRITICAL";
-export type ComparisonStatus = "COMPARABLE" | "NOT_COMPARABLE" | "UNKNOWN";
+type ScoreScopeType = "RULE" | "DATASET" | "DIMENSION" | "SOURCE" | "ENTERPRISE";
+type ScoreStatus = "CALCULATED" | "NOT_CALCULATED" | "NO_DATA" | "PARTIAL" | "NOT_CALCULATED_TECHNICAL_ERROR" | "CONFIG_ERROR";
+type ScoreLevel = "GOOD" | "ACCEPTABLE" | "RISKY" | "CRITICAL";
+type ComparisonStatus = "COMPARABLE" | "NOT_COMPARABLE" | "UNKNOWN";
 
 export interface ScoreListItem {
   id: string;
@@ -19,7 +19,7 @@ export interface ScoreListItem {
   publicationId: string | null;
 }
 
-export interface ScorePublicationSummary {
+interface ScorePublicationSummary {
   publicationId: string;
   executionId: string;
   period: string;
@@ -79,13 +79,6 @@ export interface ScoreDetailApiResponse {
   } | null;
   available_actions: string[];
   has_contribution_graph: boolean;
-}
-
-export interface ScoreRuleHistoryApiResponse {
-  data_origin: string;
-  correlation_id: string;
-  rule_version_id: string;
-  items: ScoreListApiResponse["items"];
 }
 
 export interface ScoreComparisonApiResponse {
