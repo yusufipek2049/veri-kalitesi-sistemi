@@ -80,7 +80,7 @@ def test_background_job_detaches_nested_dictionary_mutations() -> None:
 def test_background_job_detaches_nested_list_mutations() -> None:
     items = [{"reference": "report-001"}]
     payload = {"items": items}
-    job = BackgroundJob(job_type="REPORT", payload=payload, available_at=NOW)
+    job = BackgroundJob(job_type="METADATA_DISCOVERY", payload=payload, available_at=NOW)
 
     items[0]["reference"] = "changed"
     items[0]["access_token"] = "must-not-reach-job"
@@ -103,7 +103,7 @@ def test_claim_sort_key_is_deterministic() -> None:
     created_at = NOW - timedelta(minutes=2)
     job = BackgroundJob(
         job_id="job-002",
-        job_type="REPORT",
+        job_type="METADATA_DISCOVERY",
         payload={"report_ref": "report-001"},
         priority=9,
         available_at=NOW - timedelta(minutes=1),

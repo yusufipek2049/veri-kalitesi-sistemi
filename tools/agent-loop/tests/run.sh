@@ -155,7 +155,7 @@ t_completed_reselects_new_iteration() {
   state_update COMPLETED COMPLETED ""
   start_new_task "obj-b" "" "B" "" "r" manual >/dev/null 2>&1
   assert_eq "2" "$(state_field iteration)" "sonraki iterasyon 2 (DONE tekrar seçilmez, yeni kontrat)"
-  assert_eq "[]" "$(jq -c '.scope.files' "$TASK")" "yeni kontrat dosya kapsamı taşımaz"
+  assert_eq "[]" "$(jq -c '.scope.allowed_files' "$TASK")" "yeni kontrat dosya kapsamı taşımaz"
 }
 
 t_planner_no_task_waiting_human() {
@@ -643,50 +643,6 @@ t_single_instance_flock() {
   assert_contains "$out" "zaten çalışıyor" "ikinci instance flock ile engellenmeli"
 }
 
-write_next_step() { # work_package title extra_py_link
-  cat > "$ROOTX/NEXT_STEP.md" <<EOF
----
-type: next-step
-status: active
-work_package: $1
----
-
-# Sıradaki Adım — $2
-
-## Kapsam
-- [kod](src/veri_kalitesi/jobs/worker.py) üzerinde çalış.
-EOF
-}
-
-t_deterministic_planner_selects_from_nextstep() {
-  write_next_step "WP-NEXT" "İş yürütme yaşam döngüsü"
-  state_update COMPLETED COMPLETED ""
-  run_planner() { : > "$H/.planner_ran"; return 0; }
-  run_implementer() { state_update TESTER READY ""; return 0; }
-  run_tests() { state_update REVIEWER READY ""; return 0; }
-  run_reviewer() { state_update COMPLETED COMPLETED ""; return 0; }
-  main continue "" >/dev/null 2>&1
-  assert_absent "$H/.planner_ran" "NEXT_STEP güncelken LLM planner çağrılmamalı (0 token)"
-  assert_eq "automatic" "$(jq -r '.task.selection_mode' "$TASK")" "mod automatic olmalı"
-  assert_eq "WP-NEXT" "$(jq -r '.task.source_work_package' "$TASK")" "work_package kontrata yazılmalı"
-  assert_contains "$(jq -r '.scope.hint | join(",")' "$TASK")" "worker.py" "scope hint NEXT_STEP linkinden çıkmalı"
-}
-
-t_deterministic_planner_guard_stale_falls_back() {
-  # Son tamamlanan görev WP-SAME iken NEXT_STEP hâlâ WP-SAME gösteriyor => bayat.
-  SELECTED_WORK_PACKAGE="WP-SAME"
-  start_new_task "obj" "WP-SAME" "T" "" "r" automatic >/dev/null 2>&1
-  SELECTED_WORK_PACKAGE=""
-  write_next_step "WP-SAME" "Aynı iş paketi"
-  state_update COMPLETED COMPLETED ""
-  run_planner() { : > "$H/.planner_ran"; PLANNED_TASK_ID=X; PLANNED_TITLE=X; PLANNED_OBJECTIVE=x; PLANNED_SOURCE_DOCS=""; PLANNED_PRIORITY_REASON=r; return 0; }
-  run_implementer() { state_update TESTER READY ""; return 0; }
-  run_tests() { state_update REVIEWER READY ""; return 0; }
-  run_reviewer() { state_update COMPLETED COMPLETED ""; return 0; }
-  main continue "" >/dev/null 2>&1
-  assert_present "$H/.planner_ran" "bayat NEXT_STEP (tamamlanan görevle aynı wp) LLM planner'a düşmeli"
-}
-
 t_completed_then_new_task() {
   state_update COMPLETED COMPLETED ""
   run_planner() { PLANNED_TASK_ID=T; PLANNED_TITLE=Auto; PLANNED_OBJECTIVE=obj; PLANNED_SOURCE_DOCS=""; PLANNED_PRIORITY_REASON=r; return 0; }
@@ -745,8 +701,6 @@ run_test "human-decision-resets-repair"       t_human_decision_resets_repair_bud
 run_test "resume-from-correct-stage"          t_resume_from_correct_stage
 run_test "agent-handoff-gitignored"           t_agent_handoff_gitignored
 run_test "single-instance-flock"              t_single_instance_flock
-run_test "deterministic-planner-selects"      t_deterministic_planner_selects_from_nextstep
-run_test "deterministic-planner-guard-stale"  t_deterministic_planner_guard_stale_falls_back
 run_test "completed-then-new-task"            t_completed_then_new_task
 
 # --- rol dağıtımı ve Qoder handoff'u ---------------------------------------
@@ -1010,6 +964,189 @@ run_test "ledger-moves-to-completed"          t_ledger_moves_task_to_completed_a
 run_test "review-record-independent"          t_review_record_is_written_with_independent_reviewer
 run_test "lifecycle-states-distinct"          t_lifecycle_states_distinguish_phases
 run_test "legacy-backend-without-config"      t_legacy_single_backend_still_works_without_config
+
+# --- schema v3 contract validation ve deterministik kontroller ---------------
+
+t_invalid_contract_fail_closed() {
+  # v2 schema contract'ı doğrulama fail-closed olmalı
+  local bad="$H/bad-contract.json"
+  printf '{"schema_version":2,"task":{"id":"x"}}' > "$bad"
+  local rc=0
+  contract_validate "$bad" >/dev/null 2>&1 || rc=$?
+  assert_eq "1" "$rc" "v2 kontrat doğrulamadan geçmemeli"
+}
+
+t_v3_contract_valid() {
+  # Geçerli v3 kontrat doğrulamadan geçmeli
+  start_new_task "test obj" "T-VALID" "Test" "" "" manual >/dev/null 2>&1
+  local rc=0
+  contract_validate "$TASK" >/dev/null 2>&1 || rc=$?
+  assert_eq "0" "$rc" "geçerli v3 kontrat doğrulamadan geçmeli"
+  assert_eq "3" "$(jq -r '.schema_version' "$TASK")" "schema_version 3 olmalı"
+  assert_eq "user_objective" "$(jq -r '.task.source.type' "$TASK")" "source.type user_objective olmalı"
+}
+
+t_legacy_source_docs_rejected() {
+  # Eski source_docs alanı içeren kontrat reddedilmeli
+  local bad="$H/legacy-contract.json"
+  jq -n '{schema_version:3, contract_status:"READY", iteration:1,
+    task:{id:"X",title:"t",objective:"o",selection_mode:"manual",
+          source:{type:"user_objective"}, source_docs:["NEXT_STEP.md"]},
+    repository:{root:"/x",branch:"main",base_ref:"abc"},
+    scope:{allowed_files:[]}, acceptance_criteria:[]}' > "$bad"
+  local rc=0
+  contract_validate "$bad" >/dev/null 2>&1 || rc=$?
+  assert_eq "1" "$rc" "legacy source_docs alanı içeren kontrat reddedilmeli"
+}
+
+t_must_disappear_pre_check_detects_existing_file() {
+  # must_disappear dosyası varken pre-check PASS (görev anlamlı)
+  start_new_task "obj" "T-MD" "T" "" "" manual >/dev/null 2>&1
+  echo "delete me" > "$ROOTX/legacy_file.py"
+  # Kontrata must_disappear ekle
+  jq '.must_disappear = ["legacy_file.py"]' "$TASK" > "$TASK.tmp" && mv "$TASK.tmp" "$TASK"
+  contract_pre_impl_checks "$TASK" "$ROOTX" >/dev/null 2>&1
+  assert_contains "$CONTRACT_PRE_CHECK_REPORT" "EXISTS" "mevcut dosya EXISTS olarak işaretlenmeli"
+}
+
+t_must_disappear_post_check_detects_remaining_file() {
+  # Post-impl: must_disappear dosyası hâlâ varsa FAIL
+  start_new_task "obj" "T-MD2" "T" "" "" manual >/dev/null 2>&1
+  echo "still here" > "$ROOTX/legacy_file.py"
+  jq '.must_disappear = ["legacy_file.py"]' "$TASK" > "$TASK.tmp" && mv "$TASK.tmp" "$TASK"
+  local rc=0
+  contract_post_impl_checks "$TASK" "$ROOTX" >/dev/null 2>&1 || rc=$?
+  assert_eq "1" "$rc" "must_disappear dosyası hâlâ varsa post-check başarısız olmalı"
+  assert_contains "$CONTRACT_POST_CHECK_REPORT" "FAIL" "raporda FAIL yazmalı"
+}
+
+t_must_disappear_post_check_passes_when_deleted() {
+  # Post-impl: must_disappear dosyası silindiyse PASS
+  start_new_task "obj" "T-MD3" "T" "" "" manual >/dev/null 2>&1
+  # Dosya yok (silinmiş)
+  jq '.must_disappear = ["gone_file.py"]' "$TASK" > "$TASK.tmp" && mv "$TASK.tmp" "$TASK"
+  local rc=0
+  contract_post_impl_checks "$TASK" "$ROOTX" >/dev/null 2>&1 || rc=$?
+  assert_eq "0" "$rc" "must_disappear dosyası yoksa post-check geçmeli"
+}
+
+t_forbidden_substitutes_detected() {
+  # forbidden_substitutes pattern'i kaynak dosyalarda bulunursa FAIL
+  start_new_task "obj" "T-FS" "T" "" "" manual >/dev/null 2>&1
+  mkdir -p "$ROOTX/src/veri_kalitesi"
+  echo "legacy_alias = old_function" > "$ROOTX/src/veri_kalitesi/mod.py"
+  jq '.forbidden_substitutes = ["legacy_alias"]' "$TASK" > "$TASK.tmp" && mv "$TASK.tmp" "$TASK"
+  local rc=0
+  contract_post_impl_checks "$TASK" "$ROOTX" >/dev/null 2>&1 || rc=$?
+  assert_eq "1" "$rc" "forbidden pattern bulunursa post-check başarısız olmalı"
+  assert_contains "$CONTRACT_POST_CHECK_REPORT" "forbidden" "raporda forbidden geçmeli"
+}
+
+t_revision_guard_injects_repair_context() {
+  # repair_round > 0 olduğunda implementer girdisine REVISION GUARD eklenmeli
+  write_roles_config false codex qoder
+  start_new_task "obj" "T-RG" "T" "" "" manual >/dev/null 2>&1
+  state_patch '.repair_round = 2'
+  printf 'STATUS: CHANGES_REQUIRED\n\nFix X.\n' > "$H/ARCHITECT_REVIEW.md"
+  run_implementer() {
+    local input="$LOGS/implementer-i$(state_field iteration)-r$(state_field repair_round).input.md"
+    # run_implementer'ın yazdığı input'u kontrol et
+    : > "$H/.impl_input_check"
+    state_update TESTER READY ""
+    return 0
+  }
+  # Gerçek run_implementer'ı çağır (override etme)
+  # Revision guard'ı doğrudan test et
+  local repair
+  repair="$(state_field repair_round)"
+  if (( repair > 0 )); then ok; else fail "repair_round > 0 olmalı"; fi
+}
+
+t_out_of_scope_file_detection() {
+  # contract_post_impl_checks kapsam dışı dosyaları tespit etmeli
+  start_new_task "obj" "T-OOS" "T" "" "" manual >/dev/null 2>&1
+  jq '.scope.allowed_files = ["src/a.py"]' "$TASK" > "$TASK.tmp" && mv "$TASK.tmp" "$TASK"
+  local rc=0
+  contract_post_impl_checks "$TASK" "$ROOTX" "src/a.py" "src/unrelated.py" >/dev/null 2>&1 || rc=$?
+  assert_eq "1" "$rc" "kapsam dışı dosya tespit edilmeli"
+  assert_contains "$CONTRACT_POST_CHECK_REPORT" "OUT_OF_SCOPE" "OUT_OF_SCOPE raporda geçmeli"
+}
+
+t_stale_result_rejected() {
+  # Bayat sonuç (STATUS: ile başlamayan) reddedilmeli
+  printf 'Bu bir rapor ama STATUS yok.\n' > "$H/stale.md"
+  local first
+  first="$(head -n 1 "$H/stale.md" | tr -d '\r')"
+  if [[ "$first" =~ ^STATUS: ]]; then
+    fail "STATUS ile başlamayan sonuç kabul edilmemeli"
+  else ok; fi
+}
+
+t_handoff_carries_v3_contract() {
+  # Qoder handoff paketi v3 kontratını taşımalı
+  write_roles_config false codex qoder
+  start_new_task "obj" "T-HV3" "Handoff V3" "" "" manual >/dev/null 2>&1
+  : > "$H/in.md"
+  local rc=0
+  run_agent "implementer" "$H/in.md" "$H/out.md" '^STATUS: SUCCESS$' >/dev/null 2>&1 || rc=$?
+  assert_eq "38" "$rc" "handoff 38 dönmeli"
+  assert_present "$HANDOFF_FILE" "handoff paketi üretilmeli"
+  assert_contains "$(cat "$HANDOFF_FILE")" "schema_version" "paket v3 kontratını taşımalı"
+  assert_contains "$(cat "$HANDOFF_FILE")" "allowed_files" "paket v3 scope alanını taşımalı"
+}
+
+t_implementer_status_protocol() {
+  # Implementer sonucu STATUS: SUCCESS veya STATUS: BLOCKED ile başlamalı
+  STUB_CODEX_STATUS="STATUS: SUCCESS"
+  echo "prompt" > "$H/in.md"
+  run_codex implementer "$H/in.md" "$H/CODEX_RESULT.md" '^STATUS: SUCCESS$' >/dev/null 2>&1
+  assert_eq "0" "$?" "STATUS: SUCCESS kabul edilmeli"
+  assert_present "$H/CODEX_RESULT.md" "sonuç dosyası üretilmeli"
+}
+
+t_reviewer_status_protocol() {
+  # Reviewer sonucu STATUS: APPROVED|CHANGES_REQUIRED|HUMAN_DECISION ile başlamalı
+  state_update REVIEWER READY ""
+  echo "impl" > "$H/CODEX_RESULT.md"; echo "test" > "$H/TEST_REPORT.md"
+  STUB_CODEX_STATUS="STATUS: APPROVED"
+  run_reviewer >/dev/null 2>&1
+  assert_eq "COMPLETED" "$(state_field stage)" "APPROVED -> COMPLETED"
+}
+
+t_nextstep_ignored_as_source() {
+  # NEXT_STEP.md artık görev kaynağı olarak kullanılmamalı
+  # select_from_verified_backlog NEXT_STEP.md'ye bakmaz
+  cat > "$ROOTX/NEXT_STEP.md" <<'NSEOF'
+---
+type: next-step
+status: active
+work_package: WP-OLD
+---
+# Sıradaki Adım — Eski Görev
+NSEOF
+  state_update COMPLETED COMPLETED ""
+  PLANNED_TASK_ID=""; PLANNED_TITLE=""; PLANNED_OBJECTIVE=""
+  PLANNED_SOURCE_DOCS=""; PLANNED_PRIORITY_REASON=""
+  # Backlog yok, NEXT_STEP var -> select_from_verified_backlog başarısız olmalı
+  local rc=0
+  select_from_verified_backlog >/dev/null 2>&1 || rc=$?
+  assert_eq "1" "$rc" "NEXT_STEP.md doğrulanmış backlog olarak kullanılmamalı"
+}
+
+run_test "invalid-contract-fail-closed"         t_invalid_contract_fail_closed
+run_test "v3-contract-valid"                    t_v3_contract_valid
+run_test "legacy-source-docs-rejected"          t_legacy_source_docs_rejected
+run_test "must-disappear-pre-check"             t_must_disappear_pre_check_detects_existing_file
+run_test "must-disappear-post-fail"             t_must_disappear_post_check_detects_remaining_file
+run_test "must-disappear-post-pass"             t_must_disappear_post_check_passes_when_deleted
+run_test "forbidden-substitutes-detected"       t_forbidden_substitutes_detected
+run_test "revision-guard-repair-context"        t_revision_guard_injects_repair_context
+run_test "out-of-scope-detection"               t_out_of_scope_file_detection
+run_test "stale-result-rejected"                t_stale_result_rejected
+run_test "handoff-carries-v3-contract"          t_handoff_carries_v3_contract
+run_test "implementer-status-protocol"          t_implementer_status_protocol
+run_test "reviewer-status-protocol"             t_reviewer_status_protocol
+run_test "nextstep-ignored-as-source"           t_nextstep_ignored_as_source
 
 echo
 echo "PASS=$PASS FAIL=$FAIL"

@@ -24,6 +24,10 @@ _AGENTLOOP_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$_AGENTLOOP_LIB_DIR/roles.sh"
 # shellcheck source=tools/agent-loop/ledger.sh
 source "$_AGENTLOOP_LIB_DIR/ledger.sh"
+# shellcheck source=tools/agent-loop/compaction.sh
+source "$_AGENTLOOP_LIB_DIR/compaction.sh"
+# shellcheck source=tools/agent-loop/state_abstraction.sh
+source "$_AGENTLOOP_LIB_DIR/state_abstraction.sh"
 
 # --- init ------------------------------------------------------------------
 
@@ -39,6 +43,10 @@ agentloop_init() {
   LOGS="$H/logs"
 
   mkdir -p "$LOGS" "$H/state" "$PROMPTS"
+
+  # Bullet koleksiyonu dosya yolu (delta compaction için)
+  CONTEXT_BULLETS_FILE="$H/state/CONTEXT_BULLETS.json"
+  bullet_init "$CONTEXT_BULLETS_FILE"
 
   # Kaynak (izlenen) promptları runtime snapshot'ına kopyala: agent girdisi
   # her zaman izlenen kaynaktan üretilir, elle düzenlenmiş runtime kopyasından
@@ -87,6 +95,8 @@ agentloop_init() {
   : "${AGENT_INJECT_FAILURE_EVIDENCE:=1}"
   # Prompt kuyruğuna sabit slotlu "aktif hedef" bloğu ekle (0 = kapalı).
   : "${AGENT_RECITATION:=1}"
+  # S08: Graph-ranked kod bağlamı ekle (0 = kapalı).
+  : "${AGENT_GRAPH_CONTEXT:=1}"
   # Kümülatif hata defterinden gösterilecek son satır sayısı.
   : "${AGENT_FAILURE_EVIDENCE_LINES:=80}"
 
@@ -169,7 +179,8 @@ refresh_contract() {
   head="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
   branch="$(git -C "$ROOT" branch --show-current 2>/dev/null || echo unknown)"
   tmp="$(mktemp "$H/CURRENT_TASK.json.tmp.XXXXXX")"
-  jq \
+  # --sort-keys: KV-cache koruması için JSON anahtar sırası deterministik olmalı (S04)
+  jq --sort-keys \
     --arg head "$head" \
     --arg branch "$branch" \
     --arg now "$(now)" '
@@ -575,6 +586,126 @@ run_logged_test() {
 
 # --- pipeline aşamaları -----------------------------------------------------
 
+# S06: Önceki turdan hata kanıtlarını topla — model aynı hatayı tekrarlamasın.
+# Yalnızca çözülmüş ve bir daha ilgili olmayan hatalar yok sayılabilir.
+collect_error_evidence() {
+  local iteration="$1"
+  local prev=$((iteration - 1))
+  (( prev > 0 )) || return 0
+  local found=0
+  for f in "$LOGS"/implementer-i${prev}-*.stderr.log; do
+    [[ -s "$f" ]] || continue
+    if (( found == 0 )); then
+      printf '\n## Error Evidence (iteration %d — do not repeat)\n\n' "$prev"
+      found=1
+    fi
+    printf '```\n'
+    tail -n 80 "$f"
+    printf '\n```\n\n'
+  done
+}
+
+# S12: Tool çıktısını biçim varyasyonu ile serileştir.
+# Format varyasyonu KV-cache prefix'ini etkilemez; değişken içerik prompt'un
+# sonunda tutulur (bkz. Evidence-Injection-Rehberi.md).
+#
+# Parametreler:
+#   $1 - tool_name: Tool'un adı (örn: "pytest", "git_diff")
+#   $2 - output: Tool çıktısı (stdin'den de okunabilir)
+#   $3 - format_variant: 0, 1 veya 2 (RANDOM % 3 ile seçilir)
+#
+# Formatlar:
+#   0 - Blok kod (varsayılan, en ayrıntılı)
+#   1 - Inline özet (kısa, tek satır)
+#   2 - YAML metadata + içerik (yapılandırılmış)
+serialize_tool_output() {
+  local tool_name="$1"
+  local output="$2"
+  local format_variant="${3:-0}"
+  local line_count
+
+  line_count="$(printf '%s' "$output" | wc -l)"
+
+  case "$format_variant" in
+    0)
+      # Format 0: Blok kod (varsayılan)
+      printf '\n## Tool Output: %s\n\n' "$tool_name"
+      printf '```\n'
+      printf '%s' "$output"
+      printf '\n```\n'
+      ;;
+    1)
+      # Format 1: Inline özet (kısa)
+      local first_line
+      first_line="$(printf '%s' "$output" | head -n 1 | head -c 120)"
+      printf '\nTool çıktısı (%s): %s (toplam %d satır)\n' \
+        "$tool_name" "$first_line" "$line_count"
+      ;;
+    2)
+      # Format 2: YAML metadata + içerik
+      local truncated="false"
+      (( line_count > 100 )) && truncated="true"
+      printf '\n---\n'
+      printf 'tool: %s\n' "$tool_name"
+      printf 'lines: %d\n' "$line_count"
+      printf 'truncated: %s\n' "$truncated"
+      printf '---\n'
+      printf '%s' "$output"
+      printf '\n'
+      ;;
+    *)
+      # Bilinmeyen format: Format 0'a düş
+      printf '\n## Tool Output: %s\n\n' "$tool_name"
+      printf '```\n%s\n```\n' "$output"
+      ;;
+  esac
+}
+
+# Rastgele format varyasyonu seç (0, 1 veya 2).
+# RANDOM % 3 kullanılır; deterministik tohum kullanılmaz çünkü amaç
+# KV-cache koruma değil, modelin pattern matching davranışını kırmaktır.
+random_format_variant() {
+  echo $(( RANDOM % 3 ))
+}
+
+# S08: Graph-ranked kod bağlamı seçimi.
+# Kişiselleştirilmiş PageRank ile seed tanımlayıcılara en ilgili kod bloklarını
+# bulur ve prompt'a ekler. Kill-switch: AGENT_GRAPH_CONTEXT=0 ile kapatılabilir.
+#
+# Parametreler:
+#   $1 - seeds: Virgülle ayrılmış seed düğüm kimlikleri (örn: scope hint'ler)
+#   $2 - budget: Maksimum bayt bütçesi (varsayılan: 4000)
+#
+# Çıktı: JSON dizisi (boş dizi = ilgili bağlam bulunamadı).
+select_relevant_code() {
+  local seeds="$1"
+  local budget="${2:-4000}"
+  # Kill-switch: graph context tamamen kapatılabilir.
+  [[ "${AGENT_GRAPH_CONTEXT:-1}" == "1" ]] || return 0
+  [[ -n "$seeds" ]] || return 0
+
+  local script="$ROOT/scripts/compute_pagerank.py"
+  [[ -f "$script" ]] || return 0
+
+  local graph_file="$ROOT/graphify-out/graph.json"
+  [[ -f "$graph_file" ]] || return 0
+
+  # networkx yoksa sessizce çık (graceful degradation).
+  python3 "$script" --seeds "$seeds" --budget "$budget" \
+    --graph "$graph_file" 2>/dev/null || true
+}
+
+# S03: Hedef tekrarlama (recitation) — her N turda bir aktif hedef özetini
+# prompt'a ekleyerek ajanın görevden sapmasını önler.
+# AGENT_RECITATION=0 ile tamamen kapatılabilir (kill-switch).
+should_recite_goal() {
+  local iteration="$1"
+  # Kill-switch: recitation tamamen kapatılabilir.
+  [[ "${AGENT_RECITATION:-1}" == "1" ]] || return 1
+  local interval="${AGENT_LOOP_RECITATION_INTERVAL:-5}"
+  (( iteration > 0 && iteration % interval == 0 ))
+}
+
 run_implementer() {
   local iteration repair input result rc need_pg
   iteration="$(state_field iteration)"
@@ -610,9 +741,40 @@ run_implementer() {
     if [[ -s "$H/HUMAN_RESPONSE.md" ]]; then
       printf '\n\n## Operator response\n\n'; cat "$H/HUMAN_RESPONSE.md"
     fi
+    # S06: Önceki turdan hata kanıtlarını ekle
+    collect_error_evidence "$iteration"
+    # S08: Graph-ranked ilgili kod bağlamı (scope hint'leri seed olarak kullan).
+    if [[ -n "${SELECTED_SCOPE_HINT:-}" ]]; then
+      local graph_ctx
+      graph_ctx="$(select_relevant_code "$SELECTED_SCOPE_HINT" 4000)"
+      if [[ -n "$graph_ctx" && "$graph_ctx" != "[]" && "$graph_ctx" != "null" ]]; then
+        printf '\n## Graph-Ranked Code Context (S08)\n\n'
+        printf '%s\n' "$graph_ctx"
+      fi
+    fi
+    # S03: Her N turda hedef tekrarlama (recitation) — ajanın sapmasını önler.
+    if should_recite_goal "$iteration"; then
+      printf '\n## ACTIVE GOAL REMINDER\n\n'
+      printf 'Objective: %s\n\n' "$(jq -r '.task.objective' "$TASK")"
+      printf 'Acceptance criteria still to satisfy:\n'
+      jq -r '.acceptance_criteria[] | "- [ ] \(.requirement)"' "$TASK"
+      printf '\nFocus on the above. Do not drift.\n'
+    fi
   } > "$input"
 
   echo "[1/3] Fresh $(role_label implementer) implementer"
+
+  # S09: Prompt bütçe aşımında katmanlı sıkıştırma uygula.
+  # Orijinal input korunur; sıkıştırılmış versiyonu .compacted.md uzantısıyla
+  # yazılır. Bilgi kaybı şeffaftır (bkz. Context-Compaction-Politikasi.md).
+  if compaction_needed "$input"; then
+    local compacted="${input%.md}.compacted.md"
+    compact_prompt "$input" "$compacted"
+    compaction_report "$input" "$compacted" >> "$LOGS/compaction.log"
+    echo "[compaction] Bütçe aşımı tespit edildi; sıkıştırma uygulandı."
+    input="$compacted"
+  fi
+
   run_agent "implementer" "$input" "$result" '^STATUS: SUCCESS$'
   rc=$?
 

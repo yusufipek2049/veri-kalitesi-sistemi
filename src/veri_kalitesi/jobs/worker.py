@@ -11,7 +11,7 @@ from multiprocessing.process import BaseProcess
 from threading import Event
 from time import monotonic
 from types import MappingProxyType
-from typing import Protocol
+from typing import Protocol, cast
 
 from veri_kalitesi.audit.models import (
     AuditEventInput,
@@ -357,83 +357,84 @@ class PersistentJobWorker:
                 )
                 if result_reader.poll(wait_seconds):
                     payload = _read_raw_pipe(result_reader)
-                    if (
-                        isinstance(payload, tuple)
-                        and len(payload) == 2
-                        and payload[0] == "progress"
-                    ):
-                        percent = payload[1]
-                        if (
-                            isinstance(percent, int)
-                            and 0 <= percent <= 100
-                            and percent > last_progress
-                        ):
-                            last_progress = percent
-                            try:
-                                updated = self.repository.update_progress(
-                                    claimed.job_id,
-                                    self.worker_id,
-                                    current_version,
-                                    percent,
-                                    now=self.clock(),
-                                )
-                                current_version = updated.version
-                            except (JobConcurrencyError, Exception):
-                                pass
+                    if _is_progress_payload(payload):
+                        current_version, last_progress = self._record_progress(
+                            claimed,
+                            current_version,
+                            last_progress,
+                            payload[1],
+                        )
                         continue
-                    result = _decode_handler_result(payload)
-                    process.join(timeout=0.1)
-                    if process.is_alive():
-                        _terminate_process(process)
-                    return result
+                    return _finish_handler_process(process, payload)
 
                 current = self.repository.require_by_id(claimed.job_id)
-                if current.status is JobStatus.CANCEL_REQUESTED:
-                    _cancel_process(
-                        process,
-                        cancellation_event,
-                        grace_seconds=_CANCELLATION_GRACE_SECONDS,
-                    )
-                    return PermanentJobError("JOB_CANCELLED")
-                if current.status is not JobStatus.RUNNING:
-                    _cancel_process(
-                        process,
-                        cancellation_event,
-                        grace_seconds=_CANCELLATION_GRACE_SECONDS,
-                    )
-                    return PermanentJobError("JOB_OWNERSHIP_LOST")
+                stop_error = _stop_error_for_inactive_job(
+                    current,
+                    process,
+                    cancellation_event,
+                )
+                if stop_error is not None:
+                    return stop_error
 
                 current_tick = self.monotonic_clock()
-                if current_tick >= next_heartbeat:
-                    try:
-                        refreshed = self.repository.heartbeat(
-                            current.job_id,
-                            self.worker_id,
-                            current.version,
-                            self.lease_policy,
-                            now=self.clock(),
-                        )
-                        current_version = refreshed.version
-                    except JobConcurrencyError:
-                        # İptal isteği heartbeat ile yarışmış olabilir; sonraki
-                        # turda güncel sürüm ve durum yeniden okunur.
-                        pass
-                    next_heartbeat = current_tick + heartbeat_seconds
-                if not process.is_alive():
-                    if result_reader.poll():
-                        payload = _read_raw_pipe(result_reader)
-                        if (
-                            isinstance(payload, tuple)
-                            and len(payload) == 2
-                            and payload[0] == "progress"
-                        ):
-                            continue
-                        return _decode_handler_result(payload)
-                    return PermanentJobError("JOB_HANDLER_PROCESS_EXITED")
+                current_version, next_heartbeat = self._renew_handler_lease(
+                    current,
+                    current_version,
+                    current_tick,
+                    next_heartbeat,
+                    heartbeat_seconds,
+                )
         finally:
             result_reader.close()
             if process.is_alive():
                 _terminate_process(process)
+
+    def _record_progress(
+        self,
+        claimed: BackgroundJob,
+        current_version: int,
+        last_progress: int,
+        percent: object,
+    ) -> tuple[int, int]:
+        if not isinstance(percent, int) or not 0 <= percent <= 100 or percent <= last_progress:
+            return current_version, last_progress
+        try:
+            updated = self.repository.update_progress(
+                claimed.job_id,
+                self.worker_id,
+                current_version,
+                percent,
+                now=self.clock(),
+            )
+            current_version = updated.version
+        except (JobConcurrencyError, Exception):
+            pass
+        return current_version, percent
+
+    def _renew_handler_lease(
+        self,
+        current: BackgroundJob,
+        current_version: int,
+        current_tick: float,
+        next_heartbeat: float,
+        heartbeat_seconds: float,
+    ) -> tuple[int, float]:
+        if current_tick < next_heartbeat:
+            return current_version, next_heartbeat
+        try:
+            refreshed = self.repository.heartbeat(
+                current.job_id,
+                self.worker_id,
+                current.version,
+                self.lease_policy,
+                now=self.clock(),
+            )
+            current_version = refreshed.version
+        except JobConcurrencyError:
+            # İptal isteği heartbeat ile yarışmış olabilir; sonraki turda
+            # güncel sürüm ve durum yeniden okunur.
+            pass
+        return current_version, current_tick + heartbeat_seconds
 
     def _fail(
         self,
@@ -565,9 +566,41 @@ def _decode_handler_result(payload: tuple[str, str]) -> JobCompletionOutcome | E
     return PermanentJobError(value)
 
 
+def _is_progress_payload(payload: object) -> bool:
+    return isinstance(payload, tuple) and len(payload) == 2 and payload[0] == "progress"
+
+
+def _finish_handler_process(
+    process: BaseProcess,
+    payload: tuple[str, str],
+) -> JobCompletionOutcome | Exception:
+    result = _decode_handler_result(payload)
+    process.join(timeout=0.1)
+    if process.is_alive():
+        _terminate_process(process)
+    return result
+
+
+def _stop_error_for_inactive_job(
+    current: BackgroundJob,
+    process: BaseProcess,
+    cancellation_event,
+) -> PermanentJobError | None:
+    if current.status is JobStatus.RUNNING:
+        return None
+    _cancel_process(
+        process,
+        cancellation_event,
+        grace_seconds=_CANCELLATION_GRACE_SECONDS,
+    )
+    if current.status is JobStatus.CANCEL_REQUESTED:
+        return PermanentJobError("JOB_CANCELLED")
+    return PermanentJobError("JOB_OWNERSHIP_LOST")
+
+
 def _read_raw_pipe(reader: Connection) -> tuple[str, str] | tuple:
     try:
-        return reader.recv()
+        return cast(tuple, reader.recv())
     except EOFError:
         return ("permanent", "JOB_HANDLER_PROCESS_EXITED")
 

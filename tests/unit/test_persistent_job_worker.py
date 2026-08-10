@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 from multiprocessing import get_context
@@ -83,6 +84,7 @@ class _Repository:
         self.failure_call: tuple[JobFailureKind, int, float] | None = None
         self.completed_outcome: JobCompletionOutcome | None = None
         self.heartbeat_count = 0
+        self.progress_calls: list[tuple[int, int]] = []
         self.reaper_count = 0
 
     def claim_next(
@@ -235,6 +237,7 @@ class _Repository:
         return self.job
 
     def update_progress(self, job_id, worker_id, expected_version, progress_percent, *, now=None):
+        self.progress_calls.append((expected_version, progress_percent))
         self.job = replace(
             self.job, progress_percent=progress_percent, version=expected_version + 1
         )
@@ -408,6 +411,45 @@ def test_handler_receives_separate_deadlines_and_long_execution_renews_lease() -
     assert repository.heartbeat_count >= 2
 
 
+def test_handler_progress_is_bounded_monotonic_and_uses_latest_version() -> None:
+    repository = _Repository()
+
+    def handler(job, *, progress_callback, **kwargs):
+        for percent in (0, 0, -1, 101, "invalid", 100):
+            progress_callback(percent)
+        return JobCompletionOutcome.SUCCESS
+
+    result = _worker(repository, handler).run_once()
+
+    assert result is not None
+    assert result.status is JobStatus.SUCCESS
+    assert repository.progress_calls == [(1, 0), (2, 100)]
+    assert repository.job.progress_percent == 100
+
+
+def test_progress_after_heartbeat_uses_renewed_job_version() -> None:
+    repository = _Repository()
+
+    def handler(job, *, progress_callback, **kwargs):
+        progress_callback(10)
+        sleep(0.08)
+        progress_callback(20)
+        return JobCompletionOutcome.SUCCESS
+
+    worker = _worker(
+        repository,
+        handler,
+        lease_policy=JobLeasePolicy(duration=timedelta(milliseconds=30)),
+    )
+
+    result = worker.run_once()
+
+    assert result is not None
+    assert result.status is JobStatus.SUCCESS
+    assert [percent for _, percent in repository.progress_calls] == [10, 20]
+    assert repository.progress_calls[1][0] > repository.progress_calls[0][0]
+
+
 def test_running_cancel_stops_unaware_handler_and_prevents_late_side_effect() -> None:
     repository = _Repository()
     late_side_effect = get_context("fork").Event()
@@ -470,6 +512,7 @@ def test_total_deadline_forces_timeout_and_signals_blocked_handler() -> None:
     assert result is not None
     assert result.status is JobStatus.TIMEOUT
     assert repository.failure_call == (JobFailureKind.TIMEOUT, 2, 4)
+    assert repository.job.last_error_class == "TOTAL_JOB_TIMEOUT"
     assert signalled.is_set()
     assert repository.heartbeat_count >= 1
     assert elapsed < 0.4
@@ -573,3 +616,41 @@ def test_blocked_cancel_unaware_handler_is_closed_by_total_deadline() -> None:
 
     assert not runner.is_alive()
     assert repository.job.status is JobStatus.CANCELLED
+
+
+def test_lost_job_ownership_stops_handler_with_exact_failure_reason() -> None:
+    repository = _Repository()
+    handler_started = get_context("fork").Event()
+
+    def handler(job, **kwargs):
+        handler_started.set()
+        sleep(0.5)
+        return JobCompletionOutcome.SUCCESS
+
+    worker = _worker(repository, handler)
+    runner = Thread(target=worker.run_once)
+    runner.start()
+    assert handler_started.wait(timeout=1)
+    repository.job = replace(
+        repository.job,
+        status=JobStatus.BLOCKED,
+        version=repository.job.version + 1,
+    )
+    runner.join(timeout=1)
+
+    assert not runner.is_alive()
+    assert repository.job.status is JobStatus.TECHNICAL_ERROR
+    assert repository.job.last_error_class == "JOB_OWNERSHIP_LOST"
+
+
+def test_handler_process_exit_without_result_has_exact_failure_reason() -> None:
+    repository = _Repository()
+
+    def handler(job, **kwargs):
+        os._exit(0)
+
+    result = _worker(repository, handler).run_once()
+
+    assert result is not None
+    assert result.status is JobStatus.TECHNICAL_ERROR
+    assert repository.job.last_error_class == "JOB_HANDLER_PROCESS_EXITED"

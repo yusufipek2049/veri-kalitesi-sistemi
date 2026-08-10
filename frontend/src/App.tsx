@@ -31,6 +31,8 @@ import { DataSourcesRoute } from "./dataSources/DataSourcesRoute";
 import { ExecutionsRoute } from "./executions/ExecutionsRoute";
 import { IssuesRoute } from "./issues/IssuesRoute";
 import { fetchChannels, fetchInbox, fetchSubscriptions, fetchUnreadCount, markDeliveryRead } from "./notifications/api";
+import type { NotificationChannel, NotificationDelivery, NotificationSubscription } from "./notifications/model";
+import { useNotificationRoute } from "./notifications/useNotificationRoute";
 import { RulesRoute } from "./rules/RulesRoute";
 
 const CatalogPage = lazy(() => import("./catalog/CatalogPage").then((module) => ({ default: module.CatalogPage })));
@@ -44,148 +46,93 @@ const NotificationPreferencesPage = lazy(() => import("./notifications/Notificat
 const NotificationChannelsPage = lazy(() => import("./notifications/NotificationChannelsPage").then((module) => ({ default: module.NotificationChannelsPage })));
 const NotificationDeliveriesPage = lazy(() => import("./notifications/NotificationDeliveriesPage").then((module) => ({ default: module.NotificationDeliveriesPage })));
 
+interface NotificationsRouteData {
+  items: NotificationDelivery[];
+  totalUnread: number;
+}
+
+async function loadNotifications(): Promise<{ data: NotificationsRouteData; isEmpty: boolean }> {
+  const [inbox, totalUnread] = await Promise.all([
+    fetchInbox({ limit: 50 }),
+    fetchUnreadCount(),
+  ]);
+  return {
+    data: { items: inbox.deliveries, totalUnread },
+    isEmpty: inbox.deliveries.length === 0,
+  };
+}
+
+async function loadNotificationSubscriptions(): Promise<{ data: NotificationSubscription[]; isEmpty: boolean }> {
+  const subscriptions = await fetchSubscriptions();
+  return { data: subscriptions, isEmpty: subscriptions.length === 0 };
+}
+
+async function loadNotificationChannels(): Promise<{ data: NotificationChannel[]; isEmpty: boolean }> {
+  const channels = await fetchChannels();
+  return { data: channels, isEmpty: channels.length === 0 };
+}
+
+async function loadNotificationDeliveries(): Promise<{ data: NotificationDelivery[]; isEmpty: boolean }> {
+  const inbox = await fetchInbox({ limit: 100 });
+  return { data: inbox.deliveries, isEmpty: inbox.deliveries.length === 0 };
+}
+
 function NotificationsRoute() {
-  const requestedState = new URLSearchParams(window.location.search).get("state") as "normal" | "loading" | "empty" | "error" | "unauthorized" | null;
-  const fixtureState = import.meta.env.DEV && requestedState && ["normal", "loading", "empty", "error", "unauthorized"].includes(requestedState) ? requestedState : null;
-  const [state, setState] = useState<"normal" | "loading" | "empty" | "error" | "unauthorized">(fixtureState ?? "loading");
-  const [items, setItems] = useState<import("./notifications/model").NotificationDelivery[]>([]);
-  const [totalUnread, setTotalUnread] = useState(0);
-  const [correlationId, setCorrelationId] = useState<string>();
-  const load = useCallback(async (signal?: AbortSignal) => {
-    if (fixtureState) return;
-    setState("loading");
-    try {
-      const [inbox, count] = await Promise.all([
-        fetchInbox({ limit: 50 }),
-        fetchUnreadCount(),
-      ]);
-      if (signal?.aborted) return;
-      setItems(inbox.deliveries);
-      setTotalUnread(count);
-      setState(inbox.deliveries.length ? "normal" : "empty");
-    } catch {
-      if (signal?.aborted) return;
-      setState("error");
-    }
-  }, [fixtureState]);
-  useEffect(() => {
-    const controller = new AbortController();
-    void load(controller.signal);
-    return () => controller.abort();
-  }, [fixtureState]);
+  const { data, load, setData, state } = useNotificationRoute<NotificationsRouteData>(
+    { items: [], totalUnread: 0 },
+    loadNotifications,
+  );
   const handleMarkRead = useCallback(async (deliveryId: string) => {
     try {
       await markDeliveryRead(deliveryId);
-      setItems((current) => current.map((item) => item.deliveryId === deliveryId ? { ...item, status: "READ" as const, readAt: new Date().toISOString() } : item));
-      setTotalUnread((current) => Math.max(0, current - 1));
+      setData((current) => ({
+        items: current.items.map((item) => item.deliveryId === deliveryId ? { ...item, status: "READ" as const, readAt: new Date().toISOString() } : item),
+        totalUnread: Math.max(0, current.totalUnread - 1),
+      }));
     } catch {
       // Read failure is non-fatal; the item stays in its current state.
     }
-  }, []);
+  }, [setData]);
   return (
     <NotificationsPage
-      correlationId={correlationId}
-      items={items}
+      items={data.items}
       onMarkRead={(id) => void handleMarkRead(id)}
       onRefresh={() => void load()}
-      state={fixtureState ?? state}
-      totalUnread={totalUnread}
+      state={state}
+      totalUnread={data.totalUnread}
     />
   );
 }
 
 function NotificationPreferencesRoute() {
-  const requestedState = new URLSearchParams(window.location.search).get("state") as "normal" | "loading" | "empty" | "error" | "unauthorized" | null;
-  const fixtureState = import.meta.env.DEV && requestedState && ["normal", "loading", "empty", "error", "unauthorized"].includes(requestedState) ? requestedState : null;
-  const [state, setState] = useState<"normal" | "loading" | "empty" | "error" | "unauthorized">(fixtureState ?? "loading");
-  const [subscriptions, setSubscriptions] = useState<import("./notifications/model").NotificationSubscription[]>([]);
-  const load = useCallback(async (signal?: AbortSignal) => {
-    if (fixtureState) return;
-    setState("loading");
-    try {
-      const result = await fetchSubscriptions();
-      if (signal?.aborted) return;
-      setSubscriptions(result);
-      setState(result.length ? "normal" : "empty");
-    } catch {
-      if (signal?.aborted) return;
-      setState("error");
-    }
-  }, [fixtureState]);
-  useEffect(() => {
-    const controller = new AbortController();
-    void load(controller.signal);
-    return () => controller.abort();
-  }, [fixtureState]);
+  const { data, load, state } = useNotificationRoute<NotificationSubscription[]>([], loadNotificationSubscriptions);
   return (
     <NotificationPreferencesPage
       onRefresh={() => void load()}
-      state={fixtureState ?? state}
-      subscriptions={subscriptions}
+      state={state}
+      subscriptions={data}
     />
   );
 }
 
 function NotificationChannelsRoute() {
-  const requestedState = new URLSearchParams(window.location.search).get("state") as "normal" | "loading" | "empty" | "error" | "unauthorized" | null;
-  const fixtureState = import.meta.env.DEV && requestedState && ["normal", "loading", "empty", "error", "unauthorized"].includes(requestedState) ? requestedState : null;
-  const [state, setState] = useState<"normal" | "loading" | "empty" | "error" | "unauthorized">(fixtureState ?? "loading");
-  const [channels, setChannels] = useState<import("./notifications/model").NotificationChannel[]>([]);
-  const load = useCallback(async (signal?: AbortSignal) => {
-    if (fixtureState) return;
-    setState("loading");
-    try {
-      const result = await fetchChannels();
-      if (signal?.aborted) return;
-      setChannels(result);
-      setState(result.length ? "normal" : "empty");
-    } catch {
-      if (signal?.aborted) return;
-      setState("error");
-    }
-  }, [fixtureState]);
-  useEffect(() => {
-    const controller = new AbortController();
-    void load(controller.signal);
-    return () => controller.abort();
-  }, [fixtureState]);
+  const { data, load, state } = useNotificationRoute<NotificationChannel[]>([], loadNotificationChannels);
   return (
     <NotificationChannelsPage
-      channels={channels}
+      channels={data}
       onRefresh={() => void load()}
-      state={fixtureState ?? state}
+      state={state}
     />
   );
 }
 
 function NotificationDeliveriesRoute() {
-  const requestedState = new URLSearchParams(window.location.search).get("state") as "normal" | "loading" | "empty" | "error" | "unauthorized" | null;
-  const fixtureState = import.meta.env.DEV && requestedState && ["normal", "loading", "empty", "error", "unauthorized"].includes(requestedState) ? requestedState : null;
-  const [state, setState] = useState<"normal" | "loading" | "empty" | "error" | "unauthorized">(fixtureState ?? "loading");
-  const [items, setItems] = useState<import("./notifications/model").NotificationDelivery[]>([]);
-  const load = useCallback(async (signal?: AbortSignal) => {
-    if (fixtureState) return;
-    setState("loading");
-    try {
-      const result = await fetchInbox({ limit: 100 });
-      if (signal?.aborted) return;
-      setItems(result.deliveries);
-      setState(result.deliveries.length ? "normal" : "empty");
-    } catch {
-      if (signal?.aborted) return;
-      setState("error");
-    }
-  }, [fixtureState]);
-  useEffect(() => {
-    const controller = new AbortController();
-    void load(controller.signal);
-    return () => controller.abort();
-  }, [fixtureState]);
+  const { data, load, state } = useNotificationRoute<NotificationDelivery[]>([], loadNotificationDeliveries);
   return (
     <NotificationDeliveriesPage
-      items={items}
+      items={data}
       onRefresh={() => void load()}
-      state={fixtureState ?? state}
+      state={state}
     />
   );
 }

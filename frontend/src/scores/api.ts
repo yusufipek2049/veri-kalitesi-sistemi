@@ -2,7 +2,6 @@ import type {
   ScoreComparisonApiResponse,
   ScoreDetailApiResponse,
   ScoreListApiResponse,
-  ScoreRuleHistoryApiResponse,
 } from "./model";
 import { developmentFetch } from "../development/fetch";
 
@@ -78,18 +77,6 @@ export async function fetchScoreDetail(
     signal,
   });
   return handleResponse<ScoreDetailApiResponse>(response);
-}
-
-export async function fetchRuleScoreHistory(
-  ruleVersionId: string,
-  signal?: AbortSignal,
-): Promise<ScoreRuleHistoryApiResponse> {
-  const response = await developmentFetch(`/api/v1/scores/rules/${ruleVersionId}`, {
-    credentials: "same-origin",
-    headers: { Accept: "application/json" },
-    signal,
-  });
-  return handleResponse<ScoreRuleHistoryApiResponse>(response);
 }
 
 export async function fetchScoreComparison(

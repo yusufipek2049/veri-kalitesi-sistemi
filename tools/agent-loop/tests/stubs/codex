@@ -49,7 +49,7 @@ if [[ -z "$status" ]]; then
   if grep -q "planning agent" <<<"$prompt"; then
     status="STATUS: READY"
     body=$'TASK_ID: demo-task\nTITLE: Demo task\nOBJECTIVE: demo objective\nSOURCE_DOCS: README.md\nPRIORITY_REASON: demo priority'
-  elif grep -q "final repository reviewer" <<<"$prompt"; then
+  elif grep -q "final reviewer" <<<"$prompt"; then
     status="STATUS: APPROVED"
     body="Demo approval."
   else

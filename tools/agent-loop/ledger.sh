@@ -42,7 +42,11 @@ ledger_init() {
   CLAIM_DIR="${AGENT_CLAIM_DIR:-$common/agent-claims}"
 
   mkdir -p "$LEDGER_ACTIVE" "$LEDGER_COMPLETED" "$LEDGER_BLOCKED" \
-           "$HANDOFF_DIR" "$REVIEW_DIR" "$EVIDENCE_DIR" "$CLAIM_DIR"
+           "$HANDOFF_DIR" "$REVIEW_DIR" "$EVIDENCE_DIR" "$CLAIM_DIR" \
+           "$LEDGER_TEMPLATES"
+
+  # SBAR şablonu: her init'te yeniden yazılır (şema sürümü değişirse güncellenir).
+  sbar_template_json > "$LEDGER_TEMPLATES/sbar-handoff.json"
 }
 
 # --- görev yaşam döngüsü ----------------------------------------------------
@@ -129,9 +133,9 @@ ledger_sync() {
 
   title="$(jq -r '.task.title // ""' "$TASK")"
   objective="$(jq -r '.task.objective // ""' "$TASK")"
-  sources="$(jq -r '(.task.source_docs // []) | join(", ")' "$TASK")"
-  reason="$(jq -r '.task.priority_reason // ""' "$TASK")"
-  wp="$(jq -r '.task.source_work_package // ""' "$TASK")"
+  sources="$(jq -r '.task.source.reference // ""' "$TASK")"
+  reason="$(jq -r '.task.source.type // ""' "$TASK")"
+  wp=""
   branch="$(git -C "$ROOT" branch --show-current 2>/dev/null || echo unknown)"
   head="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
   created="$(jq -r '.created_at // ""' "$TASK")"
@@ -180,7 +184,7 @@ ledger_sync() {
     printf 'branch: %s\n' "$branch"
     printf 'worktree: %s\n' "$ROOT"
     printf 'head: %s\n' "$head"
-    printf 'source_work_package: %s\n' "${wp:-none}"
+    printf 'source_type: %s\n' "${reason:-user_objective}"
     printf 'started_at: %s\n' "$start_time"
     printf 'updated_at: %s\n' "$(now)"
     printf 'review_result: %s\n' "${review:-pending}"
@@ -197,7 +201,7 @@ ledger_sync() {
       "${sources:-(yok)}" "${reason:-(yok)}" "${wp:-(yok)}"
 
     printf '## Kapsam\n\n### Kapsam içi\n\n'
-    jq -r '(.scope.hint // []) | if length == 0 then "- (kontratta dosya ipucu yok; implementer minimal kapsamı türetir)" else (.[] | "- `" + . + "`") end' "$TASK"
+    jq -r '(.scope.allowed_files // []) | if length == 0 then "- (kontratta dosya kısıtı yok; implementer minimal kapsamı türetir)" else (.[] | "- `" + . + "`") end' "$TASK"
     printf '\n### Kapsam dışı\n\n'
     printf -- '- Görevle ilgisiz dosya, modül ve doküman değişikliği.\n'
     printf -- '- Yasak git işlemleri: %s\n\n' "$(jq -r '(.scope.forbidden_git_operations // []) | join(", ")' "$TASK")"
@@ -447,11 +451,59 @@ review_record() {
   printf '%s\n' "$file"
 }
 
+# --- SBAR devir teslim şeması ------------------------------------------------
+
+# SBAR (Situation-Background-Assessment-Recommendation) handoff şablonu.
+# handoff_write() bu şablonu doldurur; sbar_validate() boş slotları denetler.
+# Eşleştirme:
+#   situation     ← Amaç (objective)
+#   background    ← Kaynak, değiştirilebilir/değiştirilmeyecek alanlar, kontrat
+#   assessment    ← Kabul kriterleri, güvenlik kuralları, riskler
+#   recommendation← Çalıştırılacak testler, beklenen çıktı formatı
+#   other         ← Reviewer geri bildirimi, operatör kararı, controller girdisi
+sbar_template_json() {
+  jq -n '{
+    situation:      "yok",
+    background:     "yok",
+    assessment:     "yok",
+    recommendation: "yok",
+    other:          "yok"
+  }'
+}
+
+# sbar_validate <handoff_file>
+# Handoff dosyasındaki SBAR JSON bloğunu doğrular.
+# "yok" ile bırakılmış slotlar uyarı olarak stderr'e yazılır.
+# Dönüş: 0 = tüm slotlar dolu, 1 = eksik slot var.
+sbar_validate() {
+  local file="$1" line rc=0
+  [[ -f "$file" ]] || return 0
+
+  # SBAR JSON bloğunu handoff markdown'undan çıkar (```json ... ``` arasında).
+  local json
+  json="$(sed -n '/^```sbar$/,/^```$/p' "$file" | sed '1d;$d')"
+  if [[ -z "$json" ]]; then
+    echo "SBAR UYARI: $file — SBAR JSON bloğu bulunamadı" >&2
+    return 1
+  fi
+
+  local slot value
+  for slot in situation background assessment recommendation other; do
+    value="$(printf '%s' "$json" | jq -r ".$slot // \"yok\"" 2>/dev/null || echo "yok")"
+    if [[ "$value" == "yok" || -z "$value" ]]; then
+      echo "SBAR UYARI: $file — '$slot' slotu boş (yok)" >&2
+      rc=1
+    fi
+  done
+  return "$rc"
+}
+
 # --- handoff paketi (otomatik çalıştırılamayan ajanlar için) -----------------
 
 # handoff_write <role> <agent> <aşama girdisi>
-# Görev paketini izlenen bir dosyaya yazar ve yolunu döndürür. Sır, token veya
-# parola yazılmaz: yalnız repo içi yollar ve kontrat alanları kullanılır.
+# Görev paketini SBAR şemasına uygun olarak izlenen bir dosyaya yazar ve
+# yolunu döndürür. Sır, token veya parola yazılmaz: yalnız repo içi yollar
+# ve kontrat alanları kullanılır.
 handoff_write() {
   local role="$1" agent="$2" input="$3" id file iteration repair
   id="$(ledger_task_id)"
@@ -460,6 +512,84 @@ handoff_write() {
   repair="$(state_field repair_round)"
   file="$HANDOFF_DIR/$id-$role-i$iteration-r$repair.md"
 
+  # SBAR slotlarını kontrattan türet
+  local sbar_situation sbar_background sbar_assessment sbar_recommendation sbar_other
+  # $(...) içinde ${input#"$ROOT"/} quoting sorununu önlemek için önceden hesapla.
+  local input_rel="${input#"$ROOT"/}"
+
+  sbar_situation="$(jq -r '.task.objective // "(yok)"' "$TASK")"
+
+  sbar_background="$(
+    {
+      printf 'Kaynak referansları:\n'
+      jq -r '(.task.source.reference // "") | if . == "" then "- (kontratta kaynak referansı yok)" else "- " + . end' "$TASK"
+      printf '\nDeğiştirilebilecek alanlar:\n'
+      jq -r '(.scope.allowed_files // []) | if length == 0 then "- Kontratta dosya kısıtı yok: en dar kapsamı kendin türet." else (.[] | "- `" + . + "`") end' "$TASK"
+      printf '\nDeğiştirilmemesi gereken alanlar:\n'
+      printf -- '- Bu worktree dışındaki hiçbir dizin: yalnız `%s` içinde yaz.\n' "$ROOT"
+      printf -- '- Görevle ilgisiz modül, migration, doküman ve yapılandırma.\n'
+      printf -- '- `.agent/config/agents.yaml` (rol dağıtımı mimari karardır).\n'
+      printf -- '- Yasak git işlemleri: %s. Commit, merge, push ve PR yapma.\n' \
+        "$(jq -r '(.scope.forbidden_git_operations // []) | join(", ")' "$TASK")"
+    }
+  )"
+
+  sbar_assessment="$(
+    {
+      printf 'Kabul kriterleri:\n'
+      jq -r '(.acceptance_criteria // []) | .[] | "- **" + .id + "** " + .requirement' "$TASK"
+      printf '\nGüvenlik ve veri kuralları:\n'
+      printf -- '- Secret, token, parola ve hassas veri koda, loga veya depoya yazılmaz.\n'
+      printf -- '- Kaynak sistem erişimi salt okunurdur; kimlik/rol/scope yalnız IdP/BFF sınırında çözülür.\n'
+      printf -- '- Kritik yazım audit/outbox olmadan tamamlanmaz; belirsiz politika fail-closed.\n'
+      printf -- '- Yeni gereksinim, eşik, teknoloji veya iş kuralı uydurulmaz.\n'
+      printf -- '- Mimari karar alma: belirsizlikte görevi BLOCKED yap ve nedeni yaz.\n'
+      printf '\nRiskler:\n'
+      printf -- '- Kapsam genişlemesi: kontrat dosya ipucu bağlayıcı bir üst sınır değildir.\n'
+      printf -- '- Ortam bağımlılığı: PostgreSQL/Docker yokluğu ürün hatası olarak raporlanmamalıdır.\n'
+    }
+  )"
+
+  sbar_recommendation="$(
+    {
+      printf 'Çalıştırılacak testler:\n'
+      printf -- '```bash\npython3 -m pytest -q %s\n```\n' "$UNIT_TEST_DIR"
+      printf 'PostgreSQL/migration/uygulama kaynağı etkilendiyse ek olarak `%s`\n' "$INTEGRATION_TEST_DIR"
+      printf 'altındaki ilgili testler. Bu testler controller tarafından bağımsız çalıştırılır.\n'
+      printf 'Test başarısızsa hata sınıfını belirle: PRODUCT_DEFECT, TEST_DEFECT,\n'
+      printf 'ENVIRONMENT_FAILURE, DEPENDENCY_FAILURE, CONFIGURATION_FAILURE, UNKNOWN.\n'
+      printf '\nBeklenen çıktı formatı:\n'
+      printf 'Yanıtının ilk satırı STATUS: SUCCESS veya STATUS: BLOCKED olmalı.\n'
+      printf 'Ardından: değiştirilen dosyalar, değişiklik özeti, komutlar ve exit kodları.\n'
+    }
+  )"
+
+  sbar_other="$(
+    {
+      if [[ -s "$H/ARCHITECT_REVIEW.md" ]]; then
+        printf 'Reviewer geri bildirimi (bu turda giderilmeli):\n'
+        cat "$H/ARCHITECT_REVIEW.md"
+        printf '\n'
+      fi
+      if [[ -s "$H/HUMAN_RESPONSE.md" ]]; then
+        printf 'Operatör kararı:\n'
+        cat "$H/HUMAN_RESPONSE.md"
+        printf '\n'
+      fi
+      printf 'Controller aşama girdisi: %s\n' "$input_rel"
+    }
+  )"
+
+  # SBAR JSON bloğu üret
+  local sbar_json
+  sbar_json="$(jq -n \
+    --arg sit "$sbar_situation" \
+    --arg bkg "$sbar_background" \
+    --arg ast "$sbar_assessment" \
+    --arg rec "$sbar_recommendation" \
+    --arg oth "$sbar_other" \
+    '{situation:$sit, background:$bkg, assessment:$ast, recommendation:$rec, other:$oth}')"
+
   {
     printf '%s\n' '---'
     printf 'type: agent-handoff\ntask_id: %s\nrole: %s\nagent: %s\n' "$id" "$role" "$agent"
@@ -467,73 +597,37 @@ handoff_write() {
     printf 'worktree: %s\nbranch: %s\n' "$ROOT" \
       "$(git -C "$ROOT" branch --show-current 2>/dev/null || echo unknown)"
     printf 'fallback_reason: %s\n' "${ROLE_RESOLUTION_REASON:-none}"
+    printf 'sbar_schema: v1\n'
     printf 'status: PENDING\n'
     printf '%s\n\n' '---'
 
     printf '# Görev paketi — %s (%s)\n\n' "$id" "$(roles_agent_label "$agent")"
     printf 'Bu paket controller tarafından üretildi. Kuralların tamamı `AGENTS.md`\n'
     printf 've `.qoder/rules/` dosyalarındadır; burada tekrar edilmez.\n\n'
+    printf 'SBAR şeması: situation → amaç, background → bağlam, assessment → değerlendirme,\n'
+    printf 'recommendation → eylem önerisi, other → ek bilgiler.\n\n'
 
-    printf '## 1. Amaç\n\n%s\n\n' "$(jq -r '.task.objective // "(yok)"' "$TASK")"
+    printf '## Situation (Durum)\n\n%s\n\n' "$sbar_situation"
 
-    printf '## 2. Gereksinim referansları\n\n'
-    jq -r '(.task.source_docs // []) | if length == 0 then "- (kontratta kaynak doküman yok; NEXT_STEP.md ve backlog'"'"'a bak)" else (.[] | "- `" + . + "`") end' "$TASK"
-    printf '\n'
+    printf '## Background (Bağlam)\n\n%s\n\n' "$sbar_background"
 
-    printf '## 3. Değiştirilebilecek alanlar\n\n'
-    jq -r '(.scope.hint // []) | if length == 0 then "- Kontratta dosya ipucu yok: en dar kapsamı kendin türet ve handoff sonucunda listele." else (.[] | "- `" + . + "`") end' "$TASK"
-    printf '\n- Gerekiyorsa ilgili test dosyaları (`%s`, `%s`).\n\n' "$UNIT_TEST_DIR" "$INTEGRATION_TEST_DIR"
+    printf '## Assessment (Değerlendirme)\n\n%s\n\n' "$sbar_assessment"
 
-    printf '## 4. Değiştirilmemesi gereken alanlar\n\n'
-    printf -- '- Bu worktree dışındaki hiçbir dizin: yalnız `%s` içinde yaz.\n' "$ROOT"
-    printf -- '- Görevle ilgisiz modül, migration, doküman ve yapılandırma.\n'
-    printf -- '- `.agent/config/agents.yaml` (rol dağıtımı mimari karardır).\n'
-    printf -- '- Yasak git işlemleri: %s. Commit, merge, push ve PR yapma.\n\n' \
-      "$(jq -r '(.scope.forbidden_git_operations // []) | join(", ")' "$TASK")"
+    printf '## Recommendation (Öneri)\n\n%s\n\n' "$sbar_recommendation"
 
-    printf '## 5. Kabul kriterleri\n\n'
-    jq -r '(.acceptance_criteria // []) | .[] | "- **" + .id + "** " + .requirement' "$TASK"
-    printf '\n'
+    printf '## Other (Ek Bilgiler)\n\n%s\n\n' "$sbar_other"
 
-    printf '## 6. Çalıştırılacak testler\n\n'
-    printf -- '```bash\npython3 -m pytest -q %s\n```\n\n' "$UNIT_TEST_DIR"
-    printf 'PostgreSQL/migration/uygulama kaynağı etkilendiyse ek olarak `%s`\n' "$INTEGRATION_TEST_DIR"
-    printf 'altındaki ilgili testler. Bu testler ayrıca controller tarafından bağımsız\n'
-    printf 'olarak yeniden çalıştırılır: senin beyanın kanıt sayılmaz.\n\n'
-    printf 'Test başarısızsa kodu yeniden tasarlamadan önce hata sınıfını belirle:\n'
-    printf '`PRODUCT_DEFECT`, `TEST_DEFECT`, `ENVIRONMENT_FAILURE`, `DEPENDENCY_FAILURE`,\n'
-    printf '`CONFIGURATION_FAILURE`, `UNKNOWN`. Ortam hatasını ürün hatası gibi düzeltmeye çalışma.\n\n'
+    printf '## SBAR JSON\n\n```sbar\n%s\n```\n\n' "$sbar_json"
 
-    printf '## 7. Güvenlik ve veri kuralları\n\n'
-    printf -- '- Secret, token, parola ve hassas veri koda, loga veya depoya yazılmaz.\n'
-    printf -- '- Kaynak sistem erişimi salt okunurdur; kimlik/rol/scope yalnız IdP/BFF sınırında çözülür.\n'
-    printf -- '- Kritik yazım audit/outbox olmadan tamamlanmaz; belirsiz politika fail-closed.\n'
-    printf -- '- Yeni gereksinim, eşik, teknoloji veya iş kuralı uydurulmaz.\n'
-    printf -- '- Mimari karar alma: belirsizlikte görevi BLOCKED yap ve nedeni yaz.\n\n'
-
-    printf '## 8. Beklenen çıktı formatı\n\n'
-    printf 'Yanıtının **ilk satırı** tam olarak şunlardan biri olmalı:\n\n'
-    printf -- '```text\nSTATUS: SUCCESS\nSTATUS: BLOCKED\n```\n\n'
-    printf 'Ardından: değiştirilen dosyalar (yol listesi), yapılan değişikliğin özeti,\n'
-    printf 'çalıştırdığın komutlar ve exit kodları, kalan riskler.\n\n'
-
-    printf '## 9. Kontrat (tam)\n\n```json\n'
+    printf '## Kontrat (tam)\n\n```json\n'
     cat "$TASK"
-    printf '```\n\n'
-
-    if [[ -s "$H/ARCHITECT_REVIEW.md" ]]; then
-      printf '## 10. Reviewer geri bildirimi (bu turda giderilmeli)\n\n'
-      cat "$H/ARCHITECT_REVIEW.md"
-      printf '\n'
-    fi
-    if [[ -s "$H/HUMAN_RESPONSE.md" ]]; then
-      printf '## 11. Operatör kararı\n\n'
-      cat "$H/HUMAN_RESPONSE.md"
-      printf '\n'
-    fi
-    printf '## Ek: controller aşama girdisi\n\nAyrıntılı runtime girdisi: `%s`\n' "${input#"$ROOT"/}"
+    printf '```\n'
   } > "$file.tmp"
   mv -f "$file.tmp" "$file"
+
+  # SBAR doğrulaması — eksik slot uyarısı ver (bloklamaz).
+  sbar_validate "$file" || true
+
   printf '%s\n' "$file"
 }
 

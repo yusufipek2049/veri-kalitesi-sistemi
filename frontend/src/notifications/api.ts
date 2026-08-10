@@ -2,11 +2,9 @@ import { developmentFetch } from "../development/fetch";
 import type {
   ChannelsApiResponse,
   DeliveryDetailApiResponse,
-  EventDetailApiResponse,
   InboxApiResponse,
   NotificationChannel,
   NotificationDelivery,
-  NotificationEvent,
   NotificationSubscription,
   SubscriptionsApiResponse,
   UnreadCountApiResponse,
@@ -14,7 +12,6 @@ import type {
 import {
   channelFromApi,
   deliveryFromApi,
-  eventFromApi,
   inboxFromApi,
   subscriptionFromApi,
 } from "./model";
@@ -50,14 +47,6 @@ export async function fetchUnreadCount(): Promise<number> {
   return json.unread_count;
 }
 
-export async function fetchDeliveryDetail(deliveryId: string): Promise<NotificationDelivery> {
-  const response = await developmentFetch(
-    `/api/v1/notifications/deliveries/${encodeURIComponent(deliveryId)}`
-  );
-  const json = (await response.json()) as DeliveryDetailApiResponse;
-  return deliveryFromApi(json.delivery);
-}
-
 export async function markDeliveryRead(deliveryId: string): Promise<NotificationDelivery> {
   const response = await developmentFetch(
     `/api/v1/notifications/deliveries/${encodeURIComponent(deliveryId)}/read`,
@@ -65,14 +54,6 @@ export async function markDeliveryRead(deliveryId: string): Promise<Notification
   );
   const json = (await response.json()) as DeliveryDetailApiResponse;
   return deliveryFromApi(json.delivery);
-}
-
-export async function fetchEventDetail(eventId: string): Promise<NotificationEvent> {
-  const response = await developmentFetch(
-    `/api/v1/notifications/events/${encodeURIComponent(eventId)}`
-  );
-  const json = (await response.json()) as EventDetailApiResponse;
-  return eventFromApi(json.event);
 }
 
 export async function fetchSubscriptions(params?: {

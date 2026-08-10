@@ -1,6 +1,6 @@
 /** Geliştirme modu için API yardımcısı — isteklere X-Development-User-Id header'ını ekler. */
 
-export function getDevelopmentHeaders(): Record<string, string> {
+function getDevelopmentHeaders(): Record<string, string> {
   try {
     const userId = localStorage.getItem("development-user-id");
     if (userId) {

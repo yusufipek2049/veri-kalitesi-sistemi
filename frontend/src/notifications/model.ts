@@ -26,17 +26,6 @@ export interface NotificationDelivery {
   readAt: string | null;
 }
 
-export interface NotificationEvent {
-  eventId: string;
-  eventType: NotificationEventType;
-  scopeType: string;
-  scopeId: string;
-  sourceRef: string;
-  correlationId: string;
-  occurredAt: string;
-  publishedAt: string | null;
-}
-
 export interface NotificationSubscription {
   subscriptionId: string;
   eventType: NotificationEventType;
@@ -96,22 +85,6 @@ export interface DeliveryDetailApiResponse {
     updated_at: string;
     delivered_at: string | null;
     read_at: string | null;
-  };
-}
-
-export interface EventDetailApiResponse {
-  api_version: "v1";
-  data_origin: string;
-  correlation_id: string;
-  event: {
-    event_id: string;
-    event_type: NotificationEventType;
-    scope_type: string;
-    scope_id: string;
-    source_ref: string;
-    correlation_id: string;
-    occurred_at: string;
-    published_at: string | null;
   };
 }
 
@@ -178,28 +151,6 @@ export function inboxFromApi(raw: InboxApiResponse): {
     totalUnread: raw.total_unread,
     cursor: raw.cursor,
     hasMore: raw.has_more,
-  };
-}
-
-export function eventFromApi(raw: {
-  event_id: string;
-  event_type: NotificationEventType;
-  scope_type: string;
-  scope_id: string;
-  source_ref: string;
-  correlation_id: string;
-  occurred_at: string;
-  published_at: string | null;
-}): NotificationEvent {
-  return {
-    eventId: raw.event_id,
-    eventType: raw.event_type,
-    scopeType: raw.scope_type,
-    scopeId: raw.scope_id,
-    sourceRef: raw.source_ref,
-    correlationId: raw.correlation_id,
-    occurredAt: raw.occurred_at,
-    publishedAt: raw.published_at,
   };
 }
 

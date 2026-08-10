@@ -1,4 +1,4 @@
-export type DiscoveryLifecycleStatus =
+type DiscoveryLifecycleStatus =
   | "QUEUED"
   | "RUNNING"
   | "SUCCESS"
@@ -6,7 +6,7 @@ export type DiscoveryLifecycleStatus =
   | "TECHNICAL_ERROR"
   | "CANCELLED";
 
-export type DiffStatus = "PENDING" | "APPLIED";
+type DiffStatus = "PENDING" | "APPLIED";
 export type CatalogItemStatus = "ACTIVE" | "INACTIVE";
 
 export type CatalogPageState = "normal" | "loading" | "empty" | "error" | "unauthorized";
