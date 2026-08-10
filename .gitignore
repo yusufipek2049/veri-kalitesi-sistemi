@@ -155,19 +155,16 @@ docker-compose.override.yaml
 *.pid
 *.pid.lock
 
-# Gelistirme otomasyonu: ajan araclarinin gizli dizinleri, talimat dosyalari
-# ve otomasyon icerigi gelistirici makinesine ozeldir; depoda izlenmez.
+# Gizli dizinler izlenmez (GitHub Actions haric).
 /.?*/
 !/.github/
+
+# Ajan araclari ve AI prompt dosyalari depoda izlenmez.
 tools/agent-*/
-# İstisna: agent-loop controller KAYNAK kodudur (runtime artefaktı değil).
-# İzlenmediği sürece hiçbir değişikliğin git revert yolu yoktu, CI görmüyordu ve
-# worktree'ler arasında sessizce ayrışıyordu. Ayrıca worktree_fingerprint
-# (ledger.sh) ignored dosyaları görmediği için loop kendi kodundaki değişikliği
-# "ilerleme" sayamıyordu. Runtime state (.agent-handoff, .agent) ignored kalır.
-!tools/agent-loop/
+/docs/agent-prompts/
+/docs/architecture/Subagent-*.md
+/docs/architecture/Ajan-*.md
+/docs/operations/Ajan-*.md
 AGENTS.md
 [C]LAUDE.md
 [C]ODEX-KULLANIM.md
-/docs/architecture/Ajan-*.md
-/docs/operations/Ajan-*.md

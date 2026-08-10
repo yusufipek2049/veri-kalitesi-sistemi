@@ -781,7 +781,7 @@ class ServiceNowService:
         if attempt_no >= self.retry_policy.max_attempts:
             return None
         if error.error_kind is ServiceNowAdapterErrorKind.TEMPORARY:
-            return self.retry_policy.base_delay_seconds * (2 ** (attempt_no - 1))
+            return float(self.retry_policy.base_delay_seconds * (2 ** (attempt_no - 1)))
         if error.error_kind is not ServiceNowAdapterErrorKind.RATE_LIMIT:
             return None
         retry_after = error.retry_after_seconds

@@ -25,6 +25,7 @@ from veri_kalitesi.api.models_catalog import (
 from veri_kalitesi.data_sources.query import (
     DataSourceQueryTechnicalError,
 )
+from veri_kalitesi.identity import ActorContext
 
 
 class MetadataCommandService(Protocol):
@@ -33,7 +34,7 @@ class MetadataCommandService(Protocol):
     def request_discovery(
         self,
         *,
-        actor_context: Any | None,
+        actor_context: ActorContext,
         data_source_id: str,
         idempotency_key: str | None,
         correlation_id: str,
@@ -42,7 +43,7 @@ class MetadataCommandService(Protocol):
     def update_discovery_scope(
         self,
         *,
-        actor_context: Any | None,
+        actor_context: ActorContext,
         data_source_id: str,
         include_patterns: list[str],
         exclude_patterns: list[str],
@@ -57,7 +58,7 @@ class MetadataCommandService(Protocol):
     def apply_diff(
         self,
         *,
-        actor_context: Any | None,
+        actor_context: ActorContext,
         metadata_diff_id: str,
         reason_code: str,
         expected_version: int,
@@ -121,6 +122,7 @@ def register_catalog_routes(
                 request.state.correlation_id,
             )
         actor_context = getattr(request.state, "actor_context", None)
+        assert actor_context is not None
         result = metadata_command_service.request_discovery(
             actor_context=actor_context,
             data_source_id=data_source_id,
@@ -153,6 +155,7 @@ def register_catalog_routes(
                 request.state.correlation_id,
             )
         actor_context = getattr(request.state, "actor_context", None)
+        assert actor_context is not None
         scope = metadata_command_service.update_discovery_scope(
             actor_context=actor_context,
             data_source_id=data_source_id,
@@ -316,6 +319,7 @@ def register_catalog_routes(
                 request.state.correlation_id,
             )
         actor_context = getattr(request.state, "actor_context", None)
+        assert actor_context is not None
         result = metadata_command_service.apply_diff(
             actor_context=actor_context,
             metadata_diff_id=metadata_diff_id,

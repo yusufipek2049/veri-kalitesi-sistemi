@@ -440,7 +440,7 @@ class SQLiteServiceNowRepository:
                     "SELECT COUNT(*) FROM servicenow_retry_jobs WHERE status = ?",
                     (status.value,),
                 ).fetchone()
-        return row[0]
+        return int(row[0])
 
     def try_acquire_circuit(
         self,
@@ -571,9 +571,9 @@ class SQLiteServiceNowRepository:
 
     def count(self) -> int:
         with self._lock:
-            return self.connection.execute(
+            return int(self.connection.execute(
                 "SELECT COUNT(*) FROM servicenow_ticket_links"
-            ).fetchone()[0]
+            ).fetchone()[0])
 
     def _require_shared_audit_transaction(self, audit_outbox: SQLiteTransactionalAudit) -> None:
         if audit_outbox.connection is not self.connection:
@@ -630,7 +630,7 @@ class SQLiteServiceNowRepository:
         ).fetchone()
         if row is None:
             raise ServiceNowValidationError("ServiceNow circuit state was not found.")
-        return row
+        return row  # type: ignore[no-any-return]
 
 
 def _row_to_link(row: sqlite3.Row) -> ServiceNowTicketLink:

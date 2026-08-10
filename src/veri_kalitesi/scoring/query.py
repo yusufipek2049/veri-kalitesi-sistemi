@@ -28,7 +28,8 @@ from veri_kalitesi.scoring.postgresql_repository import PostgreSQLScoreRepositor
 class ScoreQueryRuleCatalog:
     """Rule chain resolution için minimal protokol."""
 
-    def get_rule(self, quality_rule_id: str) -> QualityRule: ...
+    def get_rule(self, quality_rule_id: str) -> QualityRule:
+        raise NotImplementedError
 
 
 @dataclass(frozen=True)

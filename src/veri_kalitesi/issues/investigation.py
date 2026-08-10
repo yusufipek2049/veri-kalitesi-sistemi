@@ -16,7 +16,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 from enum import Enum
-from typing import Protocol
+from typing import Mapping, Protocol, Sequence
 
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -43,7 +43,7 @@ class EvidenceComponent:
     """Tek bir kanit bileseni."""
 
     source: EvidenceSource
-    value: dict[str, object] | list[object] | str | None
+    value: Mapping[str, object] | Sequence[object] | str | None
     references: tuple[str, ...] = ()
 
 

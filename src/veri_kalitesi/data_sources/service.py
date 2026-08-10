@@ -1032,6 +1032,7 @@ class DataSourceService:
             object_id=existing.data_source_id,
             result=AuditResult.SUCCESS,
             reason_code="METADATA_DISCOVERY_STARTED",
+            new_values={},
         )
         self.repository.update_discovery_status(
             discovery_id,
@@ -1053,6 +1054,7 @@ class DataSourceService:
                 object_id=data_source.data_source_id,
                 result=AuditResult.FAILURE,
                 reason_code="UNSUPPORTED_SOURCE",
+                new_values={},
             )
             self.repository.update_discovery_status(
                 discovery_id,
@@ -1091,6 +1093,7 @@ class DataSourceService:
                 object_id=data_source.data_source_id,
                 result=AuditResult.FAILURE,
                 reason_code="SECRET_RESOLUTION_FAILED",
+                new_values={},
             )
             self.repository.update_discovery_status(
                 discovery_id,
@@ -1121,6 +1124,7 @@ class DataSourceService:
                 object_id=data_source.data_source_id,
                 result=AuditResult.FAILURE,
                 reason_code=_error_reason(_error_class_for_exception(exc)),
+                new_values={},
             )
             self.repository.update_discovery_status(
                 discovery_id,
@@ -1345,16 +1349,16 @@ class DataSourceService:
                 )
             elif added["object_type"] == "DATA_FIELD":
                 ds_key = (added["namespace"], added["dataset_name"])
-                ds = next((d for d in datasets if (d.namespace, d.name) == ds_key), None)
-                if ds is None:
-                    ds = existing_datasets.get(ds_key)
-                if ds is not None:
+                ds_candidate = next((d for d in datasets if (d.namespace, d.name) == ds_key), None)
+                if ds_candidate is None:
+                    ds_candidate = existing_datasets.get(ds_key)
+                if ds_candidate is not None:
                     nv = added.get("new_values", {})
-                    previous_fields = existing_fields_map.get(ds.dataset_id, {})
+                    previous_fields = existing_fields_map.get(ds_candidate.dataset_id, {})
                     previous_field = previous_fields.get(added["field_name"])
-                    fields_by_dataset_id.setdefault(ds.dataset_id, []).append(
+                    fields_by_dataset_id.setdefault(ds_candidate.dataset_id, []).append(
                         DataField(
-                            dataset_id=ds.dataset_id,
+                            dataset_id=ds_candidate.dataset_id,
                             name=added["field_name"],
                             native_data_type=nv.get("native_data_type", "TEXT"),
                             is_nullable=nv.get("is_nullable", True),
@@ -1368,14 +1372,14 @@ class DataSourceService:
         for removed in diff.removed_objects:
             if removed["object_type"] == "DATASET":
                 ds_key = (removed["namespace"], removed["dataset_name"])
-                ds = existing_datasets.get(ds_key)
-                if ds is not None:
-                    passivated_dataset_ids.append(ds.dataset_id)
+                ds_removed = existing_datasets.get(ds_key)
+                if ds_removed is not None:
+                    passivated_dataset_ids.append(ds_removed.dataset_id)
             elif removed["object_type"] == "DATA_FIELD":
                 ds_key = (removed["namespace"], removed["dataset_name"])
-                ds = existing_datasets.get(ds_key)
-                if ds is not None:
-                    field = existing_fields_map.get(ds.dataset_id, {}).get(removed["field_name"])
+                ds_field = existing_datasets.get(ds_key)
+                if ds_field is not None:
+                    field = existing_fields_map.get(ds_field.dataset_id, {}).get(removed["field_name"])
                     if field is not None:
                         passivated_field_ids.append(field.data_field_id)
 

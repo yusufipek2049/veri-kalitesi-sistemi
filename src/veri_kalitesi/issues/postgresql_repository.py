@@ -257,6 +257,7 @@ class PostgreSQLIssueRepository:
         schema: str = DEFAULT_SCHEMA_NAME,
     ) -> None:
         self._session_factory = session_factory
+        self._schema = schema
         self._tables = issue_tables(schema)
         self._table = self._tables.issues
 

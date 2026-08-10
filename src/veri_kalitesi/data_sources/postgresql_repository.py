@@ -1507,7 +1507,7 @@ class PostgreSQLDataSourceRepository:
                     finished_at=None,
                 )
             )
-            discovery_id = db_result.inserted_primary_key[0]
+            discovery_id = db_result.inserted_primary_key[0]  # type: ignore[attr-defined]
             audit_outbox.stage(audit_event, session=session)
         return MetadataDiscoveryResult(
             **{**vars(result), "discovery_id": discovery_id, "status": DiscoveryStatus.QUEUED}
@@ -1560,7 +1560,7 @@ class PostgreSQLDataSourceRepository:
                 )
                 .values(**values)
             )
-            if result.rowcount == 0:
+            if result.rowcount == 0:  # type: ignore[attr-defined]
                 raise ConflictError("Discovery version conflict.")
             audit_outbox.stage(audit_event, session=session)
             row = (
@@ -1667,7 +1667,7 @@ class PostgreSQLDataSourceRepository:
                     )
                     .values(**values)
                 )
-                if result.rowcount == 0:
+                if result.rowcount == 0:  # type: ignore[attr-defined]
                     raise ConflictError("Discovery scope version conflict.")
             audit_outbox.stage(audit_event, session=session)
         return DiscoveryScope(
@@ -1796,7 +1796,7 @@ class PostgreSQLDataSourceRepository:
                     version=expected_version + 1,
                 )
             )
-            if diff_result.rowcount == 0:
+            if diff_result.rowcount == 0:  # type: ignore[attr-defined]
                 raise ConflictError("Metadata diff version conflict or already applied.")
             for dataset in datasets:
                 existing = session.execute(

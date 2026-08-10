@@ -177,7 +177,7 @@ class SQLiteLegalHoldRepository:
 
     def count_events(self) -> int:
         with self._lock:
-            return self.connection.execute("SELECT COUNT(*) FROM legal_hold_events").fetchone()[0]
+            return int(self.connection.execute("SELECT COUNT(*) FROM legal_hold_events").fetchone()[0])
 
     def _insert_event(self, event: LegalHoldEvent) -> None:
         self.connection.execute(

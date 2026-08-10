@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Any, Protocol
 
 from fastapi import FastAPI, Request, Response
 
@@ -94,7 +94,7 @@ class IssueClosureService(Protocol):
 class IssueCreationService(Protocol):
     def create_manual(
         self,
-        draft: object,
+        draft: Any,
         actor_context: ActorContext | None,
     ) -> DataQualityIssue: ...
 
@@ -131,6 +131,7 @@ def register_issues_routes(
                 "Issue service is unavailable.", request.state.correlation_id
             )
         actor_context = resolver.resolve(request)
+        assert actor_context is not None
         issues = issue_query_service.list_for_actor(actor_context)
         response.headers["Cache-Control"] = "no-store"
         if isinstance(resolver, DevelopmentActorContextResolver):
@@ -149,7 +150,6 @@ def register_issues_routes(
                 )
                 for issue in issues
             ),
-            available_actions=tuple(page_actions),
         )
 
     @app.post(
@@ -171,6 +171,7 @@ def register_issues_routes(
         actor_context = getattr(request.state, "actor_context", None)
         if actor_context is None:
             actor_context = resolver.resolve(request)
+        assert actor_context is not None
         from veri_kalitesi.issues import (
             ManualIssueDraft,
             IssueScopeType,
@@ -229,6 +230,7 @@ def register_issues_routes(
         actor_context = getattr(request.state, "actor_context", None)
         if actor_context is None:
             actor_context = resolver.resolve(request)
+        assert actor_context is not None
         issue = issue_investigation_service.start_investigation(
             issue_id,
             payload.version,
@@ -320,6 +322,7 @@ def register_issues_routes(
         actor_context = getattr(request.state, "actor_context", None)
         if actor_context is None:
             actor_context = resolver.resolve(request)
+        assert actor_context is not None
         issue = issue_assignment_service.reassign(
             issue_id,
             IssueAssignment(
@@ -358,6 +361,7 @@ def register_issues_routes(
         actor_context = getattr(request.state, "actor_context", None)
         if actor_context is None:
             actor_context = resolver.resolve(request)
+        assert actor_context is not None
         draft = IssueResolutionDraft(
             root_cause=payload.root_cause,
             corrective_action=payload.corrective_action,
@@ -399,6 +403,7 @@ def register_issues_routes(
         actor_context = getattr(request.state, "actor_context", None)
         if actor_context is None:
             actor_context = resolver.resolve(request)
+        assert actor_context is not None
         issue = issue_verification_service.record_verification_result(
             issue_id,
             str(payload.verification_reference_id),
@@ -433,6 +438,7 @@ def register_issues_routes(
         actor_context = getattr(request.state, "actor_context", None)
         if actor_context is None:
             actor_context = resolver.resolve(request)
+        assert actor_context is not None
         issue = issue_closure_service.close(
             issue_id,
             actor_context,

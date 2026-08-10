@@ -185,15 +185,15 @@ class SQLiteArchiveRecallRepository:
 
     def count_requests(self) -> int:
         with self._lock:
-            return self.connection.execute(
+            return int(self.connection.execute(
                 "SELECT COUNT(*) FROM archive_recall_requests"
-            ).fetchone()[0]
+            ).fetchone()[0])
 
     def count_decisions(self) -> int:
         with self._lock:
-            return self.connection.execute(
+            return int(self.connection.execute(
                 "SELECT COUNT(*) FROM archive_recall_decisions"
-            ).fetchone()[0]
+            ).fetchone()[0])
 
     def _find_by_idempotency_digest(self, digest: str) -> ArchiveRecallRequest | None:
         row = self.connection.execute(

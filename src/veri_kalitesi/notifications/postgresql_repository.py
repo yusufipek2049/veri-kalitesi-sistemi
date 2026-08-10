@@ -179,8 +179,8 @@ class PostgreSQLNotificationRepository:
             return
         for staged in batch.events:
             self._insert_event(session, staged)
-        for staged in batch.deliveries:
-            self._insert_delivery(session, staged)
+        for staged_delivery in batch.deliveries:
+            self._insert_delivery(session, staged_delivery)
         # audit events are staged by the caller (issue repository)
 
     def _insert_event(self, session: Any, staged: Any) -> None:
@@ -512,6 +512,7 @@ def _row_to_event(row: RowMapping) -> NotificationEvent:
         scope_type=NotificationScopeType(str(row["scope_type"])),
         scope_id=str(row["scope_id"]),
         source_ref=str(row["source_ref"]),
+        deduplication_key=str(row["deduplication_key_digest"]),
         deduplication_key_digest=str(row["deduplication_key_digest"]),
         payload_digest=str(row["payload_digest"]),
         payload=dict(row["payload"]),

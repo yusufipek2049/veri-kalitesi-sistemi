@@ -6,7 +6,7 @@ import hashlib
 import json
 import sqlite3
 from datetime import datetime, timezone
-from typing import Callable, Generic, Protocol
+from typing import Any, Callable, Generic, Protocol
 from uuid import UUID, uuid5
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -124,7 +124,7 @@ class IssueService(Generic[AuditT]):
         verification_resolver: IssueVerificationResolver | None = None,
         relationship_resolver: IssueRelationshipResolver | None = None,
         notification_actor_context_provider: Callable[[], ActorContext] | None = None,
-        notification_batch_stager: object = None,
+        notification_batch_stager: Any = None,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ) -> None:
         validate_access_policy(access_policy)
@@ -382,15 +382,18 @@ class IssueService(Generic[AuditT]):
         )
 
         audit_event = AuditEventInput(
-            event_type="DATA_QUALITY_ISSUE_MANUALLY_CREATED",
             actor_id=context.actor_id,
             actor_type=context.actor_type.value,
-            session_id=context.session_id,
             correlation_id=draft.correlation_id,
-            outcome=AuditResult.SUCCESS,
-            resource_type="DATA_QUALITY_ISSUE",
-            resource_id=issue.issue_id,
-            detail={"scope_type": draft.scope_type.value, "scope_id": draft.scope_id},
+            action="DATA_QUALITY_ISSUE_MANUALLY_CREATED",
+            object_type="DATA_QUALITY_ISSUE",
+            object_id=issue.issue_id,
+            result=AuditResult.SUCCESS,
+            reason_code="MANUAL_CREATION",
+            old_values={},
+            new_values={"scope_type": draft.scope_type.value, "scope_id": draft.scope_id},
+            occurred_at=now,
+            session_id=context.session_id,
         )
         prepared = self.transactional_audit.prepare(audit_event)
 

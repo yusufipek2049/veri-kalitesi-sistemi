@@ -922,12 +922,12 @@ class ScoringService:
                 source_id = dataset.data_source_id
                 source_datasets.setdefault(source_id, []).append((ds_score, dataset))
                 dataset_criticality[ds_score.scope_id] = dataset.criticality
-            for source_id, candidates in source_datasets.items():
+            for source_id, source_candidates in source_datasets.items():
                 all_scores.append(
                     self.calculate_source_score(
                         execution_id,
                         source_id,
-                        _candidates=candidates,
+                        _candidates=source_candidates,
                         _dataset_criticality=dataset_criticality,
                     )
                 )

@@ -149,6 +149,7 @@ def register_rules_routes(
                 "Rule service is unavailable.", request.state.correlation_id
             )
         actor_context = resolver.resolve(request)
+        assert actor_context is not None
         rules = rule_query_service.list_for_actor(actor_context)
         response.headers["Cache-Control"] = "no-store"
         return RuleListResponse(

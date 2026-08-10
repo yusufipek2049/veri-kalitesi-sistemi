@@ -245,7 +245,7 @@ def _moving_average(
     values = [s.score_value for s in segment[-window:] if s.score_value is not None]
     if len(values) < window:
         return None
-    return sum(values) / len(values)
+    return Decimal(str(sum(values) / len(values)))
 
 
 def _consec_deterioration(

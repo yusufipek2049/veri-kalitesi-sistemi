@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, NoReturn
 
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -213,7 +213,7 @@ class DataSourceCommandAdapter:
         return context
 
     @staticmethod
-    def _raise_command_error(exc: Exception, context: ActorContext) -> None:
+    def _raise_command_error(exc: Exception, context: ActorContext) -> NoReturn:
         if isinstance(exc, DataSourceQueryAuthorizationError):
             raise DataSourceCommandError(
                 "DATA_SOURCE_PERMISSION_DENIED",

@@ -455,6 +455,8 @@ class ExecutionStartRequest(BaseModel):
 
     rule_version_ids: tuple[str, ...] = Field(min_length=1)
     source_ids: tuple[str, ...] = Field(default_factory=tuple)
+    idempotency_key: str = ""
+    execution_mode: str = "OFFICIAL"
 
 
 class ExecutionStartResponse(BaseModel):

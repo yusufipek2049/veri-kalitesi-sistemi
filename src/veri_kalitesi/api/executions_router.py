@@ -131,6 +131,7 @@ def register_executions_routes(
         actor_context = getattr(request.state, "actor_context", None)
         if actor_context is None:
             actor_context = resolver.resolve(request)
+        assert actor_context is not None  # narrowed after resolver
         execution = execution_start_service.start_manual(
             rule_version_ids=payload.rule_version_ids,
             source_ids=payload.source_ids,
@@ -163,6 +164,7 @@ def register_executions_routes(
         actor_context = getattr(request.state, "actor_context", None)
         if actor_context is None:
             actor_context = resolver.resolve(request)
+        assert actor_context is not None  # narrowed after resolver
         execution = execution_cancel_service.cancel(
             execution_id,
             reason=payload.reason,

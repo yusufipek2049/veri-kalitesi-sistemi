@@ -369,7 +369,7 @@ def create_development_app(  # type: ignore[no-untyped-def]
         issue_verification_service=issue_store,
         issue_closure_service=issue_store,
         issue_creation_service=issue_store,
-        data_source_mutation_service=data_source_store,
+        data_source_mutation_service=data_source_store,  # type: ignore[arg-type]
         execution_start_service=execution_start_service,
         execution_cancel_service=execution_cancel_service,
         development_user_registry=effective_registry,

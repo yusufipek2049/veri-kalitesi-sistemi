@@ -40,7 +40,7 @@ class PostgreSQLMetadataCommandService:
     actor type, roller ve permitted_source_ids kontrol edilir.
     """
 
-    service: DataSourceService[Any]
+    service: DataSourceService
     repository: DataSourceRepository[Any]
     transactional_audit: DataSourceTransactionalAudit
     job_enqueuer: JobEnqueuer

@@ -186,7 +186,7 @@ class SQLiteNotificationRepository:
 
     def count(self) -> int:
         with self._lock:
-            return self.connection.execute("SELECT COUNT(*) FROM notifications").fetchone()[0]
+            return int(self.connection.execute("SELECT COUNT(*) FROM notifications").fetchone()[0])
 
     def _require_shared_audit_transaction(self, audit_outbox: SQLiteTransactionalAudit) -> None:
         if audit_outbox.connection is not self.connection:

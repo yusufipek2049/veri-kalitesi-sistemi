@@ -26,7 +26,7 @@ class PersistentMetadataDiscoveryCommandAdapter:
     Provider yoksa composition root fail-fast çıkar.
     """
 
-    service: DataSourceService[Any]
+    service: DataSourceService
     actor_context_provider: MetadataServiceActorContextProvider
     clock: Callable[[], Any] | None = None
 

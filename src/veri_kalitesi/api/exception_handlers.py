@@ -344,7 +344,7 @@ _SIMPLE_HANDLERS: list[tuple[type[Exception], int, str, str | None]] = [
 
 
 def _correlation_id(error: Exception, request: Request) -> str:
-    return getattr(error, "correlation_id", None) or request.state.correlation_id
+    return str(getattr(error, "correlation_id", None) or request.state.correlation_id)
 
 
 def register_exception_handlers(app: FastAPI) -> None:
