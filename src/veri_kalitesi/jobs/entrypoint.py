@@ -8,6 +8,7 @@ import sys
 from threading import Event
 
 from veri_kalitesi.jobs.settings import PersistentJobSettings
+from veri_kalitesi.operational_logging import configure_logging
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 def main() -> int:
     """Worker sürecini başlat; SIGTERM/SIGINT ile kontrollü kapatma."""
 
+    configure_logging()
     settings = PersistentJobSettings.from_environment()
     from veri_kalitesi.jobs.production import create_production_worker
 

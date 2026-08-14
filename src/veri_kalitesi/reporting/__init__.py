@@ -46,7 +46,12 @@ from veri_kalitesi.reporting.scheduling import (
     ReportScheduleRepository,
     ReportScheduleService,
 )
-from veri_kalitesi.reporting.service import ReportPreviewReader, ReportPreviewService, ReportService
+from veri_kalitesi.reporting.service import (
+    ReportPreviewReader,
+    ReportPreviewService,
+    ReportQueryService,
+    ReportService,
+)
 from veri_kalitesi.reporting.worker import ReportWorker, ReportWorkerSettings
 
 __all__ = [
@@ -66,6 +71,7 @@ __all__ = [
     "ReportPreviewRequest",
     "ReportPreviewService",
     "ReportRequest",
+    "ReportQueryService",
     "ReportSchedule",
     "ReportScheduleCreateRequest",
     "ReportScheduleRepository",

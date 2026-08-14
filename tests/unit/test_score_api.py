@@ -16,6 +16,11 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from veri_kalitesi.api.app import create_dashboard_api
+from veri_kalitesi.api.service_groups import (
+    ActorResolverIdentity,
+    ApiOptions,
+    CatalogServices,
+)
 from veri_kalitesi.api.identity import (
     DevelopmentActorContextResolver,
 )
@@ -199,10 +204,17 @@ def _app(
 
     DashboardQueryService(SQLiteScoreRepository(), authorization, clock=lambda: NOW)
     return create_dashboard_api(
-        actor_context_resolver=resolver,
-        allowed_origins=("http://127.0.0.1:5173",),
-        data_origin="test",
-        score_query_service=score_query_service,
+        identity=ActorResolverIdentity(resolver),
+        options=ApiOptions(
+            allowed_origins=("http://127.0.0.1:5173",),
+            data_origin="test",
+        ),
+        catalog=CatalogServices(
+            metadata_command=None,
+            query=None,
+            score_query=score_query_service,
+            dashboard_query=None,
+        ),
     )
 
 

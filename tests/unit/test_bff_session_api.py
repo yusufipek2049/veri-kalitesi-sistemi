@@ -14,6 +14,11 @@ from veri_kalitesi.api import (
     SESSION_COOKIE_NAME,
     create_dashboard_api,
 )
+from veri_kalitesi.api.service_groups import (
+    ApiOptions,
+    BffSessionIdentity,
+    CatalogServices,
+)
 from veri_kalitesi.audit.models import (
     AuditFailureMode,
     AuditFailurePolicy,
@@ -260,7 +265,7 @@ def test_nfr_sec_007_cors_methods_cover_registered_api_routes() -> None:
 
 def test_nfr_sec_007_cors_rejects_wildcard_origin_configuration() -> None:
     with pytest.raises(ValueError, match="CORS origins must be explicit"):
-        create_dashboard_api(allowed_origins=("*",))
+        create_dashboard_api(options=ApiOptions(allowed_origins=("*",)))
 
 
 def test_fr_005_session_store_failure_returns_safe_503() -> None:
@@ -354,10 +359,14 @@ class BffSetup:
         scores.add_or_get(_score("authorized", "source-a", "84.20"))
         scores.add_or_get(_score("forbidden", "source-forbidden", "99.90"))
         app = create_dashboard_api(
-            bff_session_boundary=boundary,
-            allowed_origins=(ORIGIN,),
-            data_origin="test",
-            score_query_service=_ScopedScoreQueryService(scores),
+            identity=BffSessionIdentity(boundary),
+            options=ApiOptions(allowed_origins=(ORIGIN,), data_origin="test"),
+            catalog=CatalogServices(
+                metadata_command=None,
+                query=None,
+                score_query=_ScopedScoreQueryService(scores),
+                dashboard_query=None,
+            ),
         )
         self.client = TestClient(app, base_url=ORIGIN)
 

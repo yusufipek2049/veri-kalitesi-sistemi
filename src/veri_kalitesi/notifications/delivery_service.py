@@ -1,8 +1,8 @@
 """DS-09 notification delivery service.
 
 Teslimat durum makinesi (ST-NotificationDelivery) geçişlerini yönetir.
-IN_APP kanal için teslimat no-op'tur; veri zaten veritabanındadır.
-Harici kanallar için retry ve reroute semantiği uygulanır.
+Kanal tipine göre IN_APP, SMTP veya webhook adaptörüne yönlendirir.
+Harici kanallar için retry ve kalıcı hata semantiği uygulanır.
 """
 
 from __future__ import annotations
@@ -10,20 +10,26 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Protocol
+from typing import Callable, Mapping
 
 from veri_kalitesi.notifications.errors import (
     NotificationDeliveryError,
+    NotificationTransportError,
+    PermanentNotificationTransportError,
+    TemporaryNotificationTransportError,
+    UnsupportedNotificationChannelError,
 )
 from veri_kalitesi.notifications.models import (
     NotificationDelivery,
     NotificationDeliveryStatus,
     NotificationEvent,
+    NotificationChannel,
 )
 from veri_kalitesi.notifications.postgresql_repository import (
     PostgreSQLNotificationRepository,
 )
 from veri_kalitesi.notifications.stream_hub import get_stream_hub
+from veri_kalitesi.notifications.transports import NotificationChannelAdapter
 from veri_kalitesi.persistence import transactional_session
 
 logger = logging.getLogger(__name__)
@@ -33,16 +39,15 @@ _RETRY_BACKOFF_SECONDS = (0, 60, 300, 1800, 7200)
 _MAX_RETRY_ATTEMPTS = len(_RETRY_BACKOFF_SECONDS)
 
 
-class InAppChannelAdapter(Protocol):
-    """IN_APP kanal adaptörü — veri zaten veritabanında, sadece onayla."""
-
-    def deliver(self, event: NotificationEvent, delivery: NotificationDelivery) -> bool: ...
-
-
 class DefaultInAppAdapter:
     """IN_APP kanal için varsayılan adaptör — her zaman başarılı."""
 
-    def deliver(self, event: NotificationEvent, delivery: NotificationDelivery) -> bool:
+    def deliver(
+        self,
+        event: NotificationEvent,
+        delivery: NotificationDelivery,
+        channel: NotificationChannel,
+    ) -> bool:
         return True
 
 
@@ -69,11 +74,14 @@ class NotificationDeliveryService:
         self,
         repository: PostgreSQLNotificationRepository,
         *,
-        inapp_adapter: InAppChannelAdapter | None = None,
+        adapters: Mapping[str, NotificationChannelAdapter] | None = None,
+        inapp_adapter: NotificationChannelAdapter | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ) -> None:
         self._repository = repository
-        self._inapp_adapter = inapp_adapter or DefaultInAppAdapter()
+        configured_adapters = dict(adapters or {})
+        configured_adapters.setdefault("IN_APP", inapp_adapter or DefaultInAppAdapter())
+        self._adapters = {key.upper(): value for key, value in configured_adapters.items()}
         self._clock = clock
 
     def attempt_delivery(
@@ -113,12 +121,29 @@ class NotificationDeliveryService:
                 attempt_count=delivery.attempt_count + 1,
                 last_attempt_at=now,
             )
+        logger.info(
+            "Notification delivery attempt started",
+            extra={
+                "event": "notification_delivery_attempted",
+                "delivery_id": delivery.delivery_id,
+                "attempt_count": delivery.attempt_count,
+            },
+        )
 
         # Perform delivery
         if event is None:
             event = self._repository.get_event(delivery.event_id)
 
-        success = self._deliver(delivery, event)
+        error: NotificationTransportError | None = None
+        try:
+            success = self._deliver(delivery, event)
+        except NotificationTransportError as exc:
+            success = False
+            error = exc
+        except Exception:
+            logger.exception("Notification adapter failed for delivery %s", delivery.delivery_id)
+            success = False
+            error = TemporaryNotificationTransportError("ADAPTER_UNEXPECTED_ERROR")
         now = self._clock()
 
         with transactional_session(self._repository._session_factory) as session:
@@ -156,7 +181,34 @@ class NotificationDeliveryService:
                     delivered_at=now,
                 )
             else:
-                return self._handle_failure(session, delivery, now)
+                result = self._handle_failure(
+                    session,
+                    delivery,
+                    now,
+                    error_class=(error.error_class if error else "DELIVERY_FAILED"),
+                    permanent=isinstance(error, PermanentNotificationTransportError),
+                )
+                logger.warning(
+                    "Notification delivery failed",
+                    extra={
+                        "event": "notification_delivery_failed",
+                        "delivery_id": result.delivery_id,
+                        "attempt_count": result.attempt_count,
+                        "error_class": result.error_class,
+                        "status": result.status.value,
+                    },
+                )
+                if result.next_attempt_at is not None:
+                    logger.info(
+                        "Notification delivery retry scheduled",
+                        extra={
+                            "event": "notification_delivery_retry_scheduled",
+                            "delivery_id": result.delivery_id,
+                            "attempt_count": result.attempt_count,
+                            "next_attempt_at": result.next_attempt_at,
+                        },
+                    )
+                return result
 
     def mark_read(
         self,
@@ -210,27 +262,40 @@ class NotificationDeliveryService:
         delivery: NotificationDelivery,
         event: NotificationEvent,
     ) -> bool:
-        """Kanal adaptörünü çağırır. IN_APP için her zaman başarılı."""
-        try:
-            return self._inapp_adapter.deliver(event, delivery)
-        except Exception:
-            logger.exception("IN_APP adapter failed for delivery %s", delivery.delivery_id)
-            return False
+        """Teslimat kanalını çözer ve kayıtlı adaptöre yönlendirir."""
+        channel = self._repository.get_channel(delivery.channel_id)
+        channel_type = channel.channel_type.upper()
+        adapter = self._adapters.get(channel_type)
+        if adapter is None:
+            raise UnsupportedNotificationChannelError("UNSUPPORTED_CHANNEL_TYPE")
+        return adapter.deliver(event, delivery, channel)
 
     def _handle_failure(
         self,
         session: object,
         delivery: NotificationDelivery,
         now: datetime,
+        *,
+        error_class: str,
+        permanent: bool,
     ) -> DeliveryAttemptResult:
         """Başarısız deneme sonrası retry planı veya UNDELIVERABLE."""
         if delivery.attempt_count >= _MAX_RETRY_ATTEMPTS:
-            delivery = self._repository.transition_delivery_status(
+            failed = self._repository.transition_delivery_status(
                 session,
                 delivery.delivery_id,
                 expected_status=NotificationDeliveryStatus.SENDING,
-                target_status=NotificationDeliveryStatus.UNDELIVERABLE,
+                target_status=NotificationDeliveryStatus.FAILED,
                 expected_version=delivery.version,
+                updated_at=now,
+                last_error_class="MAX_RETRIES_EXCEEDED",
+            )
+            delivery = self._repository.transition_delivery_status(
+                session,
+                delivery.delivery_id,
+                expected_status=NotificationDeliveryStatus.FAILED,
+                target_status=NotificationDeliveryStatus.UNDELIVERABLE,
+                expected_version=failed.version,
                 updated_at=now,
                 last_error_class="MAX_RETRIES_EXCEEDED",
             )
@@ -239,6 +304,32 @@ class NotificationDeliveryService:
                 status=NotificationDeliveryStatus.UNDELIVERABLE,
                 attempt_count=delivery.attempt_count,
                 error_class="MAX_RETRIES_EXCEEDED",
+            )
+
+        if permanent:
+            failed = self._repository.transition_delivery_status(
+                session,
+                delivery.delivery_id,
+                expected_status=NotificationDeliveryStatus.SENDING,
+                target_status=NotificationDeliveryStatus.FAILED,
+                expected_version=delivery.version,
+                updated_at=now,
+                last_error_class=error_class,
+            )
+            delivery = self._repository.transition_delivery_status(
+                session,
+                delivery.delivery_id,
+                expected_status=NotificationDeliveryStatus.FAILED,
+                target_status=NotificationDeliveryStatus.UNDELIVERABLE,
+                expected_version=failed.version,
+                updated_at=now,
+                last_error_class=error_class,
+            )
+            return DeliveryAttemptResult(
+                delivery_id=delivery.delivery_id,
+                status=NotificationDeliveryStatus.UNDELIVERABLE,
+                attempt_count=delivery.attempt_count,
+                error_class=error_class,
             )
 
         delay_index = min(delivery.attempt_count - 1, len(_RETRY_BACKOFF_SECONDS) - 1)
@@ -252,7 +343,7 @@ class NotificationDeliveryService:
             target_status=NotificationDeliveryStatus.FAILED,
             expected_version=delivery.version,
             updated_at=now,
-            last_error_class="DELIVERY_FAILED",
+            last_error_class=error_class,
             next_attempt_at=next_attempt,
         )
         return DeliveryAttemptResult(
@@ -260,5 +351,5 @@ class NotificationDeliveryService:
             status=NotificationDeliveryStatus.FAILED,
             attempt_count=delivery.attempt_count,
             next_attempt_at=next_attempt,
-            error_class="DELIVERY_FAILED",
+            error_class=error_class,
         )

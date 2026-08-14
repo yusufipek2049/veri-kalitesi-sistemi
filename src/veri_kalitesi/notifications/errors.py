@@ -39,3 +39,23 @@ class NotificationDeliveryError(NotificationError):
 
 class NotificationConfigurationError(NotificationError):
     """Channel or subscription configuration is invalid or unavailable."""
+
+
+class NotificationTransportError(NotificationDeliveryError):
+    """Bildirim taşıyıcısının güvenli, kalıcı hata sınıfı."""
+
+    def __init__(self, error_class: str) -> None:
+        super().__init__(error_class)
+        self.error_class = error_class
+
+
+class TemporaryNotificationTransportError(NotificationTransportError):
+    """Yeniden denenebilen bağlantı, zaman aşımı veya uzak servis hatası."""
+
+
+class PermanentNotificationTransportError(NotificationTransportError):
+    """Yeniden denemeyle düzelmeyecek hedef veya yapılandırma hatası."""
+
+
+class UnsupportedNotificationChannelError(PermanentNotificationTransportError):
+    """Kayıtlı bir adaptörü olmayan kanal tipi."""

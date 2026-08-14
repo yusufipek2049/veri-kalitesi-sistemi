@@ -9,6 +9,7 @@ import hashlib
 import json
 from collections.abc import Callable
 from datetime import datetime, timezone
+from typing import Protocol
 from uuid import uuid4
 
 from veri_kalitesi.audit.models import (
@@ -16,6 +17,7 @@ from veri_kalitesi.audit.models import (
     AuditResult,
 )
 from veri_kalitesi.audit.postgresql_outbox import PostgreSQLTransactionalAudit
+from veri_kalitesi.data_sources.models import Dataset
 from veri_kalitesi.executions.errors import (
     ExecutionConflictError,
     ExecutionNotFoundError,
@@ -35,6 +37,23 @@ from veri_kalitesi.executions.postgresql_repository import (
 from veri_kalitesi.identity import ActorContext
 from veri_kalitesi.jobs import BackgroundJob, PostgreSQLJobQueueRepository
 from veri_kalitesi.persistence import transactional_session
+from veri_kalitesi.rules.models import QualityRule, RuleVersion
+
+
+class ExecutionRuleCatalog(Protocol):
+    """Execution isteği doğrulaması için gereken kural kataloğu yüzeyi."""
+
+    def get_version(self, rule_version_id: str) -> RuleVersion: ...
+
+    def get_rule(self, quality_rule_id: str) -> QualityRule: ...
+
+    def list_versions(self, quality_rule_id: str) -> list[RuleVersion]: ...
+
+
+class ExecutionSourceCatalog(Protocol):
+    """Execution isteği doğrulaması için gereken kaynak kataloğu yüzeyi."""
+
+    def get_dataset(self, dataset_id: str) -> Dataset: ...
 
 
 class PostgreSQLExecutionStartService:
@@ -51,8 +70,8 @@ class PostgreSQLExecutionStartService:
         job_queue: PostgreSQLJobQueueRepository,
         transactional_audit: PostgreSQLTransactionalAudit,
         strategy_engine: ExecutionStrategyEngine | None = None,
-        rule_catalog: object | None = None,
-        source_catalog: object | None = None,
+        rule_catalog: ExecutionRuleCatalog | None = None,
+        source_catalog: ExecutionSourceCatalog | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ) -> None:
         self._repository = repository

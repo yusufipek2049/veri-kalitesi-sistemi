@@ -24,6 +24,7 @@ from veri_kalitesi.synthetic_data.errors import (
     SyntheticDataValidationError,
 )
 from veri_kalitesi.synthetic_data.profile_schema import (
+    DecileValues,
     SyntheticProfileArtifact,
     load_profile as _load_profile_artifact,
 )
@@ -488,7 +489,7 @@ def _extract_distribution_overrides(
 
 def _distribution_from_deciles(
     existing: MeasureDistribution,
-    deciles: object,
+    deciles: DecileValues,
 ) -> MeasureDistribution:
     """Mevcut dağılım ailesini koruyarak decile'lardan yeni parametreler çıkarır."""
     p10 = deciles.p10
@@ -1005,7 +1006,8 @@ def build_source_row(
         "effective_to": REFERENCE_TIME.date() + timedelta(days=index % 30),
         "event_time": _event_time(seed, spec.name, index),
         "updated_at": _event_time(seed, spec.name, index) + timedelta(hours=2),
-        "ingestion_time": _event_time(seed, spec.name, index) + _ingestion_delay(seed, spec.name, index),
+        "ingestion_time": _event_time(seed, spec.name, index)
+        + _ingestion_delay(seed, spec.name, index),
         "synthetic_origin": True,
     }
     for relation in spec.relations:

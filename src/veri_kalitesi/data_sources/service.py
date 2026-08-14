@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from dataclasses import replace
 from datetime import datetime, timezone
 from typing import Any, Callable, TypeVar
 from uuid import uuid4
+import logging
 
 from veri_kalitesi.audit.models import (
     AuditEventInput,
@@ -50,7 +50,6 @@ from veri_kalitesi.data_sources.models import (
     DiscoveryScope,
     DiscoveryStatus,
     ErrorClass,
-    MetadataChange,
     MetadataChangeType,
     MetadataDiff,
     MetadataDiffStatus,
@@ -99,8 +98,16 @@ from veri_kalitesi.data_sources.validation import (
     _validate_profile_options,
     _validate_secret_reference,
 )
+from veri_kalitesi.data_sources.service_helpers import (
+    diff_metadata as _diff_metadata,
+    elapsed_ms as _elapsed_ms,
+    error_class_for_exception as _error_class_for_exception,
+    latest_profile_observation as _latest_profile_observation,
+    profile_from_failure as _profile_from_failure,
+)
 
 _RepoT = TypeVar("_RepoT", bound=DataSourceTransactionalAudit)
+logger = logging.getLogger(__name__)
 
 
 class DataSourceService:
@@ -213,6 +220,13 @@ class DataSourceService:
             correlation_id = context.correlation_id
         elif actor_id is None:
             raise AuthorizationError("Trusted actor context is required for connection test.")
+        logger.info(
+            "Data source connection test started",
+            extra={
+                "event": "data_source_connection_test_started",
+                "data_source_id": data_source_id,
+            },
+        )
         data_source = self.repository.get_data_source(data_source_id)
         result = replace(
             self._execute_connection_test(data_source),
@@ -243,6 +257,18 @@ class DataSourceService:
             audit_outbox=self.transactional_audit,
         )
         self._publish_transactional_audit()
+        logger.log(
+            logging.INFO if result.succeeded else logging.WARNING,
+            "Data source connection test completed",
+            extra={
+                "event": "data_source_connection_test_completed",
+                "data_source_id": data_source_id,
+                "succeeded": result.succeeded,
+                "duration_ms": result.duration_ms,
+                "error_class": result.error_class.value if result.error_class else None,
+                "timed_out": result.error_class is ErrorClass.TIMEOUT,
+            },
+        )
         return result
 
     def create_connection_revision(
@@ -1633,6 +1659,10 @@ class DataSourceService:
         correlation_id: str | None = None,
     ) -> DataProfile:
         correlation_id = _resolve_correlation_id(correlation_id)
+        logger.info(
+            "Data source profiling started",
+            extra={"event": "data_source_profile_started", "dataset_id": dataset_id},
+        )
         options = options or ProfileOptions()
         _validate_profile_options(options)
         policy = (
@@ -1668,6 +1698,7 @@ class DataSourceService:
                 "No connector is registered for this source type.",
             )
             self._persist_profile(actor_id, correlation_id, profile)
+            _log_profile_result(profile)
             return profile
 
         started_at = utc_now()
@@ -1693,6 +1724,7 @@ class DataSourceService:
                 duration_ms=_elapsed_ms(started),
             )
             self._persist_profile(actor_id, correlation_id, profile)
+            _log_profile_result(profile)
             return profile
         except (
             DNSConnectionError,
@@ -1712,6 +1744,7 @@ class DataSourceService:
                 duration_ms=_elapsed_ms(started),
             )
             self._persist_profile(actor_id, correlation_id, profile)
+            _log_profile_result(profile)
             return profile
         except Exception as exc:
             raise TechnicalError("Unexpected profile failure.") from exc
@@ -1759,6 +1792,7 @@ class DataSourceService:
             finished_at=utc_now(),
         )
         self._persist_profile(actor_id, correlation_id, profile)
+        _log_profile_result(profile)
         return profile
 
     def compare_profiles(
@@ -2085,162 +2119,24 @@ class DataSourceService:
         return context
 
 
-def _elapsed_ms(started: float) -> int:
-    return max(0, round((_perf_counter() - started) * 1000))
-
-
 def _perf_counter() -> float:
     from time import perf_counter
 
     return perf_counter()
 
 
-def _error_class_for_exception(exc: Exception) -> ErrorClass:
-    if isinstance(exc, DNSConnectionError):
-        return ErrorClass.DNS
-    if isinstance(exc, NetworkConnectionError):
-        return ErrorClass.NETWORK
-    if isinstance(exc, TimeoutConnectionError):
-        return ErrorClass.TIMEOUT
-    if isinstance(exc, AuthenticationConnectionError):
-        return ErrorClass.AUTHENTICATION
-    if isinstance(exc, TLSConnectionError):
-        return ErrorClass.TLS
-    if isinstance(exc, PermissionConnectionError):
-        return ErrorClass.PERMISSION
-    return ErrorClass.DRIVER
-
-
-def _diff_metadata(
-    previous: dict[tuple[str, str], list[DataField]],
-    datasets: list[Dataset],
-    fields_by_dataset_id: dict[str, list[DataField]],
-) -> list[MetadataChange]:
-    changes: list[MetadataChange] = []
-    current_keys = {(dataset.namespace, dataset.name): dataset for dataset in datasets}
-
-    for dataset_key, dataset in current_keys.items():
-        if dataset_key not in previous:
-            changes.append(
-                MetadataChange(
-                    change_type=MetadataChangeType.ADDED,
-                    object_type="DATASET",
-                    namespace=dataset.namespace,
-                    dataset_name=dataset.name,
-                    new_values={"dataset_type": dataset.dataset_type.value},
-                )
-            )
-
-        previous_fields = {field.name: field for field in previous.get(dataset_key, [])}
-        current_fields = {
-            field.name: field for field in fields_by_dataset_id.get(dataset.dataset_id, [])
-        }
-        for field_name, field in current_fields.items():
-            previous_field = previous_fields.get(field_name)
-            if previous_field is None:
-                changes.append(
-                    MetadataChange(
-                        change_type=MetadataChangeType.ADDED,
-                        object_type="DATA_FIELD",
-                        namespace=dataset.namespace,
-                        dataset_name=dataset.name,
-                        field_name=field.name,
-                        new_values=_field_signature(field),
-                    )
-                )
-            elif _field_signature(previous_field) != _field_signature(field):
-                changes.append(
-                    MetadataChange(
-                        change_type=MetadataChangeType.CHANGED,
-                        object_type="DATA_FIELD",
-                        namespace=dataset.namespace,
-                        dataset_name=dataset.name,
-                        field_name=field.name,
-                        old_values=_field_signature(previous_field),
-                        new_values=_field_signature(field),
-                        requires_rule_review=True,
-                    )
-                )
-        for field_name, previous_field in previous_fields.items():
-            if field_name not in current_fields:
-                changes.append(
-                    MetadataChange(
-                        change_type=MetadataChangeType.REMOVED,
-                        object_type="DATA_FIELD",
-                        namespace=dataset.namespace,
-                        dataset_name=dataset.name,
-                        field_name=previous_field.name,
-                        old_values=_field_signature(previous_field),
-                        requires_rule_review=True,
-                    )
-                )
-
-    for namespace, dataset_name in previous:
-        if (namespace, dataset_name) not in current_keys:
-            changes.append(
-                MetadataChange(
-                    change_type=MetadataChangeType.REMOVED,
-                    object_type="DATASET",
-                    namespace=namespace,
-                    dataset_name=dataset_name,
-                    requires_rule_review=True,
-                )
-            )
-    return changes
-
-
-def _field_signature(field: DataField) -> dict[str, Any]:
-    return {
-        "native_data_type": field.native_data_type,
-        "is_nullable": field.is_nullable,
-        "is_sensitive": field.is_sensitive,
-        "classification": field.classification.value,
-        "classification_policy_version": field.classification_policy_version,
-    }
-
-
-def _profile_from_failure(
-    dataset_id: str,
-    options: ProfileOptions,
-    error_class: ErrorClass,
-    message: str,
-    started_at: Any | None = None,
-    duration_ms: int = 0,
-) -> DataProfile:
-    started_at = started_at or utc_now()
-    return DataProfile(
-        dataset_id=dataset_id,
-        execution_id=str(uuid4()),
-        method=options.method,
-        sample_ratio=options.sample_ratio,
-        metrics={},
-        status=ProfileStatus.TECHNICAL_ERROR,
-        duration_ms=duration_ms,
-        error_class=error_class,
-        message=message,
-        started_at=started_at,
-        finished_at=utc_now(),
+def _log_profile_result(profile: DataProfile) -> None:
+    logger.log(
+        logging.INFO
+        if profile.status in {ProfileStatus.COMPLETED, ProfileStatus.NO_DATA}
+        else logging.WARNING,
+        "Data source profiling completed",
+        extra={
+            "event": "data_source_profile_completed",
+            "dataset_id": profile.dataset_id,
+            "duration_ms": profile.duration_ms,
+            "status": profile.status.value,
+            "error_class": profile.error_class.value if profile.error_class else None,
+            "timed_out": profile.error_class is ErrorClass.TIMEOUT,
+        },
     )
-
-
-def _latest_profile_observation(metrics: Mapping[str, Any]) -> datetime | None:
-    latest: datetime | None = None
-    fields = metrics.get("fields")
-    if not isinstance(fields, Mapping):
-        return None
-    for field_metrics in fields.values():
-        if not isinstance(field_metrics, Mapping):
-            continue
-        value = field_metrics.get("freshness_max")
-        if not isinstance(value, str):
-            continue
-        try:
-            observed_at = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        except ValueError:
-            continue
-        if observed_at.tzinfo is None or observed_at.utcoffset() is None:
-            continue
-        observed_at = observed_at.astimezone(timezone.utc)
-        if latest is None or observed_at > latest:
-            latest = observed_at
-    return latest

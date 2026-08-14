@@ -511,7 +511,6 @@ def test_distribution_ground_truth_zero_fp_fn_all_scenarios() -> None:
 
 def test_calendar_weekend_volume_lower_than_weekday() -> None:
     """Hafta sonu hacmi hafta içinin ölçülebilir şekilde altında."""
-    from datetime import datetime
     weekday_count = 0
     weekend_count = 0
     for index in range(5000):
@@ -607,7 +606,8 @@ def test_calendar_reference_time_and_stale_threshold_consistency() -> None:
             row_dict = dict(zip(columns, row))
             updated_at = row_dict["updated_at"]
             assert updated_at < STALE_THRESHOLD, (
-                f"stale_record updated_at {updated_at} should be < STALE_THRESHOLD {STALE_THRESHOLD}"
+                f"stale_record updated_at {updated_at} should be < "
+                f"STALE_THRESHOLD {STALE_THRESHOLD}"
             )
 
 

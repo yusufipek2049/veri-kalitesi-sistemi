@@ -24,6 +24,7 @@ from veri_kalitesi.issues import PostgreSQLIssueRepository
 from veri_kalitesi.persistence import DatabaseSettings
 from veri_kalitesi.rules import PostgreSQLRuleRepository
 from veri_kalitesi.scoring.postgresql_repository import PostgreSQLScoreRepository
+from veri_kalitesi.reporting.repository import PostgreSQLReportRepository
 
 ROOT = Path(__file__).resolve().parents[2]
 ALEMBIC_CFG = ROOT / "alembic.ini"
@@ -75,6 +76,7 @@ def test_ds02_ac_create_application_uses_postgresql_query_repositories() -> None
     assert isinstance(app.state.execution_repository, PostgreSQLExecutionRepository)
     assert isinstance(app.state.audit_repository, PostgreSQLAuditRepository)
     assert isinstance(app.state.score_repository, PostgreSQLScoreRepository)
+    assert isinstance(app.state.report_repository, PostgreSQLReportRepository)
     assert app.state.data_source_repository.session_factory is app.state.session_factory
     assert app.state.rule_repository._session_factory is app.state.session_factory
     assert app.state.issue_repository._session_factory is app.state.session_factory
@@ -83,7 +85,12 @@ def test_ds02_ac_create_application_uses_postgresql_query_repositories() -> None
     assert app.state.score_repository._session_factory is app.state.session_factory
 
     client = TestClient(app)
-    for path in ("/api/v1/rules", "/api/v1/issues", "/api/v1/executions"):
+    for path in (
+        "/api/v1/rules",
+        "/api/v1/issues",
+        "/api/v1/executions",
+        "/api/v1/reports",
+    ):
         response = client.get(path)
         assert response.status_code == 200
         assert response.json()["data_origin"] == "postgresql-runtime"

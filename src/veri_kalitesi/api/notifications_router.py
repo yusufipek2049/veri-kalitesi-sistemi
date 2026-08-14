@@ -11,6 +11,13 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from veri_kalitesi.identity import ActorContext
+from veri_kalitesi.notifications.models import (
+    NotificationChannel,
+    NotificationDelivery,
+    NotificationDeliveryStatus,
+    NotificationEvent,
+    NotificationSubscription,
+)
 from veri_kalitesi.notifications.stream_hub import get_stream_hub
 
 logger = logging.getLogger(__name__)
@@ -47,6 +54,78 @@ class _Resolver(Protocol):
     def resolve(self, request: Request) -> ActorContext | None: ...
 
 
+class NotificationInboxPage(Protocol):
+    """Bildirim kutusu sayfasının route tarafından tüketilen yüzeyi."""
+
+    @property
+    def deliveries(self) -> tuple[NotificationDelivery, ...]: ...
+
+    @property
+    def total_unread(self) -> int: ...
+
+    @property
+    def cursor(self) -> str | None: ...
+
+    @property
+    def has_more(self) -> bool: ...
+
+    @property
+    def failed_count(self) -> int: ...
+
+    @property
+    def today_count(self) -> int: ...
+
+
+class NotificationQuery(Protocol):
+    """Bildirim HTTP route'larının salt-okunur servis sözleşmesi."""
+
+    def get_inbox(
+        self,
+        *,
+        recipient_user_id: str,
+        actor_user_id: str,
+        status: NotificationDeliveryStatus | None = None,
+        event_type: str | None = None,
+        limit: int = 100,
+        cursor: str | None = None,
+    ) -> NotificationInboxPage: ...
+
+    def count_unread(self, *, recipient_user_id: str, actor_user_id: str) -> int: ...
+
+    def get_delivery(
+        self, delivery_id: str, *, actor_user_id: str
+    ) -> NotificationDelivery: ...
+
+    def get_event(self, event_id: str, *, actor_user_id: str) -> NotificationEvent: ...
+
+    def get_events_by_ids(self, event_ids: list[str]) -> dict[str, NotificationEvent]: ...
+
+    def list_subscriptions(
+        self,
+        *,
+        user_id: str,
+        actor_user_id: str,
+        event_type: str | None = None,
+    ) -> tuple[NotificationSubscription, ...]: ...
+
+    def list_channels(
+        self,
+        *,
+        status: str | None = None,
+        channel_type: str | None = None,
+    ) -> tuple[NotificationChannel, ...]: ...
+
+    def mark_all_read(self, *, recipient_user_id: str, actor_user_id: str) -> int: ...
+
+
+class NotificationDeliveryCommand(Protocol):
+    """Bildirim HTTP route'larının okundu işaretleme sözleşmesi."""
+
+    def mark_read(
+        self, delivery_id: str, *, actor_user_id: str
+    ) -> NotificationDelivery: ...
+
+
 def _resolve_actor(request: Request, resolver: _Resolver) -> ActorContext:
     actor_context = getattr(request.state, "actor_context", None) or resolver.resolve(request)
     if actor_context is None:
@@ -54,10 +133,9 @@ def _resolve_actor(request: Request, resolver: _Resolver) -> ActorContext:
     return actor_context
 
 
-def _parse_delivery_status(status: str | None) -> object | None:
+def _parse_delivery_status(status: str | None) -> NotificationDeliveryStatus | None:
     if status is None:
         return None
-    from veri_kalitesi.notifications.models import NotificationDeliveryStatus
 
     try:
         return NotificationDeliveryStatus(status)
@@ -89,7 +167,7 @@ def _extract_safe_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
     return {k: v for k, v in payload.items() if k in _PAYLOAD_ALLOWLIST}
 
 
-def _delivery_to_dict(delivery: Any) -> dict:
+def _delivery_to_dict(delivery: NotificationDelivery) -> dict:
     return {
         "delivery_id": delivery.delivery_id,
         "event_id": delivery.event_id,
@@ -104,7 +182,10 @@ def _delivery_to_dict(delivery: Any) -> dict:
     }
 
 
-def _delivery_to_dict_with_event(delivery: Any, event: Any | None) -> dict:
+def _delivery_to_dict_with_event(
+    delivery: NotificationDelivery,
+    event: NotificationEvent | None,
+) -> dict:
     result = _delivery_to_dict(delivery)
     event_type_value = event.event_type.value if event else None
     result["event_type"] = event_type_value
@@ -119,8 +200,8 @@ def _delivery_to_dict_with_event(delivery: Any, event: Any | None) -> dict:
 def register_notifications_routes(
     app: FastAPI,
     *,
-    notification_query_service: Any | None,
-    notification_delivery_service: Any | None,
+    notification_query_service: NotificationQuery | None,
+    notification_delivery_service: NotificationDeliveryCommand | None,
     resolver: _Resolver,
     data_origin: str,
 ) -> None:
@@ -152,7 +233,7 @@ def register_notifications_routes(
         )
         # Batch-lookup events for scope/event_type enrichment
         event_ids = [d.event_id for d in page.deliveries]
-        events_map: dict = {}
+        events_map: dict[str, NotificationEvent] = {}
         try:
             events_map = notification_query_service.get_events_by_ids(event_ids)
         except Exception:

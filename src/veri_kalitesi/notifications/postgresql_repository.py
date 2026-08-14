@@ -422,7 +422,8 @@ class PostgreSQLNotificationRepository:
             raise NotificationNotFoundError(f"Notification channel {channel_id} not found.")
         return _row_to_channel(row)
 
-    def get_active_inapp_channel(self) -> NotificationChannel:
+    def get_active_channel(self, channel_type: str) -> NotificationChannel:
+        """İstenen tipteki ilk aktif kanalı döndürür."""
         t = self._tables.notification_channels
         with self._session_factory() as session:
             row = (
@@ -430,7 +431,7 @@ class PostgreSQLNotificationRepository:
                     select(t)
                     .where(
                         and_(
-                            t.c.channel_type == "IN_APP",
+                            t.c.channel_type == channel_type,
                             t.c.status == "ACTIVE",
                         )
                     )
@@ -440,7 +441,9 @@ class PostgreSQLNotificationRepository:
                 .one_or_none()
             )
         if row is None:
-            raise NotificationNotFoundError("No active IN_APP notification channel found.")
+            raise NotificationNotFoundError(
+                f"No active {channel_type} notification channel found."
+            )
         return _row_to_channel(row)
 
     def list_channels(

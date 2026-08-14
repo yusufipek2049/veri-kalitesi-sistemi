@@ -7,6 +7,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy.exc import SQLAlchemyError
 
 from veri_kalitesi.api import DevelopmentActorContextResolver, create_dashboard_api
+from veri_kalitesi.api.service_groups import (
+    ActorResolverIdentity,
+    ApiOptions,
+    ExecutionServices,
+)
 from veri_kalitesi.api.development import create_development_app
 from veri_kalitesi.audit.models import (
     AuditFailureMode,
@@ -232,7 +237,12 @@ def _app(
     )
     DashboardQueryService(SQLiteScoreRepository(), authorization, clock=lambda: NOW)
     return create_dashboard_api(
-        actor_context_resolver=resolver,
-        execution_query_service=ExecutionQueryService(reader, authorization),
-        data_origin="synthetic-test",
+        identity=ActorResolverIdentity(resolver),
+        options=ApiOptions(data_origin="synthetic-test"),
+        executions=ExecutionServices(
+            query=ExecutionQueryService(reader, authorization),
+            start=None,
+            cancel=None,
+            job_queue=None,
+        ),
     )

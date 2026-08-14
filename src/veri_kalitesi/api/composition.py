@@ -8,13 +8,27 @@ from typing import Callable
 
 from sqlalchemy import inspect, text
 
-from veri_kalitesi.api.app import IssueAssigneeOptionProvider, create_dashboard_api
+from veri_kalitesi.api.app import create_dashboard_api
 from veri_kalitesi.api.bff import BffSessionBoundary
 from veri_kalitesi.api.data_source_commands import DataSourceCommandAdapter
 from veri_kalitesi.api.identity import (
     ActorContextResolver,
     DevelopmentActorContextResolver,
     DevelopmentUserRegistry,
+)
+from veri_kalitesi.api.issues_router import IssueAssigneeOptionProvider
+from veri_kalitesi.api.service_groups import (
+    ActorResolverIdentity,
+    ApiOptions,
+    AuditServices,
+    BffSessionIdentity,
+    CatalogServices,
+    DataSourceServices,
+    ExecutionServices,
+    IssueServices,
+    NotificationServices,
+    ReportingServices,
+    RuleServices,
 )
 from veri_kalitesi.api.postgresql_metadata import PostgreSQLMetadataCommandService
 from veri_kalitesi.api.rule_commands import RuleCommandAdapter
@@ -124,6 +138,7 @@ REQUIRED_TABLES = frozenset(
         "notification_events",
         "notification_subscriptions",
         "notification_deliveries",
+        "reports",
     }
 )
 
@@ -271,6 +286,10 @@ def create_application(
     session_factory = create_session_factory(settings.database)
     if settings.migration_check_enabled:
         preflight_database(settings, session_factory)
+
+    def readiness_check() -> None:
+        with session_factory() as session:
+            session.execute(text("SELECT 1"))
 
     audit_repository = PostgreSQLAuditRepository(session_factory, schema=settings.database.schema)
     redactor = AuditRedactor(build_default_redaction_policy())
@@ -461,6 +480,14 @@ def create_application(
             required_role="AUDIT_VIEWER",
         ),
     )
+    from veri_kalitesi.reporting.repository import PostgreSQLReportRepository
+    from veri_kalitesi.reporting.service import ReportQueryService
+
+    report_repository = PostgreSQLReportRepository(
+        session_factory,
+        schema=settings.database.schema,
+    )
+    report_query_service = ReportQueryService(report_repository, audit_service)
     metadata_command_service = PostgreSQLMetadataCommandService(
         service=service,
         repository=repository,
@@ -485,9 +512,6 @@ def create_application(
         clock=lambda: datetime.now(timezone.utc),
     )
 
-    bff = identity_provider if isinstance(identity_provider, BffSessionBoundary) else None
-    resolver = None if bff is not None else identity_provider
-
     # IssueInvestigationEvidenceService oluştur
     issue_investigation_evidence_service = None
     from veri_kalitesi.issues.investigation import IssueInvestigationEvidenceService
@@ -505,40 +529,56 @@ def create_application(
     )
 
     app = create_dashboard_api(
-        actor_context_resolver=resolver,
-        bff_session_boundary=bff,
-        allowed_origins=settings.allowed_origins,
-        data_origin="postgresql-runtime",
-        data_source_query_service=query_service,
-        data_source_mutation_service=command_adapter,
-        rule_query_service=rule_query_service,
-        issue_query_service=issue_query_service,
-        issue_investigation_service=issue_service,
-        issue_investigation_evidence_service=issue_investigation_evidence_service,
-        issue_closure_service=issue_service,
-        issue_creation_service=issue_service,
-        issue_assignment_service=issue_service if phase_b_providers is not None else None,
-        issue_assignee_option_provider=(
-            phase_b_providers.issue_assignee_option_provider
-            if phase_b_providers is not None
-            else None
+        identity=(
+            BffSessionIdentity(identity_provider)
+            if isinstance(identity_provider, BffSessionBoundary)
+            else ActorResolverIdentity(identity_provider)
         ),
-        issue_resolution_service=issue_service if phase_b_providers is not None else None,
-        issue_verification_service=issue_service if phase_b_providers is not None else None,
-        rule_creator_service=rule_command_adapter,
-        rule_mutation_service=rule_command_adapter,
-        execution_query_service=execution_query_service,
-        execution_start_service=execution_start_service,
-        execution_cancel_service=execution_cancel_service,
-        audit_query_service=audit_query_service,
-        development_user_registry=development_user_registry,
-        metadata_command_service=metadata_command_service,
-        catalog_query_service=catalog_query_service,
-        score_query_service=score_query_service,
-        dashboard_query_service=dashboard_query_service,
-        job_queue_repository=job_queue_repository,
-        notification_query_service=notification_query_service,
-        notification_delivery_service=notification_delivery_service,
+        options=ApiOptions(
+            allowed_origins=settings.allowed_origins,
+            data_origin="postgresql-runtime",
+            development_user_registry=development_user_registry,
+            readiness_check=readiness_check,
+        ),
+        data_sources=DataSourceServices(query=query_service, mutation=command_adapter),
+        rules=RuleServices(
+            query=rule_query_service,
+            creator=rule_command_adapter,
+            mutation=rule_command_adapter,
+        ),
+        issues=IssueServices(
+            query=issue_query_service,
+            investigation=issue_service,
+            investigation_evidence=issue_investigation_evidence_service,
+            assignment=issue_service if phase_b_providers is not None else None,
+            assignee_options=(
+                phase_b_providers.issue_assignee_option_provider
+                if phase_b_providers is not None
+                else None
+            ),
+            resolution=issue_service if phase_b_providers is not None else None,
+            verification=issue_service if phase_b_providers is not None else None,
+            closure=issue_service,
+            creation=issue_service,
+        ),
+        executions=ExecutionServices(
+            query=execution_query_service,
+            start=execution_start_service,
+            cancel=execution_cancel_service,
+            job_queue=job_queue_repository,
+        ),
+        audit=AuditServices(query=audit_query_service),
+        catalog=CatalogServices(
+            metadata_command=metadata_command_service,
+            query=catalog_query_service,
+            score_query=score_query_service,
+            dashboard_query=dashboard_query_service,
+        ),
+        notifications=NotificationServices(
+            query=notification_query_service,
+            delivery=notification_delivery_service,
+        ),
+        reporting=ReportingServices(query=report_query_service),
     )
     app.state.application_settings = settings
     app.state.session_factory = session_factory
@@ -553,4 +593,6 @@ def create_application(
     app.state.notification_repository = notification_repository
     app.state.notification_query_service = notification_query_service
     app.state.notification_delivery_service = notification_delivery_service
+    app.state.report_repository = report_repository
+    app.state.report_query_service = report_query_service
     return app

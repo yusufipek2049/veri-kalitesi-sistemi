@@ -21,6 +21,10 @@ from veri_kalitesi.notifications.errors import (
     NotificationRecipientError,
     NotificationTechnicalError,
     NotificationValidationError,
+    NotificationTransportError,
+    PermanentNotificationTransportError,
+    TemporaryNotificationTransportError,
+    UnsupportedNotificationChannelError,
 )
 from veri_kalitesi.notifications.models import (
     EVENT_SEVERITY,
@@ -69,6 +73,11 @@ from veri_kalitesi.notifications.query_service import (
     NotificationQueryService,
 )
 from veri_kalitesi.notifications.repository import SQLiteNotificationRepository
+from veri_kalitesi.notifications.transports import (
+    MountedNotificationSecretResolver,
+    SMTPNotificationAdapter,
+    WebhookNotificationAdapter,
+)
 from veri_kalitesi.notifications.service import (
     NotificationRecipientResolver,
     NotificationService,
@@ -120,10 +129,17 @@ __all__ = [
     "NotificationSubscription",
     "NotificationSubscriptionStatus",
     "NotificationTechnicalError",
+    "NotificationTransportError",
     "NotificationValidationError",
+    "PermanentNotificationTransportError",
     "PostgreSQLNotificationRepository",
     "PreparedNotificationBatch",
     "SQLiteNotificationRepository",
+    "SMTPNotificationAdapter",
+    "TemporaryNotificationTransportError",
+    "UnsupportedNotificationChannelError",
+    "WebhookNotificationAdapter",
+    "MountedNotificationSecretResolver",
     "notification_tables",
     "validate_access_policy",
     "validate_delivery_transition",

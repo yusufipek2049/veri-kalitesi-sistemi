@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 if TYPE_CHECKING:
     from veri_kalitesi.identity import ActorContext
+    from veri_kalitesi.notifications.models import NotificationEvent
     from veri_kalitesi.reporting.models import Report, ReportRequest
 
 from veri_kalitesi.audit.models import (
@@ -157,17 +158,18 @@ def create_production_worker(
         def __init__(self, repo: PostgreSQLNotificationRepository) -> None:
             self._repo = repo
 
-        def create_for_event(self, event: object, actor_context: object) -> tuple:
+        def create_for_event(
+            self,
+            event: "NotificationEvent",
+            actor_context: "ActorContext | None",
+        ) -> tuple[object, ...]:
             import hashlib
             from uuid import uuid4 as _uuid4
 
             from veri_kalitesi.notifications.contracts import _StagedDelivery, _StagedEvent
             from veri_kalitesi.notifications.models import (
                 NotificationDeliveryStatus,
-                NotificationEvent,
             )
-
-            assert isinstance(event, NotificationEvent)
             now = __import__("datetime").datetime.now(
                 __import__("datetime").timezone.utc
             )
@@ -286,6 +288,11 @@ def create_production_worker(
 
     from veri_kalitesi.notifications.delivery_service import NotificationDeliveryService
     from veri_kalitesi.notifications.jobs import NotificationDeliveryJobHandler
+    from veri_kalitesi.notifications.transports import (
+        MountedNotificationSecretResolver,
+        SMTPNotificationAdapter,
+        WebhookNotificationAdapter,
+    )
 
     def _service_actor_context_provider(data_source_id: str, correlation_id: str) -> "ActorContext":
         return create_service_actor_context(
@@ -302,8 +309,19 @@ def create_production_worker(
 
     lease_policy = JobLeasePolicy(duration=settings.lease_policy_duration)
 
+    notification_secret_resolver = (
+        MountedNotificationSecretResolver(settings.local_secret_dir)
+        if settings.local_secret_dir
+        else secret_resolver
+    )
     notification_handler = NotificationDeliveryJobHandler(
-        delivery_service=NotificationDeliveryService(repository=notification_repository),
+        delivery_service=NotificationDeliveryService(
+            repository=notification_repository,
+            adapters={
+                "EMAIL": SMTPNotificationAdapter(notification_secret_resolver),
+                "WEBHOOK": WebhookNotificationAdapter(notification_secret_resolver),
+            },
+        ),
     )
 
     class _ProductionScheduleTechnicalEventSink:

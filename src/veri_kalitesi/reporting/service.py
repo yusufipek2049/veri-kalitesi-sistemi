@@ -8,6 +8,8 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Callable, Protocol
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from veri_kalitesi.audit.models import (
     AuditEventInput,
     AuditResult,
@@ -24,6 +26,7 @@ from veri_kalitesi.reporting.policies import (
 from veri_kalitesi.reporting.worker import ReportRepository, ReportWorker
 from veri_kalitesi.reporting.errors import (
     ReportAuthorizationError,
+    ReportNotFoundError,
     ReportTechnicalError,
     ReportValidationError,
 )
@@ -49,6 +52,143 @@ class ReportPreviewReader(Protocol):
         end_at: datetime,
         allowed_source_ids: frozenset[str],
     ) -> tuple[ReportScoreObservation, ...]: ...
+
+
+class ReportQueryRepository(Protocol):
+    """Kullanıcı raporları için gereken en dar kalıcılık sözleşmesi."""
+
+    def get_report(self, report_id: str) -> Report: ...
+
+    def list_reports_by_user(
+        self,
+        requested_by: str,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[Report, ...]: ...
+
+
+class ReportQueryService:
+    """Rapor metadatasını sahiplik kontrollü ve auditli olarak okur."""
+
+    def __init__(
+        self,
+        repository: ReportQueryRepository,
+        audit_sink: AuditSink,
+        *,
+        clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+    ) -> None:
+        self.repository = repository
+        self.audit_sink = audit_sink
+        self.clock = clock
+
+    def list_reports(
+        self,
+        actor_context: ActorContext | None,
+        *,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[Report, ...]:
+        context = self._authorize(actor_context)
+        if isinstance(limit, bool) or not 1 <= limit <= 100:
+            raise ReportValidationError("Report list limit must be between 1 and 100.")
+        if isinstance(offset, bool) or offset < 0:
+            raise ReportValidationError("Report list offset must not be negative.")
+        try:
+            reports = self.repository.list_reports_by_user(
+                context.actor_id,
+                limit=limit,
+                offset=offset,
+            )
+        except (SQLAlchemyError, OSError, ValueError, TypeError) as exc:
+            raise ReportTechnicalError(context.correlation_id) from exc
+        self._record_view(
+            context,
+            action="REPORT_LIST_VIEWED",
+            object_id=None,
+            values={"returned_count": len(reports), "limit": limit, "offset": offset},
+        )
+        return reports
+
+    def get_report(
+        self,
+        report_id: str,
+        actor_context: ActorContext | None,
+    ) -> Report:
+        context = self._authorize(actor_context)
+        if not report_id.strip():
+            raise ReportValidationError("Report identifier is required.")
+        try:
+            report = self.repository.get_report(report_id)
+        except ReportNotFoundError:
+            raise
+        except (SQLAlchemyError, OSError, ValueError, TypeError) as exc:
+            raise ReportTechnicalError(context.correlation_id) from exc
+        if report.requested_by != context.actor_id:
+            self._record_view(
+                context,
+                action="REPORT_ACCESS_DENIED",
+                object_id=report_id,
+                result=AuditResult.DENIED,
+                reason_code="REPORT_OWNER_MISMATCH",
+                values={},
+            )
+            # Rapor kimliğinin varlığını yetkisiz aktöre açıklama.
+            raise ReportNotFoundError(report_id)
+        self._record_view(
+            context,
+            action="REPORT_VIEWED",
+            object_id=report_id,
+            values={"status": report.status.value, "format": report.format.value},
+        )
+        return report
+
+    def _authorize(self, actor_context: ActorContext | None) -> ActorContext:
+        if not is_trusted_actor_context(actor_context):
+            raise ReportAuthorizationError("UNTRUSTED_CONTEXT", "report-access-denied")
+        assert actor_context is not None
+        now = self._now()
+        if actor_context.actor_type is not ActorType.USER:
+            raise ReportAuthorizationError("ACTOR_TYPE_DENIED", actor_context.correlation_id)
+        if actor_context.issued_at > now or actor_context.expires_at <= now:
+            raise ReportAuthorizationError("ACTOR_CONTEXT_EXPIRED", actor_context.correlation_id)
+        return actor_context
+
+    def _record_view(
+        self,
+        context: ActorContext,
+        *,
+        action: str,
+        object_id: str | None,
+        values: dict[str, object],
+        result: AuditResult = AuditResult.SUCCESS,
+        reason_code: str = "QUERY_COMPLETED",
+    ) -> None:
+        try:
+            self.audit_sink.append(
+                AuditEventInput(
+                    actor_id=context.actor_id,
+                    actor_type=context.actor_type.value,
+                    correlation_id=context.correlation_id,
+                    action=action,
+                    object_type="Report",
+                    object_id=object_id,
+                    result=result,
+                    reason_code=reason_code,
+                    old_values={},
+                    new_values=values,
+                    occurred_at=self._now(),
+                    session_id=context.session_id,
+                )
+            )
+        except Exception as exc:
+            raise ReportTechnicalError(context.correlation_id) from exc
+
+    def _now(self) -> datetime:
+        now = self.clock()
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise ReportValidationError("Report query clock must be timezone-aware.")
+        return now.astimezone(timezone.utc)
 
 
 class ReportPreviewService:

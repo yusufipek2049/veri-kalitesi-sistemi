@@ -70,6 +70,12 @@ from veri_kalitesi.rules import (
     RuleQueryAuthorizationError,
     RuleQueryTechnicalError,
 )
+from veri_kalitesi.reporting.errors import (
+    ReportAuthorizationError,
+    ReportNotFoundError,
+    ReportTechnicalError,
+    ReportValidationError,
+)
 
 
 # ── Problem-details helpers ──────────────────────────────────────────
@@ -136,6 +142,31 @@ _SIMPLE_HANDLERS: list[tuple[type[Exception], int, str, str | None]] = [
         503,
         "Session temporarily unavailable",
         "The session request could not be completed.",
+    ),
+    # Reporting
+    (
+        ReportAuthorizationError,
+        403,
+        "Access denied",
+        "The requested report is not available.",
+    ),
+    (
+        ReportNotFoundError,
+        404,
+        "Report not found",
+        "The requested report is not available.",
+    ),
+    (
+        ReportTechnicalError,
+        503,
+        "Reports temporarily unavailable",
+        "The report query could not be completed.",
+    ),
+    (
+        ReportValidationError,
+        400,
+        "Invalid request",
+        "The report query could not be validated.",
     ),
     # Dashboard
     (

@@ -18,7 +18,7 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from veri_kalitesi.synthetic_data.errors import SyntheticDataValidationError
 
@@ -537,7 +537,8 @@ def _validate_ratio(value: Any, *, ctx: str) -> None:
         dec = Decimal(str(value))
     except (InvalidOperation, ValueError):
         raise SyntheticDataValidationError(f"{ctx}: çözümlenemeyen sayı")
-    if dec.as_tuple().exponent < -RATIO_DECIMAL_PLACES:
+    exponent = dec.as_tuple().exponent
+    if isinstance(exponent, int) and exponent < -RATIO_DECIMAL_PLACES:
         raise SyntheticDataValidationError(
             f"{ctx}: oran {RATIO_DECIMAL_PLACES} ondalıktan hassas olamaz"
         )
@@ -564,4 +565,4 @@ def artifact_to_dict(artifact: SyntheticProfileArtifact) -> dict[str, Any]:
     """Artefaktı JSON-uyumlu dict'e çevirir."""
     result = asdict(artifact)
     # Tuple'ları listeye çevir (asdict zaten yapar ama garanti).
-    return json.loads(json.dumps(result))
+    return cast(dict[str, Any], json.loads(json.dumps(result)))

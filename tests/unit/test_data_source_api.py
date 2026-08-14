@@ -7,6 +7,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 from veri_kalitesi.api import DevelopmentActorContextResolver, create_dashboard_api
+from veri_kalitesi.api.service_groups import (
+    ActorResolverIdentity,
+    ApiOptions,
+    DataSourceServices,
+)
 from veri_kalitesi.api.bff import CSRF_HEADER_NAME
 from veri_kalitesi.api.data_source_commands import (
     DataSourceCommandError,
@@ -240,11 +245,15 @@ def _app(
             authorization,
         )
     return create_dashboard_api(
-        actor_context_resolver=resolver,
-        allowed_origins=("https://dq.test",),
-        data_source_query_service=DataSourceQueryService(reader, authorization),
-        data_source_mutation_service=data_source_mutation_service,
-        data_origin="synthetic-test",
+        identity=ActorResolverIdentity(resolver),
+        options=ApiOptions(
+            allowed_origins=("https://dq.test",),
+            data_origin="synthetic-test",
+        ),
+        data_sources=DataSourceServices(
+            query=DataSourceQueryService(reader, authorization),
+            mutation=data_source_mutation_service,
+        ),
     )
 
 

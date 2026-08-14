@@ -15,6 +15,12 @@ from veri_kalitesi.api import (
 )
 from veri_kalitesi.api.development import create_development_app
 from veri_kalitesi.api.models import IssueAssigneeOptionResponse
+from veri_kalitesi.api.service_groups import (
+    ActorResolverIdentity,
+    ApiOptions,
+    BffSessionIdentity,
+    IssueServices,
+)
 from veri_kalitesi.audit.models import (
     AuditFailureMode,
     AuditFailurePolicy,
@@ -822,9 +828,19 @@ def _app(
     )
     DashboardQueryService(SQLiteScoreRepository(), authorization, clock=lambda: NOW)
     return create_dashboard_api(
-        actor_context_resolver=resolver,
-        issue_query_service=IssueQueryService(reader, authorization),
-        data_origin="synthetic-test",
+        identity=ActorResolverIdentity(resolver),
+        options=ApiOptions(data_origin="synthetic-test"),
+        issues=IssueServices(
+            query=IssueQueryService(reader, authorization),
+            investigation=None,
+            investigation_evidence=None,
+            assignment=None,
+            assignee_options=None,
+            resolution=None,
+            verification=None,
+            closure=None,
+            creation=None,
+        ),
     )
 
 
@@ -859,17 +875,22 @@ def _mutation_app(
         clock=lambda: NOW,
     )
     return create_dashboard_api(
-        bff_session_boundary=boundary,  # type: ignore[arg-type]
-        allowed_origins=("https://app.example",),
-        issue_query_service=(
-            IssueQueryService(reader, authorization) if reader is not None else None
+        identity=BffSessionIdentity(boundary),  # type: ignore[arg-type]
+        options=ApiOptions(
+            allowed_origins=("https://app.example",),
+            data_origin="test",
         ),
-        issue_investigation_service=command,
-        issue_assignment_service=assignment_command,
-        issue_assignee_option_provider=assignment_options,
-        issue_resolution_service=resolution_command,
-        issue_verification_service=verification_command,
-        data_origin="test",
+        issues=IssueServices(
+            query=IssueQueryService(reader, authorization) if reader is not None else None,
+            investigation=command,
+            investigation_evidence=None,
+            assignment=assignment_command,
+            assignee_options=assignment_options,
+            resolution=resolution_command,
+            verification=verification_command,
+            closure=None,
+            creation=None,
+        ),
     )
 
 

@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
-from typing import Any
+from time import perf_counter
+from typing import Any, Protocol
 
 from veri_kalitesi.data_sources.postgresql import PostgreSQLConnector
 from veri_kalitesi.data_sources.secrets import SecretResolver
-from veri_kalitesi.data_sources.models import DataSourceStatus
-from veri_kalitesi.data_sources.postgresql_repository import PostgreSQLDataSourceRepository
+from veri_kalitesi.data_sources.models import DataSource, Dataset, DataSourceStatus
 from veri_kalitesi.executions.errors import ExecutionTechnicalError
 from veri_kalitesi.executions.models import (
     ExecutionTimeouts,
@@ -16,8 +17,24 @@ from veri_kalitesi.executions.models import (
     RuleExecution,
     RuleResultComputation,
 )
-from veri_kalitesi.rules.models import RuleStatus, RuleType, RuleVersion
-from veri_kalitesi.rules.postgresql_repository import PostgreSQLRuleRepository
+from veri_kalitesi.rules.models import QualityRule, RuleStatus, RuleType, RuleVersion
+
+
+logger = logging.getLogger(__name__)
+
+
+class RuleExecutionCatalog(Protocol):
+    """PostgreSQL kural yürütücüsünün ihtiyaç duyduğu kural kataloğu yüzeyi."""
+
+    def get_rule(self, quality_rule_id: str) -> QualityRule: ...
+
+
+class SourceExecutionCatalog(Protocol):
+    """PostgreSQL kural yürütücüsünün ihtiyaç duyduğu kaynak kataloğu yüzeyi."""
+
+    def get_data_source(self, data_source_id: str) -> DataSource: ...
+
+    def get_dataset(self, dataset_id: str) -> Dataset: ...
 
 
 @dataclass(frozen=True)
@@ -29,8 +46,8 @@ class PostgreSQLRuleExecutionExecutor:
     yürütür. Desteklenmeyen IR version/operator fail-closed davranışı sergiler.
     """
 
-    rule_repository: PostgreSQLRuleRepository
-    source_repository: PostgreSQLDataSourceRepository
+    rule_repository: RuleExecutionCatalog
+    source_repository: SourceExecutionCatalog
     secret_resolver: SecretResolver
     connector: PostgreSQLConnector
 
@@ -43,10 +60,45 @@ class PostgreSQLRuleExecutionExecutor:
     ) -> tuple[RuleResultComputation, ...]:
         if not versions:
             raise ExecutionTechnicalError("EXECUTION_NO_VERSIONS", retryable=False)
+        started = perf_counter()
+        logger.info(
+            "Rule execution started",
+            extra={
+                "event": "rule_execution_started",
+                "execution_id": execution.execution_id,
+                "rule_count": len(versions),
+            },
+        )
         results: list[RuleResultComputation] = []
-        for version in versions:
-            result = self._execute_version(execution, version, timeouts)
-            results.append(result)
+        try:
+            for version in versions:
+                result = self._execute_version(execution, version, timeouts)
+                results.append(result)
+        except Exception as exc:
+            logger.error(
+                "Rule execution failed",
+                extra={
+                    "event": "rule_execution_failed",
+                    "execution_id": execution.execution_id,
+                    "duration_ms": round((perf_counter() - started) * 1000),
+                    "error_class": type(exc).__name__,
+                },
+            )
+            raise
+        logger.info(
+            "Rule execution completed",
+            extra={
+                "event": "rule_execution_completed",
+                "execution_id": execution.execution_id,
+                "duration_ms": round((perf_counter() - started) * 1000),
+                "result_count": len(results),
+                "passed_count": sum(item.passed_count or 0 for item in results),
+                "failed_count": sum(item.failed_count or 0 for item in results),
+                "technical_error_count": sum(
+                    item.technical_error_count or 0 for item in results
+                ),
+            },
+        )
         return tuple(results)
 
     def _execute_version(
@@ -130,7 +182,7 @@ class PostgreSQLRuleExecutionExecutor:
             evidence={},
         )
 
-    def _resolve_source_and_dataset(self, version: RuleVersion) -> tuple[str, object]:
+    def _resolve_source_and_dataset(self, version: RuleVersion) -> tuple[str, Dataset]:
         rule = self.rule_repository.get_rule(version.quality_rule_id)
         if rule is None:
             raise ExecutionTechnicalError(

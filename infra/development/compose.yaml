@@ -53,9 +53,21 @@ services:
     depends_on:
       seed:
         condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
     environment: *api-environment
     ports:
       - "8000:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=2)"
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
     read_only: true
     tmpfs:
       - /tmp
@@ -71,11 +83,20 @@ services:
     depends_on:
       seed:
         condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
     environment:
       <<: *api-environment
       DQ_WORKER_ID: worker-dev-01
       DQ_WORKER_HOSTNAME: worker-dev-01
       DQ_WORKER_CAPACITY: "1"
+      DQ_WORKER_HEALTH_MAX_AGE_SECONDS: "90"
+    healthcheck:
+      test: ["CMD", "python", "-m", "veri_kalitesi.jobs.healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
     read_only: true
     tmpfs:
       - /tmp
@@ -90,7 +111,7 @@ services:
     command: ["sh", "-c", "npm ci && npm run dev -- --host 0.0.0.0"]
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy
     environment:
       VITE_API_PROXY_TARGET: http://api:8000
     ports:

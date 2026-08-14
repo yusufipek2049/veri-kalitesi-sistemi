@@ -9,6 +9,7 @@ from veri_kalitesi.api import DevelopmentActorContextResolver, create_dashboard_
 from veri_kalitesi.api.bff import CSRF_HEADER_NAME
 from veri_kalitesi.api.development import create_development_app
 from veri_kalitesi.api.errors import ApiCsrfError
+from veri_kalitesi.api.service_groups import ActorResolverIdentity, ApiOptions, RuleServices
 from veri_kalitesi.audit.models import (
     AuditFailureMode,
     AuditFailurePolicy,
@@ -192,9 +193,13 @@ def _app(
     )
     DashboardQueryService(SQLiteScoreRepository(), authorization, clock=lambda: NOW)
     return create_dashboard_api(
-        actor_context_resolver=resolver,
-        rule_query_service=RuleQueryService(reader, authorization),
-        data_origin="synthetic-test",
+        identity=ActorResolverIdentity(resolver),
+        options=ApiOptions(data_origin="synthetic-test"),
+        rules=RuleServices(
+            query=RuleQueryService(reader, authorization),
+            creator=None,
+            mutation=None,
+        ),
     )
 
 
@@ -369,11 +374,15 @@ def _mutation_app(
     DashboardQueryService(SQLiteScoreRepository(), authorization, clock=lambda: NOW)
     return TestClient(
         create_dashboard_api(
-            actor_context_resolver=resolver,
-            rule_query_service=RuleQueryService(reader or FakeRuleReader((rule,)), authorization),
-            rule_creator_service=FakeRuleCreatorService(),
-            rule_mutation_service=FakeRuleMutationService(rule_obj, version_obj),
-            data_origin="synthetic-test",
+            identity=ActorResolverIdentity(resolver),
+            options=ApiOptions(data_origin="synthetic-test"),
+            rules=RuleServices(
+                query=RuleQueryService(
+                    reader or FakeRuleReader((rule,)), authorization
+                ),
+                creator=FakeRuleCreatorService(),
+                mutation=FakeRuleMutationService(rule_obj, version_obj),
+            ),
         )
     )
 
@@ -588,8 +597,8 @@ def test_rule_mutation_without_services_returns_503() -> None:
     DashboardQueryService(SQLiteScoreRepository(), authorization, clock=lambda: NOW)
     client = TestClient(
         create_dashboard_api(
-            actor_context_resolver=resolver,
-            data_origin="synthetic-test",
+            identity=ActorResolverIdentity(resolver),
+            options=ApiOptions(data_origin="synthetic-test"),
         )
     )
 

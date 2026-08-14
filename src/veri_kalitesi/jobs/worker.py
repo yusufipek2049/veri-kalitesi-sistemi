@@ -12,6 +12,7 @@ from threading import Event
 from time import monotonic
 from types import MappingProxyType
 from typing import Protocol, cast
+import logging
 
 from veri_kalitesi.audit.models import (
     AuditEventInput,
@@ -34,6 +35,7 @@ from veri_kalitesi.jobs.postgresql_repository import PostgreSQLJobQueueRepositor
 
 _CANCELLATION_GRACE_SECONDS = 0.2
 _BLOCKED_DELAY_SECONDS = 60
+logger = logging.getLogger(__name__)
 
 
 class JobHandler(Protocol):
@@ -130,18 +132,33 @@ class PersistentJobWorker:
         )
         worker_heartbeat_interval = max(1.0, self.lease_policy.duration.total_seconds() / 6)
         while not stop_event.is_set():
-            self.repository.release_expired_claims(
+            released_count = self.repository.release_expired_claims(
                 now=self.clock(),
                 audit_outbox=self.transactional_audit,
                 actor_id=f"{self.worker_id}-lease-reaper",
             )
+            if released_count:
+                logger.warning(
+                    "Expired job leases released",
+                    extra={
+                        "event": "job_lease_expired",
+                        "worker_id": self.worker_id,
+                        "released_count": released_count,
+                    },
+                )
             now_mono = self.monotonic_clock()
             if now_mono - last_schedule_trigger >= self.schedule_trigger_interval_seconds:
                 for trigger in self.schedule_triggers:
                     try:
                         trigger.trigger_due()
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.warning(
+                            "Schedule trigger failed",
+                            extra={
+                                "event": "schedule_trigger_failed",
+                                "error_class": type(exc).__name__,
+                            },
+                        )
                 last_schedule_trigger = now_mono
             if now_mono - last_worker_heartbeat >= worker_heartbeat_interval:
                 try:
@@ -152,8 +169,15 @@ class PersistentJobWorker:
                     )
                     worker_version = refreshed.version
                     last_worker_heartbeat = now_mono
-                except (JobConcurrencyError, Exception):
-                    pass
+                except Exception as exc:
+                    logger.warning(
+                        "Worker heartbeat failed",
+                        extra={
+                            "event": "worker_heartbeat_failed",
+                            "worker_id": self.worker_id,
+                            "error_class": type(exc).__name__,
+                        },
+                    )
             if self.run_once() is None:
                 stop_event.wait(idle_wait_seconds)
         self._drain(worker_version)
@@ -206,6 +230,16 @@ class PersistentJobWorker:
         )
         if claimed is None:
             return None
+        logger.info(
+            "Job claimed",
+            extra={
+                "event": "job_claimed",
+                "job_id": claimed.job_id,
+                "job_type": claimed.job_type,
+                "worker_id": self.worker_id,
+                "attempt_count": claimed.attempt_count,
+            },
+        )
         try:
             source_ids = _source_ids(claimed)
         except PermanentJobError as exc:
@@ -324,7 +358,7 @@ class PersistentJobWorker:
             reason_code=outcome.value,
             new_status=JobStatus.SUCCESS,
         )
-        return self.repository.complete(
+        completed = self.repository.complete(
             current.job_id,
             self.worker_id,
             current.version,
@@ -333,6 +367,17 @@ class PersistentJobWorker:
             audit_event=audit,
             audit_outbox=self.transactional_audit,
         )
+        logger.info(
+            "Job completed",
+            extra={
+                "event": "job_completed",
+                "job_id": completed.job_id,
+                "job_type": completed.job_type,
+                "worker_id": self.worker_id,
+                "outcome": outcome.value,
+            },
+        )
+        return completed
 
     def _execute_handler(
         self,
@@ -506,7 +551,7 @@ class PersistentJobWorker:
             reason_code=error_class,
             new_status=target,
         )
-        return self.repository.record_failure(
+        failed = self.repository.record_failure(
             current.job_id,
             self.worker_id,
             current.version,
@@ -517,6 +562,34 @@ class PersistentJobWorker:
             audit_event=audit,
             audit_outbox=self.transactional_audit,
         )
+        logger.warning(
+            "Job execution failed",
+            extra={
+                "event": "job_failed",
+                "job_id": failed.job_id,
+                "job_type": failed.job_type,
+                "worker_id": self.worker_id,
+                "error_class": error_class,
+                "failure_kind": kind.value,
+                "status": failed.status.value,
+                "attempt_count": failed.attempt_count,
+            },
+        )
+        if (
+            kind is JobFailureKind.RETRYABLE_TECHNICAL
+            and failed.status is JobStatus.TECHNICAL_ERROR
+        ):
+            logger.error(
+                "Job moved to dead letter queue",
+                extra={
+                    "event": "job_dead_lettered",
+                    "job_id": failed.job_id,
+                    "job_type": failed.job_type,
+                    "error_class": error_class,
+                    "attempt_count": failed.attempt_count,
+                },
+            )
+        return failed
 
     def _audit(
         self,

@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from starlette.requests import Request
 
 from veri_kalitesi.api import DevelopmentActorContextResolver, create_dashboard_api
+from veri_kalitesi.api.service_groups import ActorResolverIdentity, ApiOptions, AuditServices
 from veri_kalitesi.audit.export import EXPORT_COLUMNS, AuditEventExporter
 from veri_kalitesi.audit.models import (
     AuditAccessPolicy,
@@ -122,9 +123,9 @@ def _app(
 ):
     del repository, audit_service
     return create_dashboard_api(
-        actor_context_resolver=_resolver(roles),
-        audit_query_service=query_service,
-        clock=lambda: NOW,
+        identity=ActorResolverIdentity(_resolver(roles)),
+        audit=AuditServices(query=query_service),
+        options=ApiOptions(clock=lambda: NOW),
     )
 
 

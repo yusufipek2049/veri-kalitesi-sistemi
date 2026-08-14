@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi.testclient import TestClient
 
 from veri_kalitesi.api import DevelopmentActorContextResolver, create_dashboard_api
+from veri_kalitesi.api.service_groups import ActorResolverIdentity, ApiOptions, AuditServices
 from veri_kalitesi.audit.models import (
     AuditAccessPolicy,
     AuditEventInput,
@@ -53,17 +54,19 @@ def test_audit_export_download_is_followed_by_a_chained_completion_event() -> No
         clock=lambda: now,
     )
     app = create_dashboard_api(
-        actor_context_resolver=resolver,
-        audit_query_service=AuditQueryService(
-            repository,
-            audit_service,
-            AuditAccessPolicy(
-                version="AUDIT_EXPORT_LIFECYCLE_ACCESS_V1",
-                context_policy_version="AUDIT_EXPORT_LIFECYCLE_CONTEXT_V1",
+        identity=ActorResolverIdentity(resolver),
+        audit=AuditServices(
+            query=AuditQueryService(
+                repository,
+                audit_service,
+                AuditAccessPolicy(
+                    version="AUDIT_EXPORT_LIFECYCLE_ACCESS_V1",
+                    context_policy_version="AUDIT_EXPORT_LIFECYCLE_CONTEXT_V1",
+                ),
+                clock=lambda: now,
             ),
-            clock=lambda: now,
         ),
-        clock=lambda: now,
+        options=ApiOptions(clock=lambda: now),
     )
 
     export_response = TestClient(app).get(

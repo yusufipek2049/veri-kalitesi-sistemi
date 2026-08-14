@@ -20,6 +20,7 @@ from veri_kalitesi.api import (
     DevelopmentActorContextResolver,
     create_dashboard_api,
 )
+from veri_kalitesi.api.service_groups import ActorResolverIdentity, ApiOptions, IssueServices
 from veri_kalitesi.audit.models import (
     AuditFailureMode,
     AuditFailurePolicy,
@@ -224,9 +225,19 @@ def _app(
     )
     return TestClient(
         create_dashboard_api(
-            actor_context_resolver=resolver,
-            issue_investigation_evidence_service=service,
-            data_origin="synthetic-test",
+            identity=ActorResolverIdentity(resolver),
+            options=ApiOptions(data_origin="synthetic-test"),
+            issues=IssueServices(
+                query=None,
+                investigation=None,
+                investigation_evidence=service,
+                assignment=None,
+                assignee_options=None,
+                resolution=None,
+                verification=None,
+                closure=None,
+                creation=None,
+            ),
         )
     )
 
@@ -449,8 +460,8 @@ def test_service_unavailable_returns_503() -> None:
     )
     # issue_investigation_evidence_service=None (fail-closed)
     app = create_dashboard_api(
-        actor_context_resolver=resolver,
-        data_origin="synthetic-test",
+        identity=ActorResolverIdentity(resolver),
+        options=ApiOptions(data_origin="synthetic-test"),
     )
     client = TestClient(app)
 

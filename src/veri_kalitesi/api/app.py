@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
-from datetime import datetime, timezone
-from typing import Any, Protocol
+import logging
+from typing import cast
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from veri_kalitesi.api.bff import BffSessionBoundary, CSRF_HEADER_NAME
+from veri_kalitesi.api.bff import CSRF_HEADER_NAME
 from veri_kalitesi.api.errors import (
     ApiAuthenticationError,
     ApiCsrfError,
@@ -18,59 +17,42 @@ from veri_kalitesi.api.errors import (
 )
 from veri_kalitesi.api.exception_handlers import problem as _problem, register_exception_handlers
 from veri_kalitesi.api.identity import (
-    ActorContextResolver,
     DevelopmentActorContextResolver,
-    DevelopmentUserRegistry,
     UnavailableActorContextResolver,
 )
 from veri_kalitesi.api.models import DevelopmentUserInfoResponse, DevelopmentUserListResponse
-from veri_kalitesi.api.data_sources_router import (
-    DataSourceMutationService,
-    register_data_sources_routes,
-)
-from veri_kalitesi.api.catalog_router import (
-    CatalogQueryService as CatalogService,
-    MetadataCommandService,
-    register_catalog_routes,
-)
-from veri_kalitesi.api.rules_router import (
-    RuleCreatorService,
-    RuleMutationService,
-    register_rules_routes,
-)
-from veri_kalitesi.api.issues_router import (
-    IssueAssignmentService,
-    IssueAssigneeOptionProvider,
-    IssueClosureService,
-    IssueCreationService,
-    IssueInvestigationService,
-    IssueResolutionService,
-    IssueVerificationService,
-    register_issues_routes,
-)
-from veri_kalitesi.api.executions_router import (
-    ExecutionCancelService,
-    ExecutionStartService,
-    register_executions_routes,
-)
+from veri_kalitesi.api.data_sources_router import register_data_sources_routes
+from veri_kalitesi.api.catalog_router import register_catalog_routes
+from veri_kalitesi.api.rules_router import register_rules_routes
+from veri_kalitesi.api.issues_router import register_issues_routes
+from veri_kalitesi.api.executions_router import register_executions_routes
 from veri_kalitesi.api.scores_router import register_scores_routes
 from veri_kalitesi.api.dashboard_router import register_dashboard_routes
 from veri_kalitesi.api.audit_router import register_audit_routes
 from veri_kalitesi.api.notifications_router import register_notifications_routes
-from veri_kalitesi.audit.service import AuditQueryService
-from veri_kalitesi.data_sources.query import DataSourceQueryService
-from veri_kalitesi.executions.query import ExecutionQueryService
-from veri_kalitesi.identity import ActorContext
-from veri_kalitesi.issues import IssueInvestigationEvidenceService, IssueQueryService
-from veri_kalitesi.rules import RuleQueryService
-from veri_kalitesi.scoring.query import ScoreQueryService
-from veri_kalitesi.dashboard.service import DashboardQueryService
+from veri_kalitesi.api.health import register_health_routes
+from veri_kalitesi.api.reporting_router import register_reporting_routes
+from veri_kalitesi.operational_logging import bind_correlation_id, reset_correlation_id
+from veri_kalitesi.api.service_groups import (
+    ActorResolverIdentity,
+    ApiIdentity,
+    ApiOptions,
+    AuditServices,
+    BffSessionIdentity,
+    CatalogDatasetReader,
+    CatalogServices,
+    DataSourceServices,
+    ExecutionServices,
+    IssueServices,
+    JobQueueReader,
+    NotificationServices,
+    ReportingServices,
+    RuleServices,
+    StateChangeBoundary,
+)
 
 CORS_ALLOWED_METHODS = ("GET", "POST", "PATCH", "PUT")
-
-
-class StateChangeBoundary(Protocol):
-    def protect_state_changing(self, request: Request) -> ActorContext | None: ...
+logger = logging.getLogger(__name__)
 
 
 class CatalogDatasetResolver:
@@ -80,7 +62,7 @@ class CatalogDatasetResolver:
     execution source_ids'inin dataset/kaynak isimlerine cozumlenmesini saglar.
     """
 
-    def __init__(self, reader: Any) -> None:
+    def __init__(self, reader: CatalogDatasetReader) -> None:
         self._reader = reader
 
     def get_data_source_name(self, data_source_id: str) -> str | None:
@@ -111,7 +93,7 @@ class JobQueueInfoResolver:
     execution_id = job_id iliskisi uzerinden job detaylarini getirir.
     """
 
-    def __init__(self, repository: Any) -> None:
+    def __init__(self, repository: JobQueueReader) -> None:
         self._repository = repository
 
     def get_job_info(self, job_id: str) -> dict | None:
@@ -137,45 +119,30 @@ class JobQueueInfoResolver:
 
 def create_dashboard_api(
     *,
-    actor_context_resolver: ActorContextResolver | None = None,
-    bff_session_boundary: BffSessionBoundary | None = None,
-    allowed_origins: Sequence[str] = (),
-    data_origin: str = "runtime",
-    data_source_query_service: DataSourceQueryService | None = None,
-    data_source_mutation_service: DataSourceMutationService | None = None,
-    execution_start_service: ExecutionStartService | None = None,
-    execution_cancel_service: ExecutionCancelService | None = None,
-    development_user_registry: DevelopmentUserRegistry | None = None,
-    rule_query_service: RuleQueryService | None = None,
-    execution_query_service: ExecutionQueryService | None = None,
-    issue_query_service: IssueQueryService | None = None,
-    issue_investigation_service: IssueInvestigationService | None = None,
-    issue_investigation_evidence_service: IssueInvestigationEvidenceService | None = None,
-    issue_assignment_service: IssueAssignmentService | None = None,
-    issue_assignee_option_provider: IssueAssigneeOptionProvider | None = None,
-    issue_resolution_service: IssueResolutionService | None = None,
-    issue_verification_service: IssueVerificationService | None = None,
-    issue_closure_service: IssueClosureService | None = None,
-    issue_creation_service: IssueCreationService | None = None,
-    rule_creator_service: RuleCreatorService | None = None,
-    rule_mutation_service: RuleMutationService | None = None,
-    audit_query_service: AuditQueryService | None = None,
-    metadata_command_service: MetadataCommandService | None = None,
-    catalog_query_service: CatalogService | None = None,
-    score_query_service: ScoreQueryService | None = None,
-    dashboard_query_service: DashboardQueryService | None = None,
-    job_queue_repository: object | None = None,
-    notification_query_service: object | None = None,
-    notification_delivery_service: object | None = None,
-    clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+    identity: ApiIdentity | None = None,
+    options: ApiOptions = ApiOptions(),
+    data_sources: DataSourceServices | None = None,
+    executions: ExecutionServices | None = None,
+    rules: RuleServices | None = None,
+    issues: IssueServices | None = None,
+    catalog: CatalogServices | None = None,
+    audit: AuditServices | None = None,
+    notifications: NotificationServices | None = None,
+    reporting: ReportingServices | None = None,
 ) -> FastAPI:
     """Bağımlılıkları dışarıdan verilen, varsayılanı fail-closed API üretir."""
 
-    if any(origin == "*" or not origin.strip() for origin in allowed_origins):
+    if any(origin == "*" or not origin.strip() for origin in options.allowed_origins):
         raise ValueError("CORS origins must be explicit non-blank values.")
-    if actor_context_resolver is not None and bff_session_boundary is not None:
-        raise ValueError("Only one actor context resolver may be configured.")
-    resolver = actor_context_resolver or bff_session_boundary or UnavailableActorContextResolver()
+    if isinstance(identity, ActorResolverIdentity):
+        resolver = identity.resolver
+        bff_session_boundary: StateChangeBoundary | None = None
+    elif isinstance(identity, BffSessionIdentity):
+        resolver = identity.boundary
+        bff_session_boundary = identity.boundary
+    else:
+        resolver = UnavailableActorContextResolver()
+        bff_session_boundary = None
     app = FastAPI(
         title="Veri Kalitesi API",
         version="1.0.0",
@@ -185,7 +152,7 @@ def create_dashboard_api(
     )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=list(allowed_origins),
+        allow_origins=list(options.allowed_origins),
         allow_credentials=True,
         allow_methods=CORS_ALLOWED_METHODS,
         allow_headers=["Accept", "Content-Type", CSRF_HEADER_NAME],
@@ -195,133 +162,170 @@ def create_dashboard_api(
     @app.middleware("http")
     async def add_correlation_id(request: Request, call_next):  # type: ignore[no-untyped-def]
         request.state.correlation_id = str(uuid4())
-        if request.method.upper() not in {"GET", "HEAD", "OPTIONS"}:
-            state_change_boundary: StateChangeBoundary | None = bff_session_boundary
-            if state_change_boundary is None and isinstance(
-                resolver,
-                DevelopmentActorContextResolver,
+        token = bind_correlation_id(request.state.correlation_id)
+        status_code = 500
+        logger.info(
+            "Request started",
+            extra={"event": "request_started", "method": request.method, "path": request.url.path},
+        )
+        try:
+            if request.method.upper() not in {"GET", "HEAD", "OPTIONS"}:
+                state_change_boundary: StateChangeBoundary | None = bff_session_boundary
+                if state_change_boundary is None and isinstance(
+                    resolver,
+                    DevelopmentActorContextResolver,
+                ):
+                    state_change_boundary = resolver
+                if state_change_boundary is None:
+                    response = _problem(
+                        request,
+                        status=401,
+                        title="Authentication required",
+                        detail="A trusted user session is required.",
+                        correlation_id=request.state.correlation_id,
+                    )
+                else:
+                    try:
+                        actor_context = state_change_boundary.protect_state_changing(request)
+                        request.state.actor_context = actor_context
+                    except ApiCsrfError:
+                        response = _problem(
+                            request,
+                            status=403,
+                            title="Request rejected",
+                            detail="The state-changing request could not be verified.",
+                            correlation_id=request.state.correlation_id,
+                        )
+                    except ApiAuthenticationError:
+                        response = _problem(
+                            request,
+                            status=401,
+                            title="Authentication required",
+                            detail="A trusted user session is required.",
+                            correlation_id=request.state.correlation_id,
+                        )
+                    except ApiSessionUnavailableError:
+                        response = _problem(
+                            request,
+                            status=503,
+                            title="Session temporarily unavailable",
+                            detail="The session request could not be completed.",
+                            correlation_id=request.state.correlation_id,
+                        )
+                    else:
+                        response = await call_next(request)
+            else:
+                response = await call_next(request)
+            if request.method.upper() in {"GET", "HEAD"} and isinstance(
+                resolver, DevelopmentActorContextResolver
             ):
-                state_change_boundary = resolver
-            if state_change_boundary is None:
-                return _problem(
-                    request,
-                    status=401,
-                    title="Authentication required",
-                    detail="A trusted user session is required.",
-                    correlation_id=request.state.correlation_id,
-                )
-            try:
-                actor_context = state_change_boundary.protect_state_changing(request)
-                request.state.actor_context = actor_context
-            except ApiCsrfError:
-                return _problem(
-                    request,
-                    status=403,
-                    title="Request rejected",
-                    detail="The state-changing request could not be verified.",
-                    correlation_id=request.state.correlation_id,
-                )
-            except ApiAuthenticationError:
-                return _problem(
-                    request,
-                    status=401,
-                    title="Authentication required",
-                    detail="A trusted user session is required.",
-                    correlation_id=request.state.correlation_id,
-                )
-            except ApiSessionUnavailableError:
-                return _problem(
-                    request,
-                    status=503,
-                    title="Session temporarily unavailable",
-                    detail="The session request could not be completed.",
-                    correlation_id=request.state.correlation_id,
-                )
-        response = await call_next(request)
-        if request.method.upper() in {"GET", "HEAD"} and isinstance(
-            resolver, DevelopmentActorContextResolver
-        ):
-            response.headers[CSRF_HEADER_NAME] = resolver.request_proof
-        response.headers["X-Correlation-ID"] = request.state.correlation_id
-        return response
+                response.headers[CSRF_HEADER_NAME] = resolver.request_proof
+            response.headers["X-Correlation-ID"] = request.state.correlation_id
+            status_code = response.status_code
+            return response
+        finally:
+            logger.info(
+                "Request completed",
+                extra={
+                    "event": "request_completed",
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": status_code,
+                },
+            )
+            reset_correlation_id(token)
 
     register_exception_handlers(app)
+    register_health_routes(app, readiness_check=options.readiness_check)
 
     register_rules_routes(
         app,
-        rule_query_service=rule_query_service,
-        rule_creator_service=rule_creator_service,
-        rule_mutation_service=rule_mutation_service,
+        rule_query_service=rules.query if rules is not None else None,
+        rule_creator_service=rules.creator if rules is not None else None,
+        rule_mutation_service=rules.mutation if rules is not None else None,
         resolver=resolver,
-        data_origin=data_origin,
+        data_origin=options.data_origin,
     )
-    _catalog_reader = (
-        getattr(catalog_query_service, "reader", None) if catalog_query_service else None
+    _catalog_reader = cast(
+        CatalogDatasetReader | None,
+        getattr(catalog.query, "reader", None) if catalog is not None and catalog.query else None,
     )
     register_issues_routes(
         app,
-        issue_query_service=issue_query_service,
-        issue_investigation_service=issue_investigation_service,
-        issue_investigation_evidence_service=issue_investigation_evidence_service,
-        issue_assignment_service=issue_assignment_service,
-        issue_assignee_option_provider=issue_assignee_option_provider,
-        issue_resolution_service=issue_resolution_service,
-        issue_verification_service=issue_verification_service,
-        issue_closure_service=issue_closure_service,
-        issue_creation_service=issue_creation_service,
+        issue_query_service=issues.query if issues is not None else None,
+        issue_investigation_service=issues.investigation if issues is not None else None,
+        issue_investigation_evidence_service=(
+            issues.investigation_evidence if issues is not None else None
+        ),
+        issue_assignment_service=issues.assignment if issues is not None else None,
+        issue_assignee_option_provider=issues.assignee_options if issues is not None else None,
+        issue_resolution_service=issues.resolution if issues is not None else None,
+        issue_verification_service=issues.verification if issues is not None else None,
+        issue_closure_service=issues.closure if issues is not None else None,
+        issue_creation_service=issues.creation if issues is not None else None,
         resolver=resolver,
-        data_origin=data_origin,
+        data_origin=options.data_origin,
         catalog_reader=_catalog_reader,
     )
     register_executions_routes(
         app,
-        execution_query_service=execution_query_service,
-        execution_start_service=execution_start_service,
-        execution_cancel_service=execution_cancel_service,
-        rule_version_catalog=rule_query_service,
+        execution_query_service=executions.query if executions is not None else None,
+        execution_start_service=executions.start if executions is not None else None,
+        execution_cancel_service=executions.cancel if executions is not None else None,
+        rule_version_catalog=rules.query if rules is not None else None,
         dataset_resolver=(
             CatalogDatasetResolver(_catalog_reader) if _catalog_reader is not None else None
         ),
         job_info_resolver=(
-            JobQueueInfoResolver(job_queue_repository) if job_queue_repository is not None else None
+            JobQueueInfoResolver(executions.job_queue)
+            if executions is not None and executions.job_queue is not None
+            else None
         ),
         resolver=resolver,
-        data_origin=data_origin,
+        data_origin=options.data_origin,
     )
     register_scores_routes(
         app,
-        score_query_service=score_query_service,
+        score_query_service=catalog.score_query if catalog is not None else None,
         resolver=resolver,
-        data_origin=data_origin,
+        data_origin=options.data_origin,
         catalog_reader=_catalog_reader,
-        rule_version_reader=rule_query_service,
+        rule_version_reader=rules.query if rules is not None else None,
     )
     register_dashboard_routes(
         app,
-        dashboard_query_service=dashboard_query_service,
+        dashboard_query_service=catalog.dashboard_query if catalog is not None else None,
         resolver=resolver,
-        data_origin=data_origin,
+        data_origin=options.data_origin,
     )
     register_data_sources_routes(
         app,
-        data_source_query_service=data_source_query_service,
-        data_source_mutation_service=data_source_mutation_service,
+        data_source_query_service=data_sources.query if data_sources is not None else None,
+        data_source_mutation_service=data_sources.mutation if data_sources is not None else None,
         resolver=resolver,
-        data_origin=data_origin,
+        data_origin=options.data_origin,
     )
     register_audit_routes(
         app,
-        audit_query_service=audit_query_service,
+        audit_query_service=audit.query if audit is not None else None,
         resolver=resolver,
-        data_origin=data_origin,
-        clock=clock,
+        data_origin=options.data_origin,
+        clock=options.clock,
     )
     register_notifications_routes(
         app,
-        notification_query_service=notification_query_service,
-        notification_delivery_service=notification_delivery_service,
+        notification_query_service=notifications.query if notifications is not None else None,
+        notification_delivery_service=(
+            notifications.delivery if notifications is not None else None
+        ),
         resolver=resolver,
-        data_origin=data_origin,
+        data_origin=options.data_origin,
+    )
+    register_reporting_routes(
+        app,
+        report_query_service=reporting.query if reporting is not None else None,
+        resolver=resolver,
+        data_origin=options.data_origin,
     )
     # ██████ Geliştirme Kullanıcıları ██████
 
@@ -331,12 +335,12 @@ def create_dashboard_api(
         tags=["development"],
     )
     async def list_development_users(request: Request) -> DevelopmentUserListResponse:
-        if development_user_registry is None:
+        if options.development_user_registry is None:
             return DevelopmentUserListResponse(
                 correlation_id=request.state.correlation_id,
                 items=(),
             )
-        users = development_user_registry.available_users()
+        users = options.development_user_registry.available_users()
         return DevelopmentUserListResponse(
             correlation_id=request.state.correlation_id,
             items=tuple(
@@ -351,11 +355,11 @@ def create_dashboard_api(
 
     register_catalog_routes(
         app,
-        metadata_command_service=metadata_command_service,
-        catalog_query_service=catalog_query_service,
+        metadata_command_service=catalog.metadata_command if catalog is not None else None,
+        catalog_query_service=catalog.query if catalog is not None else None,
         resolver=resolver,
-        data_origin=data_origin,
-        score_query_service=score_query_service,
+        data_origin=options.data_origin,
+        score_query_service=catalog.score_query if catalog is not None else None,
     )
 
     return app

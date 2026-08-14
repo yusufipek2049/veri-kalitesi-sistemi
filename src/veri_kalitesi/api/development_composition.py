@@ -15,11 +15,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-from veri_kalitesi.api.app import (
-    ExecutionCancelService,
-    ExecutionStartService,
-    create_dashboard_api,
-)
+from veri_kalitesi.api.app import create_dashboard_api
 from veri_kalitesi.api.development_data_source_store import (
     DevelopmentDataSourceReader,
     DevelopmentDataSourceStore,
@@ -44,6 +40,17 @@ from veri_kalitesi.api.identity import (
 from veri_kalitesi.api.postgresql_execution import (
     PostgreSQLExecutionCancelService,
     PostgreSQLExecutionStartService,
+)
+from veri_kalitesi.api.executions_router import ExecutionCancelService, ExecutionStartService
+from veri_kalitesi.api.service_groups import (
+    ActorResolverIdentity,
+    ApiOptions,
+    AuditServices,
+    CatalogServices,
+    DataSourceServices,
+    ExecutionServices,
+    IssueServices,
+    RuleServices,
 )
 from veri_kalitesi.audit.models import (
     AuditAccessPolicy,
@@ -360,41 +367,59 @@ def create_development_app(  # type: ignore[no-untyped-def]
         execution_start_service = execution_store  # type: ignore[assignment]
         execution_cancel_service = execution_store  # type: ignore[assignment]
     return create_dashboard_api(
-        rule_creator_service=rule_store,
-        actor_context_resolver=resolver,
-        allowed_origins=tuple(development_origins),
-        data_origin="synthetic-development",
-        data_source_query_service=DataSourceQueryService(
-            DevelopmentDataSourceReader(), authorization
+        identity=ActorResolverIdentity(resolver),
+        options=ApiOptions(
+            allowed_origins=tuple(development_origins),
+            data_origin="synthetic-development",
+            development_user_registry=effective_registry,
+            clock=lambda: datetime.now(timezone.utc),
         ),
-        rule_query_service=RuleQueryService(DevelopmentRuleReader(), authorization),
-        execution_query_service=ExecutionQueryService(DevelopmentExecutionReader(), authorization),
-        issue_query_service=IssueQueryService(issue_store, authorization),
-        issue_investigation_service=issue_store,
-        issue_assignment_service=issue_store,
-        issue_assignee_option_provider=issue_store,
-        issue_resolution_service=issue_store,
-        issue_verification_service=issue_store,
-        issue_closure_service=issue_store,
-        issue_creation_service=issue_store,
-        data_source_mutation_service=data_source_store,  # type: ignore[arg-type]
-        execution_start_service=execution_start_service,
-        execution_cancel_service=execution_cancel_service,
-        development_user_registry=effective_registry,
-        audit_query_service=AuditQueryService(
-            audit_repository,
-            audit_service,
-            AuditAccessPolicy(
-                version="DEVELOPMENT_AUDIT_ACCESS_V1",
-                context_policy_version=POLICY_VERSION,
+        data_sources=DataSourceServices(
+            query=DataSourceQueryService(DevelopmentDataSourceReader(), authorization),
+            mutation=data_source_store,  # type: ignore[arg-type]
+        ),
+        rules=RuleServices(
+            query=RuleQueryService(DevelopmentRuleReader(), authorization),
+            creator=rule_store,
+            mutation=None,
+        ),
+        executions=ExecutionServices(
+            query=ExecutionQueryService(DevelopmentExecutionReader(), authorization),
+            start=execution_start_service,
+            cancel=execution_cancel_service,
+            job_queue=None,
+        ),
+        issues=IssueServices(
+            query=IssueQueryService(issue_store, authorization),
+            investigation=issue_store,
+            investigation_evidence=None,
+            assignment=issue_store,
+            assignee_options=issue_store,
+            resolution=issue_store,
+            verification=issue_store,
+            closure=issue_store,
+            creation=issue_store,
+        ),
+        audit=AuditServices(
+            query=AuditQueryService(
+                audit_repository,
+                audit_service,
+                AuditAccessPolicy(
+                    version="DEVELOPMENT_AUDIT_ACCESS_V1",
+                    context_policy_version=POLICY_VERSION,
+                ),
+                clock=lambda: datetime.now(timezone.utc),
             ),
-            clock=lambda: datetime.now(timezone.utc),
         ),
-        dashboard_query_service=DashboardQueryService(
-            score_reader=repository,
-            authorization_service=authorization,
-            clock=lambda: datetime.now(timezone.utc),
-            trend_policy=DEVELOPMENT_TREND_POLICY,
+        catalog=CatalogServices(
+            metadata_command=None,
+            query=None,
+            score_query=None,
+            dashboard_query=DashboardQueryService(
+                score_reader=repository,
+                authorization_service=authorization,
+                clock=lambda: datetime.now(timezone.utc),
+                trend_policy=DEVELOPMENT_TREND_POLICY,
+            ),
         ),
-        clock=lambda: datetime.now(timezone.utc),
     )
