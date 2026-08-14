@@ -1,148 +1,154 @@
-# Veri Kalitesi İzleme ve Skorlama Sistemi
+# Veri Kalitesi Sistemi
 
-An enterprise data-quality monitoring and scoring platform. The system connects
-to relational data sources in **read-only** mode, evaluates quality rules, and
-produces quality scores, issues, and audit trails. Source production data is
-never modified.
+Verinin doğruluğunun gözetildiği, ölçüldüğü ve kanıtlandığı zemin.
 
-> **This system is not production-ready.** Corporate IdP/LDAP, PAM/secrets,
-> HA, message broker, SIEM/WORM, ServiceNow, DR, and bank compliance approvals
-> are separate efforts.
+Kaynağa dokunmadan niteliğini tartar. Kurallar, gözlemler, skorlar — her biri
+bir yargının izini taşır. Ölçüm ile ölçülen birbirine karışmaz.
 
-## Capabilities
+---
 
-| Area | What Works |
-|------|-----------|
-| **Data sources** | Create, activate, passivate, test connections; query metadata |
-| **Quality rules** | List rules and versions; query rule history |
-| **Issues** | Create, investigate, assign, resolve, verify, close |
-| **Executions** | Start, cancel, and query rule executions |
-| **Scores** | List, detail, and compare quality scores |
-| **Audit** | Query audit events |
-| **Notifications** | Inbox, deliveries, channels, subscriptions |
-| **Catalog** | Metadata discovery, dataset/field browsing, diff application |
-| **Background worker** | EXECUTION, METADATA_DISCOVERY, and NOTIFICATION_DELIVERY job types |
+## Kavram
 
-For the full capability matrix (including unwired and test-only areas) see
-[Known Gaps](documentation/known-gaps.md).
+Sonlu ilişkisel kaynaklar. Salt-okunur bağlam. Nitelik kurallarının
+uygulanmasıyla ortaya çıkan skorlar, sorunlar, denetim izleri.
 
-## Technology Stack
+Üç döngü: **bağlan** → **ölç** → **yorumla**.
 
-| Layer | Technology |
-|-------|-----------|
-| Backend API | FastAPI 0.135, Python ≥ 3.10, Uvicorn |
-| Database | PostgreSQL 16, SQLAlchemy 2.0, Alembic 1.18 |
-| Background worker | Pure-Python poll loop with fork-based subprocess isolation |
-| Frontend | React 19, MUI 9, Vite 8, TypeScript 7 |
+Kaynak verisi değişmez; değişen, onun hakkında bilinen şeydir.
 
-## Prerequisites
+---
 
-- **Docker** 24+ and **Docker Compose** v2.20+
-- **Python** 3.10+ (for running tests outside containers)
-- **Node.js** 22+ (for running the frontend outside containers)
+## Mimari
 
-## Quick Start
-
-### 1. Set the database password
-
-```bash
-export DQ_POSTGRES_PASSWORD=example-dev-password
+```
+İstemci ──▶ API ──▶ PostgreSQL ◀── İşçi
 ```
 
-### 2. Prepare runtime secrets
+| Katman | Özü |
+|--------|-----|
+| API | Kompozisyon kökünden doğan uçlar — okunur her şey buradan akar |
+| İşçi | Kuyruktan kapılan, alt süreçte izole edilmiş, kalp atışlı |
+| Veri tabanı | Tek hakikat — sürümlü şema, doğrusal göç zinciri |
+| İstemci | Reaktif yüzey — uçlardan beslenen, durumu yansıtan |
+
+Yığın: **FastAPI** · **Python ≥ 3.10** · **PostgreSQL 16** · **SQLAlchemy 2.0** ·
+**Alembic** · **React 19** · **MUI 9** · **Vite 8** · **TypeScript 7**
+
+İşçi: saf Python kuyru tarama, fork yalıtımı, kira mekanizması.
+
+---
+
+## Üç Katman
+
+| | Anlamı |
+|---|---|
+| **Arka uç** | Kuralların hizmete, hizmetin uçlara dönüştüğü yer. Kompozisyon kökü —
+her şeyi görünür kılan, erişimi mümkün kılan. Domain, doğrulama, denetim;
+kodun omurgası. *FastAPI · Python ≥ 3.10* |
+| **Ön uç** | Durumun görünüme büründüğü yüzey. Uçlardan akan her şeyin
+insana açılan kapısı. Anlık yansıma, kesintisiz geri bildirim. *React 19 · MUI 9 · Vite 8* |
+| **Veri tabanı** | Hakiketin kilitli kaldığı yer. Her dönüşümün kaydedildiği,
+her göçün iz bıraktığı tek kaynak. Şema sürümlenir, geri dönüşü yok. *PostgreSQL 16 · SQLAlchemy 2.0 · Alembic* |
+
+---
+
+## Eşik
+
+| Araç | Sınır |
+|------|-------|
+| Docker + Compose v2 | 24+ / v2.20+ |
+| Python | ≥ 3.10 |
+| Node.js | ≥ 22 |
+
+---
+
+## Başlangıç
 
 ```bash
+export DQ_POSTGRES_PASSWORD=örnek-parola
+
 cp -r infra/development/runtime-secrets.example \
       infra/development/runtime-secrets
-```
 
-Create per-source credential files inside
-`infra/development/runtime-secrets/data-sources/<reference>/` — each needs a
-`username` and `password` file. See
-[`runtime-secrets.example/README.md`](infra/development/runtime-secrets.example/README.md).
-
-### 3. Start the stack
-
-```bash
 docker compose -f infra/development/compose.yaml up --build
 ```
 
-This starts five containers:
+Beş kap, sırayla: `postgres :55432` → `migrate` → `api :8000` → `işci` → `istemci :5173`.
 
-| Container | Port | Purpose |
-|-----------|------|---------|
-| `postgres` | 55432 | PostgreSQL 16 |
-| `migrate` | — | Runs `alembic upgrade head`, then exits |
-| `api` | 8000 | FastAPI backend |
-| `worker` | — | Background job processor |
-| `frontend` | 5173 | React dev server (proxies `/api` to backend) |
-
-### 4. Verify
+Doğrulama:
 
 ```bash
-# API is responding
 curl -s http://127.0.0.1:8000/api/v1/openapi.json | head -c 100
-
-# List development users
 curl -s http://127.0.0.1:8000/api/v1/development/users | python3 -m json.tool
 ```
 
-Open <http://localhost:5173> in your browser. Select a development user to
-log in.
+Tarayıcıda `http://localhost:5173` — gelişim kullanıcısı seçilerek içeri adım atılır.
 
-### 5. Seed demo data (optional)
+Demo veri (isteğe bağlı):
 
 ```bash
-DATA_QUALITY_DATABASE_URL="postgresql+psycopg://dq_app:example-dev-password@127.0.0.1:55432/data_quality" \
+DATA_QUALITY_DATABASE_URL="postgresql+psycopg://dq_app:${DQ_POSTGRES_PASSWORD}@127.0.0.1:55432/data_quality" \
     python scripts/seed_database.py
 ```
 
-## Test & Quality Commands
+---
+
+## Yüzey
+
+| Alan | Kapsam |
+|------|--------|
+| Kaynaklar | yaratma, etkinleştirme, dondurma, bağlantı sınaması, üst veri |
+| Kurallar | sorgulama, sürümleme |
+| Sorunlar | yaratma, inceleme, atama, çözüm, doğrulama, kapatma |
+| Yürütmeler | başlatma, iptal, sorgulama |
+| Skorlar | listeleme, ayrıntı, karşılaştırma |
+| Denetim | olay sorgulama |
+| Bildirimler | gelen kutusu, teslimat, kanal, abonelik |
+| Katalog | keşif, veri kümesi/alan tarama, fark uygulaması |
+| İşçi | EXECUTION · METADATA_DISCOVERY · NOTIFICATION_DELIVERY |
+
+Bağlanmamış uçlar — gösterim, profil, rapor, lineage, governance — kodda
+vardır; kompozisyon kökünde henüz ete kemiğe bürünmemiştir.
+
+---
+
+## Kalite
 
 ```bash
-# Backend
-pytest -q                        # All tests (unit + integration)
-ruff check .                     # Lint
-ruff format --check .            # Format check
-mypy src                         # Type check
-
-# Frontend
-cd frontend && npm test          # Unit tests (Vitest)
-cd frontend && npm run typecheck # TypeScript check
-cd frontend && npm run build     # Production build
+pytest -q                          # bütün sınamalar
+python3 scripts/test_postgresql.py # PostgreSQL bütünleşik
+ruff check . && ruff format --check .
+mypy src
+cd frontend && npm test && npm run typecheck && npm run build
 ```
 
-All five CI jobs are **blocking** on every push/PR. See
-[Testing & Quality](documentation/testing-and-quality.md) for the full matrix.
+---
 
-## Stop & Reset
+## Durdur
 
 ```bash
-# Stop (preserves database volume)
-docker compose -f infra/development/compose.yaml down
-
-# Stop and destroy database
-docker compose -f infra/development/compose.yaml down -v
+docker compose -f infra/development/compose.yaml down     # hacim kalır
+docker compose -f infra/development/compose.yaml down -v  # hacim gider
 ```
 
-## Documentation
+---
 
-The canonical documentation lives in [`documentation/`](documentation/):
+## Çekirdek Değişkenler
 
-| Document | Purpose |
-|----------|---------|
-| [System Overview](documentation/system-overview.md) | What the system does, verified capabilities |
-| [Architecture](documentation/architecture.md) | Runtime topology, composition chains |
-| [Getting Started](documentation/getting-started.md) | Full setup guide with secrets and environment |
-| [Runtime Configuration](documentation/runtime-configuration.md) | All environment variables |
-| [API, Data & Workers](documentation/api-data-and-workers.md) | Endpoints, migrations, job types |
-| [Testing & Quality](documentation/testing-and-quality.md) | CI gates, test commands |
-| [Known Gaps](documentation/known-gaps.md) | Unwired capabilities, contradictions |
+| Değişken | Anlamı |
+|----------|--------|
+| `DATA_QUALITY_DATABASE_URL` | Bağlantının kendisi |
+| `DATA_QUALITY_DATABASE_SCHEMA` | İsim uzayı (`dq`) |
+| `DATA_QUALITY_RUNTIME_ENVIRONMENT` | Bağlam kipı |
+| `DATA_QUALITY_ALLOWED_ORIGINS` | CORS sınırları |
+| `DQ_WORKER_ID` · `_CAPACITY` · `_LEASE_SECONDS` | İşçi kimliği ve temposu |
 
-### Legacy Documentation
+---
 
-> **Warning:** The `docs/` directory contains historical SRS, architecture
-> decisions, compliance artifacts, and iteration records that have **not** been
-> re-verified against the current executable source code. They are preserved
-> for reference only. The `documentation/` directory above is the authoritative
-> starting point.
+## Henüz Dışarıda
+
+Üretim olgunluğundan ayıran: IdP/LDAP, PAM, HA, mesaj kuyruğu, SIEM/WORM,
+ServiceNow, DR, banka uyumu — her biri ayrı bir emek.
+
+Kodda var, yürütmeye bağlı değil: retention, sentetik veri, secure SDLC,
+olay müdahale, raporlama, lineage, governance.

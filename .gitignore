@@ -170,6 +170,8 @@ tools/agent-*/
 /docs/architecture/Ajan-*.md
 /docs/operations/Ajan-*.md
 /docs
+/documentation
+/archive
 AGENTS.md
 [C]LAUDE.md
 [C]ODEX-KULLANIM.md
