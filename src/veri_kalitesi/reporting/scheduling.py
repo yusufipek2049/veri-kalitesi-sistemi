@@ -18,9 +18,10 @@ from veri_kalitesi.executions.scheduling import (
     ScheduleType,
     preview_runs,
 )
-from veri_kalitesi.reporting.models import ReportFormat, ReportRequest, ReportType
-from veri_kalitesi.reporting.service import ReportService
+from veri_kalitesi.reporting.models import Report, ReportFormat, ReportRequest, ReportType
 from veri_kalitesi.reporting.errors import ReportingError
+from veri_kalitesi.executions.scheduling import ScheduleTechnicalEventSink
+from veri_kalitesi.identity import ActorContext, create_service_actor_context
 
 
 @dataclass(frozen=True)
@@ -69,6 +70,15 @@ class ReportScheduleRepository(Protocol):
     def get(self, schedule_id: str) -> ReportSchedule: ...
     def delete(self, schedule_id: str) -> None: ...
     def due(self, now: datetime) -> tuple[ReportSchedule, ...]: ...
+    def claim_due(
+        self,
+        schedule_id: str,
+        *,
+        scheduled_for: datetime,
+        triggered_at: datetime,
+        next_run_at: datetime | None,
+        is_active: bool,
+    ) -> bool: ...
     def advance(
         self,
         schedule_id: str,
@@ -77,6 +87,14 @@ class ReportScheduleRepository(Protocol):
         next_run_at: datetime | None,
         is_active: bool,
     ) -> ReportSchedule: ...
+
+
+class ScheduledReportRequester(Protocol):
+    def request_report(
+        self,
+        request: ReportRequest,
+        actor_context: ActorContext | None,
+    ) -> Report: ...
 
 
 class ReportScheduleService:
@@ -89,12 +107,14 @@ class ReportScheduleService:
     def __init__(
         self,
         repository: ReportScheduleRepository,
-        report_service: ReportService,
+        report_service: ScheduledReportRequester,
         *,
+        technical_event_sink: ScheduleTechnicalEventSink | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ) -> None:
         self._repo = repository
         self._report_service = report_service
+        self._technical_event_sink = technical_event_sink
         self._clock = clock
 
     def create_schedule(
@@ -182,6 +202,31 @@ class ReportScheduleService:
             if scheduled_for is None:
                 continue
 
+            following = preview_runs(
+                _to_schedule_backend(schedule),
+                after=scheduled_for,
+                count=1,
+            )
+            claim_due = getattr(self._repo, "claim_due", None)
+            if claim_due is None:
+                self._repo.advance(
+                    schedule.schedule_id,
+                    triggered_at=current,
+                    next_run_at=following[0] if following else None,
+                    is_active=bool(following),
+                )
+                claimed = True
+            else:
+                claimed = claim_due(
+                    schedule.schedule_id,
+                    scheduled_for=scheduled_for,
+                    triggered_at=current,
+                    next_run_at=following[0] if following else None,
+                    is_active=bool(following),
+                )
+            if not claimed:
+                continue
+
             try:
                 report_request = ReportRequest(
                     report_type=schedule.report_type,
@@ -192,10 +237,17 @@ class ReportScheduleService:
                 )
                 report = self._report_service.request_report(
                     report_request,
-                    None,  # system context — no user actor
+                    create_service_actor_context(
+                        actor_id=actor_id,
+                        correlation_id=(
+                            f"report-schedule-{schedule.schedule_id}-"
+                            f"{int(scheduled_for.timestamp())}"
+                        ),
+                        roles=frozenset({"REPORT_SCHEDULER"}),
+                    ),
                 )
                 triggered.append(report.report_id)
-            except ReportingError:
+            except Exception as exc:
                 # Hata durumunda schedule pasiflestirilir
                 self._repo.advance(
                     schedule.schedule_id,
@@ -203,20 +255,14 @@ class ReportScheduleService:
                     next_run_at=None,
                     is_active=False,
                 )
+                if self._technical_event_sink is not None:
+                    try:
+                        self._technical_event_sink.notify_schedule_failure(
+                            _to_schedule_backend(schedule), type(exc).__name__
+                        )
+                    except Exception:
+                        pass
                 continue
-
-            # Bir sonraki calisma zamanini hesapla
-            following = preview_runs(
-                _to_schedule_backend(schedule),
-                after=scheduled_for,
-                count=1,
-            )
-            self._repo.advance(
-                schedule.schedule_id,
-                triggered_at=current,
-                next_run_at=following[0] if following else None,
-                is_active=bool(following),
-            )
 
         return tuple(triggered)
 

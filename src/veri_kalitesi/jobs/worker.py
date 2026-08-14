@@ -49,6 +49,10 @@ class JobHandler(Protocol):
     ) -> JobCompletionOutcome: ...
 
 
+class ScheduleTrigger(Protocol):
+    def trigger_due(self) -> tuple[object, ...]: ...
+
+
 class RetryableJobError(Exception):
     def __init__(self, error_class: str) -> None:
         super().__init__(error_class)
@@ -77,11 +81,16 @@ class PersistentJobWorker:
     lease_policy: JobLeasePolicy
     hostname: str = "localhost"
     capacity: int = 1
+    schedule_triggers: tuple[ScheduleTrigger, ...] = ()
+    schedule_trigger_interval_seconds: float = 5.0
     clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc)
     monotonic_clock: Callable[[], float] = monotonic
 
     def __post_init__(self) -> None:
+        if self.schedule_trigger_interval_seconds <= 0:
+            raise ValueError("Schedule trigger interval must be positive.")
         object.__setattr__(self, "handlers", MappingProxyType(dict(self.handlers)))
+        object.__setattr__(self, "schedule_triggers", tuple(self.schedule_triggers))
 
     @property
     def supported_job_types(self) -> tuple[str, ...]:
@@ -116,6 +125,9 @@ class PersistentJobWorker:
         registration = self.register()
         worker_version = registration.version
         last_worker_heartbeat = self.monotonic_clock()
+        last_schedule_trigger = (
+            self.monotonic_clock() - self.schedule_trigger_interval_seconds
+        )
         worker_heartbeat_interval = max(1.0, self.lease_policy.duration.total_seconds() / 6)
         while not stop_event.is_set():
             self.repository.release_expired_claims(
@@ -124,6 +136,13 @@ class PersistentJobWorker:
                 actor_id=f"{self.worker_id}-lease-reaper",
             )
             now_mono = self.monotonic_clock()
+            if now_mono - last_schedule_trigger >= self.schedule_trigger_interval_seconds:
+                for trigger in self.schedule_triggers:
+                    try:
+                        trigger.trigger_due()
+                    except Exception:
+                        pass
+                last_schedule_trigger = now_mono
             if now_mono - last_worker_heartbeat >= worker_heartbeat_interval:
                 try:
                     refreshed = self.repository.heartbeat_worker(

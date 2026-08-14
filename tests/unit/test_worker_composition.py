@@ -15,6 +15,8 @@ from veri_kalitesi.jobs.lifecycle import DeadLetterReprocessPolicy
 from veri_kalitesi.jobs.models import JobCompletionOutcome, JobLeasePolicy
 from veri_kalitesi.jobs.settings import PersistentJobSettings
 from veri_kalitesi.notifications.jobs import NotificationDeliveryJobHandler
+from veri_kalitesi.executions.scheduling import SchedulingService
+from veri_kalitesi.reporting.scheduling import ReportScheduleService
 from veri_kalitesi.persistence import DatabaseSettings
 
 
@@ -89,6 +91,7 @@ def test_production_factory_directly_composes_notification_delivery(
 ) -> None:
     captured: dict[str, object] = {}
     expected_runtime = object()
+    settings = _settings(tmp_path)
 
     def capture_runtime(*args: object, **kwargs: object) -> object:
         captured.update(kwargs)
@@ -97,7 +100,7 @@ def test_production_factory_directly_composes_notification_delivery(
     monkeypatch.setattr(production, "create_session_factory", lambda settings: object())
     monkeypatch.setattr(production, "create_persistent_job_runtime", capture_runtime)
 
-    runtime = production.create_production_worker(_settings(tmp_path))
+    runtime = production.create_production_worker(settings)
 
     assert runtime is expected_runtime
     assert tuple(signature(production.create_production_worker).parameters) == ("settings",)
@@ -106,6 +109,14 @@ def test_production_factory_directly_composes_notification_delivery(
         NotificationDeliveryJobHandler,
     )
     assert captured["metadata_discovery_command"] is not None
+    schedule_triggers = captured["schedule_triggers"]
+    assert isinstance(schedule_triggers, tuple)
+    assert any(isinstance(item, SchedulingService) for item in schedule_triggers)
+    assert any(isinstance(item, ReportScheduleService) for item in schedule_triggers)
+    assert (
+        captured["schedule_trigger_interval_seconds"]
+        == settings.schedule_trigger_interval_seconds
+    )
 
 
 def test_entrypoint_reaches_the_default_production_factory(

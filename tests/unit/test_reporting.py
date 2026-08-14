@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
+from threading import RLock
 from unittest.mock import MagicMock
 
 import pytest
@@ -395,6 +397,7 @@ class TestReportSchedule:
             def __init__(self):
                 self._schedules: dict[str, ReportSchedule] = {}
                 self._order: list[str] = []
+                self._lock = RLock()
 
             def add(self, schedule: ReportSchedule) -> ReportSchedule:
                 self._schedules[schedule.schedule_id] = schedule
@@ -454,6 +457,27 @@ class TestReportSchedule:
                 )
                 self._schedules[schedule_id] = new
                 return new
+
+            def claim_due(
+                self,
+                schedule_id: str,
+                *,
+                scheduled_for: datetime,
+                triggered_at: datetime,
+                next_run_at: datetime | None,
+                is_active: bool,
+            ) -> bool:
+                with self._lock:
+                    current = self._schedules[schedule_id]
+                    if not current.is_active or current.next_run_at != scheduled_for:
+                        return False
+                    self.advance(
+                        schedule_id,
+                        triggered_at=triggered_at,
+                        next_run_at=next_run_at,
+                        is_active=is_active,
+                    )
+                    return True
 
         return _MemoryRepo()
 
@@ -592,6 +616,109 @@ class TestReportSchedule:
         assert len(triggered) == 1
         assert triggered[0] == "generated-rpt-1"
         service._report_service.request_report.assert_called_once()
+
+    def test_not_due_report_schedule_is_not_triggered(self, service):
+        future = datetime.now(timezone.utc) + timedelta(hours=1)
+        service.create_schedule(
+            ReportScheduleCreateRequest(
+                name="Not Due",
+                report_type=ReportType.SUMMARY,
+                format=ReportFormat.CSV,
+                parameters={},
+                sensitivity_level=None,
+                recipients=(),
+                schedule_type="ONCE",
+                timezone_name="UTC",
+                once_at=future,
+            ),
+            created_by="user-1",
+        )
+
+        assert service.trigger_due(now=future - timedelta(seconds=1)) == ()
+        service._report_service.request_report.assert_not_called()
+
+    def test_two_report_scheduler_workers_claim_same_due_time_once(self, service, repo):
+        from veri_kalitesi.reporting.models import Report as ReportModel
+
+        due_at = datetime.now(timezone.utc)
+        schedule, _ = service.create_schedule(
+            ReportScheduleCreateRequest(
+                name="Concurrent Report",
+                report_type=ReportType.SUMMARY,
+                format=ReportFormat.CSV,
+                parameters={},
+                sensitivity_level=None,
+                recipients=(),
+                schedule_type="ONCE",
+                timezone_name="UTC",
+                once_at=due_at + timedelta(minutes=1),
+            ),
+            created_by="user-1",
+        )
+        repo.advance(
+            schedule.schedule_id,
+            triggered_at=due_at,
+            next_run_at=due_at,
+            is_active=True,
+        )
+        service._report_service.request_report.return_value = ReportModel(
+            report_id="concurrent-report",
+            report_type=ReportType.SUMMARY,
+            format=ReportFormat.CSV,
+            requested_by="scheduler",
+            parameters={},
+            status=ReportStatus.QUEUED,
+            version=1,
+        )
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = tuple(pool.map(lambda _index: service.trigger_due(now=due_at), range(2)))
+
+        assert sum(len(result) for result in results) == 1
+        service._report_service.request_report.assert_called_once()
+
+    def test_failed_report_schedule_does_not_block_later_due_schedule(self, service, repo):
+        from veri_kalitesi.reporting.models import Report as ReportModel
+
+        due_at = datetime.now(timezone.utc)
+        schedules = []
+        for name in ("Failing Report", "Healthy Report"):
+            schedule, _ = service.create_schedule(
+                ReportScheduleCreateRequest(
+                    name=name,
+                    report_type=ReportType.SUMMARY,
+                    format=ReportFormat.CSV,
+                    parameters={},
+                    sensitivity_level=None,
+                    recipients=(),
+                    schedule_type="ONCE",
+                    timezone_name="UTC",
+                    once_at=due_at + timedelta(minutes=1),
+                ),
+                created_by="user-1",
+            )
+            repo.advance(
+                schedule.schedule_id,
+                triggered_at=due_at,
+                next_run_at=due_at,
+                is_active=True,
+            )
+            schedules.append(schedule)
+        service._report_service.request_report.side_effect = (
+            RuntimeError("first schedule fails"),
+            ReportModel(
+                report_id="healthy-report",
+                report_type=ReportType.SUMMARY,
+                format=ReportFormat.CSV,
+                requested_by="scheduler",
+                parameters={},
+                status=ReportStatus.QUEUED,
+                version=1,
+            ),
+        )
+
+        assert service.trigger_due(now=due_at) == ("healthy-report",)
+        assert repo.get(schedules[0].schedule_id).is_active is False
 
 
 class TestReportWorker:

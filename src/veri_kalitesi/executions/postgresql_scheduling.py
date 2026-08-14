@@ -19,6 +19,7 @@ from sqlalchemy import (
     MetaData,
     String,
     Table,
+    func,
     select,
     update,
 )
@@ -145,6 +146,44 @@ class PostgreSQLScheduleRepository:
                 )
             )
         return self.get(schedule_id)
+
+    def claim_due(
+        self,
+        schedule_id: str,
+        *,
+        scheduled_for: datetime,
+        triggered_at: datetime,
+        next_run_at: datetime | None,
+        is_active: bool,
+    ) -> bool:
+        """Vade satirini advisory kilit ve SKIP LOCKED ile atomik sahiplenir."""
+
+        t = self._tables.schedules
+        with transactional_session(self._session_factory) as session:
+            session.execute(
+                select(func.pg_advisory_xact_lock(func.hashtext("dq_schedules_trigger")))
+            )
+            row = session.execute(
+                select(t.c.schedule_id)
+                .where(
+                    t.c.schedule_id == schedule_id,
+                    t.c.is_active == 1,
+                    t.c.next_run_at == scheduled_for.astimezone(timezone.utc),
+                )
+                .with_for_update(skip_locked=True)
+            ).one_or_none()
+            if row is None:
+                return False
+            session.execute(
+                update(t)
+                .where(t.c.schedule_id == schedule_id)
+                .values(
+                    last_triggered_at=triggered_at.astimezone(timezone.utc),
+                    next_run_at=next_run_at,
+                    is_active=1 if is_active else 0,
+                )
+            )
+        return True
 
     def get(self, schedule_id: str) -> Schedule:
         t = self._tables.schedules

@@ -19,7 +19,7 @@ from veri_kalitesi.jobs.handlers import (
     MetadataDiscoveryJobHandler,
 )
 from veri_kalitesi.jobs.postgresql_repository import PostgreSQLJobQueueRepository
-from veri_kalitesi.jobs.worker import JobHandler, PersistentJobWorker
+from veri_kalitesi.jobs.worker import JobHandler, PersistentJobWorker, ScheduleTrigger
 from veri_kalitesi.persistence import DEFAULT_SCHEMA_NAME, SessionFactory
 
 
@@ -42,6 +42,8 @@ def create_persistent_job_runtime(
     reprocess_policy: DeadLetterReprocessPolicy,
     metadata_discovery_command: CancellableMetadataDiscoveryCommand,
     notification_delivery_handler: JobHandler,
+    schedule_triggers: tuple[ScheduleTrigger, ...] = (),
+    schedule_trigger_interval_seconds: float = 5.0,
     source_types_by_id: Mapping[str, str] | None = None,
     schema: str = DEFAULT_SCHEMA_NAME,
 ) -> PersistentJobRuntime:
@@ -69,6 +71,8 @@ def create_persistent_job_runtime(
             lease_policy=lease_policy,
             hostname=worker_hostname,
             capacity=worker_capacity,
+            schedule_triggers=schedule_triggers,
+            schedule_trigger_interval_seconds=schedule_trigger_interval_seconds,
         ),
         dead_letter_service=DeadLetterReprocessService(
             repository,

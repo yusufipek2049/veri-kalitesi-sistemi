@@ -299,6 +299,64 @@ def test_production_poll_lifecycle_stops_on_signal() -> None:
     assert repository.reaper_count >= 1
 
 
+def test_schedule_trigger_failure_is_isolated_and_other_trigger_runs() -> None:
+    repository = _Repository()
+    repository.claimed = True
+    stop_event = Event()
+    successful_calls: list[str] = []
+
+    class _FailingTrigger:
+        def trigger_due(self) -> tuple[object, ...]:
+            raise RuntimeError("isolated scheduler failure")
+
+    class _SuccessfulTrigger:
+        def trigger_due(self) -> tuple[object, ...]:
+            successful_calls.append("called")
+            stop_event.set()
+            return ()
+
+    worker = replace(
+        _worker(repository, lambda job, **kwargs: JobCompletionOutcome.SUCCESS),
+        schedule_triggers=(_FailingTrigger(), _SuccessfulTrigger()),
+        schedule_trigger_interval_seconds=0.01,
+    )
+
+    worker.run_forever(stop_event, idle_wait_seconds=0.01)
+
+    assert successful_calls == ["called"]
+
+
+def test_schedule_trigger_uses_configured_cadence_instead_of_each_loop() -> None:
+    repository = _Repository()
+    repository.claimed = True
+    stop_event = Event()
+    calls: list[str] = []
+
+    class _Trigger:
+        def trigger_due(self) -> tuple[object, ...]:
+            calls.append("called")
+            return ()
+
+    worker = replace(
+        _worker(repository, lambda job, **kwargs: JobCompletionOutcome.SUCCESS),
+        schedule_triggers=(_Trigger(),),
+        schedule_trigger_interval_seconds=10.0,
+    )
+    runner = Thread(
+        target=worker.run_forever,
+        args=(stop_event,),
+        kwargs={"idle_wait_seconds": 0.005},
+    )
+
+    runner.start()
+    sleep(0.04)
+    stop_event.set()
+    runner.join(timeout=1)
+
+    assert not runner.is_alive()
+    assert calls == ["called"]
+
+
 def test_production_poll_reaps_expired_cancel_request_before_claim() -> None:
     repository = _Repository()
     repository.claimed = True

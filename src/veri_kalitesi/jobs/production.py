@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from datetime import datetime, timezone
 
 if TYPE_CHECKING:
     from veri_kalitesi.identity import ActorContext
+    from veri_kalitesi.reporting.models import Report, ReportRequest
 
 from veri_kalitesi.audit.models import (
     AuditFailureMode,
@@ -23,6 +25,8 @@ from veri_kalitesi.data_sources.postgresql_repository import PostgreSQLDataSourc
 from veri_kalitesi.data_sources.secrets import MountedFileSecretResolver, SecretResolver
 from veri_kalitesi.data_sources.service import DataSourceService
 from veri_kalitesi.executions.postgresql_repository import PostgreSQLExecutionRepository
+from veri_kalitesi.executions.postgresql_scheduling import PostgreSQLScheduleRepository
+from veri_kalitesi.executions.scheduling import Schedule, SchedulingService
 from veri_kalitesi.executions.postgresql_executor import PostgreSQLRuleExecutionExecutor
 from veri_kalitesi.executions.postgresql_source_usage import (
     PostgreSQLSourceUsagePolicyRepository,
@@ -52,6 +56,9 @@ def create_production_worker(
 
     session_factory = create_session_factory(settings.database)
     schema = settings.database.schema
+
+    def production_clock() -> datetime:
+        return datetime.now(timezone.utc)
 
     audit_repository = PostgreSQLAuditRepository(session_factory, schema=schema)
     redactor = AuditRedactor(build_default_redaction_policy())
@@ -98,7 +105,7 @@ def create_production_worker(
         source_catalog=source_repository,
         executor=executor,
         source_usage_policy_resolver=policy_repository,
-        clock=lambda: __import__("datetime").datetime.now(__import__("datetime").timezone.utc),
+        clock=production_clock,
     )
 
     # ── Issue bridge & service wiring ──────────────────────────────────
@@ -239,7 +246,7 @@ def create_production_worker(
         execution_history=execution_repository,
         rule_catalog=rule_repository,
         source_catalog=source_repository,
-        clock=lambda: __import__("datetime").datetime.now(__import__("datetime").timezone.utc),
+        clock=production_clock,
     )
     score_publication_service = ScorePublicationService(
         scoring_service=scoring_service,
@@ -299,12 +306,72 @@ def create_production_worker(
         delivery_service=NotificationDeliveryService(repository=notification_repository),
     )
 
+    class _ProductionScheduleTechnicalEventSink:
+        """Zamanlayici arizalarini merkezi audit akisina yazar."""
+
+        def notify_schedule_failure(self, schedule: Schedule, error_class: str) -> None:
+            from veri_kalitesi.audit.models import AuditEventInput, AuditResult
+
+            audit_service.append(
+                AuditEventInput(
+                    actor_id="schedule-worker",
+                    actor_type="SERVICE",
+                    correlation_id=f"schedule-failure-{schedule.schedule_id}",
+                    action="SCHEDULE_TRIGGER_FAILED",
+                    object_type="Schedule",
+                    object_id=schedule.schedule_id,
+                    result=AuditResult.FAILURE,
+                    reason_code=error_class,
+                    old_values={},
+                    new_values={"error_class": error_class},
+                    occurred_at=production_clock(),
+                )
+            )
+
+    schedule_event_sink = _ProductionScheduleTechnicalEventSink()
+    execution_scheduler = SchedulingService(
+        PostgreSQLScheduleRepository(session_factory, schema=schema),
+        execution_service,
+        transactional_audit=transactional_audit,
+        technical_event_sink=schedule_event_sink,
+        clock=production_clock,
+    )
+
+    from veri_kalitesi.reporting.repository import (
+        PostgreSQLReportRepository,
+        PostgreSQLReportScheduleRepository,
+    )
+    from veri_kalitesi.reporting.scheduling import ReportScheduleService
+
+    class _QueuedScheduledReportService:
+        """Zamanlanmis rapor istegini kalici QUEUED kaydina donusturur."""
+
+        def __init__(self) -> None:
+            self._repository = PostgreSQLReportRepository(session_factory, schema=schema)
+
+        def request_report(
+            self,
+            request: "ReportRequest",
+            actor_context: "ActorContext | None",
+        ) -> "Report":
+            assert actor_context is not None
+            return self._repository.create_report(request, actor_context.actor_id)
+
+    report_scheduler = ReportScheduleService(
+        PostgreSQLReportScheduleRepository(session_factory, schema=schema),
+        _QueuedScheduledReportService(),
+        technical_event_sink=schedule_event_sink,
+        clock=production_clock,
+    )
+
     return create_persistent_job_runtime(
         session_factory,
         transactional_audit=transactional_audit,
         execution_command=command_adapter,
         metadata_discovery_command=metadata_command_adapter,
         notification_delivery_handler=notification_handler,
+        schedule_triggers=(execution_scheduler, report_scheduler),
+        schedule_trigger_interval_seconds=settings.schedule_trigger_interval_seconds,
         worker_id=settings.worker_id,
         worker_hostname=settings.hostname,
         worker_capacity=settings.capacity,
