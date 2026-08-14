@@ -5,6 +5,9 @@ export type DataSourceAction =
   | "REQUEST_ACTIVATION"
   | "APPROVE_ACTIVATION"
   | "REJECT_ACTIVATION"
+  | "REQUEST_DEACTIVATION"
+  | "APPROVE_DEACTIVATION"
+  | "REJECT_DEACTIVATION"
   | "PASSIVATE"
   | "DISCOVER_METADATA";
 
@@ -19,6 +22,9 @@ export interface DataSourceListItem {
   pendingActivationMakerActorId?: string;
   pendingActivationRequestedAt?: string;
   pendingActivationExpiresAt?: string;
+  pendingDeactivationRequestId?: string;
+  pendingDeactivationMakerActorId?: string;
+  pendingDeactivationRequestedAt?: string;
 }
 
 export interface DataSourceApiItem {
@@ -32,6 +38,9 @@ export interface DataSourceApiItem {
   pending_activation_maker_actor_id: string | null;
   pending_activation_requested_at: string | null;
   pending_activation_expires_at: string | null;
+  pending_deactivation_request_id: string | null;
+  pending_deactivation_maker_actor_id: string | null;
+  pending_deactivation_requested_at: string | null;
 }
 
 export interface DataSourceListApiResponse {
@@ -111,6 +120,9 @@ export function dataSourceFromApi(item: DataSourceApiItem): DataSourceListItem {
     pendingActivationMakerActorId: item.pending_activation_maker_actor_id ?? undefined,
     pendingActivationRequestedAt: item.pending_activation_requested_at ?? undefined,
     pendingActivationExpiresAt: item.pending_activation_expires_at ?? undefined,
+    pendingDeactivationRequestId: item.pending_deactivation_request_id ?? undefined,
+    pendingDeactivationMakerActorId: item.pending_deactivation_maker_actor_id ?? undefined,
+    pendingDeactivationRequestedAt: item.pending_deactivation_requested_at ?? undefined,
   };
 }
 

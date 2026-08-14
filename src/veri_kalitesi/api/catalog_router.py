@@ -6,6 +6,7 @@ from typing import Any, Protocol
 
 from fastapi import FastAPI, Request, Response
 
+from veri_kalitesi.api.models import ScoreItemResponse, ScoreListResponse
 from veri_kalitesi.api.models_catalog import (
     CatalogDatasetDetailResponse,
     CatalogDatasetListResponse,
@@ -13,6 +14,7 @@ from veri_kalitesi.api.models_catalog import (
     CatalogFieldDetailResponse,
     CatalogFieldListResponse,
     CatalogFieldResponse,
+    DatasetUpdateRequest,
     DiffApplicationRequest,
     DiffApplicationResponse,
     DiscoveryDiffResponse,
@@ -21,11 +23,16 @@ from veri_kalitesi.api.models_catalog import (
     DiscoveryScopeRequest,
     DiscoveryScopeResponse,
     DiscoveryStatusResponse,
+    FieldUpdateRequest,
 )
 from veri_kalitesi.data_sources.query import (
     DataSourceQueryTechnicalError,
 )
 from veri_kalitesi.identity import ActorContext
+
+
+from veri_kalitesi.scoring.models import ScoreScopeType
+from veri_kalitesi.scoring.query import ScoreQueryService
 
 
 class MetadataCommandService(Protocol):
@@ -62,6 +69,26 @@ class MetadataCommandService(Protocol):
         metadata_diff_id: str,
         reason_code: str,
         expected_version: int,
+        correlation_id: str,
+    ) -> Any: ...
+
+    def update_dataset(
+        self,
+        *,
+        dataset_id: str,
+        updates: dict[str, Any],
+        expected_version: int,
+        actor_context: ActorContext,
+        correlation_id: str,
+    ) -> Any: ...
+
+    def update_field(
+        self,
+        *,
+        field_id: str,
+        updates: dict[str, Any],
+        expected_version: int,
+        actor_context: ActorContext,
         correlation_id: str,
     ) -> Any: ...
 
@@ -102,6 +129,7 @@ def register_catalog_routes(
     catalog_query_service: CatalogQueryService | None,
     resolver: _Resolver,
     data_origin: str,
+    score_query_service: ScoreQueryService | None = None,
 ) -> None:
     """Katalog ve metadata keşfi alanının route'larını FastAPI uygulamasına kaydeder."""
 
@@ -116,13 +144,19 @@ def register_catalog_routes(
         request: Request,
         response: Response,
     ) -> DiscoveryResponse:
-        if metadata_command_service is None:
+        if metadata_command_service is None or catalog_query_service is None:
             raise DataSourceQueryTechnicalError(
-                "Metadata command service is unavailable.",
+                "Metadata command service is not configured. "
+                "Ensure the application composition provides a PostgreSQLMetadataCommandService.",
                 request.state.correlation_id,
             )
         actor_context = getattr(request.state, "actor_context", None)
-        assert actor_context is not None
+        if actor_context is None:
+            raise DataSourceQueryTechnicalError(
+                "Actor context is missing from the request state. "
+                "A trusted development or production session is required.",
+                request.state.correlation_id,
+            )
         result = metadata_command_service.request_discovery(
             actor_context=actor_context,
             data_source_id=data_source_id,
@@ -149,13 +183,17 @@ def register_catalog_routes(
         request: Request,
         response: Response,
     ) -> DiscoveryScopeResponse:
-        if metadata_command_service is None:
+        if metadata_command_service is None or catalog_query_service is None:
             raise DataSourceQueryTechnicalError(
-                "Metadata command service is unavailable.",
+                "Metadata command service is not configured.",
                 request.state.correlation_id,
             )
         actor_context = getattr(request.state, "actor_context", None)
-        assert actor_context is not None
+        if actor_context is None:
+            raise DataSourceQueryTechnicalError(
+                "Actor context is missing from the request state.",
+                request.state.correlation_id,
+            )
         scope = metadata_command_service.update_discovery_scope(
             actor_context=actor_context,
             data_source_id=data_source_id,
@@ -315,11 +353,15 @@ def register_catalog_routes(
     ) -> DiffApplicationResponse:
         if metadata_command_service is None:
             raise DataSourceQueryTechnicalError(
-                "Metadata command service is unavailable.",
+                "Metadata command service is not configured.",
                 request.state.correlation_id,
             )
         actor_context = getattr(request.state, "actor_context", None)
-        assert actor_context is not None
+        if actor_context is None:
+            raise DataSourceQueryTechnicalError(
+                "Actor context is missing from the request state.",
+                request.state.correlation_id,
+            )
         result = metadata_command_service.apply_diff(
             actor_context=actor_context,
             metadata_diff_id=metadata_diff_id,
@@ -424,6 +466,36 @@ def register_catalog_routes(
         )
 
     @app.get(
+        "/api/v1/datasets/{dataset_id}/scores",
+        response_model=ScoreListResponse,
+        tags=["catalog"],
+    )
+    async def list_dataset_scores(
+        dataset_id: str,
+        request: Request,
+        response: Response,
+        limit: int = 200,
+    ) -> ScoreListResponse:
+        if score_query_service is None:
+            raise DataSourceQueryTechnicalError(
+                "Score query service is unavailable.",
+                request.state.correlation_id,
+            )
+        actor_context = resolver.resolve(request)
+        scores = score_query_service.list_scores(
+            actor_context,
+            scope_type=ScoreScopeType.DATASET,
+            scope_id=dataset_id,
+            limit=limit,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return ScoreListResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            items=tuple(ScoreItemResponse.from_domain(s) for s in scores),
+        )
+
+    @app.get(
         "/api/v1/datasets/{dataset_id}/fields",
         tags=["catalog"],
     )
@@ -501,6 +573,168 @@ def register_catalog_routes(
                 classification=view.field.classification.value,
                 status=view.field.status.value,
                 version=view.field.version,
+            ),
+            dataset_name=view.dataset.name,
+            data_source_name=view.data_source.name,
+        )
+
+    # ── PATCH endpoints (authorized editing) ──────────────────────────────
+
+    @app.patch(
+        "/api/v1/datasets/{dataset_id}",
+        tags=["catalog"],
+    )
+    async def update_catalog_dataset(
+        dataset_id: str,
+        payload: DatasetUpdateRequest,
+        request: Request,
+        response: Response,
+    ) -> CatalogDatasetDetailResponse:
+        """Dataset bilgilerini güncelle — yetkili kullanıcılar için."""
+        if metadata_command_service is None or catalog_query_service is None:
+            raise DataSourceQueryTechnicalError(
+                "Metadata command service is not configured.",
+                request.state.correlation_id,
+            )
+        actor_context = resolver.resolve(request)
+        permitted = (
+            frozenset()
+            if not actor_context.can_view_enterprise
+            else actor_context.permitted_source_ids
+        )
+        # Verify access
+        view = catalog_query_service.get_dataset_view(dataset_id, permitted_source_ids=permitted)
+        # Build update dict from non-None fields
+        updates: dict[str, Any] = {}
+        if payload.name is not None:
+            updates["name"] = payload.name
+        if payload.namespace is not None:
+            updates["namespace"] = payload.namespace
+        if payload.status is not None:
+            updates["status"] = payload.status
+        if not updates:
+            # No fields to update, return current state
+            response.headers["Cache-Control"] = "no-store"
+            return CatalogDatasetDetailResponse(
+                data_origin=data_origin,
+                correlation_id=request.state.correlation_id,
+                dataset=CatalogDatasetResponse(
+                    dataset_id=view.dataset.dataset_id,
+                    data_source_id=view.dataset.data_source_id,
+                    namespace=view.dataset.namespace,
+                    name=view.dataset.name,
+                    dataset_type=view.dataset.dataset_type.value,
+                    status=view.dataset.status.value,
+                    estimated_row_count=view.dataset.estimated_row_count,
+                    field_count=view.field_count,
+                    version=view.dataset.version,
+                ),
+                data_source_name=view.data_source.name,
+            )
+        # Perform update via repository
+        updated_dataset = metadata_command_service.update_dataset(
+            dataset_id=dataset_id,
+            updates=updates,
+            expected_version=payload.expected_version or view.dataset.version,
+            actor_context=actor_context,
+            correlation_id=request.state.correlation_id,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return CatalogDatasetDetailResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            dataset=CatalogDatasetResponse(
+                dataset_id=updated_dataset.dataset_id,
+                data_source_id=updated_dataset.data_source_id,
+                namespace=updated_dataset.namespace,
+                name=updated_dataset.name,
+                dataset_type=updated_dataset.dataset_type.value,
+                status=updated_dataset.status.value,
+                estimated_row_count=updated_dataset.estimated_row_count,
+                field_count=view.field_count,
+                version=updated_dataset.version,
+            ),
+            data_source_name=view.data_source.name,
+        )
+
+    @app.patch(
+        "/api/v1/fields/{field_id}",
+        tags=["catalog"],
+    )
+    async def update_catalog_field(
+        field_id: str,
+        payload: FieldUpdateRequest,
+        request: Request,
+        response: Response,
+    ) -> CatalogFieldDetailResponse:
+        """Field bilgilerini güncelle — yetkili kullanıcılar için."""
+        if metadata_command_service is None or catalog_query_service is None:
+            raise DataSourceQueryTechnicalError(
+                "Metadata command service is not configured.",
+                request.state.correlation_id,
+            )
+        actor_context = resolver.resolve(request)
+        permitted = (
+            frozenset()
+            if not actor_context.can_view_enterprise
+            else actor_context.permitted_source_ids
+        )
+        # Verify access
+        view = catalog_query_service.get_field_view(field_id, permitted_source_ids=permitted)
+        # Build update dict from non-None fields
+        updates: dict[str, Any] = {}
+        if payload.native_data_type is not None:
+            updates["native_data_type"] = payload.native_data_type
+        if payload.is_nullable is not None:
+            updates["is_nullable"] = payload.is_nullable
+        if payload.is_sensitive is not None:
+            updates["is_sensitive"] = payload.is_sensitive
+        if payload.classification is not None:
+            updates["classification"] = payload.classification
+        if payload.status is not None:
+            updates["status"] = payload.status
+        if not updates:
+            # No fields to update, return current state
+            response.headers["Cache-Control"] = "no-store"
+            return CatalogFieldDetailResponse(
+                data_origin=data_origin,
+                correlation_id=request.state.correlation_id,
+                field=CatalogFieldResponse(
+                    data_field_id=view.field.data_field_id,
+                    dataset_id=view.field.dataset_id,
+                    name=view.field.name,
+                    native_data_type=view.field.native_data_type,
+                    is_nullable=view.field.is_nullable,
+                    is_sensitive=view.field.is_sensitive,
+                    classification=view.field.classification.value,
+                    status=view.field.status.value,
+                    version=view.field.version,
+                ),
+                dataset_name=view.dataset.name,
+                data_source_name=view.data_source.name,
+            )
+        # Perform update via repository
+        updated_field = metadata_command_service.update_field(
+            field_id=field_id,
+            updates=updates,
+            expected_version=payload.expected_version or view.field.version,
+            actor_context=actor_context,
+            correlation_id=request.state.correlation_id,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return CatalogFieldDetailResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            field=CatalogFieldResponse(
+                data_field_id=updated_field.data_field_id,
+                dataset_id=updated_field.dataset_id,
+                name=updated_field.name,
+                native_data_type=updated_field.native_data_type,
+                is_nullable=updated_field.is_nullable,
+                is_sensitive=updated_field.is_sensitive,
+                classification=updated_field.classification.value,
+                status=updated_field.status.value,
+                version=updated_field.version,
             ),
             dataset_name=view.dataset.name,
             data_source_name=view.data_source.name,

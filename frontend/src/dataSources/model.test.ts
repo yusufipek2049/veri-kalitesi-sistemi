@@ -18,6 +18,9 @@ describe("veri kaynakları görünüm modeli", () => {
         pending_activation_maker_actor_id: "maker-a",
         pending_activation_requested_at: "2026-08-05T08:00:00Z",
         pending_activation_expires_at: null,
+        pending_deactivation_request_id: null,
+        pending_deactivation_maker_actor_id: null,
+        pending_deactivation_requested_at: null,
       }],
     });
 

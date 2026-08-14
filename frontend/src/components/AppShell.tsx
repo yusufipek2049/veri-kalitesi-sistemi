@@ -1,14 +1,30 @@
 import type { ReactNode } from "react";
-import { Box, Button, Chip, Divider, IconButton, Stack, Tooltip, Typography } from "@mui/material";
+import { useState } from "react";
+import {
+  Box,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Divider,
+  IconButton,
+  Stack,
+  Tooltip,
+  Typography,
+} from "@mui/material";
 import {
   AlertCircle,
   BarChart3,
   Bell,
   Database,
+  LayoutDashboard,
   Library,
   ListChecks,
   Moon,
   PlayCircle,
+  Power,
   ScrollText,
   Sun,
   type LucideIcon,
@@ -17,6 +33,7 @@ import { Link } from "react-router-dom";
 import { designTokens } from "../theme/tokens";
 import { useThemeMode } from "../theme/ThemeModeProvider";
 import { NotificationBell } from "./NotificationBell";
+import { useLauncherControl } from "../launcherControl";
 
 interface NavigationItem {
   label: string;
@@ -28,6 +45,7 @@ const navigationGroups: Array<{ label: string; items: NavigationItem[] }> = [
   {
     label: "ANALİZ",
     items: [
+      { label: "Genel Bakış", icon: LayoutDashboard, href: "/dashboard" },
       { label: "Veri Kaynakları", icon: Database, href: "/data-sources" },
       { label: "Katalog", icon: Library, href: "/catalog" },
       { label: "Kurallar", icon: ListChecks, href: "/rules" },
@@ -52,7 +70,36 @@ interface AppShellProps {
 
 export function AppShell({ children, currentPage = "Genel Bakış" }: AppShellProps) {
   const { mode, toggleMode } = useThemeMode();
+  const { available, cancelError, requestShutdown, status: shutdownStatus } = useLauncherControl();
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
   const themeActionLabel = mode === "light" ? "Koyu temaya geç" : "Açık temaya geç";
+  const shutdownPending = shutdownStatus === "requesting";
+
+  if (shutdownStatus === "closing" || shutdownStatus === "closed") {
+    return (
+      <Box
+        aria-live="polite"
+        sx={{
+          alignItems: "center",
+          bgcolor: "background.default",
+          display: "flex",
+          justifyContent: "center",
+          minHeight: "100vh",
+          p: 6,
+          textAlign: "center",
+        }}
+      >
+        <Box>
+          <Power aria-hidden="true" color={designTokens.color.nav.background} size={32} />
+          <Typography component="h1" sx={{ fontWeight: 800, mt: 3 }} variant="h5">
+            {shutdownStatus === "closing"
+              ? "Uygulama kapatılıyor…"
+              : "Uygulama kapatıldı. Bu sekmeyi kapatabilirsiniz."}
+          </Typography>
+        </Box>
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -188,6 +235,27 @@ export function AppShell({ children, currentPage = "Genel Bakış" }: AppShellPr
         >
           <Typography color="text.secondary" variant="body2">Veri Kalitesi / <strong>{currentPage}</strong></Typography>
           <Stack direction="row" sx={{ alignItems: "center", gap: 2 }}>
+            <Tooltip
+              title={available ? "Uygulama servislerini güvenli biçimde durdur" : "Yalnız masaüstü başlatıcısıyla açıldığında kullanılabilir."}
+            >
+              <span>
+                <Button
+                  disabled={!available || shutdownPending}
+                  onClick={() => setConfirmationOpen(true)}
+                  size="small"
+                  startIcon={<Power aria-hidden="true" size={designTokens.layout.navIconSize} />}
+                  sx={{
+                    "&.Mui-focusVisible": {
+                      outline: `2px solid ${designTokens.color.brand.primary}`,
+                      outlineOffset: 2,
+                    },
+                  }}
+                  variant="outlined"
+                >
+                  Kapat
+                </Button>
+              </span>
+            </Tooltip>
             <NotificationBell />
             <Tooltip title={themeActionLabel}>
               <IconButton aria-label={themeActionLabel} color="inherit" onClick={toggleMode} size="small">
@@ -198,6 +266,58 @@ export function AppShell({ children, currentPage = "Genel Bakış" }: AppShellPr
         </Box>
         <Box component="main" sx={{ minWidth: 0 }}>{children}</Box>
       </Box>
+
+      <Dialog
+        aria-describedby="launcher-shutdown-description"
+        aria-labelledby="launcher-shutdown-title"
+        fullWidth
+        maxWidth="xs"
+        onClose={() => setConfirmationOpen(false)}
+        open={confirmationOpen}
+      >
+        <DialogTitle id="launcher-shutdown-title">Veri Kalitesi Sistemi kapatılsın mı?</DialogTitle>
+        <DialogContent>
+          <DialogContentText id="launcher-shutdown-description">
+            Uygulama servisleri durdurulacak. Veritabanı verileri silinmeyecektir.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmationOpen(false)}>Vazgeç</Button>
+          <Button
+            autoFocus
+            disabled={shutdownPending}
+            onClick={() => {
+              setConfirmationOpen(false);
+              void requestShutdown();
+            }}
+            variant="contained"
+          >
+            Uygulamayı kapat
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        aria-describedby="launcher-shutdown-error-description"
+        aria-labelledby="launcher-shutdown-error-title"
+        fullWidth
+        maxWidth="xs"
+        onClose={cancelError}
+        open={shutdownStatus === "error"}
+      >
+        <DialogTitle id="launcher-shutdown-error-title" sx={{ color: designTokens.color.status.technical }}>
+          Teknik hata
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="launcher-shutdown-error-description">
+            Uygulama servislerinin durdurulması başlatılamadı. Servisler çalışıyor olabilir.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={cancelError}>Vazgeç</Button>
+          <Button onClick={() => void requestShutdown()} variant="contained">Tekrar dene</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

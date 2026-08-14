@@ -175,6 +175,8 @@ class BackgroundJob:
     progress_percent: int = 0
     blocked_reason_code: str | None = None
     blocked_until: datetime | None = None
+    block_count: int = 0
+    max_blocks: int = 10
 
     def __post_init__(self) -> None:
         _validate_identifier("job_type", self.job_type)

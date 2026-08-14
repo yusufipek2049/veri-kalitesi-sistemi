@@ -27,6 +27,7 @@ export interface RuleListItem {
   availableActions: RuleAction[];
   version: number;
   pendingApprovalRequestId?: string;
+  fieldIds?: string[];
 }
 
 export interface RuleListApiResponse {
@@ -51,6 +52,14 @@ export interface RuleListApiResponse {
     available_actions: RuleAction[];
     pending_approval_request_id?: string;
   }>;
+}
+
+export interface RuleDetailApiResponse {
+  api_version: "v1";
+  data_origin: string;
+  correlation_id: string;
+  item: RuleListApiResponse["items"][number];
+  definition: Record<string, unknown>;
 }
 
 export const syntheticRules: RuleListItem[] = [

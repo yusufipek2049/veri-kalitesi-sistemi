@@ -41,6 +41,22 @@ from veri_kalitesi.synthetic_data.oracle import (
     GOLDEN_VALIDATION_CLASS,
     GoldenStructuralOracle,
 )
+from veri_kalitesi.synthetic_data.profile_schema import (
+    DEFAULT_SUPPRESSION_THRESHOLD,
+    PROFILE_SCHEMA_VERSION,
+    ColumnProfile,
+    DecileValues,
+    LatencyDistribution,
+    LengthBucket,
+    ShareBucket,
+    SyntheticProfileArtifact,
+    SystemWideProfile,
+    TableProfile,
+    VolumePoint,
+    artifact_to_dict,
+    load_profile,
+    validate_profile,
+)
 from veri_kalitesi.synthetic_data.repository import SQLiteSyntheticDataRepository
 from veri_kalitesi.synthetic_data.service import SyntheticGenerationRegistryService
 from veri_kalitesi.synthetic_data.temporal import (
@@ -52,6 +68,7 @@ from veri_kalitesi.synthetic_data.temporal import (
 )
 
 __all__ = [
+    "DEFAULT_SUPPRESSION_THRESHOLD",
     "FULLY_ARTIFICIAL_PRIVACY_PROFILE",
     "GOLDEN_CONFIGURATION_VERSION",
     "GOLDEN_GENERATOR_VERSION",
@@ -72,6 +89,13 @@ __all__ = [
     "SyntheticDataTechnicalError",
     "SyntheticDataValidationError",
     "SyntheticDatasetPolicy",
+    "SyntheticProfileArtifact",
+    "SystemWideProfile",
+    "TableProfile",
+    "VolumePoint",
+    "artifact_to_dict",
+    "load_profile",
+    "validate_profile",
     "SyntheticGenerationRegistryService",
     "SyntheticGenerationRun",
     "SyntheticGroundTruth",
@@ -92,4 +116,10 @@ __all__ = [
     "TemporalSemanticValidator",
     "TemporalSyntheticDataset",
     "TemporalValidation",
+    "PROFILE_SCHEMA_VERSION",
+    "ColumnProfile",
+    "DecileValues",
+    "LatencyDistribution",
+    "LengthBucket",
+    "ShareBucket",
 ]

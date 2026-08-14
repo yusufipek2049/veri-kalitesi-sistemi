@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from datetime import datetime, timezone
-from typing import Protocol
+from typing import Any, Protocol
 from uuid import uuid4
 
 from fastapi import FastAPI, Request
@@ -54,6 +54,7 @@ from veri_kalitesi.api.executions_router import (
     register_executions_routes,
 )
 from veri_kalitesi.api.scores_router import register_scores_routes
+from veri_kalitesi.api.dashboard_router import register_dashboard_routes
 from veri_kalitesi.api.audit_router import register_audit_routes
 from veri_kalitesi.api.notifications_router import register_notifications_routes
 from veri_kalitesi.audit.service import AuditQueryService
@@ -63,10 +64,75 @@ from veri_kalitesi.identity import ActorContext
 from veri_kalitesi.issues import IssueInvestigationEvidenceService, IssueQueryService
 from veri_kalitesi.rules import RuleQueryService
 from veri_kalitesi.scoring.query import ScoreQueryService
+from veri_kalitesi.dashboard.service import DashboardQueryService
+
+CORS_ALLOWED_METHODS = ("GET", "POST", "PATCH", "PUT")
 
 
 class StateChangeBoundary(Protocol):
     def protect_state_changing(self, request: Request) -> ActorContext | None: ...
+
+
+class CatalogDatasetResolver:
+    """CatalogReader'yi DatasetResolver protokolune uyarlayan adapter.
+
+    CatalogReader'dan get_data_source ve list_datasets cagirilarak
+    execution source_ids'inin dataset/kaynak isimlerine cozumlenmesini saglar.
+    """
+
+    def __init__(self, reader: Any) -> None:
+        self._reader = reader
+
+    def get_data_source_name(self, data_source_id: str) -> str | None:
+        try:
+            source = self._reader.get_data_source(data_source_id)
+            return str(source.name)
+        except Exception:
+            return None
+
+    def list_datasets_for_source(self, data_source_id: str) -> list[dict[str, str]]:
+        try:
+            datasets = self._reader.list_datasets(data_source_id)
+            return [
+                {
+                    "dataset_id": ds.dataset_id,
+                    "name": ds.name,
+                    "namespace": ds.namespace,
+                }
+                for ds in datasets
+            ]
+        except Exception:
+            return []
+
+
+class JobQueueInfoResolver:
+    """Job queue repository'yi JobInfoResolver protokolune uyarlayan adapter.
+
+    execution_id = job_id iliskisi uzerinden job detaylarini getirir.
+    """
+
+    def __init__(self, repository: Any) -> None:
+        self._repository = repository
+
+    def get_job_info(self, job_id: str) -> dict | None:
+        try:
+            job = self._repository.get_by_id(job_id)
+        except Exception:
+            return None
+        if job is None:
+            return None
+        return {
+            "job_id": job.job_id,
+            "status": job.status.value,
+            "worker_id": job.claimed_by,
+            "leased_until": job.lease_expires_at,
+            "attempt_count": job.attempt_count,
+            "last_error_class": job.last_error_class,
+            "completed_at": job.completed_at,
+            "completion_outcome": (
+                job.completion_outcome.value if job.completion_outcome else None
+            ),
+        }
 
 
 def create_dashboard_api(
@@ -97,6 +163,8 @@ def create_dashboard_api(
     metadata_command_service: MetadataCommandService | None = None,
     catalog_query_service: CatalogService | None = None,
     score_query_service: ScoreQueryService | None = None,
+    dashboard_query_service: DashboardQueryService | None = None,
+    job_queue_repository: object | None = None,
     notification_query_service: object | None = None,
     notification_delivery_service: object | None = None,
     clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
@@ -119,7 +187,7 @@ def create_dashboard_api(
         CORSMiddleware,
         allow_origins=list(allowed_origins),
         allow_credentials=True,
-        allow_methods=["GET", "POST"],
+        allow_methods=CORS_ALLOWED_METHODS,
         allow_headers=["Accept", "Content-Type", CSRF_HEADER_NAME],
         expose_headers=["X-Correlation-ID", CSRF_HEADER_NAME],
     )
@@ -170,6 +238,10 @@ def create_dashboard_api(
                     correlation_id=request.state.correlation_id,
                 )
         response = await call_next(request)
+        if request.method.upper() in {"GET", "HEAD"} and isinstance(
+            resolver, DevelopmentActorContextResolver
+        ):
+            response.headers[CSRF_HEADER_NAME] = resolver.request_proof
         response.headers["X-Correlation-ID"] = request.state.correlation_id
         return response
 
@@ -182,6 +254,9 @@ def create_dashboard_api(
         rule_mutation_service=rule_mutation_service,
         resolver=resolver,
         data_origin=data_origin,
+    )
+    _catalog_reader = (
+        getattr(catalog_query_service, "reader", None) if catalog_query_service else None
     )
     register_issues_routes(
         app,
@@ -196,18 +271,34 @@ def create_dashboard_api(
         issue_creation_service=issue_creation_service,
         resolver=resolver,
         data_origin=data_origin,
+        catalog_reader=_catalog_reader,
     )
     register_executions_routes(
         app,
         execution_query_service=execution_query_service,
         execution_start_service=execution_start_service,
         execution_cancel_service=execution_cancel_service,
+        rule_version_catalog=rule_query_service,
+        dataset_resolver=(
+            CatalogDatasetResolver(_catalog_reader) if _catalog_reader is not None else None
+        ),
+        job_info_resolver=(
+            JobQueueInfoResolver(job_queue_repository) if job_queue_repository is not None else None
+        ),
         resolver=resolver,
         data_origin=data_origin,
     )
     register_scores_routes(
         app,
         score_query_service=score_query_service,
+        resolver=resolver,
+        data_origin=data_origin,
+        catalog_reader=_catalog_reader,
+        rule_version_reader=rule_query_service,
+    )
+    register_dashboard_routes(
+        app,
+        dashboard_query_service=dashboard_query_service,
         resolver=resolver,
         data_origin=data_origin,
     )
@@ -264,6 +355,7 @@ def create_dashboard_api(
         catalog_query_service=catalog_query_service,
         resolver=resolver,
         data_origin=data_origin,
+        score_query_service=score_query_service,
     )
 
     return app

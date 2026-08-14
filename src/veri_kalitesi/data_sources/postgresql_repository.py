@@ -365,6 +365,7 @@ def data_source_tables(schema: str = DEFAULT_SCHEMA_NAME) -> DataSourceTables:
         Column("expires_at", DateTime(timezone=True)),
         Column("business_calendar_version", String(40)),
         Column("decided_at", DateTime(timezone=True)),
+        Column("request_type", String(20), nullable=False, server_default="ACTIVATION"),
         CheckConstraint(
             "status IN ('PENDING', 'APPROVED', 'REJECTED', 'WITHDRAWN', 'EXPIRED', 'INVALIDATED')",
             name="ck_ds_activation_status",
@@ -730,6 +731,64 @@ class PostgreSQLDataSourceRepository:
             )
         if row is None:
             raise NotFoundError("DataField not found.")
+        return _row_to_data_field(row)
+
+    def update_dataset(
+        self,
+        *,
+        dataset_id: str,
+        updates: dict[str, Any],
+        expected_version: int,
+    ) -> Dataset:
+        if not updates:
+            return self.get_dataset(dataset_id)
+        with transactional_session(self.session_factory) as session:
+            t = self._s(session)
+            stmt = (
+                update(t.datasets)
+                .where(
+                    and_(
+                        t.datasets.c.dataset_id == dataset_id,
+                        t.datasets.c.version == expected_version,
+                    )
+                )
+                .values(**updates, version=expected_version + 1, updated_at=func.now())
+                .returning(t.datasets)
+            )
+            row = session.execute(stmt).mappings().one_or_none()
+            if row is None:
+                raise ConflictError(
+                    f"Dataset not found or version mismatch (expected {expected_version})."
+                )
+        return _row_to_dataset(row)
+
+    def update_field(
+        self,
+        *,
+        field_id: str,
+        updates: dict[str, Any],
+        expected_version: int,
+    ) -> DataField:
+        if not updates:
+            return self.get_data_field(field_id)
+        with transactional_session(self.session_factory) as session:
+            t = self._s(session)
+            stmt = (
+                update(t.fields)
+                .where(
+                    and_(
+                        t.fields.c.data_field_id == field_id,
+                        t.fields.c.version == expected_version,
+                    )
+                )
+                .values(**updates, version=expected_version + 1, updated_at=func.now())
+                .returning(t.fields)
+            )
+            row = session.execute(stmt).mappings().one_or_none()
+            if row is None:
+                raise ConflictError(
+                    f"DataField not found or version mismatch (expected {expected_version})."
+                )
         return _row_to_data_field(row)
 
     def list_metadata_snapshot(
@@ -1163,6 +1222,7 @@ class PostgreSQLDataSourceRepository:
                         expires_at=request.expires_at,
                         business_calendar_version=request.business_calendar_version,
                         decided_at=request.decided_at,
+                        request_type=request.request_type,
                     )
                 )
                 audit_outbox.stage(audit_event, session=session)
@@ -1292,6 +1352,126 @@ class PostgreSQLDataSourceRepository:
         return self._finish_activation_request(
             request, audit_event=audit_event, audit_outbox=audit_outbox
         )
+
+    def latest_pending_deactivation_request(
+        self,
+        data_source_id: str,
+    ) -> DataSourceActivationRequest | None:
+        with transactional_session(self.session_factory) as session:
+            t = self._s(session)
+            row = (
+                session.execute(
+                    select(t.activation_requests)
+                    .where(
+                        and_(
+                            t.activation_requests.c.data_source_id == data_source_id,
+                            t.activation_requests.c.status
+                            == DataSourceActivationStatus.PENDING.value,
+                            t.activation_requests.c.request_type == "DEACTIVATION",
+                        )
+                    )
+                    .order_by(t.activation_requests.c.requested_at.desc())
+                    .limit(1)
+                )
+                .mappings()
+                .one_or_none()
+            )
+        return _row_to_activation_request(row) if row is not None else None
+
+    def add_deactivation_request(
+        self,
+        request: DataSourceActivationRequest,
+        *,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: PostgreSQLTransactionalAudit,
+    ) -> DataSourceActivationRequest:
+        with transactional_session(self.session_factory) as session:
+            t = self._s(session)
+            try:
+                session.execute(
+                    insert(t.activation_requests).values(
+                        activation_request_id=request.activation_request_id,
+                        data_source_id=request.data_source_id,
+                        data_source_revision=request.data_source_revision,
+                        maker_actor_id=request.maker_actor_id,
+                        checker_actor_id=request.checker_actor_id,
+                        policy_version=request.policy_version,
+                        status=request.status.value,
+                        decision_reason_code=request.decision_reason_code,
+                        requested_at=request.requested_at,
+                        target_at=request.target_at,
+                        expires_at=request.expires_at,
+                        business_calendar_version=request.business_calendar_version,
+                        decided_at=request.decided_at,
+                        request_type="DEACTIVATION",
+                    )
+                )
+                audit_outbox.stage(audit_event, session=session)
+            except IntegrityError as exc:
+                if _constraint_name(exc) == "uq_activation_requests_pending_source_revision":
+                    raise ConflictError(
+                        "A pending deactivation request already exists "
+                        "for this data source revision.",
+                        code="DATA_SOURCE_PENDING_DEACTIVATION_EXISTS",
+                    ) from exc
+                raise
+        return self.get_activation_request(request.activation_request_id)
+
+    def decide_deactivation_request(
+        self,
+        request: DataSourceActivationRequest,
+        *,
+        deactivate_source: bool,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: PostgreSQLTransactionalAudit,
+    ) -> DataSourceActivationRequest:
+        if request.status not in {
+            DataSourceActivationStatus.APPROVED,
+            DataSourceActivationStatus.REJECTED,
+        }:
+            raise ValidationError("Data source deactivation decision status is invalid.")
+        with transactional_session(self.session_factory) as session:
+            t = self._s(session)
+            update_result = session.execute(
+                update(t.activation_requests)
+                .where(
+                    and_(
+                        t.activation_requests.c.activation_request_id
+                        == request.activation_request_id,
+                        t.activation_requests.c.status == DataSourceActivationStatus.PENDING.value,
+                    )
+                )
+                .values(
+                    checker_actor_id=request.checker_actor_id,
+                    status=request.status.value,
+                    decision_reason_code=request.decision_reason_code,
+                    decided_at=request.decided_at,
+                )
+            )
+            if update_result.rowcount != 1:  # type: ignore[attr-defined]
+                raise ConflictError(
+                    "Data source deactivation request is not pending.",
+                    code="DATA_SOURCE_DECISION_CONFLICT",
+                )
+            if deactivate_source:
+                source_update = session.execute(
+                    update(t.sources)
+                    .where(
+                        and_(
+                            t.sources.c.data_source_id == request.data_source_id,
+                            t.sources.c.revision == request.data_source_revision,
+                            t.sources.c.status == DataSourceStatus.ACTIVE.value,
+                        )
+                    )
+                    .values(status=DataSourceStatus.INACTIVE.value)
+                )
+                if source_update.rowcount != 1:  # type: ignore[attr-defined]
+                    raise ConflictError(
+                        "Data source revision is no longer eligible for deactivation.",
+                        code="DATA_SOURCE_REVISION_CONFLICT",
+                    )
+            audit_outbox.stage(audit_event, session=session)
+        return self.get_activation_request(request.activation_request_id)
 
     def replace_metadata(
         self,
@@ -1976,6 +2156,7 @@ def _row_to_activation_request(row: RowMapping) -> DataSourceActivationRequest:
         expires_at=row["expires_at"],
         business_calendar_version=row["business_calendar_version"],
         decided_at=row["decided_at"],
+        request_type=row.get("request_type") or "ACTIVATION",
     )
 
 

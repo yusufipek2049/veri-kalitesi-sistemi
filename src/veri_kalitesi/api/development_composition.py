@@ -1,6 +1,12 @@
-"""Geliştirme ortamı API bileşim kökü.
+"""Geliştirme ortamı API bileşim kökü — DEPRECATED.
 
-Bu modül sentetik skor ve seed verilerle yerel gösterim uygulaması üretir.
+.. deprecated::
+    Bu modül sentetik skor ve seed verilerle yerel gösterim uygulaması üretir.
+    Gerçek runtime ``development_runtime.py`` modülüdür (68 rota, PostgreSQL).
+    Bu modül yalnızca 58 rota kaydeder ve /api/v1/notifications/* ile
+    catalog/score servislerini HİÇ geçirmiyor. Yeni kod bu modülü
+    kullanmamalıdır; testlerin ``development_runtime`` kullanması gerekir.
+
 Üretimde kullanılmaz.
 """
 
@@ -25,6 +31,7 @@ from veri_kalitesi.api.development_execution_store import (
 from veri_kalitesi.api.development_fixtures import (
     DEVELOPMENT_RULES,
     DEVELOPMENT_SOURCES,
+    DEVELOPMENT_TREND_POLICY,
     POLICY_VERSION,
 )
 from veri_kalitesi.api.development_issue_store import DevelopmentIssueStore
@@ -83,6 +90,7 @@ from veri_kalitesi.scoring.models import (
     ScoreStatus,
 )
 from veri_kalitesi.scoring.repository import SQLiteScoreRepository
+from veri_kalitesi.dashboard.service import DashboardQueryService
 
 DEVELOPMENT_USER_REGISTRY = DevelopmentUserRegistry(build_default_development_users())
 
@@ -381,6 +389,12 @@ def create_development_app(  # type: ignore[no-untyped-def]
                 context_policy_version=POLICY_VERSION,
             ),
             clock=lambda: datetime.now(timezone.utc),
+        ),
+        dashboard_query_service=DashboardQueryService(
+            score_reader=repository,
+            authorization_service=authorization,
+            clock=lambda: datetime.now(timezone.utc),
+            trend_policy=DEVELOPMENT_TREND_POLICY,
         ),
         clock=lambda: datetime.now(timezone.utc),
     )

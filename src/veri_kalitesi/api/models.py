@@ -1,11 +1,12 @@
 """Dashboard HTTP yant modelleri."""
 
 from datetime import datetime
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from veri_kalitesi.audit.models import AuditEvent, AuditQueryPage
+from veri_kalitesi.audit.models import AuditEvent, AuditQueryPage, AuditSummary
 from veri_kalitesi.executions.models import RuleExecution
 from veri_kalitesi.issues.models import DataQualityIssue, IssuePriority
 from veri_kalitesi.rules.models import QualityRule, RuleTestResult, RuleVersion
@@ -67,6 +68,18 @@ class RuleListResponse(BaseModel):
     data_origin: str
     correlation_id: str
     items: tuple[RuleListItemResponse, ...]
+
+
+class RuleDetailResponse(BaseModel):
+    """Tek kural detay modeli — tanim (SQL dahil) icerir."""
+
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    item: RuleListItemResponse
+    definition: dict[str, Any] = {}
 
 
 class RuleCreateRequest(BaseModel):
@@ -196,6 +209,18 @@ class RulePassivationRequest(BaseModel):
     quality_rule_id: str = Field(min_length=1)
 
 
+class ExecutionDatasetRef(BaseModel):
+    """Calistirma kapsamindaki cozumlenmis dataset/kaynak referansi."""
+
+    model_config = ConfigDict(frozen=True)
+
+    dataset_id: str
+    name: str
+    namespace: str
+    source_id: str
+    source_name: str
+
+
 class ExecutionListItemResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -211,12 +236,20 @@ class ExecutionListItemResponse(BaseModel):
     progress_percent: int = 0
     blocked_reason_code: str | None = None
     available_actions: list[str] = []
+    datasets: tuple[ExecutionDatasetRef, ...] = ()
+    schedule_id: str | None = None
     created_at: datetime
     started_at: datetime | None
     finished_at: datetime | None
 
     @classmethod
-    def from_domain(cls, execution: RuleExecution) -> "ExecutionListItemResponse":
+    def from_domain(
+        cls,
+        execution: RuleExecution,
+        *,
+        datasets: tuple[ExecutionDatasetRef, ...] | list[ExecutionDatasetRef] = (),
+        schedule_id: str | None = None,
+    ) -> "ExecutionListItemResponse":
         status_value = execution.status.value
         if status_value in {"SUCCESS", "PARTIAL"}:
             progress_percent = 100
@@ -243,6 +276,8 @@ class ExecutionListItemResponse(BaseModel):
             progress_percent=progress_percent,
             blocked_reason_code=None,
             available_actions=available_actions,
+            datasets=tuple(datasets),
+            schedule_id=schedule_id,
             created_at=execution.created_at,
             started_at=execution.started_at,
             finished_at=execution.finished_at,
@@ -264,14 +299,19 @@ class IssueListItemResponse(BaseModel):
 
     issue_id: str
     issue_no: str
+    title: str = ""
     source_event_type: str
     trigger_type: str
     scope_type: str
     scope_id: str
+    scope_display_name: str | None = None
+    scope_parent_name: str | None = None
     status: str
     priority: str
     occurrence_count: int
     version: int
+    source_execution_id: str | None = None
+    source_rule_version_id: str | None = None
     available_actions: tuple[str, ...] = ()
     created_at: datetime
     updated_at: datetime
@@ -287,6 +327,7 @@ class IssueListItemResponse(BaseModel):
         return cls(
             issue_id=issue.issue_id,
             issue_no=issue.issue_no,
+            title=issue.title,
             source_event_type=issue.source_event_type.value,
             trigger_type=issue.trigger_type.value,
             scope_type=issue.scope_type.value,
@@ -295,10 +336,26 @@ class IssueListItemResponse(BaseModel):
             priority=issue.priority.value,
             occurrence_count=issue.occurrence_count,
             version=issue.version,
+            source_execution_id=issue.source_execution_id,
+            source_rule_version_id=issue.source_rule_version_id,
             available_actions=available_actions,
             created_at=issue.created_at,
             updated_at=issue.updated_at,
             last_seen_at=issue.last_seen_at,
+        )
+
+    def with_scope_display(
+        self,
+        *,
+        scope_display_name: str | None,
+        scope_parent_name: str | None,
+    ) -> "IssueListItemResponse":
+        """Return a copy with resolved scope display names."""
+        return self.model_copy(
+            update={
+                "scope_display_name": scope_display_name,
+                "scope_parent_name": scope_parent_name,
+            }
         )
 
 
@@ -387,6 +444,11 @@ class AuditEventListItemResponse(BaseModel):
     result: str
     reason_code: str
     redacted_field_count: int
+    old_value_summary: dict[str, Any] | None = None
+    new_value_summary: dict[str, Any] | None = None
+    redacted_fields: tuple[str, ...] = ()
+    event_hash: str = ""
+    previous_event_hash: str = ""
 
     @classmethod
     def from_domain(cls, event: AuditEvent) -> "AuditEventListItemResponse":
@@ -403,6 +465,11 @@ class AuditEventListItemResponse(BaseModel):
             result=event.result.value,
             reason_code=event.reason_code,
             redacted_field_count=len(event.redacted_fields),
+            old_value_summary=dict(event.old_value_summary) if event.old_value_summary else None,
+            new_value_summary=dict(event.new_value_summary) if event.new_value_summary else None,
+            redacted_fields=tuple(event.redacted_fields),
+            event_hash=event.event_hash,
+            previous_event_hash=event.previous_event_hash,
         )
 
 
@@ -416,6 +483,7 @@ class AuditEventListResponse(BaseModel):
     period_end: datetime
     integrity_valid: bool
     integrity_checked_count: int
+    first_invalid_event_id: str | None = None
     next_after_sequence_no: int | None
     through_sequence_no: int
     page_size: int
@@ -440,11 +508,42 @@ class AuditEventListResponse(BaseModel):
             period_end=period_end,
             integrity_valid=page.integrity.valid,
             integrity_checked_count=page.integrity.checked_count,
+            first_invalid_event_id=page.integrity.first_invalid_event_id,
             next_after_sequence_no=page.next_after_sequence_no,
             through_sequence_no=page.through_sequence_no,
             page_size=page_size,
             policy_version=page.policy_version,
             items=tuple(AuditEventListItemResponse.from_domain(event) for event in page.events),
+        )
+
+
+class AuditEventGroupedResponse(AuditEventListResponse):
+    """Correlation kimliğine göre gruplanmış audit olayları yanıtı."""
+
+    grouped_by: Literal["correlation_id"] = "correlation_id"
+
+
+class AuditSummaryResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    total_count: int
+    result_distribution: dict[str, int]
+    action_distribution: dict[str, int]
+    top_actors: list[dict[str, int | str]]
+    period_start: datetime
+    period_end: datetime
+
+    @classmethod
+    def from_domain(cls, summary: AuditSummary) -> "AuditSummaryResponse":
+        return cls(
+            total_count=summary.total_count,
+            result_distribution=dict(summary.result_distribution),
+            action_distribution=dict(summary.action_distribution),
+            top_actors=[
+                {"actor_id": actor.actor_id, "count": actor.count} for actor in summary.top_actors
+            ],
+            period_start=summary.period_start,
+            period_end=summary.period_end,
         )
 
 
@@ -574,6 +673,22 @@ class IssueCreateRequest(BaseModel):
     idempotency_key: str = Field(min_length=1)
 
 
+class JobInfoRef(BaseModel):
+    """Job kuyruğu lifecycle bilgisi (execution_id = job_id)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    job_id: str
+    status: str
+    queue_position: int | None = None
+    worker_id: str | None = None
+    leased_until: datetime | None = None
+    attempt_count: int = 0
+    last_error_class: str | None = None
+    completed_at: datetime | None = None
+    completion_outcome: str | None = None
+
+
 class ExecutionDetailResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -582,6 +697,8 @@ class ExecutionDetailResponse(BaseModel):
     correlation_id: str
     execution: ExecutionListItemResponse
     rule_results: tuple[dict, ...] = ()
+    rule_definitions: tuple[dict, ...] = ()
+    job_info: JobInfoRef | None = None
 
     @classmethod
     def from_domain(
@@ -591,11 +708,17 @@ class ExecutionDetailResponse(BaseModel):
         *,
         data_origin: str,
         correlation_id: str,
+        rule_definitions: list | tuple = (),
+        datasets: tuple[ExecutionDatasetRef, ...] | list[ExecutionDatasetRef] = (),
+        schedule_id: str | None = None,
+        job_info: JobInfoRef | None = None,
     ) -> "ExecutionDetailResponse":
         return cls(
             data_origin=data_origin,
             correlation_id=correlation_id,
-            execution=ExecutionListItemResponse.from_domain(execution),
+            execution=ExecutionListItemResponse.from_domain(
+                execution, datasets=datasets, schedule_id=schedule_id
+            ),
             rule_results=tuple(
                 {
                     "rule_version_id": r.rule_version_id,
@@ -613,6 +736,8 @@ class ExecutionDetailResponse(BaseModel):
                 }
                 for r in results
             ),
+            rule_definitions=tuple(rule_definitions),
+            job_info=job_info,
         )
 
 
@@ -624,6 +749,8 @@ class ScoreItemResponse(BaseModel):
     rule_version_id: str | None
     scope_type: str
     scope_id: str | None
+    scope_display_name: str | None = None
+    scope_parent_name: str | None = None
     score_value: float | None
     score_status: str
     level: str | None
@@ -656,6 +783,20 @@ class ScoreItemResponse(BaseModel):
             policy_version=score.policy_version,
             included_component_count=score.included_component_count,
             excluded_component_count=score.excluded_component_count,
+        )
+
+    def with_scope_display(
+        self,
+        *,
+        scope_display_name: str | None,
+        scope_parent_name: str | None,
+    ) -> "ScoreItemResponse":
+        """Return a copy with resolved scope display names."""
+        return self.model_copy(
+            update={
+                "scope_display_name": scope_display_name,
+                "scope_parent_name": scope_parent_name,
+            }
         )
 
 
@@ -700,6 +841,30 @@ class ScoreDetailResponse(BaseModel):
     publication: ScorePublicationResponse | None = None
     available_actions: tuple[str, ...] = ()
     has_contribution_graph: bool = False
+    calculation_details: dict[str, Any] | None = None
+    contribution_graph: dict[str, Any] | None = None
+
+
+class ScoreTrendPointResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    timestamp: datetime
+    score_value: float | None
+    level: str | None
+    change: float | None
+    score_count: int = 0
+
+
+class ScoreTrendResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    scope_type: str
+    scope_id: str | None
+    granularity: str
+    items: tuple[ScoreTrendPointResponse, ...]
 
 
 class ScoreComparisonResponse(BaseModel):

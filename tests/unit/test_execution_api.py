@@ -63,6 +63,8 @@ def test_fr_043_execution_list_is_source_scoped_and_data_minimum() -> None:
             "progress_percent": 0,
             "blocked_reason_code": None,
             "available_actions": [],
+            "datasets": [],
+            "schedule_id": None,
             "created_at": "2026-07-23T12:00:00Z",
             "started_at": "2026-07-23T12:00:00Z",
             "finished_at": "2026-07-23T12:00:00Z",

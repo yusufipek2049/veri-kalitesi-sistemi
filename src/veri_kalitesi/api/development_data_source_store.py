@@ -37,6 +37,9 @@ class DevelopmentDataSourceReader:
     def latest_pending_activation_request(self, data_source_id: str):  # type: ignore[no-untyped-def]
         return None
 
+    def latest_pending_deactivation_request(self, data_source_id: str):  # type: ignore[no-untyped-def]
+        return None
+
 
 class DevelopmentDataSourceStore:
     """Geliştirme ortamında veri kaynağı mutasyonları için bellek içi depo."""

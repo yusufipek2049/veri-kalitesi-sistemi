@@ -22,6 +22,9 @@ class DataSourceListItemResponse(BaseModel):
     pending_activation_maker_actor_id: str | None = None
     pending_activation_requested_at: datetime | None = None
     pending_activation_expires_at: datetime | None = None
+    pending_deactivation_request_id: str | None = None
+    pending_deactivation_maker_actor_id: str | None = None
+    pending_deactivation_requested_at: datetime | None = None
 
     @classmethod
     def from_domain(cls, source: DataSource) -> "DataSourceListItemResponse":
@@ -36,6 +39,7 @@ class DataSourceListItemResponse(BaseModel):
     @classmethod
     def from_view(cls, view: DataSourceView) -> "DataSourceListItemResponse":
         pending = view.pending_activation_request
+        pending_deact = view.pending_deactivation_request
         return cls(
             data_source_id=view.source.data_source_id,
             name=view.source.name,
@@ -51,6 +55,15 @@ class DataSourceListItemResponse(BaseModel):
             ),
             pending_activation_requested_at=(pending.requested_at if pending is not None else None),
             pending_activation_expires_at=(pending.expires_at if pending is not None else None),
+            pending_deactivation_request_id=(
+                pending_deact.activation_request_id if pending_deact is not None else None
+            ),
+            pending_deactivation_maker_actor_id=(
+                pending_deact.maker_actor_id if pending_deact is not None else None
+            ),
+            pending_deactivation_requested_at=(
+                pending_deact.requested_at if pending_deact is not None else None
+            ),
         )
 
 

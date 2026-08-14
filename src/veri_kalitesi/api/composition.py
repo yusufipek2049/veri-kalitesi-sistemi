@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Callable
 
 from sqlalchemy import inspect, text
@@ -68,6 +69,10 @@ from veri_kalitesi.issues import (
 )
 from veri_kalitesi.jobs import PostgreSQLJobQueueRepository
 from veri_kalitesi.notifications import NotificationEvent, NotificationTechnicalError
+from veri_kalitesi.notifications.models import (
+    NotificationEventType,
+    NotificationScopeType,
+)
 from veri_kalitesi.persistence import SessionFactory, create_session_factory
 from veri_kalitesi.rules import (
     PostgreSQLRuleRepository,
@@ -81,8 +86,9 @@ from veri_kalitesi.scoring.postgresql_contributions import (
 )
 from veri_kalitesi.scoring.postgresql_repository import PostgreSQLScoreRepository
 from veri_kalitesi.scoring.query import ScoreQueryService
+from veri_kalitesi.dashboard.service import DashboardQueryService
 
-CURRENT_MIGRATION_HEAD = "20260806_20"
+CURRENT_MIGRATION_HEAD = "20260813_23"
 REQUIRED_TABLES = frozenset(
     {
         "data_sources",
@@ -169,6 +175,58 @@ class UnavailableIssueNotificationPublisher:
             "Persistent issue notification is unavailable.",
             "issue-notification-unavailable",
         )
+
+
+class DefaultRuleApprovalNotificationSink:
+    """Rule approval notification sink — builds NotificationEvent and publishes."""
+
+    def __init__(
+        self,
+        notification_publisher: object,
+        actor_context_provider: Callable[[], ActorContext] | None,
+    ) -> None:
+        self._publisher = notification_publisher
+        self._actor_context_provider = actor_context_provider
+
+    def publish_rule_approval_event(
+        self,
+        *,
+        event_type: NotificationEventType,
+        quality_rule_id: str,
+        rule_code: str,
+        rule_name: str,
+        recipient_user_id: str,
+        actor_context: ActorContext | None,
+        correlation_id: str,
+        payload: dict,
+    ) -> None:
+        from uuid import uuid4
+        from datetime import datetime, timezone
+
+        actor_ctx = actor_context or (
+            self._actor_context_provider() if self._actor_context_provider else None
+        )
+        event = NotificationEvent(
+            event_type=event_type,
+            scope_type=NotificationScopeType.RULE,
+            scope_id=quality_rule_id,
+            deduplication_key=(
+                f"rule-approval-{event_type.value}-{quality_rule_id}-"
+                f"{payload.get('approval_request_id', '')}"
+            ),
+            occurred_at=datetime.now(timezone.utc),
+            correlation_id=correlation_id,
+            source_ref=f"QualityRule:{quality_rule_id}",
+            payload={
+                "rule_code": rule_code,
+                "rule_name": rule_name,
+                "recipient_user_id": recipient_user_id,
+                **payload,
+            },
+            event_id=str(uuid4()),
+        )
+        if hasattr(self._publisher, "create_for_event"):
+            self._publisher.create_for_event(event, actor_ctx)
 
 
 def preflight_database(settings: ApplicationSettings, session_factory: SessionFactory) -> None:
@@ -287,6 +345,8 @@ def create_application(
         job_queue=job_queue_repository,
         transactional_audit=transactional_audit,
         strategy_engine=ExecutionStrategyEngine(),
+        rule_catalog=rule_repository,
+        source_catalog=repository,
     )
     execution_cancel_service = PostgreSQLExecutionCancelService(
         execution_repository,
@@ -310,6 +370,25 @@ def create_application(
     notification_repository = PostgreSQLNotificationRepository(
         session_factory, schema=settings.database.schema
     )
+
+    # Development otomatik PhaseBProviders oluşturma
+    if (
+        phase_b_providers is None
+        and isinstance(identity_provider, DevelopmentActorContextResolver)
+        and development_user_registry is not None
+    ):
+        from veri_kalitesi.api.development_providers import (
+            build_development_phase_b_providers,
+        )
+
+        phase_b_providers = build_development_phase_b_providers(
+            user_registry=development_user_registry,
+            notification_repository=notification_repository,
+            resolver=identity_provider,
+        )
+        # notification_publisher'ı güncelle (yukarıda henüz repository yoktu)
+        notification_publisher = phase_b_providers.issue_notification_publisher
+
     notification_query_service = NotificationQueryService(notification_repository)
     notification_delivery_service = NotificationDeliveryService(
         repository=notification_repository,
@@ -349,6 +428,14 @@ def create_application(
     )
     rule_command_adapter = None
     if phase_b_providers is not None:
+        rule_approval_notification_sink = DefaultRuleApprovalNotificationSink(
+            notification_publisher=notification_publisher,
+            actor_context_provider=(
+                phase_b_providers.issue_notification_actor_context_provider
+                if phase_b_providers is not None
+                else None
+            ),
+        )
         rule_service = RuleService(
             rule_repository,
             repository,
@@ -362,6 +449,7 @@ def create_application(
                 checker_roles=frozenset({"DATA_OWNER"}),
             ),
             enforce_command_authorization=True,
+            notification_sink=rule_approval_notification_sink,
         )
         rule_command_adapter = RuleCommandAdapter(rule_service)
     audit_query_service = AuditQueryService(
@@ -391,9 +479,31 @@ def create_application(
         score_repository=score_repository,
         contribution_graph_repository=contribution_graph_repository,
     )
+    dashboard_query_service = DashboardQueryService(
+        score_reader=score_repository,
+        authorization_service=authorization,
+        clock=lambda: datetime.now(timezone.utc),
+    )
 
     bff = identity_provider if isinstance(identity_provider, BffSessionBoundary) else None
     resolver = None if bff is not None else identity_provider
+
+    # IssueInvestigationEvidenceService oluştur
+    issue_investigation_evidence_service = None
+    from veri_kalitesi.issues.investigation import IssueInvestigationEvidenceService
+
+    class _PassthroughEvidenceProvider:
+        """Development/production için boş kanıt sağlayıcı — Unknown döner."""
+
+        def get_evidence_for_issue(self, issue_id, scope_type, scope_id):
+            return None
+
+    issue_investigation_evidence_service = IssueInvestigationEvidenceService(
+        reader=issue_repository,
+        authorization_service=authorization,
+        evidence_provider=_PassthroughEvidenceProvider(),
+    )
+
     app = create_dashboard_api(
         actor_context_resolver=resolver,
         bff_session_boundary=bff,
@@ -404,6 +514,7 @@ def create_application(
         rule_query_service=rule_query_service,
         issue_query_service=issue_query_service,
         issue_investigation_service=issue_service,
+        issue_investigation_evidence_service=issue_investigation_evidence_service,
         issue_closure_service=issue_service,
         issue_creation_service=issue_service,
         issue_assignment_service=issue_service if phase_b_providers is not None else None,
@@ -424,6 +535,8 @@ def create_application(
         metadata_command_service=metadata_command_service,
         catalog_query_service=catalog_query_service,
         score_query_service=score_query_service,
+        dashboard_query_service=dashboard_query_service,
+        job_queue_repository=job_queue_repository,
         notification_query_service=notification_query_service,
         notification_delivery_service=notification_delivery_service,
     )

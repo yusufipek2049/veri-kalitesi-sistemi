@@ -14,9 +14,6 @@ export interface IssueCreatePayload {
   idempotency_key: string;
 }
 
-const CSRF_HEADER = "X-CSRF-Token";
-let csrfProof: string | undefined;
-
 export class IssueApiError extends Error {
   constructor(
     public readonly kind: "unauthorized" | "conflict" | "validation" | "technical",
@@ -43,8 +40,6 @@ export async function fetchIssues(signal?: AbortSignal): Promise<IssueListApiRes
       correlationId,
     );
   }
-  const receivedProof = response.headers.get(CSRF_HEADER);
-  if (receivedProof) csrfProof = receivedProof;
   return response.json() as Promise<IssueListApiResponse>;
 }
 
@@ -56,14 +51,12 @@ export async function createIssue(
   correlation_id: string;
   item: IssueListApiResponse["items"][number];
 }> {
-  if (!csrfProof) throw new IssueApiError("unauthorized");
   const response = await developmentFetch("/api/v1/issues", {
     method: "POST",
     credentials: "same-origin",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
-      [CSRF_HEADER]: csrfProof,
     },
     body: JSON.stringify(payload),
   });
@@ -90,7 +83,6 @@ export async function startIssueInvestigation(
   correlation_id: string;
   item: IssueListApiResponse["items"][number];
 }> {
-  if (!csrfProof) throw new IssueApiError("unauthorized");
   const response = await developmentFetch(
     `/api/v1/issues/${encodeURIComponent(issueId)}/investigation`,
     {
@@ -99,7 +91,6 @@ export async function startIssueInvestigation(
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        [CSRF_HEADER]: csrfProof,
       },
       body: JSON.stringify({ version }),
     },
@@ -145,7 +136,6 @@ export async function reassignIssue(
   correlation_id: string;
   item: IssueListApiResponse["items"][number];
 }> {
-  if (!csrfProof) throw new IssueApiError("unauthorized");
   const response = await developmentFetch(
     `/api/v1/issues/${encodeURIComponent(issueId)}/assignment`,
     {
@@ -154,7 +144,6 @@ export async function reassignIssue(
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        [CSRF_HEADER]: csrfProof,
       },
       body: JSON.stringify({
         version,
@@ -180,7 +169,6 @@ export async function resolveIssue(
   correlation_id: string;
   item: IssueListApiResponse["items"][number];
 }> {
-  if (!csrfProof) throw new IssueApiError("unauthorized");
   const response = await developmentFetch(
     `/api/v1/issues/${encodeURIComponent(issueId)}/resolution`,
     {
@@ -189,7 +177,6 @@ export async function resolveIssue(
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        [CSRF_HEADER]: csrfProof,
       },
       body: JSON.stringify({
         version,
@@ -214,7 +201,6 @@ export async function verifyIssue(
   correlation_id: string;
   item: IssueListApiResponse["items"][number];
 }> {
-  if (!csrfProof) throw new IssueApiError("unauthorized");
   const response = await developmentFetch(
     `/api/v1/issues/${encodeURIComponent(issueId)}/verification`,
     {
@@ -223,7 +209,6 @@ export async function verifyIssue(
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        [CSRF_HEADER]: csrfProof,
       },
       body: JSON.stringify({
         version,
@@ -244,7 +229,6 @@ export async function closeIssue(
   correlation_id: string;
   item: IssueListApiResponse["items"][number];
 }> {
-  if (!csrfProof) throw new IssueApiError("unauthorized");
   const response = await developmentFetch(
     `/api/v1/issues/${encodeURIComponent(issueId)}/closure`,
     {
@@ -253,7 +237,6 @@ export async function closeIssue(
       headers: {
         Accept: "application/json",
         "Content-Type": "application/json",
-        [CSRF_HEADER]: csrfProof,
       },
       body: JSON.stringify({ version }),
     },
@@ -295,6 +278,11 @@ export class EvidenceApiError extends Error {
   }
 }
 
+/**
+ * @deprecated Kullanılmayan — yalnızca test referansı. UI'ya bağlanmadı.
+ * İlgili endpoint: GET /api/v1/issues/{id}/investigation/evidence.
+ * Sorun detay görünümüne entegre edilebilir; aksi halde kaldırılabilir.
+ */
 export async function fetchInvestigationEvidence(
   issueId: string,
   signal?: AbortSignal,

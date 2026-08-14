@@ -196,9 +196,8 @@ class SQLiteDisposalJobRepository:
 
     def count_results(self) -> int:
         with self._lock:
-            return int(self.connection.execute("SELECT COUNT(*) FROM disposal_job_results").fetchone()[
-                0
-            ])
+            row = self.connection.execute("SELECT COUNT(*) FROM disposal_job_results").fetchone()
+            return int(row[0])
 
     def _find_by_idempotency_digest(self, digest: str) -> DisposalJob | None:
         row = self.connection.execute(

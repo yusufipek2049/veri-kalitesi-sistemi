@@ -166,3 +166,33 @@ class CatalogFieldDetailResponse(BaseModel):
     field: CatalogFieldResponse
     dataset_name: str
     data_source_name: str
+
+
+# ── Update request models ─────────────────────────────────────────────
+
+
+class DatasetUpdateRequest(BaseModel):
+    """Dataset güncelleme isteği — yalnız yetkili kullanıcılar."""
+
+    model_config = ConfigDict(frozen=True)
+
+    name: str | None = Field(default=None, min_length=1, max_length=400)
+    namespace: str | None = Field(default=None, min_length=1, max_length=200)
+    status: str | None = Field(default=None, pattern="^(ACTIVE|INACTIVE)$")
+    expected_version: int | None = Field(default=None, ge=1)
+
+
+class FieldUpdateRequest(BaseModel):
+    """Field güncelleme isteği — yalnız yetkili kullanıcılar."""
+
+    model_config = ConfigDict(frozen=True)
+
+    native_data_type: str | None = Field(default=None, min_length=1, max_length=200)
+    is_nullable: bool | None = None
+    is_sensitive: bool | None = None
+    classification: str | None = Field(
+        default=None,
+        pattern="^(UNCLASSIFIED|PUBLIC|INTERNAL|CONFIDENTIAL|RESTRICTED|PERSONAL_DATA|SPECIAL_CATEGORY_PERSONAL_DATA|CUSTOMER_SECRET|BANK_SECRET)$",
+    )
+    status: str | None = Field(default=None, pattern="^(ACTIVE|INACTIVE)$")
+    expected_version: int | None = Field(default=None, ge=1)

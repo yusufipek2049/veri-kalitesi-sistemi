@@ -46,17 +46,22 @@ def test_fr_078_uc_016_audit_events_are_filtered_paginated_and_data_minimum() ->
     assert payload["page_size"] == 1
     assert [item["event_id"] for item in payload["items"]] == [visible.event_id]
     for protected_field in (
-        "old_value_summary",
-        "new_value_summary",
         "old_value_digest",
         "new_value_digest",
         "session_id_digest",
-        "event_hash",
-        "previous_event_hash",
-        "first_invalid_event_id",
         "must-not-leak",
     ):
         assert protected_field not in response.text
+    # Iterasyon 37A: detay alanlari interaktif API'de gorunur
+    # (veri-minimum yalnizca disa aktarmayi kapsar).
+    for detail_field in (
+        "old_value_summary",
+        "new_value_summary",
+        "event_hash",
+        "previous_event_hash",
+        "first_invalid_event_id",
+    ):
+        assert detail_field in response.text
     assert "forged-user" not in response.text
 
 
@@ -97,6 +102,60 @@ def test_fr_078_uc_016_future_snapshot_period_is_rejected() -> None:
     assert response.status_code == 400
     assert response.json()["title"] == "Invalid request"
     assert "period end" not in response.text.lower()
+
+
+def test_fr_078_uc_016_period_start_uses_custom_range_instead_of_days() -> None:
+    repository, audit_service = _audit_components()
+    audit_service.append(
+        _event(
+            "event-custom-range",
+            "RULE_ACTIVATION",
+            AuditResult.SUCCESS,
+            occurred_at=NOW - timedelta(days=3),
+        )
+    )
+    audit_service.append(_event("event-recent", "RULE_ACTIVATION", AuditResult.SUCCESS))
+
+    response = TestClient(_app(repository, audit_service)).get(
+        "/api/v1/audit/events",
+        params={
+            "days": 1,
+            "period_start": (NOW - timedelta(days=4)).isoformat(),
+            "period_end": (NOW - timedelta(days=2)).isoformat(),
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert [item["correlation_id"] for item in payload["items"]] == [
+        "correlation-event-custom-range"
+    ]
+    assert _parse_api_datetime(payload["period_start"]) == NOW - timedelta(days=4)
+    assert _parse_api_datetime(payload["period_end"]) == NOW - timedelta(days=2)
+
+
+def test_fr_078_uc_016_audit_summary_returns_filtered_distributions() -> None:
+    repository, audit_service = _audit_components()
+    audit_service.append(_event("summary-1", "RULE_ACTIVATION", AuditResult.SUCCESS))
+    audit_service.append(_event("summary-2", "RULE_ACTIVATION", AuditResult.FAILURE))
+    audit_service.append(_event("summary-3", "IDENTITY_SESSION", AuditResult.DENIED))
+
+    response = TestClient(_app(repository, audit_service)).get(
+        "/api/v1/audit/summary",
+        params={"action": "RULE_ACTIVATION"},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    payload = response.json()
+    assert _parse_api_datetime(payload.pop("period_start")) == NOW - timedelta(days=7)
+    assert _parse_api_datetime(payload.pop("period_end")) == NOW
+    assert payload == {
+        "total_count": 2,
+        "result_distribution": {"SUCCESS": 1, "FAILURE": 1, "DENIED": 0},
+        "action_distribution": {"RULE_ACTIVATION": 2},
+        "top_actors": [{"actor_id": "synthetic-audit-user", "count": 2}],
+    }
 
 
 def test_uc_016_closed_audit_repository_returns_safe_technical_error() -> None:
@@ -175,7 +234,13 @@ def _app(
     )
 
 
-def _event(event_id: str, action: str, result: AuditResult) -> AuditEventInput:
+def _event(
+    event_id: str,
+    action: str,
+    result: AuditResult,
+    *,
+    occurred_at: datetime | None = None,
+) -> AuditEventInput:
     return AuditEventInput(
         actor_id="synthetic-audit-user",
         actor_type="USER",
@@ -187,6 +252,10 @@ def _event(event_id: str, action: str, result: AuditResult) -> AuditEventInput:
         reason_code="SYNTHETIC_REASON",
         old_values={"secret": "must-not-leak"},
         new_values={},
-        occurred_at=NOW - timedelta(hours=1),
+        occurred_at=occurred_at or NOW - timedelta(hours=1),
         session_id="must-not-leak",
     )
+
+
+def _parse_api_datetime(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))

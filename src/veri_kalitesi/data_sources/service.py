@@ -637,6 +637,152 @@ class DataSourceService:
         self._publish_transactional_audit()
         return stored
 
+    def request_deactivation(
+        self,
+        *,
+        actor_context: ActorContext | None,
+        data_source_id: str,
+    ) -> DataSourceActivationRequest:
+        policy = self._require_activation_policy()
+        context = self._authorize_activation_actor(
+            actor_context,
+            required_roles=policy.maker_roles,
+            data_source_id=data_source_id,
+        )
+        source = self.repository.get_data_source(data_source_id)
+        if source.status is not DataSourceStatus.ACTIVE:
+            raise ConflictError("Only an active data source can be requested for deactivation.")
+        requested_at = self.clock()
+        _require_aware_time(requested_at, "Data source deactivation clock")
+        request = DataSourceActivationRequest(
+            data_source_id=data_source_id,
+            data_source_revision=source.revision,
+            maker_actor_id=context.actor_id,
+            policy_version=policy.version,
+            request_type="DEACTIVATION",
+        )
+        event = self._build_audit_event(
+            actor_id=context.actor_id,
+            actor_type=context.actor_type.value,
+            session_id=context.session_id,
+            correlation_id=context.correlation_id,
+            action="DATA_SOURCE_DEACTIVATION_REQUESTED",
+            object_type="DataSource",
+            object_id=data_source_id,
+            result=AuditResult.SUCCESS,
+            reason_code="DATA_SOURCE_DEACTIVATION_REQUESTED",
+            new_values={
+                "deactivation_request_id": request.activation_request_id,
+                "data_source_revision": source.revision,
+                "policy_version": policy.version,
+                "status": request.status.value,
+            },
+        )
+        stored = self.repository.add_deactivation_request(
+            request,
+            audit_event=self.transactional_audit.prepare(event),
+            audit_outbox=self.transactional_audit,
+        )
+        self._publish_transactional_audit()
+        return stored
+
+    def decide_deactivation(
+        self,
+        *,
+        actor_context: ActorContext | None,
+        deactivation_request_id: str,
+        decision: str,
+        reason_code: str,
+    ) -> DataSourceActivationRequest:
+        policy = self._require_activation_policy()
+        request = self.repository.get_activation_request(deactivation_request_id)
+        source = self.repository.get_data_source(request.data_source_id)
+        context = self._authorize_activation_actor(
+            actor_context,
+            required_roles=policy.checker_roles,
+            data_source_id=source.data_source_id,
+        )
+        normalized_reason = reason_code.strip()
+        if not normalized_reason:
+            raise ValidationError("Deactivation decision reason code is required.")
+        status = _parse_activation_decision(decision)
+        if request.status is not DataSourceActivationStatus.PENDING:
+            if (
+                request.checker_actor_id == context.actor_id
+                and request.status is status
+                and request.decision_reason_code == normalized_reason
+            ):
+                return request
+            raise ConflictError(
+                "Data source deactivation decision conflicts with the terminal request.",
+                code="DATA_SOURCE_DECISION_CONFLICT",
+            )
+        if request.policy_version != policy.version:
+            raise ConflictError(
+                "Data source deactivation policy version changed.",
+                code="DATA_SOURCE_POLICY_CONFLICT",
+            )
+        if request.data_source_revision != source.revision:
+            raise ConflictError(
+                "Data source deactivation request is for a stale revision.",
+                code="DATA_SOURCE_REVISION_CONFLICT",
+            )
+        if request.maker_actor_id == context.actor_id:
+            raise AuthorizationError(
+                "Deactivation maker cannot approve the same change.",
+                code="DATA_SOURCE_MAKER_CHECKER_VIOLATION",
+            )
+        decided_at = self.clock()
+        _require_aware_time(decided_at, "Data source deactivation clock")
+        decided = DataSourceActivationRequest(
+            activation_request_id=request.activation_request_id,
+            data_source_id=request.data_source_id,
+            data_source_revision=request.data_source_revision,
+            maker_actor_id=request.maker_actor_id,
+            checker_actor_id=context.actor_id,
+            policy_version=request.policy_version,
+            status=status,
+            decision_reason_code=normalized_reason,
+            requested_at=request.requested_at,
+            target_at=request.target_at,
+            expires_at=request.expires_at,
+            business_calendar_version=request.business_calendar_version,
+            decided_at=decided_at,
+            request_type="DEACTIVATION",
+        )
+        source_status = (
+            DataSourceStatus.INACTIVE
+            if status is DataSourceActivationStatus.APPROVED
+            else source.status
+        )
+        event = self._build_audit_event(
+            actor_id=context.actor_id,
+            actor_type=context.actor_type.value,
+            session_id=context.session_id,
+            correlation_id=context.correlation_id,
+            action="DATA_SOURCE_DEACTIVATION_DECIDED",
+            object_type="DataSource",
+            object_id=source.data_source_id,
+            result=AuditResult.SUCCESS,
+            reason_code=f"DATA_SOURCE_DEACTIVATION_{status.value}",
+            old_values={"status": source.status.value},
+            new_values={
+                "deactivation_request_id": request.activation_request_id,
+                "data_source_revision": request.data_source_revision,
+                "policy_version": request.policy_version,
+                "status": status.value,
+                "source_status": source_status.value,
+            },
+        )
+        stored = self.repository.decide_deactivation_request(
+            decided,
+            deactivate_source=status is DataSourceActivationStatus.APPROVED,
+            audit_event=self.transactional_audit.prepare(event),
+            audit_outbox=self.transactional_audit,
+        )
+        self._publish_transactional_audit()
+        return stored
+
     def withdraw_activation(
         self,
         *,
@@ -1379,7 +1525,9 @@ class DataSourceService:
                 ds_key = (removed["namespace"], removed["dataset_name"])
                 ds_field = existing_datasets.get(ds_key)
                 if ds_field is not None:
-                    field = existing_fields_map.get(ds_field.dataset_id, {}).get(removed["field_name"])
+                    field = existing_fields_map.get(ds_field.dataset_id, {}).get(
+                        removed["field_name"]
+                    )
                     if field is not None:
                         passivated_field_ids.append(field.data_field_id)
 

@@ -53,6 +53,23 @@ _TEMPLATES = {
         "Data quality issue assigned",
         "A data quality issue has been assigned for review in the authorized issue center.",
     ),
+    NotificationEventType.RULE_APPROVAL_REQUESTED: (
+        "Rule approval request",
+        "A quality rule approval request requires your review in the rule management center.",
+    ),
+    NotificationEventType.RULE_APPROVAL_DECIDED: (
+        "Rule approval decision",
+        "A quality rule approval request has been decided. "
+        "Review the decision in the rule management center.",
+    ),
+    NotificationEventType.RULE_APPROVAL_WITHDRAWN: (
+        "Rule approval withdrawn",
+        "A quality rule approval request has been withdrawn by its maker.",
+    ),
+    NotificationEventType.RULE_APPROVAL_EXPIRED: (
+        "Rule approval expired",
+        "A quality rule approval request has expired without a decision.",
+    ),
 }
 
 

@@ -1,0 +1,363 @@
+{
+  "prompt_id": "SYNTHETIC_VALUE_POOL_PROMPT_V1",
+  "target_generator": "RELATIONAL_BANKING_GENERATOR_V1",
+  "target_schema": "RELATIONAL_BANKING_SCHEMA_V1",
+  "consumer": "src/veri_kalitesi/synthetic_data/postgresql_dataset.py",
+
+  "role": "Türk bankacılık veri modellerini bilen, KVKK/GDPR farkındalığı olan bir sentetik veri tasarımcısısın. Görevin satır üretmek değil, bir üretecin deterministik olarak örnekleyeceği gerçekçi DEĞER HAVUZLARI üretmektir.",
+
+  "task": "Aşağıdaki 17 tablolu sentetik bankacılık şeması için, her kolona ait gerçekçi görünümlü ama hiçbir gerçek kişi/kurum/hesapla ilişkilendirilemeyen değer havuzlarını üret. Çıktı tek bir JSON nesnesi olacak; nesir, açıklama veya markdown kod bloğu olmayacak.",
+
+  "why_pools_not_rows": "Üreteç tablo başına 17.000–22.000 satır üretir (toplam ~323.000). Satırlar seed'den türeyen SHA-256 entropisiyle havuzdan seçilir. Bu yüzden senden istenen şey satır listesi değil, yüksek kaliteli ve yeterince çeşitli bir sözlüktür.",
+
+  "output_language": {
+    "descriptive_text": "tr-TR",
+    "codes_and_identifiers": "ASCII, büyük harf",
+    "note": "Serbest metin alanları Türkçe olacak; ancak JSON çıktısı UTF-8 olarak yazılacak, kaçış dizisi kullanılmayacak."
+  },
+
+  "anonymity_contract": {
+    "principle": "Gerçekçilik BİÇİMDE ve DAĞILIMDA olacak, KİMLİKTE olmayacak. Üretilen hiçbir değer gerçek bir insana, hesaba, karta veya kuruma çözülememeli.",
+    "rules": [
+      "Gerçek kişi adı kullanma. Türkçe ad/soyad morfolojisine uyan ama yaygın kullanımda olmayan kurgusal adlar üret (örn. soyad için gerçek bir soyadın kopyası değil, aynı eklerle kurulmuş türetme).",
+      "TCKN, gerçek T.C. kimlik numarası veya kimlik numarası biçimine uyan 11 haneli sayı ASLA üretme. Bu şemada kimlik numarası kolonu yoktur; ekleme.",
+      "IBAN: TR biçimini koru (TR + 2 kontrol + 5 haneli banka kodu + 1 rezerv + 16 hane) ama banka kodu olarak BDDK tarafından tahsis EDİLMEMİŞ 00099 kodunu kullan ve kontrol hanelerini kasıtlı olarak mod-97 geçersiz bırak. Böylece görsel olarak gerçekçi, doğrulamada tanımsız olur.",
+      "Kart PAN'ı: yalnız maskeli biçim. Son 4 hane serbest, ilk 6 hane (BIN) ASLA gerçek bir BIN olmayacak; maskeli gösterimde zaten gizli kalacak.",
+      "E-posta: yalnız RFC 6761/2606 rezerv alan adları (example.com, example.net, example.org, *.invalid, *.test). Gerçek bir alan adı yazma.",
+      "Telefon: yalnız +90 500 ile başlayan aralık (Türkiye'de operatöre tahsis edilmemiş) veya E.164 rezerv aralığı. Gerçek GSM ön ekleri (532, 533, 505 vb.) kullanma.",
+      "Üye işyeri adı: gerçek marka, zincir veya tescilli ticari ad kullanma. Türkçe ticari adlandırma kalıplarıyla (sektör + ek + şirket türü) kurgusal adlar üret.",
+      "Adres: gerçek cadde/sokak adı + gerçek posta kodu kombinasyonu kullanma. İl/ilçe adları gerçek olabilir (kişisel veri değil), ancak sokak ve kapı numarası kurgusal olacak ve posta kodu kurgusal aralıktan gelecek.",
+      "Hiçbir değer gerçek bir veri setinden kopyalanmayacak."
+    ],
+    "presidio_safety_net": "Projede külliyat metinleri Presidio ile taranır. Ürettiğin havuz, TR_NATIONAL_ID / IBAN_CODE / CREDIT_CARD gibi varlıkların GEÇERLİ örneklerini tetiklememelidir. Biçim benzerliği kabul, geçerli sağlama toplamı kabul değil."
+  },
+
+  "generator_invariants": {
+    "critical": "Aşağıdaki kurallar ihlal edilirse üretecin bağımsız ground-truth doğrulaması (precision/recall = 1.0 beklentisi) kırılır ve üretim hata verir.",
+    "reserved_sentinels_never_produce": [
+      "INVALID_FORMAT",
+      "INVALID_STATUS",
+      "DUP- ile başlayan hiçbir değer",
+      "SYN-MISSING- ile başlayan hiçbir değer",
+      "Yalnız boşluktan oluşan veya btrim sonrası boş kalan hiçbir metin",
+      "null / boş dize (eksik değer kusuru üreteç tarafından enjekte edilir)"
+    ],
+    "reasoning": "Bu değerler kusur enjeksiyonunun sinyalidir. Temiz havuzda geçerlerse yanlış pozitif üretirler.",
+    "numeric_ceiling": "Aykırı değer eşiği 10000000.00'dır. Havuzda tanımlayacağın hiçbir sayısal dağılım bu değeri AŞAN temiz değer üretmemelidir; üst sınır 9999999.99.",
+    "uniqueness": "Havuz değerleri tekrar ile örneklenir. İş anahtarı (business_key) tekilliği üreteç tarafından sağlanır; senden iş anahtarı DEĞERİ değil, yalnız ÖN EK ve BİÇİM istenir.",
+    "determinism": "Havuz sıralaması anlamlıdır ve kanonik hash'e girer. Listeleri stabil ve tekrarsız ver; aynı havuzda yinelenen değer olmayacak."
+  },
+
+  "schema": {
+    "source_schema": "synthetic_source",
+    "shared_columns_all_tables": [
+      "required_value TEXT",
+      "effective_from DATE",
+      "effective_to DATE",
+      "event_time TIMESTAMPTZ",
+      "updated_at TIMESTAMPTZ",
+      "ingestion_time TIMESTAMPTZ",
+      "synthetic_origin BOOLEAN (daima TRUE)"
+    ],
+    "note": "Zaman ve tarih kolonları üreteç tarafından üretilir; senden istenmez.",
+    "tables": [
+      {
+        "name": "synthetic_customers",
+        "purpose": "Müşteri ana kayıtları",
+        "descriptive_column": "full_name",
+        "formatted_column": "email_address",
+        "format_kind": "email",
+        "status_column": "customer_status",
+        "measure_column": "activity_score"
+      },
+      {
+        "name": "synthetic_customer_contacts",
+        "purpose": "Telefon ve e-posta iletişim kayıtları",
+        "descriptive_column": "contact_label",
+        "formatted_column": "contact_value",
+        "format_kind": "contact",
+        "status_column": "contact_status",
+        "measure_column": "verification_score"
+      },
+      {
+        "name": "synthetic_customer_addresses",
+        "purpose": "Müşteri adres ve konum kayıtları",
+        "descriptive_column": "address_line",
+        "formatted_column": "postal_code",
+        "format_kind": "postal",
+        "status_column": "address_status",
+        "measure_column": "location_score"
+      },
+      {
+        "name": "synthetic_accounts",
+        "purpose": "Mevduat ve ödeme hesapları",
+        "descriptive_column": "account_name",
+        "formatted_column": "iban_code",
+        "format_kind": "iban",
+        "status_column": "account_status",
+        "measure_column": "current_balance"
+      },
+      {
+        "name": "synthetic_account_balances",
+        "purpose": "Hesap bakiye anlık görüntüleri",
+        "descriptive_column": "balance_note",
+        "formatted_column": "currency_code",
+        "format_kind": "currency",
+        "status_column": "balance_status",
+        "measure_column": "closing_balance"
+      },
+      {
+        "name": "synthetic_transactions",
+        "purpose": "Hesap işlemleri",
+        "descriptive_column": "transaction_description",
+        "formatted_column": "channel_code",
+        "format_kind": "channel",
+        "status_column": "transaction_status",
+        "measure_column": "transaction_amount"
+      },
+      {
+        "name": "synthetic_cards",
+        "purpose": "Banka ve kredi kartları",
+        "descriptive_column": "card_label",
+        "formatted_column": "masked_pan",
+        "format_kind": "masked_pan",
+        "status_column": "card_status",
+        "measure_column": "card_limit"
+      },
+      {
+        "name": "synthetic_card_transactions",
+        "purpose": "Kart harcama ve çekim işlemleri",
+        "descriptive_column": "card_transaction_description",
+        "formatted_column": "authorization_code",
+        "format_kind": "authorization",
+        "status_column": "card_transaction_status",
+        "measure_column": "card_transaction_amount"
+      },
+      {
+        "name": "synthetic_loans",
+        "purpose": "Kredi sözleşmeleri",
+        "descriptive_column": "loan_description",
+        "formatted_column": "product_code",
+        "format_kind": "product",
+        "status_column": "loan_status",
+        "measure_column": "principal_amount"
+      },
+      {
+        "name": "synthetic_loan_installments",
+        "purpose": "Kredi ödeme planları",
+        "descriptive_column": "installment_description",
+        "formatted_column": "currency_code",
+        "format_kind": "currency",
+        "status_column": "installment_status",
+        "measure_column": "installment_amount"
+      },
+      {
+        "name": "synthetic_payments",
+        "purpose": "Hesap, işlem ve taksit ödemeleri",
+        "descriptive_column": "payment_description",
+        "formatted_column": "payment_channel",
+        "format_kind": "channel",
+        "status_column": "payment_status",
+        "measure_column": "payment_amount"
+      },
+      {
+        "name": "synthetic_beneficiaries",
+        "purpose": "Kayıtlı transfer alıcıları",
+        "descriptive_column": "beneficiary_name",
+        "formatted_column": "beneficiary_account_code",
+        "format_kind": "account_code",
+        "status_column": "beneficiary_status",
+        "measure_column": "transfer_limit"
+      },
+      {
+        "name": "synthetic_merchants",
+        "purpose": "Üye işyeri ana kayıtları",
+        "descriptive_column": "merchant_name",
+        "formatted_column": "category_code",
+        "format_kind": "category",
+        "status_column": "merchant_status",
+        "measure_column": "merchant_risk_score"
+      },
+      {
+        "name": "synthetic_merchant_transactions",
+        "purpose": "Üye işyeri mutabakat işlemleri",
+        "descriptive_column": "settlement_description",
+        "formatted_column": "settlement_code",
+        "format_kind": "settlement",
+        "status_column": "settlement_status",
+        "measure_column": "settlement_amount"
+      },
+      {
+        "name": "synthetic_customer_risk_profiles",
+        "purpose": "Sürümlü müşteri risk değerlendirmeleri",
+        "descriptive_column": "risk_description",
+        "formatted_column": "risk_model_code",
+        "format_kind": "risk_model",
+        "status_column": "risk_status",
+        "measure_column": "risk_score"
+      },
+      {
+        "name": "synthetic_service_requests",
+        "purpose": "Müşteri hizmet ve operasyon talepleri",
+        "descriptive_column": "request_description",
+        "formatted_column": "request_type",
+        "format_kind": "request_type",
+        "status_column": "request_status",
+        "measure_column": "resolution_hours"
+      },
+      {
+        "name": "synthetic_data_events",
+        "purpose": "Kaynak ingestion, güncelleme ve tazelik olayları",
+        "descriptive_column": "event_description",
+        "formatted_column": "entity_type",
+        "format_kind": "entity_type",
+        "status_column": "event_status",
+        "measure_column": "lag_seconds"
+      }
+    ]
+  },
+
+  "required_output": {
+    "format": "Tek bir JSON nesnesi. Kök anahtarlar aşağıdaki dört bloktur.",
+    "root_keys": ["meta", "descriptive_pools", "format_pools", "column_profiles"],
+
+    "meta": {
+      "shape": {
+        "pool_version": "string, 'REALISTIC_TR_BANKING_POOL_V1'",
+        "language": "string, 'tr-TR'",
+        "anonymity_statement": "string, tek cümle: hiçbir değerin gerçek varlığa çözülemeyeceği beyanı",
+        "reserved_domains_used": "string dizisi",
+        "reserved_bank_code": "string"
+      }
+    },
+
+    "descriptive_pools": {
+      "shape": "{ '<tablo_adı>': { 'column': '<kolon>', 'kind': 'value_list' | 'template', 'values' | 'templates': [...], 'placeholders': {...} } }",
+      "coverage": "17 tablonun tamamı, yukarıdaki descriptive_column adlarıyla birebir.",
+      "sizing": {
+        "kind_value_list": "60–120 değer",
+        "kind_template": "20–40 şablon + her yer tutucu için 20–80 değerlik alt havuz",
+        "guidance": "Yüksek kardinaliteli kolonlar (full_name, address_line, merchant_name, transaction_description) 'template' olmalı; düşük kardinaliteli etiketler (contact_label, balance_note, risk_description) 'value_list' olabilir."
+      },
+      "template_syntax": "Yer tutucular {ad} biçiminde. Üreteç her yer tutucuyu ilgili alt havuzdan hash ile seçer. Sayısal genişleme için {n:4} gibi hane sayısı verilebilir; üreteç sıfır dolgulu rastgele sayı üretir.",
+      "per_table_intent": {
+        "synthetic_customers.full_name": "Kurgusal Türkçe ad + soyad. Şablon: '{ad} {soyad}'. Ad havuzu ~80, soyad havuzu ~80. Kadın/erkek/nötr karışık. Gerçek yaygın soyadları birebir kullanma.",
+        "synthetic_customer_contacts.contact_label": "İletişim kanalı etiketi: 'Birincil cep telefonu', 'İş e-postası', 'Fatura bildirim adresi' gibi.",
+        "synthetic_customer_addresses.address_line": "'{mahalle} Mah. {sokak} Sok. No:{n:3} D:{n:2} {ilce}/{il}' kalıbı. il/ilce gerçek olabilir; mahalle ve sokak kurgusal.",
+        "synthetic_accounts.account_name": "'{musteri_tipi} {urun} Hesabı' — örn. 'Bireysel Vadesiz TL Hesabı', 'Ticari Vadeli USD Hesabı'.",
+        "synthetic_account_balances.balance_note": "Bakiye anlık görüntüsü notu: 'Gün sonu mutabakat bakiyesi', 'Bloke sonrası kullanılabilir bakiye' gibi.",
+        "synthetic_transactions.transaction_description": "'{islem_turu} - {karsi_taraf}' kalıbı: 'FAST Gelen Transfer - {kurgusal_unvan}', 'Otomatik Fatura Ödemesi - {kurum_tipi}', 'ATM Nakit Çekim - {sube}'.",
+        "synthetic_cards.card_label": "'{marka_yerine_urun} {segment} Kart' — gerçek kart markası (Bonus, World, Axess vb.) KULLANMA. 'Bireysel Kredi Kartı - Klasik', 'Ticari Banka Kartı - Platin' gibi.",
+        "synthetic_card_transactions.card_transaction_description": "'{merchant_kategori} harcaması - {taksit}' örn. 'Akaryakıt harcaması - Tek çekim', 'Market harcaması - 3 taksit'.",
+        "synthetic_loans.loan_description": "'{kredi_turu} - {vade} ay vadeli' örn. 'İhtiyaç Kredisi - 36 ay vadeli', 'Konut Kredisi - 120 ay vadeli'.",
+        "synthetic_loan_installments.installment_description": "'{sira}. taksit - {donem}' örn. '7. taksit - 2025-11 dönemi'.",
+        "synthetic_payments.payment_description": "'{odeme_turu} ödemesi' örn. 'Kredi kartı asgari ödeme', 'Kredi taksit ödemesi', 'Fatura tahsilatı'.",
+        "synthetic_beneficiaries.beneficiary_name": "Kurgusal kişi adı VEYA kurgusal tüzel kişi unvanı karışımı (%60 kişi, %40 tüzel).",
+        "synthetic_merchants.merchant_name": "'{sektor_koku} {ek} {sirket_turu}' — 'Yeşilova Gıda Ticaret A.Ş.', 'Denizkent Akaryakıt Ltd. Şti.'. Gerçek marka yok.",
+        "synthetic_merchant_transactions.settlement_description": "'{gun} günü {kategori} mutabakatı' örn. 'T+1 günü POS mutabakatı', 'Komisyon düzeltme mutabakatı'.",
+        "synthetic_customer_risk_profiles.risk_description": "'{model} skorlaması - {segment} segmenti' örn. 'Davranışsal skorlama - Kitlesel segment'.",
+        "synthetic_service_requests.request_description": "Müşteri talebi özeti: 'Kart limiti artırım talebi', 'Hatalı işlem itirazı', 'Adres güncelleme talebi'.",
+        "synthetic_data_events.event_description": "Veri hattı olayı: 'Günlük tam yükleme tamamlandı', 'Artımlı yükleme gecikmeli tamamlandı', 'Kaynak şema değişikliği algılandı'."
+      }
+    },
+
+    "format_pools": {
+      "shape": "{ '<format_kind>': { 'kind': 'value_list' | 'template', 'values' | 'templates': [...], 'placeholders': {...}, 'regex': '<üretilen tüm değerlerin uyacağı desen>' } }",
+      "coverage": "15 format_kind'ın tamamı: email, contact, postal, iban, currency, channel, masked_pan, authorization, product, account_code, category, settlement, risk_model, request_type, entity_type.",
+      "per_kind_spec": {
+        "email": {
+          "kind": "template",
+          "requirement": "'{yerel}@{alan}' — yerel kısım ad.soyad kalıbında kurgusal, alan yalnız rezerv alanlardan. Yerel havuz 80+, alan havuzu 4–6.",
+          "regex_hint": "^[a-z0-9]+([._-][a-z0-9]+)*@(example\\.(com|net|org)|[a-z]+\\.(invalid|test))$"
+        },
+        "contact": {
+          "kind": "template",
+          "requirement": "İki alt biçim: telefon '+90 500 {n:3} {n:2} {n:2}' ve e-posta (email havuzuyla aynı kural). Üreteç ikisi arasında dönüşümlü seçer; her iki şablon grubunu da ver."
+        },
+        "postal": {
+          "kind": "template",
+          "requirement": "5 haneli, ilk hane 9 ile başlayacak (Türkiye'de kullanılmayan aralık). '9{n:4}'."
+        },
+        "iban": {
+          "kind": "template",
+          "requirement": "'TR{kontrol:2} 0009 9{n:1} {n:4} {n:4} {n:4} {n:4}' — banka kodu 00099 sabit, kontrol haneleri mod-97 geçersiz kalacak şekilde 00 veya 01 sabitlenmiş. Şablon sayısı 1–2 yeterli; çeşitliliği üreteç sağlar."
+        },
+        "currency": {
+          "kind": "value_list",
+          "requirement": "ISO 4217 kodları gerçekçi ağırlıkla: TRY, USD, EUR, GBP, CHF, JPY. Ağırlıkları column_profiles içinde ver."
+        },
+        "channel": {
+          "kind": "value_list",
+          "requirement": "Bankacılık kanalı kodları: SUBE, MOBIL, INTERNET, ATM, CAGRI_MERKEZI, POS, API, KIOSK."
+        },
+        "masked_pan": {
+          "kind": "template",
+          "requirement": "'{bin_maske} **** **** {n:4}' — bin_maske '4**' / '5**' gibi kart ailesini ima eden ama çözülemeyen maske olacak."
+        },
+        "authorization": {
+          "kind": "template",
+          "requirement": "6 haneli alfanümerik otorizasyon kodu, büyük harf: '{A:2}{n:4}'."
+        },
+        "product": {
+          "kind": "value_list",
+          "requirement": "Kredi ürün kodları: IHT-TL, KNT-TL, TAS-TL, TIC-TL, KMH-TL, IHT-FX gibi. 8–14 kod."
+        },
+        "account_code": {
+          "kind": "template",
+          "requirement": "Alıcı hesap referansı: '{banka_kodu}-{sube:4}-{n:8}'. banka_kodu kurgusal 3 harfli kısaltmalar havuzundan (gerçek banka kısaltması kullanma)."
+        },
+        "category": {
+          "kind": "value_list",
+          "requirement": "MCC benzeri kategori kodu + etiket: 'MCC-5411 Market', 'MCC-5541 Akaryakıt', 'MCC-5812 Restoran' gibi 20–30 kalem. Gerçek MCC numaraları kamusal standarttır, kullanılabilir."
+        },
+        "settlement": {
+          "kind": "template",
+          "requirement": "'STL-{yyyymm}-{n:6}' biçiminde mutabakat referansı."
+        },
+        "risk_model": {
+          "kind": "value_list",
+          "requirement": "Kurgusal skor modeli kodları: 'BSC-V3', 'ASC-V2', 'AML-V4', 'FRD-V1' gibi 5–8 kalem."
+        },
+        "request_type": {
+          "kind": "value_list",
+          "requirement": "Talep türleri: BILGI_TALEBI, LIMIT_ARTIRIM, ITIRAZ, ADRES_GUNCELLEME, KART_BLOKE, HESAP_KAPATMA, SIKAYET, IADE."
+        },
+        "entity_type": {
+          "kind": "value_list",
+          "requirement": "Veri hattı varlık türleri: MUSTERI, HESAP, ISLEM, KART, KREDI, ODEME, UYE_ISYERI."
+        }
+      }
+    },
+
+    "column_profiles": {
+      "shape": "{ '<tablo_adı>': { 'status_domain': [{ 'value': '...', 'weight': 0.0 }], 'measure': { 'column': '...', 'semantic': '...', 'distribution': '...', 'parameters': {...}, 'min': 0, 'max': 0, 'decimals': 0 } } }",
+      "coverage": "17 tablonun tamamı.",
+      "status_domain_requirement": "Her tabloya kendi iş alanına uygun durum kümesi ver — mevcut üreteç hepsine ACTIVE/INACTIVE/CLOSED veriyor ve bu gerçekçi değil. Örnekler: synthetic_transactions için ONAYLANDI/BEKLEMEDE/IPTAL/RED; synthetic_loans için AKTIF/KAPANDI/TAKIPTE/YAPILANDIRILDI; synthetic_service_requests için ACIK/INCELEMEDE/COZULDU/KAPANDI. Ağırlıklar toplamı 1.0 olacak ve gerçekçi olacak (baskın durum ~0.6–0.8).",
+      "measure_requirement": "Her ölçü kolonuna anlamına uygun dağılım ver. Örnekler: activity_score/risk_score/location_score/verification_score/merchant_risk_score → 0–100 tamsayı; current_balance/closing_balance → lognormal, medyan ~15.000 TL, sağa çarpık; transaction_amount/card_transaction_amount/payment_amount → lognormal, medyan ~450 TL; principal_amount → lognormal, medyan ~120.000 TL; card_limit → basamaklı kümeler (5.000/10.000/25.000/50.000/100.000); resolution_hours → gamma, medyan ~18 saat; lag_seconds → sağa çarpık, medyan ~120 sn, kuyruk saatler.",
+      "hard_limit": "Hiçbir dağılımın üst sınırı 9999999.99'u aşmayacak (aykırı değer eşiği 10000000.00).",
+      "negative_values": "current_balance ve closing_balance için gerçekçi oranda (≈%4) negatif bakiye tanımlanabilir; diğer tutar kolonları negatif olmayacak.",
+      "additional_key": "İsteğe bağlı 'business_key_format' anahtarıyla her tabloya gerçekçi iş anahtarı ÖN EKİ ve hane sayısı öner (örn. synthetic_accounts için { 'prefix': 'ACC', 'digits': 10 }). Değer listesi verme; üreteç indeksten kurar."
+    }
+  },
+
+  "quality_bar": {
+    "diversity": "Her havuzda birbirinin varyantı olan doldurma değerlerinden kaçın. 'Müşteri kaydı 1', 'Müşteri kaydı 2' türü artışlı diziler kabul edilmez.",
+    "distribution_realism": "Kategorik havuzlarda ağırlık ver; gerçek bankacılıkta kanal dağılımı düz değildir (MOBIL baskın, KIOSK marjinal).",
+    "internal_consistency": "Bir tablonun açıklama metni, o tablonun durum kümesi ve ölçü anlamıyla çelişmeyecek.",
+    "no_placeholder_leakage": "Şablonlarda tanımladığın her {yer_tutucu} için placeholders altında alt havuz bulunacak; tanımsız yer tutucu bırakma."
+  },
+
+  "self_validation_before_output": [
+    "Çıktı geçerli tek bir JSON nesnesi mi, nesir veya markdown çiti içermiyor mu?",
+    "17 descriptive_pool ve 15 format_pool eksiksiz mi?",
+    "17 column_profile eksiksiz mi ve durum ağırlıkları 1.0'a toplanıyor mu?",
+    "Rezerv sentinel değerlerin (INVALID_FORMAT, INVALID_STATUS, DUP-*, SYN-MISSING-*, boş/boşluk) hiçbiri havuzda geçiyor mu? Geçiyorsa çıkar.",
+    "Hiçbir sayısal üst sınır 10000000.00'a ulaşıyor mu?",
+    "Her havuzda yinelenen değer var mı? Varsa tekilleştir.",
+    "Her şablondaki yer tutucular placeholders altında tanımlı mı?",
+    "Gerçek marka, gerçek banka, gerçek alan adı, geçerli sağlama toplamlı IBAN veya kart numarası, gerçek GSM ön eki kaldı mı? Kaldıysa değiştir.",
+    "Türkçe metinlerde karakter bozulması (mojibake) var mı?"
+  ],
+
+  "on_uncertainty": "Bir alanın iş anlamından emin değilsen tahmin yürütme; o havuza 'assumption' anahtarıyla varsayımını yaz ve gerçekçi bir varsayılan üret. Havuzu boş bırakma."
+}

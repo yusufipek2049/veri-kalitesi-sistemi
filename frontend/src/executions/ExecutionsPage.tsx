@@ -1,12 +1,15 @@
 import { useMemo, useState } from "react";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   FormControl,
   InputLabel,
   LinearProgress,
@@ -14,18 +17,27 @@ import {
   Paper,
   Select,
   Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
 } from "@mui/material";
 import {
+  Braces,
   Ban,
   CheckCircle2,
   CircleDashed,
   Clock3,
+  Code2,
+  Database,
   Lock,
   PlayCircle,
   RefreshCw,
   Search,
+  Server,
   TimerOff,
   Wrench,
   type LucideIcon,
@@ -35,9 +47,22 @@ import { StatusBadge } from "../components/StatusBadge";
 import { designTokens, type StatusTone } from "../theme/tokens";
 import {
   syntheticExecutions,
+  type ExecutionDetail,
+  type ExecutionDatasetRef,
   type ExecutionListItem,
   type ExecutionState,
+  type JobInfo,
 } from "./model";
+
+export interface ExecutionRuleOption {
+  ruleVersionId: string;
+  label: string;
+}
+
+export interface ExecutionSourceOption {
+  sourceId: string;
+  label: string;
+}
 
 interface ExecutionsPageProps {
   state?: ExecutionState;
@@ -46,9 +71,22 @@ interface ExecutionsPageProps {
   onRefresh?: () => void;
   onStart?: (ruleVersionIds: string[], sourceIds: string[], idempotencyKey: string) => void;
   onCancel?: (executionId: string, reason: string) => void;
+  onAdhocSql?: (sql: string, sourceIds: string[], timeoutSeconds: number, rowLimit: number) => Promise<void>;
   onSelect?: (executionId: string) => void;
   starting?: boolean;
   cancelling?: boolean;
+  adhocSqlLoading?: boolean;
+  executionDetail?: ExecutionDetail | null;
+  detailOpen?: boolean;
+  detailLoading?: boolean;
+  onCloseDetail?: () => void;
+  ruleOptions?: ExecutionRuleOption[];
+  sourceOptions?: ExecutionSourceOption[];
+  datasetFilterOptions?: Array<{ value: string; label: string }>;
+  scheduleFilterOptions?: Array<{ value: string; label: string }>;
+  activeDatasetFilter?: string;
+  activeScheduleFilter?: string;
+  onFilterChange?: (filters: { datasetId?: string; scheduleId?: string }) => void;
 }
 
 const statusLabels: Record<string, string> = {
@@ -103,6 +141,12 @@ function durationLabel(item: ExecutionListItem): string {
   if (seconds >= 3600) return `${Math.floor(seconds / 3600)} sa ${Math.round((seconds % 3600) / 60)} dk`;
   if (seconds >= 60) return `${Math.floor(seconds / 60)} dk`;
   return `${seconds} sn`;
+}
+
+function datasetLabel(ds: ExecutionDatasetRef): string {
+  if (ds.name && ds.namespace) return `${ds.name} (${ds.namespace})`;
+  if (ds.name) return ds.name;
+  return ds.sourceName || ds.sourceId;
 }
 
 function ExecutionRow({
@@ -166,6 +210,21 @@ function ExecutionRow({
         <Typography color="text.secondary" variant="caption">
           {typeLabels[item.executionType] ?? item.executionType} · {item.ruleCount} kural · {item.sourceCount} kaynak
         </Typography>
+        {item.datasets.length > 0 ? (
+          <Box sx={{ alignItems: "center", display: "flex", flexWrap: "wrap", gap: 0.5, mt: 0.5 }}>
+            <Database aria-hidden="true" size={12} style={{ opacity: 0.6 }} />
+            {item.datasets.map((ds, index) => (
+              <Typography key={`${ds.sourceId}-${ds.datasetId}-${index}`} color="text.secondary" variant="caption">
+                {index > 0 ? " · " : ""}{datasetLabel(ds)}{ds.sourceName ? ` @ ${ds.sourceName}` : ""}
+              </Typography>
+            ))}
+          </Box>
+        ) : null}
+        {item.scheduleId ? (
+          <Typography color="info.main" variant="caption">
+            Zamanlanmış: {item.scheduleId}
+          </Typography>
+        ) : null}
         {item.blockedReasonCode ? (
           <Typography color="warning.main" variant="caption">
             Engellendi: {item.blockedReasonCode}
@@ -251,6 +310,82 @@ function StateMessage({
   );
 }
 
+const jobStatusLabels: Record<string, string> = {
+  QUEUED: "Kuyrukta",
+  LEASED: "Kiralanmış",
+  RUNNING: "Çalışıyor",
+  SUCCESS: "Tamamlandı",
+  TECHNICAL_ERROR: "Teknik hata",
+  TIMEOUT: "Zaman aşımı",
+  CANCELLED: "İptal edildi",
+  CANCEL_REQUESTED: "İptal bekliyor",
+  BLOCKED: "Engellenmiş",
+};
+
+function JobInfoSection({ jobInfo }: { jobInfo: JobInfo }) {
+  return (
+    <Box>
+      <Typography sx={{ alignItems: "center", display: "flex", fontWeight: 700, gap: 1, mb: 1 }} variant="subtitle1">
+        <Server aria-hidden="true" size={18} />
+        Job Bilgileri
+      </Typography>
+      <Box sx={{ display: "grid", gap: 0.5 }}>
+        <Box sx={{ display: "flex", gap: 1 }}>
+          <Typography color="text.secondary" sx={{ minWidth: 140 }} variant="body2">Job ID</Typography>
+          <Typography sx={{ fontFamily: "monospace", fontSize: "0.85rem" }} variant="body2">{jobInfo.jobId}</Typography>
+        </Box>
+        <Box sx={{ display: "flex", gap: 1 }}>
+          <Typography color="text.secondary" sx={{ minWidth: 140 }} variant="body2">Durum</Typography>
+          <StatusBadge
+            label={jobStatusLabels[jobInfo.status] ?? jobInfo.status}
+            tone={jobInfo.status === "SUCCESS" ? "success" : jobInfo.status === "RUNNING" ? "info" : jobInfo.status === "TECHNICAL_ERROR" || jobInfo.status === "TIMEOUT" ? "critical" : "unknown"}
+          />
+        </Box>
+        {jobInfo.workerId ? (
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <Typography color="text.secondary" sx={{ minWidth: 140 }} variant="body2">Worker</Typography>
+            <Typography sx={{ fontFamily: "monospace", fontSize: "0.85rem" }} variant="body2">{jobInfo.workerId}</Typography>
+          </Box>
+        ) : null}
+        {jobInfo.queuePosition != null ? (
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <Typography color="text.secondary" sx={{ minWidth: 140 }} variant="body2">Kuyruk sırası</Typography>
+            <Typography variant="body2">{jobInfo.queuePosition}</Typography>
+          </Box>
+        ) : null}
+        <Box sx={{ display: "flex", gap: 1 }}>
+          <Typography color="text.secondary" sx={{ minWidth: 140 }} variant="body2">Deneme sayısı</Typography>
+          <Typography variant="body2">{jobInfo.attemptCount}</Typography>
+        </Box>
+        {jobInfo.leasedUntil ? (
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <Typography color="text.secondary" sx={{ minWidth: 140 }} variant="body2">Lease bitiş</Typography>
+            <Typography variant="body2">{formatDate(jobInfo.leasedUntil)}</Typography>
+          </Box>
+        ) : null}
+        {jobInfo.lastErrorClass ? (
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <Typography color="text.secondary" sx={{ minWidth: 140 }} variant="body2">Son hata</Typography>
+            <Typography variant="body2">{errorLabels[jobInfo.lastErrorClass] ?? jobInfo.lastErrorClass}</Typography>
+          </Box>
+        ) : null}
+        {jobInfo.completedAt ? (
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <Typography color="text.secondary" sx={{ minWidth: 140 }} variant="body2">Tamamlanma</Typography>
+            <Typography variant="body2">{formatDate(jobInfo.completedAt)}</Typography>
+          </Box>
+        ) : null}
+        {jobInfo.completionOutcome ? (
+          <Box sx={{ display: "flex", gap: 1 }}>
+            <Typography color="text.secondary" sx={{ minWidth: 140 }} variant="body2">Sonuç</Typography>
+            <Typography variant="body2">{jobInfo.completionOutcome}</Typography>
+          </Box>
+        ) : null}
+      </Box>
+    </Box>
+  );
+}
+
 export function ExecutionsPage({
   state = "normal",
   items = syntheticExecutions,
@@ -261,6 +396,19 @@ export function ExecutionsPage({
   onSelect,
   starting,
   cancelling,
+  adhocSqlLoading,
+  onAdhocSql,
+  executionDetail,
+  detailOpen = false,
+  detailLoading = false,
+  onCloseDetail,
+  ruleOptions = [],
+  sourceOptions = [],
+  datasetFilterOptions = [],
+  scheduleFilterOptions = [],
+  activeDatasetFilter,
+  activeScheduleFilter,
+  onFilterChange,
 }: ExecutionsPageProps) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
@@ -269,9 +417,15 @@ export function ExecutionsPage({
   const [startDialogOpen, setStartDialogOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
-  const [startRuleVersionId, setStartRuleVersionId] = useState("");
-  const [startSourceId, setStartSourceId] = useState("");
+  const [selectedRule, setSelectedRule] = useState<ExecutionRuleOption | null>(null);
+  const [selectedSource, setSelectedSource] = useState<ExecutionSourceOption | null>(null);
   const [startIdempotencyKey, setStartIdempotencyKey] = useState("");
+  const [adhocDialogOpen, setAdhocDialogOpen] = useState(false);
+  const [adhocSql, setAdhocSql] = useState("");
+  const [adhocSqlError, setAdhocSqlError] = useState<string | null>(null);
+  const [adhocSource, setAdhocSource] = useState<ExecutionSourceOption | null>(null);
+  const [adhocTimeout, setAdhocTimeout] = useState(30);
+  const [adhocRowLimit, setAdhocRowLimit] = useState(1000);
 
   const newestTime = Math.max(...items.map((item) => new Date(item.createdAt).getTime()));
   const visibleItems = useMemo(
@@ -291,16 +445,57 @@ export function ExecutionsPage({
     }))).flat()
     : visibleItems;
 
+  const openStartDialog = () => {
+    setStartIdempotencyKey(crypto.randomUUID());
+    setSelectedRule(null);
+    setSelectedSource(null);
+    setStartDialogOpen(true);
+  };
+
+  const openAdhocDialog = () => {
+    setAdhocSql("");
+    setAdhocSqlError(null);
+    setAdhocSource(null);
+    setAdhocTimeout(30);
+    setAdhocRowLimit(1000);
+    setAdhocDialogOpen(true);
+  };
+
+  const validateAdhocSql = (sql: string): string | null => {
+    const trimmed = sql.trim();
+    if (!trimmed) return "SQL sorgusu zorunludur.";
+    const upper = trimmed.toUpperCase();
+    if (!upper.startsWith("SELECT")) return "SQL sorgusu SELECT ile başlamalıdır.";
+    const forbidden = ["DROP", "DELETE", "INSERT", "UPDATE", "ALTER", "TRUNCATE", "CREATE"];
+    for (const keyword of forbidden) {
+      if (upper.includes(`${keyword} `)) return `SQL sorgusu ${keyword} içermemelidir.`;
+    }
+    return null;
+  };
+
+  const handleAdhocSubmit = async () => {
+    const err = validateAdhocSql(adhocSql);
+    if (err) { setAdhocSqlError(err); return; }
+    if (!onAdhocSql) return;
+    setAdhocSqlError(null);
+    try {
+      await onAdhocSql(adhocSql.trim(), adhocSource ? [adhocSource.sourceId] : [], adhocTimeout, adhocRowLimit);
+      setAdhocDialogOpen(false);
+    } catch {
+      setAdhocSqlError("Çalıştırma başlatılamadı. Lütfen bilgileri kontrol edin.");
+    }
+  };
+
   const handleStartSubmit = () => {
-    if (!startRuleVersionId || !startIdempotencyKey) return;
+    if (!selectedRule || !startIdempotencyKey) return;
     onStart?.(
-      [startRuleVersionId],
-      startSourceId ? [startSourceId] : [],
+      [selectedRule.ruleVersionId],
+      selectedSource ? [selectedSource.sourceId] : [],
       startIdempotencyKey,
     );
     setStartDialogOpen(false);
-    setStartRuleVersionId("");
-    setStartSourceId("");
+    setSelectedRule(null);
+    setSelectedSource(null);
     setStartIdempotencyKey("");
   };
 
@@ -321,8 +516,13 @@ export function ExecutionsPage({
           </Box>
           <Box sx={{ display: "flex", gap: 2 }}>
             {onStart ? (
-              <Button onClick={() => setStartDialogOpen(true)} startIcon={<PlayCircle aria-hidden="true" size={16} />} variant="contained">
+              <Button onClick={openStartDialog} startIcon={<PlayCircle aria-hidden="true" size={16} />} variant="contained">
                 Çalıştırma başlat
+              </Button>
+            ) : null}
+            {onAdhocSql ? (
+              <Button onClick={openAdhocDialog} startIcon={<Braces aria-hidden="true" size={16} />} variant="outlined">
+                Özel SQL
               </Button>
             ) : null}
             {state !== "unauthorized" ? <Button onClick={onRefresh} startIcon={<RefreshCw aria-hidden="true" size={16} />} variant="contained">Yenile</Button> : null}
@@ -338,6 +538,38 @@ export function ExecutionsPage({
               <FormControl><InputLabel id="execution-period-label">Tarih</InputLabel><Select label="Tarih" labelId="execution-period-label" onChange={(event) => setPeriod(event.target.value)} value={period}><MenuItem value="ALL">Tüm tarihler</MenuItem><MenuItem value="LATEST_DAY">Son kayıt günü</MenuItem><MenuItem value="LAST_7_DAYS">Son 7 gün</MenuItem></Select></FormControl>
               <FormControl><InputLabel id="execution-scope-label">Kapsam</InputLabel><Select disabled label="Kapsam" labelId="execution-scope-label" value="AUTHORIZED"><MenuItem value="AUTHORIZED">Yetkili kaynaklar</MenuItem></Select></FormControl>
             </Box>
+            {(datasetFilterOptions.length > 0 || scheduleFilterOptions.length > 0) ? (
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mt: 2 }}>
+                {datasetFilterOptions.length > 0 ? (
+                  <FormControl size="small" sx={{ minWidth: 180 }}>
+                    <InputLabel id="execution-dataset-filter-label">Tablo</InputLabel>
+                    <Select
+                      label="Tablo"
+                      labelId="execution-dataset-filter-label"
+                      onChange={(event) => onFilterChange?.({ datasetId: event.target.value || undefined, scheduleId: activeScheduleFilter })}
+                      value={activeDatasetFilter ?? ""}
+                    >
+                      <MenuItem value="">Tüm tablolar</MenuItem>
+                      {datasetFilterOptions.map((opt) => <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                ) : null}
+                {scheduleFilterOptions.length > 0 ? (
+                  <FormControl size="small" sx={{ minWidth: 180 }}>
+                    <InputLabel id="execution-schedule-filter-label">Schedule</InputLabel>
+                    <Select
+                      label="Schedule"
+                      labelId="execution-schedule-filter-label"
+                      onChange={(event) => onFilterChange?.({ datasetId: activeDatasetFilter, scheduleId: event.target.value || undefined })}
+                      value={activeScheduleFilter ?? ""}
+                    >
+                      <MenuItem value="">Tüm schedule'lar</MenuItem>
+                      {scheduleFilterOptions.map((opt) => <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                ) : null}
+              </Box>
+            ) : null}
           </Paper>
         ) : null}
 
@@ -391,18 +623,25 @@ export function ExecutionsPage({
       <Dialog fullWidth maxWidth="sm" onClose={() => setStartDialogOpen(false)} open={startDialogOpen}>
         <DialogTitle>Çalıştırma başlat</DialogTitle>
         <DialogContent sx={{ display: "grid", gap: 2, pt: 2 }}>
-          <TextField
+          <Autocomplete
             fullWidth
-            label="Kural sürüm kimliği"
-            onChange={(e) => setStartRuleVersionId(e.target.value)}
-            required
-            value={startRuleVersionId}
+            getOptionLabel={(option) => option.label}
+            isOptionEqualToValue={(option, value) => option.ruleVersionId === value.ruleVersionId}
+            noOptionsText={ruleOptions.length === 0 ? "Kural bulunamadı" : undefined}
+            onChange={(_, value) => setSelectedRule(value)}
+            options={ruleOptions}
+            renderInput={(params) => <TextField {...params} label="Kural" required />}
+            value={selectedRule}
           />
-          <TextField
+          <Autocomplete
             fullWidth
-            label="Kaynak kimliği (isteğe bağlı)"
-            onChange={(e) => setStartSourceId(e.target.value)}
-            value={startSourceId}
+            getOptionLabel={(option) => option.label}
+            isOptionEqualToValue={(option, value) => option.sourceId === value.sourceId}
+            noOptionsText={sourceOptions.length === 0 ? "Kaynak bulunamadı" : undefined}
+            onChange={(_, value) => setSelectedSource(value)}
+            options={sourceOptions}
+            renderInput={(params) => <TextField {...params} label="Kaynak (isteğe bağlı)" />}
+            value={selectedSource}
           />
           <TextField
             fullWidth
@@ -414,8 +653,63 @@ export function ExecutionsPage({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setStartDialogOpen(false)}>Vazgeç</Button>
-          <Button disabled={starting || !startRuleVersionId || !startIdempotencyKey} onClick={handleStartSubmit} variant="contained">
+          <Button disabled={starting || !selectedRule || !startIdempotencyKey} onClick={handleStartSubmit} variant="contained">
             Başlat
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog fullWidth maxWidth="md" onClose={() => { if (!adhocSqlLoading) setAdhocDialogOpen(false); }} open={adhocDialogOpen}>
+        <DialogTitle>Özel SQL Çalıştır</DialogTitle>
+        <DialogContent sx={{ display: "grid", gap: 2, pt: 2 }}>
+          <Typography color="text.secondary" variant="body2">
+            Salt okunur bir SQL sorgusu yazın. Sistem otomatik olarak bir CUSTOM_SQL kuralı oluşturur ve çalıştırma başlatır.
+          </Typography>
+          <TextField
+            fullWidth
+            label="SQL Sorgusu"
+            multiline
+            minRows={6}
+            maxRows={16}
+            onChange={(e) => { setAdhocSql(e.target.value); setAdhocSqlError(null); }}
+            placeholder="SELECT ... -- Salt okunur SQL sorgusunu giriniz"
+            required
+            error={!!adhocSqlError}
+            helperText={adhocSqlError ?? "SELECT ile başlamalı; DROP, DELETE, INSERT, UPDATE içermemelidir."}
+            sx={{ "& .MuiInputBase-input": { fontFamily: "monospace", fontSize: 13 } }}
+            value={adhocSql}
+          />
+          <Autocomplete
+            fullWidth
+            getOptionLabel={(option) => option.label}
+            isOptionEqualToValue={(option, value) => option.sourceId === value.sourceId}
+            noOptionsText={sourceOptions.length === 0 ? "Kaynak bulunamadı" : undefined}
+            onChange={(_, value) => setAdhocSource(value)}
+            options={sourceOptions}
+            renderInput={(params) => <TextField {...params} label="Kaynak (isteğe bağlı)" />}
+            value={adhocSource}
+          />
+          <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "1fr 1fr" }}>
+            <TextField
+              fullWidth
+              label="Zaman Aşımı (sn)"
+              onChange={(e) => setAdhocTimeout(Number(e.target.value))}
+              type="number"
+              value={adhocTimeout}
+            />
+            <TextField
+              fullWidth
+              label="Satır Limiti"
+              onChange={(e) => setAdhocRowLimit(Number(e.target.value))}
+              type="number"
+              value={adhocRowLimit}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button disabled={adhocSqlLoading} onClick={() => setAdhocDialogOpen(false)}>Vazgeç</Button>
+          <Button disabled={adhocSqlLoading || !adhocSql.trim()} onClick={() => void handleAdhocSubmit()} variant="contained">
+            {adhocSqlLoading ? "Çalıştırılıyor..." : "Çalıştır"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -441,6 +735,159 @@ export function ExecutionsPage({
           <Button color="warning" disabled={cancelling || !cancelReason.trim()} onClick={handleCancelConfirm} variant="contained">
             İptal et
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog fullWidth maxWidth="md" onClose={onCloseDetail} open={detailOpen}>
+        <DialogTitle>Çalıştırma detayı</DialogTitle>
+        <DialogContent sx={{ display: "grid", gap: 3, pt: 2 }}>
+          {detailLoading ? (
+            <Box aria-busy="true">
+              {Array.from({ length: 3 }, (_, i) => <Skeleton height={40} key={i} />)}
+            </Box>
+          ) : executionDetail ? (
+            <>
+              <Box sx={{ display: "grid", gap: 1 }}>
+                <Typography sx={{ fontWeight: 700 }} variant="h6">
+                  {executionDetail.item.id}
+                </Typography>
+                <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
+                  <StatusBadge
+                    label={statusLabels[executionDetail.item.status] ?? executionDetail.item.status}
+                    tone={executionPresentation(executionDetail.item.status).tone}
+                  />
+                  <Chip label={typeLabels[executionDetail.item.executionType] ?? executionDetail.item.executionType} size="small" variant="outlined" />
+                  <Chip label={`${executionDetail.item.ruleCount} kural`} size="small" variant="outlined" />
+                  <Chip label={`${executionDetail.item.sourceCount} kaynak`} size="small" variant="outlined" />
+                </Box>
+                {executionDetail.item.datasets.length > 0 ? (
+                  <Box sx={{ alignItems: "center", display: "flex", flexWrap: "wrap", gap: 1 }}>
+                    <Database aria-hidden="true" size={14} style={{ opacity: 0.6 }} />
+                    {executionDetail.item.datasets.map((ds, index) => (
+                      <Chip
+                        key={`detail-ds-${ds.sourceId}-${ds.datasetId}-${index}`}
+                        label={`${datasetLabel(ds)}${ds.sourceName ? ` @ ${ds.sourceName}` : ""}`}
+                        size="small"
+                        variant="outlined"
+                        color="info"
+                      />
+                    ))}
+                  </Box>
+                ) : null}
+                {executionDetail.item.scheduleId ? (
+                  <Typography color="info.main" variant="caption">
+                    Zamanlanmış: {executionDetail.item.scheduleId}
+                  </Typography>
+                ) : null}
+                <Typography color="text.secondary" variant="caption">
+                  Oluşturulma: {formatDate(executionDetail.item.createdAt)}
+                  {executionDetail.item.startedAt ? ` · Başlangıç: ${formatDate(executionDetail.item.startedAt)}` : ""}
+                  {executionDetail.item.finishedAt ? ` · Bitiş: ${formatDate(executionDetail.item.finishedAt)}` : ""}
+                </Typography>
+              </Box>
+
+              <Divider />
+
+              <Box>
+                <Typography sx={{ fontWeight: 700, mb: 1 }} variant="subtitle1">
+                  Sonuçlar
+                </Typography>
+                {executionDetail.results.length > 0 ? (
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Kural Sürümü</TableCell>
+                        <TableCell align="right">Popülasyon</TableCell>
+                        <TableCell align="right">Uyan</TableCell>
+                        <TableCell align="right">Uyumsuz</TableCell>
+                        <TableCell align="right">Değerlendirilen</TableCell>
+                        <TableCell>Durum</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {executionDetail.results.map((r) => (
+                        <TableRow key={r.ruleVersionId}>
+                          <TableCell sx={{ fontFamily: "monospace", fontSize: "0.8rem" }}>
+                            {r.ruleVersionId.slice(0, 8)}…
+                          </TableCell>
+                          <TableCell align="right">{r.populationCount ?? "—"}</TableCell>
+                          <TableCell align="right">{r.passedCount ?? "—"}</TableCell>
+                          <TableCell align="right">{r.failedCount ?? "—"}</TableCell>
+                          <TableCell align="right">{r.evaluatedCount ?? "—"}</TableCell>
+                          <TableCell>
+                            <StatusBadge
+                              label={r.measurementStatus ?? "—"}
+                              tone={r.measurementStatus === "PASSED" ? "success" : r.measurementStatus === "FAILED" ? "critical" : "unknown"}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <Typography color="text.secondary" variant="body2">Sonuç bulunamadı.</Typography>
+                )}
+              </Box>
+
+              {executionDetail.ruleDefinitions.length > 0 && (
+                <>
+                  <Divider />
+                  <Box>
+                    <Typography sx={{ alignItems: "center", display: "flex", fontWeight: 700, gap: 1, mb: 1 }} variant="subtitle1">
+                      <Code2 aria-hidden="true" size={18} />
+                      SQL Sorguları
+                    </Typography>
+                    {executionDetail.ruleDefinitions.map((def) => (
+                      <Box key={def.ruleVersionId} sx={{ mb: 2 }}>
+                        <Box sx={{ alignItems: "center", display: "flex", gap: 1, mb: 0.5 }}>
+                          <Typography sx={{ fontFamily: "monospace", fontSize: "0.8rem" }}>
+                            {def.ruleVersionId.slice(0, 8)}…
+                          </Typography>
+                          {def.ruleType && <Chip label={def.ruleType} size="small" variant="outlined" />}
+                        </Box>
+                        {def.sql ? (
+                          <Box
+                            component="pre"
+                            sx={{
+                              bgcolor: "grey.50",
+                              border: 1,
+                              borderColor: "divider",
+                              borderRadius: 1,
+                              fontFamily: "monospace",
+                              fontSize: "0.8rem",
+                              maxHeight: 300,
+                              overflow: "auto",
+                              p: 2,
+                              whiteSpace: "pre-wrap",
+                              wordBreak: "break-word",
+                            }}
+                          >
+                            {def.sql}
+                          </Box>
+                        ) : (
+                          <Typography color="text.secondary" variant="body2">
+                            SQL tanımı bulunamadı.
+                          </Typography>
+                        )}
+                      </Box>
+                    ))}
+                  </Box>
+                </>
+              )}
+
+              {executionDetail.jobInfo && (
+                <>
+                  <Divider />
+                  <JobInfoSection jobInfo={executionDetail.jobInfo} />
+                </>
+              )}
+            </>
+          ) : (
+            <Alert severity="info">Çalıştırma detayı yüklenemedi.</Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={onCloseDetail}>Kapat</Button>
         </DialogActions>
       </Dialog>
     </AppShell>

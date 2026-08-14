@@ -147,6 +147,7 @@ def compute_pagerank(
 
     try:
         import networkx as nx
+
         scores = nx.pagerank(G, alpha=alpha, personalization=personalization, max_iter=200)
     except Exception as exc:
         print(f"PageRank hesaplama hatası: {exc}", file=sys.stderr)
@@ -162,7 +163,7 @@ def compute_pagerank(
     # Bütçe ve top sınırlarıyla kırp.
     results: list[dict[str, Any]] = []
     used_bytes = 0
-    for nid, score in ranked[:top * 3]:  # Fazla aday al, bütçeyle kırp.
+    for nid, score in ranked[: top * 3]:  # Fazla aday al, bütçeyle kırp.
         if used_bytes >= budget:
             break
         node_data = node_map.get(nid, {})

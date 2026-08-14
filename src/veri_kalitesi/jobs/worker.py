@@ -204,6 +204,15 @@ class PersistentJobWorker:
             else concurrency.default_source_allowed
         )
         if not policy_allows:
+            # If the job has been blocked too many times, fail permanently
+            # instead of creating an infinite retry storm.
+            if claimed.block_count >= claimed.max_blocks:
+                return self._fail(
+                    claimed,
+                    "SOURCE_POLICY_DENIED",
+                    JobFailureKind.PERMANENT_TECHNICAL,
+                    JobRetryPolicy(runtime.retry_count, runtime.retry_delay_seconds),
+                )
             blocked_until = now + timedelta(seconds=_BLOCKED_DELAY_SECONDS)
             block_audit = self.transactional_audit.prepare(
                 AuditEventInput(

@@ -20,10 +20,12 @@ from sqlalchemy.engine import RowMapping
 
 from veri_kalitesi.audit.errors import AuditValidationError
 from veri_kalitesi.audit.models import (
+    AuditActorCount,
     AuditEvent,
     AuditIntegrityResult,
     AuditQuery,
     AuditResult,
+    AuditSummary,
     PreparedAuditEvent,
 )
 from veri_kalitesi.audit.repository import GENESIS_HASH, compute_event_hash
@@ -140,6 +142,57 @@ class PostgreSQLAuditRepository:
             )
         has_more = len(rows) > query.page_size
         return tuple(_row_to_event(row) for row in rows[: query.page_size]), has_more
+
+    def query_summary(self, query: AuditQuery) -> AuditSummary:
+        clauses = [
+            self.table.c.occurred_at >= query.start_at,
+            self.table.c.occurred_at <= query.end_at,
+        ]
+        if query.through_sequence_no is not None:
+            clauses.append(self.table.c.sequence_no <= query.through_sequence_no)
+        optional_filters = (
+            (self.table.c.actor_id, query.actor_id),
+            (self.table.c.action, query.action),
+            (self.table.c.object_type, query.object_type),
+            (self.table.c.object_id, query.object_id),
+            (self.table.c.correlation_id, query.correlation_id),
+            (self.table.c.result, query.result.value if query.result is not None else None),
+        )
+        clauses.extend(column == value for column, value in optional_filters if value is not None)
+        count_column = func.count().label("count")
+        with self.session_factory() as session:
+            total_count = int(session.scalar(select(func.count()).where(and_(*clauses))) or 0)
+            result_rows = session.execute(
+                select(self.table.c.result, count_column)
+                .where(and_(*clauses))
+                .group_by(self.table.c.result)
+            ).all()
+            action_rows = session.execute(
+                select(self.table.c.action, count_column)
+                .where(and_(*clauses))
+                .group_by(self.table.c.action)
+                .order_by(count_column.desc(), self.table.c.action.asc())
+            ).all()
+            actor_rows = session.execute(
+                select(self.table.c.actor_id, count_column)
+                .where(and_(*clauses))
+                .group_by(self.table.c.actor_id)
+                .order_by(count_column.desc(), self.table.c.actor_id.asc())
+                .limit(5)
+            ).all()
+        result_distribution = {result.value: 0 for result in AuditResult}
+        result_distribution.update({str(result): int(count) for result, count in result_rows})
+        return AuditSummary(
+            total_count=total_count,
+            result_distribution=result_distribution,
+            action_distribution={str(action): int(count) for action, count in action_rows},
+            top_actors=tuple(
+                AuditActorCount(actor_id=str(actor_id), count=int(count))
+                for actor_id, count in actor_rows
+            ),
+            period_start=query.start_at,
+            period_end=query.end_at,
+        )
 
     def latest_sequence_no(self) -> int:
         with self.session_factory() as session:

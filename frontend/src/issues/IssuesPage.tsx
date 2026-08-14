@@ -40,6 +40,7 @@ import {
   ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
 import { StatusBadge } from "../components/StatusBadge";
 import { designTokens, type StatusTone } from "../theme/tokens";
@@ -147,17 +148,48 @@ function formatDate(value: string): string {
   }).format(new Date(value));
 }
 
-function ScopeLink({ scopeId }: { scopeId: string }) {
+function ScopeLink({ item }: { item: IssueListItem }) {
+  const displayName = item.scopeDisplayName ?? item.scopeId;
+  const linkTarget = item.scopeType === "DATASET"
+    ? `/catalog/datasets/${item.scopeId}`
+    : item.scopeType === "SOURCE"
+      ? "/data-sources"
+      : null;
+
   return (
-    <Typography
-      noWrap
-      sx={{
-        fontWeight: 500,
-      }}
-      variant="body2"
-    >
-      {scopeId}
-    </Typography>
+    <Box sx={{ minWidth: 0 }}>
+      {linkTarget ? (
+        <Typography
+          component={Link}
+          noWrap
+          sx={{
+            color: "primary.main",
+            fontWeight: 500,
+            textDecoration: "none",
+            "&:hover": { textDecoration: "underline" },
+          }}
+          to={linkTarget}
+          variant="body2"
+        >
+          {displayName}
+        </Typography>
+      ) : (
+        <Typography
+          noWrap
+          sx={{
+            fontWeight: 500,
+          }}
+          variant="body2"
+        >
+          {displayName}
+        </Typography>
+      )}
+      <Typography color="text.secondary" variant="caption">
+        {item.scopeType === "SOURCE" ? "Veri kaynağı" : "Dataset"}
+        {item.sourceRuleVersionId ? ` · Kural: ${item.sourceRuleVersionId.slice(0, 8)}…` : ""}
+        {item.sourceExecutionId ? ` · ${item.sourceEventType === "TECHNICAL" ? "Teknik" : "Kalite"}` : ""}
+      </Typography>
+    </Box>
   );
 }
 
@@ -249,10 +281,7 @@ function IssueRow({
         />
       </Box>
       <Box sx={{ display: { xs: "none", lg: "block" }, minWidth: 0 }}>
-        <ScopeLink scopeId={item.scopeId} />
-        <Typography color="text.secondary" variant="caption">
-          {item.scopeType === "SOURCE" ? "Veri kaynağı" : "Dataset"} · {item.sourceEventType === "TECHNICAL" ? "Teknik" : "Kalite"}
-        </Typography>
+        <ScopeLink item={item} />
       </Box>
       <Box sx={{ display: { xs: "none", lg: "block" } }}>
         <Typography variant="body2">{formatDate(item.updatedAt)}</Typography>

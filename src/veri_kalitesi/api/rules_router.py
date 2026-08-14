@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 
 from veri_kalitesi.api.models import (
     RuleActivationRequest,
@@ -12,6 +12,7 @@ from veri_kalitesi.api.models import (
     RuleApprovalRequestPayload,
     RuleApprovalWithdrawRequest,
     RuleCreateRequest,
+    RuleDetailResponse,
     RuleListItemResponse,
     RuleListResponse,
     RuleMutationResponse,
@@ -26,6 +27,7 @@ from veri_kalitesi.rules import (
     RuleApprovalRequest,
     RuleQueryService,
     RuleQueryTechnicalError,
+    RuleQueryAuthorizationError,
     RuleTestResult,
     RuleVersion,
 )
@@ -159,10 +161,46 @@ def register_rules_routes(
                 RuleListItemResponse.from_domain(
                     rule,
                     version,
-                    available_actions=_rule_actions(rule, actor_context),
+                    available_actions=_rule_actions(rule, version, actor_context),
                 )
                 for rule, version in rules
             ),
+        )
+
+    @app.get(
+        "/api/v1/rules/{rule_id}",
+        response_model=RuleDetailResponse,
+        tags=["rules"],
+    )
+    async def get_rule_detail(
+        rule_id: str, request: Request, response: Response
+    ) -> RuleDetailResponse:
+        if rule_query_service is None:
+            raise RuleQueryTechnicalError(
+                "Rule service is unavailable.", request.state.correlation_id
+            )
+        actor_context = resolver.resolve(request)
+        if actor_context is None:
+            raise HTTPException(status_code=401, detail="Authentication is required.")
+        try:
+            rule, version = rule_query_service.get_rule_with_latest_version(rule_id, actor_context)
+        except RuleQueryAuthorizationError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except (KeyError, Exception) as exc:
+            if "not found" in str(exc).lower():
+                raise HTTPException(status_code=404, detail="Rule not found.") from exc
+            raise
+        response.headers["Cache-Control"] = "no-store"
+        item = RuleListItemResponse.from_domain(
+            rule,
+            version,
+            available_actions=_rule_actions(rule, version, actor_context),
+        )
+        return RuleDetailResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=item,
+            definition=dict(version.definition),
         )
 
     @app.post(
@@ -431,6 +469,7 @@ def register_rules_routes(
 
 def _rule_actions(
     rule: QualityRule,
+    version: RuleVersion,
     actor_context: ActorContext,
     *,
     pending_approval_request_id: str | None = None,
@@ -443,7 +482,7 @@ def _rule_actions(
     is_owner = bool(actor_context.roles.intersection({"DATA_OWNER"}))
     is_normal = not actor_context.privileged
     status = rule.status.value
-    criticality = rule.criticality.value if hasattr(rule, "criticality") else "LOW"
+    criticality = version.criticality.value if version else "LOW"
 
     actions: list[str] = []
 

@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { ThemeModeProvider } from "../theme/ThemeModeProvider";
@@ -132,7 +132,7 @@ describe("Kural mutasyon dialog'ları", () => {
     expect(screen.getByText("950")).toBeVisible();
     expect(screen.getByText("95.00%")).toBeVisible();
     await act(async () => {
-      fireEvent.click(screen.getByText("Kapat"));
+      fireEvent.click(within(screen.getByRole("dialog", { name: "Test Sonucu" })).getByRole("button", { name: "Kapat" }));
     });
     await vi.waitFor(() => {
       expect(screen.queryByText("Test Sonucu")).not.toBeInTheDocument();

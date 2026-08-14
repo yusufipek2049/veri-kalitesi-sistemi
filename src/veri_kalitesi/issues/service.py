@@ -6,7 +6,7 @@ import hashlib
 import json
 import sqlite3
 from datetime import datetime, timezone
-from typing import Any, Callable, Generic, Protocol
+from typing import Callable, Generic, Protocol
 from uuid import UUID, uuid5
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -18,6 +18,7 @@ from veri_kalitesi.audit.models import (
 )
 from veri_kalitesi.identity import ActorContext, ActorType, is_trusted_actor_context
 from veri_kalitesi.issues.contracts import AuditT, IssueRepository
+from veri_kalitesi.notifications.contracts import NotificationBatchStager
 from veri_kalitesi.issues.errors import (
     IssueAssignmentError,
     IssueAuthorizationError,
@@ -124,7 +125,7 @@ class IssueService(Generic[AuditT]):
         verification_resolver: IssueVerificationResolver | None = None,
         relationship_resolver: IssueRelationshipResolver | None = None,
         notification_actor_context_provider: Callable[[], ActorContext] | None = None,
-        notification_batch_stager: Any = None,
+        notification_batch_stager: NotificationBatchStager | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ) -> None:
         validate_access_policy(access_policy)

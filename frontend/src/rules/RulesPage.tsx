@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -44,6 +45,7 @@ import {
   Undo2,
   type LucideIcon,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
 import { StatusBadge } from "../components/StatusBadge";
 import { designTokens } from "../theme/tokens";
@@ -75,8 +77,10 @@ interface RulesPageProps {
   ) => Promise<void>;
   onWithdrawApproval?: (rule: RuleListItem, approvalRequestId: string, reasonCode: string) => Promise<void>;
   onPassivateRule?: (rule: RuleListItem) => Promise<void>;
-  csrfProof?: string;
   catalogDatasets?: { id: string; name: string; namespace: string }[];
+  catalogFields?: { id: string; name: string; datasetId: string }[];
+  onLoadFields?: (datasetId: string) => Promise<void>;
+  onLoadRuleDetail?: (ruleId: string) => Promise<Record<string, unknown>>;
 }
 
 const statusLabels: Record<string, string> = {
@@ -162,9 +166,11 @@ interface RuleRowProps {
   item: RuleListItem;
   onAction: (item: RuleListItem, action: RuleAction) => void;
   actionLoading: string | null;
+  catalogDatasets?: { id: string; name: string; namespace: string }[];
 }
 
-function RuleRow({ item, onAction, actionLoading }: RuleRowProps) {
+function RuleRow({ item, onAction, actionLoading, catalogDatasets }: RuleRowProps) {
+  const datasetName = catalogDatasets?.find((ds) => ds.id === item.datasetId);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const Icon = ruleIcon(item.ruleType);
   const open = Boolean(anchorEl);
@@ -219,7 +225,13 @@ function RuleRow({ item, onAction, actionLoading }: RuleRowProps) {
       <Box sx={{ minWidth: 0 }}>
         <Typography noWrap sx={{ fontWeight: 700 }}>{item.name}</Typography>
         <Typography color="text.secondary" noWrap variant="caption">
-          {item.code} · {item.datasetId}
+          {item.code} ·{" "}
+          <Link
+            to={`/catalog/datasets/${item.datasetId}`}
+            style={{ color: "inherit", textDecoration: "underline" }}
+          >
+            {datasetName ? `${datasetName.namespace}.${datasetName.name}` : item.datasetId}
+          </Link>
         </Typography>
       </Box>
       <Typography
@@ -352,6 +364,9 @@ export function RulesPage({
   onWithdrawApproval,
   onPassivateRule,
   catalogDatasets,
+  catalogFields,
+  onLoadFields,
+  onLoadRuleDetail,
 }: RulesPageProps) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
@@ -416,6 +431,44 @@ export function RulesPage({
   const [passivateDialogOpen, setPassivateDialogOpen] = useState(false);
   const [passivateLoading, setPassivateLoading] = useState(false);
 
+  // Field selection for rule creation
+  const [selectedFieldIds, setSelectedFieldIds] = useState<string[]>([]);
+
+  // SQL editor for CUSTOM_SQL rules
+  const [sqlText, setSqlText] = useState("");
+  const [sqlTimeout, setSqlTimeout] = useState(30);
+  const [sqlRowLimit, setSqlRowLimit] = useState(1000);
+  const [sqlError, setSqlError] = useState<string | null>(null);
+  const [sqlLoading, setSqlLoading] = useState(false);
+
+  // Load fields when dataset changes in create dialog
+  const handleDatasetChange = useCallback((datasetId: string) => {
+    setFormData((prev) => ({ ...prev, dataset_id: datasetId }));
+    setSelectedFieldIds([]);
+    if (datasetId && onLoadFields) {
+      void onLoadFields(datasetId);
+    }
+  }, [onLoadFields]);
+
+  // Filter fields for the selected dataset
+  const fieldsForDataset = useMemo(() => {
+    if (!formData.dataset_id || !catalogFields) return [];
+    return catalogFields.filter((f) => f.datasetId === formData.dataset_id);
+  }, [formData.dataset_id, catalogFields]);
+
+  // Validate SQL for CUSTOM_SQL rules
+  const validateSql = useCallback((sql: string): string | null => {
+    const trimmed = sql.trim();
+    if (!trimmed) return "SQL sorgusu zorunludur.";
+    const upper = trimmed.toUpperCase();
+    if (!upper.startsWith("SELECT")) return "SQL sorgusu SELECT ile başlamalıdır.";
+    const forbidden = ["DROP", "DELETE", "INSERT", "UPDATE", "ALTER", "TRUNCATE", "CREATE"];
+    for (const keyword of forbidden) {
+      if (upper.includes(`${keyword} `)) return `SQL sorgusu ${keyword} içermemelidir.`;
+    }
+    return null;
+  }, []);
+
   const handleCreateRule = () => {
     setDialogOpen(true);
     setCreateError(null);
@@ -430,11 +483,36 @@ export function RulesPage({
 
   const handleSubmit = async () => {
     if (createLoading) return;
+    // Validate SQL if CUSTOM_SQL
+    if (formData.rule_type === "CUSTOM_SQL") {
+      const err = validateSql(sqlText);
+      if (err) {
+        setSqlError(err);
+        return;
+      }
+      setSqlError(null);
+    }
     setCreateLoading(true);
     setCreateError(null);
     try {
       if (onCreateRule) {
-        await onCreateRule(formData);
+        // Build parameters with field references and SQL
+        const parameters: Record<string, unknown> = { ...formData.parameters };
+        if (selectedFieldIds.length > 0) {
+          // Single-field rule types use field_id, multi-field use field_ids
+          const singleFieldTypes = ["REQUIRED", "RANGE", "REGEX", "FRESHNESS"];
+          if (singleFieldTypes.includes(formData.rule_type) && selectedFieldIds.length === 1) {
+            parameters.field_id = selectedFieldIds[0];
+          } else {
+            parameters.field_ids = selectedFieldIds;
+          }
+        }
+        if (formData.rule_type === "CUSTOM_SQL") {
+          parameters.sql = sqlText.trim();
+          parameters.timeout_seconds = sqlTimeout;
+          parameters.row_limit = sqlRowLimit;
+        }
+        await onCreateRule({ ...formData, parameters });
       }
       setDialogOpen(false);
       setFormData({
@@ -449,6 +527,11 @@ export function RulesPage({
         owner_user_id: "",
         parameters: {},
       });
+      setSelectedFieldIds([]);
+      setSqlText("");
+      setSqlTimeout(30);
+      setSqlRowLimit(1000);
+      setSqlError(null);
     } catch {
       setCreateError("Kural oluşturulamadı. Lütfen bilgileri kontrol edin.");
     } finally {
@@ -468,6 +551,24 @@ export function RulesPage({
           criticality: item.criticality,
           parameters: {},
         });
+        // Pre-populate SQL for CUSTOM_SQL rules
+        setSqlText("");
+        setSqlError(null);
+        setSqlTimeout(30);
+        setSqlRowLimit(1000);
+        setSqlLoading(false);
+        if (item.ruleType === "CUSTOM_SQL" && onLoadRuleDetail) {
+          setSqlLoading(true);
+          onLoadRuleDetail(item.id).then((definition) => {
+            if (definition.sql) setSqlText(String(definition.sql));
+            if (typeof definition.timeout_seconds === "number") setSqlTimeout(definition.timeout_seconds);
+            if (typeof definition.row_limit === "number") setSqlRowLimit(definition.row_limit);
+          }).catch(() => {
+            // SQL pre-population failure is non-fatal
+          }).finally(() => {
+            setSqlLoading(false);
+          });
+        }
         setVersionDialogOpen(true);
         break;
       case "TEST_RULE":
@@ -512,10 +613,28 @@ export function RulesPage({
 
   const handleCreateVersion = async () => {
     if (!activeItem || !onCreateVersion || versionLoading) return;
+    // Validate SQL if CUSTOM_SQL
+    if (activeItem.ruleType === "CUSTOM_SQL") {
+      const err = validateSql(sqlText);
+      if (err) {
+        setSqlError(err);
+        return;
+      }
+      setSqlError(null);
+    }
     setVersionLoading(true);
     setActionError(null);
     try {
-      await onCreateVersion(activeItem, versionForm);
+      const versionData = { ...versionForm };
+      if (activeItem.ruleType === "CUSTOM_SQL") {
+        versionData.parameters = {
+          ...versionData.parameters,
+          sql: sqlText.trim(),
+          timeout_seconds: sqlTimeout,
+          row_limit: sqlRowLimit,
+        };
+      }
+      await onCreateVersion(activeItem, versionData);
       setVersionDialogOpen(false);
     } catch {
       setActionError("Sürüm oluşturulamadı.");
@@ -690,7 +809,7 @@ export function RulesPage({
                   fullWidth
                   label="Dataset"
                   labelId="dataset-id-label"
-                  onChange={(e) => setFormData({ ...formData, dataset_id: e.target.value })}
+                  onChange={(e) => handleDatasetChange(e.target.value)}
                   required
                   value={formData.dataset_id}
                 >
@@ -701,6 +820,37 @@ export function RulesPage({
                   ))}
                 </Select>
               </FormControl>
+              {/* Field multi-select (shown after dataset is chosen) */}
+              {formData.dataset_id && fieldsForDataset.length > 0 && formData.rule_type !== "CUSTOM_SQL" ? (
+                <FormControl fullWidth>
+                  <InputLabel id="field-select-label">Alanlar</InputLabel>
+                  <Select
+                    fullWidth
+                    label="Alanlar"
+                    labelId="field-select-label"
+                    multiple
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelectedFieldIds(typeof val === "string" ? val.split(",") : val);
+                    }}
+                    renderValue={(selected) => (
+                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                        {(selected as string[]).map((id) => {
+                          const f = fieldsForDataset.find((fd) => fd.id === id);
+                          return <Chip key={id} label={f?.name ?? id} size="small" />;
+                        })}
+                      </Box>
+                    )}
+                    value={selectedFieldIds}
+                  >
+                    {fieldsForDataset.map((f) => (
+                      <MenuItem key={f.id} value={f.id}>
+                        {f.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              ) : null}
               <FormControl fullWidth>
                 <InputLabel id="rule-type-label">Kural Tipi</InputLabel>
                 <Select
@@ -714,6 +864,41 @@ export function RulesPage({
                   ))}
                 </Select>
               </FormControl>
+              {/* SQL editor for CUSTOM_SQL */}
+              {formData.rule_type === "CUSTOM_SQL" ? (
+                <Box sx={{ display: "grid", gap: 2 }}>
+                  <TextField
+                    fullWidth
+                    label="SQL Sorgusu"
+                    multiline
+                    minRows={6}
+                    maxRows={16}
+                    onChange={(e) => { setSqlText(e.target.value); setSqlError(null); }}
+                    placeholder="SELECT ... -- Salt okunur SQL sorgusunu giriniz"
+                    required
+                    error={!!sqlError}
+                    helperText={sqlError ?? "SELECT ile başlamalı; DROP, DELETE, INSERT, UPDATE içermemelidir."}
+                    sx={{ "& .MuiInputBase-input": { fontFamily: "monospace", fontSize: 13 } }}
+                    value={sqlText}
+                  />
+                  <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "1fr 1fr" }}>
+                    <TextField
+                      fullWidth
+                      label="Zaman Aşımı (sn)"
+                      onChange={(e) => setSqlTimeout(Number(e.target.value))}
+                      type="number"
+                      value={sqlTimeout}
+                    />
+                    <TextField
+                      fullWidth
+                      label="Satır Limiti"
+                      onChange={(e) => setSqlRowLimit(Number(e.target.value))}
+                      type="number"
+                      value={sqlRowLimit}
+                    />
+                  </Box>
+                </Box>
+              ) : null}
               <FormControl fullWidth>
                 <InputLabel id="dimension-label">Birincil Boyut</InputLabel>
                 <Select
@@ -817,6 +1002,48 @@ export function RulesPage({
                   ))}
                 </Select>
               </FormControl>
+              {/* SQL editor for CUSTOM_SQL version */}
+              {activeItem?.ruleType === "CUSTOM_SQL" ? (
+                <Box sx={{ display: "grid", gap: 2 }}>
+                  <Typography color="text.secondary" variant="body2">
+                    SQL sorgusunu düzenleyin ve yeni sürüm oluşturun.
+                  </Typography>
+                  {sqlLoading ? (
+                    <Skeleton height={120} />
+                  ) : (
+                    <TextField
+                      fullWidth
+                      label="SQL Sorgusu"
+                      multiline
+                      minRows={6}
+                      maxRows={16}
+                      onChange={(e) => { setSqlText(e.target.value); setSqlError(null); }}
+                      placeholder="SELECT ... -- Salt okunur SQL sorgusunu giriniz"
+                      required
+                      error={!!sqlError}
+                      helperText={sqlError ?? "SELECT ile başlamalı; DROP, DELETE, INSERT, UPDATE içermemelidir."}
+                      sx={{ "& .MuiInputBase-input": { fontFamily: "monospace", fontSize: 13 } }}
+                      value={sqlText}
+                    />
+                  )}
+                  <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: "1fr 1fr" }}>
+                    <TextField
+                      fullWidth
+                      label="Zaman Aşımı (sn)"
+                      onChange={(e) => setSqlTimeout(Number(e.target.value))}
+                      type="number"
+                      value={sqlTimeout}
+                    />
+                    <TextField
+                      fullWidth
+                      label="Satır Limiti"
+                      onChange={(e) => setSqlRowLimit(Number(e.target.value))}
+                      type="number"
+                      value={sqlRowLimit}
+                    />
+                  </Box>
+                </Box>
+              ) : null}
               {actionError ? (
                 <Alert severity="error">{actionError}</Alert>
               ) : null}
@@ -1085,6 +1312,7 @@ export function RulesPage({
                   key={item.id}
                   onAction={handleAction}
                   actionLoading={actionLoading}
+                  catalogDatasets={catalogDatasets}
                 />
               ))}
             </Box>

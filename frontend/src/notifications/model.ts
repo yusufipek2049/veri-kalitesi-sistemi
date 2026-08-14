@@ -11,7 +11,13 @@ export type NotificationEventType =
   | "QUALITY_THRESHOLD"
   | "CRITICAL_RULE_FAILURE"
   | "TECHNICAL_ERROR"
-  | "ISSUE_ASSIGNED";
+  | "ISSUE_ASSIGNED"
+  | "RULE_APPROVAL_REQUESTED"
+  | "RULE_APPROVAL_DECIDED"
+  | "RULE_APPROVAL_WITHDRAWN"
+  | "RULE_APPROVAL_EXPIRED";
+
+export type NotificationSeverity = "INFO" | "ACTION_REQUIRED" | "WARNING" | "CRITICAL";
 
 export interface NotificationDelivery {
   deliveryId: string;
@@ -24,6 +30,12 @@ export interface NotificationDelivery {
   updatedAt: string;
   deliveredAt: string | null;
   readAt: string | null;
+  eventType: NotificationEventType | null;
+  scopeType: string | null;
+  scopeId: string | null;
+  sourceRef: string | null;
+  severity: NotificationSeverity | null;
+  payload: Record<string, unknown>;
 }
 
 export interface NotificationSubscription {
@@ -49,6 +61,8 @@ export interface InboxApiResponse {
   total_unread: number;
   cursor: string | null;
   has_more: boolean;
+  failed_count: number;
+  today_count: number;
   items: Array<{
     delivery_id: string;
     event_id: string;
@@ -60,6 +74,12 @@ export interface InboxApiResponse {
     updated_at: string;
     delivered_at: string | null;
     read_at: string | null;
+    event_type: NotificationEventType | null;
+    scope_type: string | null;
+    scope_id: string | null;
+    source_ref: string | null;
+    severity: NotificationSeverity | null;
+    payload: Record<string, unknown>;
   }>;
 }
 
@@ -125,6 +145,12 @@ export function deliveryFromApi(raw: {
   updated_at: string;
   delivered_at: string | null;
   read_at: string | null;
+  event_type?: NotificationEventType | null;
+  scope_type?: string | null;
+  scope_id?: string | null;
+  source_ref?: string | null;
+  severity?: NotificationSeverity | null;
+  payload?: Record<string, unknown>;
 }): NotificationDelivery {
   return {
     deliveryId: raw.delivery_id,
@@ -137,6 +163,12 @@ export function deliveryFromApi(raw: {
     updatedAt: raw.updated_at,
     deliveredAt: raw.delivered_at,
     readAt: raw.read_at,
+    eventType: raw.event_type ?? null,
+    scopeType: raw.scope_type ?? null,
+    scopeId: raw.scope_id ?? null,
+    sourceRef: raw.source_ref ?? null,
+    severity: raw.severity ?? null,
+    payload: raw.payload ?? {},
   };
 }
 
@@ -145,12 +177,16 @@ export function inboxFromApi(raw: InboxApiResponse): {
   totalUnread: number;
   cursor: string | null;
   hasMore: boolean;
+  failedCount: number;
+  todayCount: number;
 } {
   return {
     deliveries: raw.items.map(deliveryFromApi),
     totalUnread: raw.total_unread,
     cursor: raw.cursor,
     hasMore: raw.has_more,
+    failedCount: raw.failed_count ?? 0,
+    todayCount: raw.today_count ?? 0,
   };
 }
 

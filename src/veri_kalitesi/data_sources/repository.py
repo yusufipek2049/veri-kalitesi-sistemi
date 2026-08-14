@@ -17,7 +17,7 @@ from veri_kalitesi.data_protection import (
     InventoryCoverageItem,
     InventoryCoverageTechnicalError,
 )
-from veri_kalitesi.data_sources.errors import NotFoundError, ValidationError
+from veri_kalitesi.data_sources.errors import ConflictError, NotFoundError, ValidationError
 from veri_kalitesi.data_sources.models import (
     ConnectionRevisionStatus,
     ConnectionTestResult,
@@ -216,6 +216,7 @@ class SQLiteDataSourceRepository:
                 expires_at TEXT,
                 business_calendar_version TEXT,
                 decided_at TEXT,
+                request_type TEXT NOT NULL DEFAULT 'ACTIVATION',
                 FOREIGN KEY (data_source_id) REFERENCES data_sources(data_source_id)
             );
 
@@ -228,6 +229,7 @@ class SQLiteDataSourceRepository:
         self._migrate_connection_test_revision()
         self._migrate_connection_revision_history()
         self._migrate_activation_timing()
+        self._migrate_activation_request_type()
         self._migrate_data_field_classification()
         self._create_data_field_classification_guards()
 
@@ -255,6 +257,20 @@ class SQLiteDataSourceRepository:
                     self.connection.execute(
                         f"ALTER TABLE data_source_activation_requests ADD COLUMN {name} TEXT"
                     )
+
+    def _migrate_activation_request_type(self) -> None:
+        columns = {
+            row["name"]
+            for row in self.connection.execute(
+                "PRAGMA table_info(data_source_activation_requests)"
+            ).fetchall()
+        }
+        if "request_type" not in columns:
+            with self.connection:
+                self.connection.execute(
+                    "ALTER TABLE data_source_activation_requests "
+                    "ADD COLUMN request_type TEXT NOT NULL DEFAULT 'ACTIVATION'"
+                )
 
     def _migrate_connection_test_revision(self) -> None:
         columns = {
@@ -743,8 +759,8 @@ class SQLiteDataSourceRepository:
                         activation_request_id, data_source_id, data_source_revision,
                         maker_actor_id, checker_actor_id, policy_version, status,
                         decision_reason_code, requested_at, target_at, expires_at,
-                        business_calendar_version, decided_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        business_calendar_version, decided_at, request_type
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         request.activation_request_id,
@@ -760,6 +776,7 @@ class SQLiteDataSourceRepository:
                         _to_text(request.expires_at),
                         request.business_calendar_version,
                         _to_text(request.decided_at),
+                        request.request_type,
                     ),
                 )
                 audit_outbox.stage(audit_event)
@@ -910,6 +927,117 @@ class SQLiteDataSourceRepository:
             )
             if cursor.rowcount != 1:
                 raise ValidationError("Data source activation request is not pending.")
+            audit_outbox.stage(audit_event)
+        return self.get_activation_request(request.activation_request_id)
+
+    def latest_pending_deactivation_request(
+        self,
+        data_source_id: str,
+    ) -> DataSourceActivationRequest | None:
+        row = self.connection.execute(
+            """
+            SELECT * FROM data_source_activation_requests
+            WHERE data_source_id = ? AND status = 'PENDING' AND request_type = 'DEACTIVATION'
+            ORDER BY requested_at DESC
+            LIMIT 1
+            """,
+            (data_source_id,),
+        ).fetchone()
+        return _row_to_activation_request(row) if row is not None else None
+
+    def add_deactivation_request(
+        self,
+        request: DataSourceActivationRequest,
+        *,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: SQLiteTransactionalAudit,
+    ) -> DataSourceActivationRequest:
+        self._require_shared_audit_transaction(audit_outbox)
+        try:
+            with self.connection:
+                self.connection.execute(
+                    """
+                    INSERT INTO data_source_activation_requests (
+                        activation_request_id, data_source_id, data_source_revision,
+                        maker_actor_id, checker_actor_id, policy_version, status,
+                        decision_reason_code, requested_at, target_at, expires_at,
+                        business_calendar_version, decided_at, request_type
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        request.activation_request_id,
+                        request.data_source_id,
+                        request.data_source_revision,
+                        request.maker_actor_id,
+                        request.checker_actor_id,
+                        request.policy_version,
+                        request.status.value,
+                        request.decision_reason_code,
+                        _to_text(request.requested_at),
+                        _to_text(request.target_at),
+                        _to_text(request.expires_at),
+                        request.business_calendar_version,
+                        _to_text(request.decided_at),
+                        "DEACTIVATION",
+                    ),
+                )
+                audit_outbox.stage(audit_event)
+        except sqlite3.IntegrityError as exc:
+            raise ConflictError(
+                "A pending deactivation request already exists for this data source revision.",
+                code="DATA_SOURCE_PENDING_DEACTIVATION_EXISTS",
+            ) from exc
+        return self.get_activation_request(request.activation_request_id)
+
+    def decide_deactivation_request(
+        self,
+        request: DataSourceActivationRequest,
+        *,
+        deactivate_source: bool,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: SQLiteTransactionalAudit,
+    ) -> DataSourceActivationRequest:
+        self._require_shared_audit_transaction(audit_outbox)
+        if request.status not in {
+            DataSourceActivationStatus.APPROVED,
+            DataSourceActivationStatus.REJECTED,
+        }:
+            raise ValidationError("Data source deactivation decision status is invalid.")
+        with self.connection:
+            cursor = self.connection.execute(
+                """
+                UPDATE data_source_activation_requests
+                SET checker_actor_id = ?, status = ?, decision_reason_code = ?, decided_at = ?
+                WHERE activation_request_id = ? AND status = 'PENDING'
+                """,
+                (
+                    request.checker_actor_id,
+                    request.status.value,
+                    request.decision_reason_code,
+                    _to_text(request.decided_at),
+                    request.activation_request_id,
+                ),
+            )
+            if cursor.rowcount != 1:
+                raise ConflictError("Data source deactivation request is not pending.")
+            if deactivate_source:
+                source_cursor = self.connection.execute(
+                    """
+                    UPDATE data_sources
+                    SET status = ?
+                    WHERE data_source_id = ? AND revision = ? AND status = ?
+                    """,
+                    (
+                        DataSourceStatus.INACTIVE.value,
+                        request.data_source_id,
+                        request.data_source_revision,
+                        DataSourceStatus.ACTIVE.value,
+                    ),
+                )
+                if source_cursor.rowcount != 1:
+                    raise ConflictError(
+                        "Data source revision is no longer eligible for deactivation."
+                    )
             audit_outbox.stage(audit_event)
         return self.get_activation_request(request.activation_request_id)
 
@@ -1434,6 +1562,7 @@ def _row_to_activation_request(row: sqlite3.Row) -> DataSourceActivationRequest:
         expires_at=_from_text(row["expires_at"]) if row["expires_at"] else None,
         business_calendar_version=row["business_calendar_version"],
         decided_at=_from_text(row["decided_at"]) if row["decided_at"] else None,
+        request_type=row["request_type"] if "request_type" in row.keys() else "ACTIVATION",
     )
 
 

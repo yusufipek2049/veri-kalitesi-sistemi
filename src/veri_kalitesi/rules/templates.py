@@ -26,6 +26,9 @@ def build_rule_plan(rule_type: RuleType, parameters: Mapping[str, Any]) -> dict[
         RuleType.REFERENTIAL_INTEGRITY: _referential_plan,
         RuleType.CROSS_TABLE_CONSISTENCY: _cross_table_plan,
         RuleType.CUSTOM_SQL: _custom_sql_plan,
+        RuleType.ALLOWED_VALUES: _allowed_values_plan,
+        RuleType.LENGTH_CHECK: _length_check_plan,
+        RuleType.FORMAT_CHECK: _format_check_plan,
     }
     plan = builders[rule_type](parameters)
     scope_type = _scope_type(rule_type, parameters)
@@ -178,6 +181,65 @@ def _custom_sql_plan(parameters: Mapping[str, Any]) -> dict[str, Any]:
     }
 
 
+# ── ALLOWED_VALUES ─────────────────────────────────────────────────────
+
+_KNOWN_FORMAT_TYPES: frozenset[str] = frozenset(
+    {"EMAIL", "IBAN", "PHONE", "URL", "IP_V4", "IP_V6", "UUID", "DATE_ISO", "TIMESTAMP_ISO"}
+)
+
+
+def _allowed_values_plan(parameters: Mapping[str, Any]) -> dict[str, Any]:
+    field_id = _identifier(parameters, "field_id")
+    allowed = parameters.get("allowed_values")
+    if not isinstance(allowed, list | tuple) or not allowed:
+        raise RuleValidationError("allowed_values must contain at least one value.")
+    string_values = tuple(str(item) for item in allowed)
+    if len(set(string_values)) != len(string_values):
+        raise RuleValidationError("allowed_values must contain unique entries.")
+    return {"operator": "IN_SET", "field_id": field_id, "allowed_values": string_values}
+
+
+# ── LENGTH_CHECK ───────────────────────────────────────────────────────
+
+
+def _length_check_plan(parameters: Mapping[str, Any]) -> dict[str, Any]:
+    field_id = _identifier(parameters, "field_id")
+    min_length = parameters.get("min_length")
+    max_length = parameters.get("max_length")
+    if min_length is None and max_length is None:
+        raise RuleValidationError("Length rule requires min_length or max_length.")
+    if min_length is not None and (
+        isinstance(min_length, bool) or not isinstance(min_length, int) or min_length < 0
+    ):
+        raise RuleValidationError("Length min_length must be a non-negative integer.")
+    if max_length is not None and (
+        isinstance(max_length, bool) or not isinstance(max_length, int) or max_length < 0
+    ):
+        raise RuleValidationError("Length max_length must be a non-negative integer.")
+    if min_length is not None and max_length is not None and min_length > max_length:
+        raise RuleValidationError("Length min_length must not exceed max_length.")
+    return {
+        "operator": "LENGTH_BETWEEN",
+        "field_id": field_id,
+        "min_length": min_length,
+        "max_length": max_length,
+    }
+
+
+# ── FORMAT_CHECK ───────────────────────────────────────────────────────
+
+
+def _format_check_plan(parameters: Mapping[str, Any]) -> dict[str, Any]:
+    field_id = _identifier(parameters, "field_id")
+    format_type = parameters.get("format_type")
+    if not isinstance(format_type, str) or not format_type.strip():
+        raise RuleValidationError("format_type is required.")
+    format_type = format_type.strip().upper()
+    if format_type not in _KNOWN_FORMAT_TYPES:
+        raise RuleValidationError(f"format_type must be one of {sorted(_KNOWN_FORMAT_TYPES)}.")
+    return {"operator": "FORMAT_MATCH", "field_id": field_id, "format_type": format_type}
+
+
 def _scope_type(rule_type: RuleType, parameters: Mapping[str, Any]) -> RuleScopeType:
     defaults = {
         RuleType.REQUIRED: RuleScopeType.COLUMN,
@@ -187,6 +249,9 @@ def _scope_type(rule_type: RuleType, parameters: Mapping[str, Any]) -> RuleScope
         RuleType.FRESHNESS: RuleScopeType.TIME_SERIES,
         RuleType.REFERENTIAL_INTEGRITY: RuleScopeType.REFERENCE,
         RuleType.CROSS_TABLE_CONSISTENCY: RuleScopeType.CROSS_TABLE,
+        RuleType.ALLOWED_VALUES: RuleScopeType.COLUMN,
+        RuleType.LENGTH_CHECK: RuleScopeType.COLUMN,
+        RuleType.FORMAT_CHECK: RuleScopeType.COLUMN,
     }
     if rule_type is not RuleType.CUSTOM_SQL:
         return defaults[rule_type]

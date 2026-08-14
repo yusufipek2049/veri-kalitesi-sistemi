@@ -4,15 +4,13 @@ import type {
   RuleApprovalRequestPayload,
   RuleApprovalWithdrawRequest,
   RuleCreateRequest,
+  RuleDetailApiResponse,
   RuleListApiResponse,
   RuleMutationApiResponse,
   RuleTestRequest,
   RuleTestResult,
   RuleVersionCreateRequest,
 } from "./model";
-
-const CSRF_HEADER = "X-CSRF-Token";
-let csrfProof: string | undefined;
 
 export class RuleApiError extends Error {
   constructor(
@@ -52,22 +50,34 @@ export async function fetchRules(signal?: AbortSignal): Promise<RuleListApiRespo
       correlationId,
     );
   }
-  const receivedProof = response.headers.get(CSRF_HEADER);
-  if (receivedProof) csrfProof = receivedProof;
   return response.json() as Promise<RuleListApiResponse>;
+}
+
+export async function fetchRuleDetail(ruleId: string, signal?: AbortSignal): Promise<RuleDetailApiResponse> {
+  const response = await developmentFetch(`/api/v1/rules/${encodeURIComponent(ruleId)}`, {
+    credentials: "same-origin",
+    headers: { Accept: "application/json" },
+    signal,
+  });
+  if (!response.ok) {
+    const correlationId = response.headers.get("X-Correlation-ID") ?? undefined;
+    throw new RuleApiError(
+      response.status === 401 || response.status === 403 ? "unauthorized" : "technical",
+      correlationId,
+    );
+  }
+  return response.json() as Promise<RuleDetailApiResponse>;
 }
 
 export async function createRule(
   payload: RuleCreateRequest,
 ): Promise<RuleMutationApiResponse> {
-  if (!csrfProof) throw new RuleApiError("unauthorized");
   const response = await developmentFetch("/api/v1/rules", {
     method: "POST",
     credentials: "same-origin",
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
-      [CSRF_HEADER]: csrfProof,
     },
     body: JSON.stringify(payload),
   });
@@ -79,7 +89,6 @@ export async function createRuleVersion(
   qualityRuleId: string,
   payload: RuleVersionCreateRequest,
 ): Promise<RuleMutationApiResponse> {
-  if (!csrfProof) throw new RuleApiError("unauthorized");
   const response = await developmentFetch(
     `/api/v1/rules/${encodeURIComponent(qualityRuleId)}/versions`,
     {
@@ -88,7 +97,6 @@ export async function createRuleVersion(
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
-        [CSRF_HEADER]: csrfProof,
       },
       body: JSON.stringify(payload),
     },
@@ -101,7 +109,6 @@ export async function testRule(
   qualityRuleId: string,
   payload: RuleTestRequest,
 ): Promise<RuleTestResult> {
-  if (!csrfProof) throw new RuleApiError("unauthorized");
   const response = await developmentFetch(
     `/api/v1/rules/${encodeURIComponent(qualityRuleId)}/test`,
     {
@@ -110,7 +117,6 @@ export async function testRule(
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
-        [CSRF_HEADER]: csrfProof,
       },
       body: JSON.stringify(payload),
     },
@@ -122,7 +128,6 @@ export async function testRule(
 export async function activateRule(
   qualityRuleId: string,
 ): Promise<RuleMutationApiResponse> {
-  if (!csrfProof) throw new RuleApiError("unauthorized");
   const response = await developmentFetch(
     `/api/v1/rules/${encodeURIComponent(qualityRuleId)}/activation`,
     {
@@ -131,7 +136,6 @@ export async function activateRule(
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
-        [CSRF_HEADER]: csrfProof,
       },
       body: JSON.stringify({ quality_rule_id: qualityRuleId }),
     },
@@ -143,7 +147,6 @@ export async function activateRule(
 export async function requestRuleApproval(
   qualityRuleId: string,
 ): Promise<RuleMutationApiResponse> {
-  if (!csrfProof) throw new RuleApiError("unauthorized");
   const response = await developmentFetch(
     `/api/v1/rules/${encodeURIComponent(qualityRuleId)}/approval`,
     {
@@ -152,7 +155,6 @@ export async function requestRuleApproval(
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
-        [CSRF_HEADER]: csrfProof,
       },
       body: JSON.stringify({ quality_rule_id: qualityRuleId } satisfies RuleApprovalRequestPayload),
     },
@@ -165,7 +167,6 @@ export async function decideRuleApproval(
   approvalRequestId: string,
   payload: RuleApprovalDecisionRequest,
 ): Promise<RuleMutationApiResponse> {
-  if (!csrfProof) throw new RuleApiError("unauthorized");
   const response = await developmentFetch(
     `/api/v1/rules/approval/${encodeURIComponent(approvalRequestId)}/decide`,
     {
@@ -174,7 +175,6 @@ export async function decideRuleApproval(
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
-        [CSRF_HEADER]: csrfProof,
       },
       body: JSON.stringify(payload),
     },
@@ -187,7 +187,6 @@ export async function withdrawRuleApproval(
   approvalRequestId: string,
   payload: RuleApprovalWithdrawRequest,
 ): Promise<RuleMutationApiResponse> {
-  if (!csrfProof) throw new RuleApiError("unauthorized");
   const response = await developmentFetch(
     `/api/v1/rules/approval/${encodeURIComponent(approvalRequestId)}/withdraw`,
     {
@@ -196,7 +195,6 @@ export async function withdrawRuleApproval(
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
-        [CSRF_HEADER]: csrfProof,
       },
       body: JSON.stringify(payload),
     },
@@ -208,7 +206,6 @@ export async function withdrawRuleApproval(
 export async function passivateRule(
   qualityRuleId: string,
 ): Promise<RuleMutationApiResponse> {
-  if (!csrfProof) throw new RuleApiError("unauthorized");
   const response = await developmentFetch(
     `/api/v1/rules/${encodeURIComponent(qualityRuleId)}/passivation`,
     {
@@ -217,7 +214,6 @@ export async function passivateRule(
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
-        [CSRF_HEADER]: csrfProof,
       },
       body: JSON.stringify({ quality_rule_id: qualityRuleId }),
     },

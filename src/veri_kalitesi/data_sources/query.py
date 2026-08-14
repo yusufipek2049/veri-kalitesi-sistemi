@@ -41,12 +41,17 @@ class DataSourceReader(Protocol):
         self, data_source_id: str
     ) -> DataSourceActivationRequest | None: ...
 
+    def latest_pending_deactivation_request(
+        self, data_source_id: str
+    ) -> DataSourceActivationRequest | None: ...
+
 
 @dataclass(frozen=True)
 class DataSourceView:
     source: DataSource
     available_actions: tuple[str, ...] = ()
     pending_activation_request: DataSourceActivationRequest | None = None
+    pending_deactivation_request: DataSourceActivationRequest | None = None
 
 
 class DataSourceQueryError(Exception):
@@ -143,16 +148,24 @@ class DataSourceQueryService:
         actor_context: ActorContext | None,
     ) -> DataSourceView:
         pending = self.reader.latest_pending_activation_request(source.data_source_id)
+        deactivation_reader = getattr(self.reader, "latest_pending_deactivation_request", None)
+        pending_deactivation = (
+            deactivation_reader(source.data_source_id) if callable(deactivation_reader) else None
+        )
         return DataSourceView(
             source=source,
             pending_activation_request=pending,
-            available_actions=self._available_actions(source, pending, actor_context),
+            pending_deactivation_request=pending_deactivation,
+            available_actions=self._available_actions(
+                source, pending, pending_deactivation, actor_context
+            ),
         )
 
     def _available_actions(
         self,
         source: DataSource,
         pending: DataSourceActivationRequest | None,
+        pending_deactivation: DataSourceActivationRequest | None,
         context: ActorContext | None,
     ) -> tuple[str, ...]:
         policy = self.command_policy
@@ -182,10 +195,23 @@ class DataSourceQueryService:
             actions.append("REQUEST_ACTIVATION")
         if (
             pending is not None
+            and pending.request_type == "ACTIVATION"
             and pending.maker_actor_id != context.actor_id
             and not context.roles.isdisjoint(policy.checker_roles)
         ):
             actions.extend(("APPROVE_ACTIVATION", "REJECT_ACTIVATION"))
+        if (
+            source.status is DataSourceStatus.ACTIVE
+            and not context.roles.isdisjoint(policy.maker_roles)
+            and pending_deactivation is None
+        ):
+            actions.append("REQUEST_DEACTIVATION")
+        if (
+            pending_deactivation is not None
+            and pending_deactivation.maker_actor_id != context.actor_id
+            and not context.roles.isdisjoint(policy.checker_roles)
+        ):
+            actions.extend(("APPROVE_DEACTIVATION", "REJECT_DEACTIVATION"))
         if source.status is DataSourceStatus.ACTIVE and not context.roles.isdisjoint(
             policy.deactivator_roles
         ):

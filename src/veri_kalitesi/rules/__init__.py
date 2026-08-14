@@ -42,7 +42,12 @@ from veri_kalitesi.rules.query import (
     RuleQueryTechnicalError,
 )
 from veri_kalitesi.rules.repository import SQLiteRuleRepository
-from veri_kalitesi.rules.service import BusinessCalendar, RuleService, RuleTestExecutor
+from veri_kalitesi.rules.service import (
+    BusinessCalendar,
+    RuleApprovalNotificationSink,
+    RuleService,
+    RuleTestExecutor,
+)
 from veri_kalitesi.rules.templates import build_rule_plan
 
 __all__ = [
@@ -52,6 +57,7 @@ __all__ = [
     "PostgreSQLRuleRepository",
     "QualityDimension",
     "QualityRule",
+    "RuleApprovalNotificationSink",
     "RuleApprovalPolicy",
     "RuleApprovalRequest",
     "RuleApprovalStatus",

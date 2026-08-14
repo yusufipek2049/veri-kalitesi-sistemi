@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import { expect, userEvent, within } from "storybook/test";
 import { AuditPage } from "./AuditPage";
 
 const meta = {
@@ -18,3 +19,12 @@ export const Error: Story = {
 };
 export const Unauthorized: Story = { args: { state: "unauthorized" } };
 export const LongContent: Story = { args: { state: "long-content" } };
+
+export const DetailDrawerOpen: Story = {
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const firstEventTitle = canvas.getByText("Kimlik do\u011frulama");
+    await userEvent.click(firstEventTitle);
+    await expect(canvas.getByText("Olay detay\u0131")).toBeVisible();
+  },
+};

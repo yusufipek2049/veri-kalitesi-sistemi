@@ -10,6 +10,23 @@ const viewports = [
 
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addInitScript(() => window.localStorage.setItem("development-user-id", "e2e-auditor"));
+  await page.route("**/api/v1/development/users", async (route) => {
+    await route.fulfill({
+      body: JSON.stringify({
+        items: [{ user_id: "e2e-auditor", display_name: "E2E Denetçi", roles: "AUDITOR" }],
+      }),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
+  await page.route("**/api/v1/audit/summary**", async (route) => {
+    await route.fulfill({
+      body: JSON.stringify(auditSummaryFixture()),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
   await page.route("**/api/v1/audit/events**", async (route) => {
     await route.fulfill({
       body: JSON.stringify(auditFixture()),
@@ -76,6 +93,16 @@ test("audit ikonları aynı dikey eksende kalır ve filtreler temizlenir", async
   await expect(page.getByText("Kural aktivasyonu")).not.toBeVisible();
 });
 
+test("nesne linki ilgili sayfayı yeni sekmede açar", async ({ page }) => {
+  await page.goto("/audit?state=normal");
+
+  const popupPromise = page.waitForEvent("popup");
+  await page.getByRole("link", { name: "DataSource · source-core-banking" }).click();
+  const popup = await popupPromise;
+
+  await expect(popup).toHaveURL(/\/data-sources\/source-core-banking$/);
+});
+
 test("yetkisiz denetim yüzeyi veri ifşa etmez ve klavyeyle erişilir", async ({
   page,
 }, testInfo) => {
@@ -110,6 +137,7 @@ function auditFixture() {
     period_end: "2026-07-23T12:00:00Z",
     integrity_valid: true,
     integrity_checked_count: 6,
+    first_invalid_event_id: null,
     next_after_sequence_no: null,
     through_sequence_no: 6,
     page_size: 50,
@@ -122,6 +150,17 @@ function auditFixture() {
       event(5, "REPORT_PREVIEW_VIEWED", "ReportPreview", "SUCCESS", "QUERY_COMPLETED", "report-viewer"),
       event(6, "IDENTITY_SESSION", "UserSession", "FAILURE", "ABSOLUTE_TIMEOUT", "session-user"),
     ],
+  };
+}
+
+function auditSummaryFixture() {
+  return {
+    total_count: 6,
+    result_distribution: { SUCCESS: 4, FAILURE: 1, DENIED: 1 },
+    action_distribution: { RULE_ACTIVATION: 1, DATA_SOURCE_CONNECTION_TEST: 1 },
+    top_actors: [{ actor_id: "rule-checker", count: 1 }],
+    period_start: "2026-07-16T12:00:00Z",
+    period_end: "2026-07-23T12:00:00Z",
   };
 }
 

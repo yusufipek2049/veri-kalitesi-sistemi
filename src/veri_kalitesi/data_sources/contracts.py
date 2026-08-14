@@ -212,6 +212,28 @@ class DataSourceRepository(Protocol[AuditRepoT]):
         audit_outbox: AuditRepoT,
     ) -> DataSourceActivationRequest: ...
 
+    def latest_pending_deactivation_request(
+        self,
+        data_source_id: str,
+    ) -> DataSourceActivationRequest | None: ...
+
+    def add_deactivation_request(
+        self,
+        request: DataSourceActivationRequest,
+        *,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: AuditRepoT,
+    ) -> DataSourceActivationRequest: ...
+
+    def decide_deactivation_request(
+        self,
+        request: DataSourceActivationRequest,
+        *,
+        deactivate_source: bool,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: AuditRepoT,
+    ) -> DataSourceActivationRequest: ...
+
     def replace_metadata(
         self,
         data_source_id: str,
@@ -346,3 +368,21 @@ class DataSourceRepository(Protocol[AuditRepoT]):
         audit_event: PreparedAuditEvent,
         audit_outbox: AuditRepoT,
     ) -> DataProcessingInventory: ...
+
+    # --- Catalog entity updates ---
+
+    def update_dataset(
+        self,
+        *,
+        dataset_id: str,
+        updates: dict[str, Any],
+        expected_version: int,
+    ) -> Dataset: ...
+
+    def update_field(
+        self,
+        *,
+        field_id: str,
+        updates: dict[str, Any],
+        expected_version: int,
+    ) -> DataField: ...

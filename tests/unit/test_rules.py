@@ -227,6 +227,21 @@ def _audit_events(service: RuleService) -> list[AuditEvent]:
             },
             "CROSS_TABLE_EQUALS",
         ),
+        (
+            RuleType.ALLOWED_VALUES,
+            {"field_id": FIELD_ID, "allowed_values": ["ACTIVE", "PASSIVE", "DRAFT"]},
+            "IN_SET",
+        ),
+        (
+            RuleType.LENGTH_CHECK,
+            {"field_id": FIELD_ID, "min_length": 1, "max_length": 255},
+            "LENGTH_BETWEEN",
+        ),
+        (
+            RuleType.FORMAT_CHECK,
+            {"field_id": FIELD_ID, "format_type": "EMAIL"},
+            "FORMAT_MATCH",
+        ),
     ],
 )
 def test_fr_023_fr_032_fr_033_fr_034_uc_005_builds_mvp_template_plans(
@@ -267,6 +282,30 @@ def test_fr_023_fr_032_fr_033_fr_034_uc_005_builds_mvp_template_plans(
                 "comparison": "CONTAINS",
             },
         ),
+        (
+            RuleType.ALLOWED_VALUES,
+            {"field_id": FIELD_ID, "allowed_values": []},
+        ),
+        (
+            RuleType.ALLOWED_VALUES,
+            {"field_id": FIELD_ID, "allowed_values": ["A", "A"]},
+        ),
+        (
+            RuleType.LENGTH_CHECK,
+            {"field_id": FIELD_ID, "min_length": 100, "max_length": 10},
+        ),
+        (
+            RuleType.LENGTH_CHECK,
+            {"field_id": FIELD_ID, "min_length": -1},
+        ),
+        (
+            RuleType.FORMAT_CHECK,
+            {"field_id": FIELD_ID, "format_type": "UNKNOWN_FORMAT"},
+        ),
+        (
+            RuleType.FORMAT_CHECK,
+            {"field_id": FIELD_ID},
+        ),
     ],
 )
 def test_fr_023_uc_005_rejects_invalid_template_parameters(
@@ -275,6 +314,68 @@ def test_fr_023_uc_005_rejects_invalid_template_parameters(
 ) -> None:
     with pytest.raises(RuleValidationError):
         build_rule_plan(rule_type, parameters)
+
+
+def test_new_rule_types_allowed_values_plan_structure() -> None:
+    plan = build_rule_plan(
+        RuleType.ALLOWED_VALUES,
+        {"field_id": FIELD_ID, "allowed_values": ["ACTIVE", "PASSIVE"]},
+    )
+    assert plan["operator"] == "IN_SET"
+    assert plan["field_id"] == FIELD_ID
+    assert plan["allowed_values"] == ("ACTIVE", "PASSIVE")
+    assert plan["scope_type"] == "COLUMN"
+    assert plan["definition_source"] == "TEMPLATE"
+    assert plan["ir_version"] == "DQ_RULE_IR_V1"
+
+
+def test_new_rule_types_length_check_plan_structure() -> None:
+    plan = build_rule_plan(
+        RuleType.LENGTH_CHECK,
+        {"field_id": FIELD_ID, "min_length": 5, "max_length": 100},
+    )
+    assert plan["operator"] == "LENGTH_BETWEEN"
+    assert plan["field_id"] == FIELD_ID
+    assert plan["min_length"] == 5
+    assert plan["max_length"] == 100
+    assert plan["scope_type"] == "COLUMN"
+
+
+def test_new_rule_types_length_check_min_only() -> None:
+    plan = build_rule_plan(
+        RuleType.LENGTH_CHECK,
+        {"field_id": FIELD_ID, "min_length": 1},
+    )
+    assert plan["min_length"] == 1
+    assert plan["max_length"] is None
+
+
+def test_new_rule_types_length_check_max_only() -> None:
+    plan = build_rule_plan(
+        RuleType.LENGTH_CHECK,
+        {"field_id": FIELD_ID, "max_length": 255},
+    )
+    assert plan["min_length"] is None
+    assert plan["max_length"] == 255
+
+
+def test_new_rule_types_format_check_plan_structure() -> None:
+    plan = build_rule_plan(
+        RuleType.FORMAT_CHECK,
+        {"field_id": FIELD_ID, "format_type": "IBAN"},
+    )
+    assert plan["operator"] == "FORMAT_MATCH"
+    assert plan["field_id"] == FIELD_ID
+    assert plan["format_type"] == "IBAN"
+    assert plan["scope_type"] == "COLUMN"
+
+
+def test_new_rule_types_format_check_case_insensitive() -> None:
+    plan = build_rule_plan(
+        RuleType.FORMAT_CHECK,
+        {"field_id": FIELD_ID, "format_type": "email"},
+    )
+    assert plan["format_type"] == "EMAIL"
 
 
 def test_fr_025_fr_027_uc_005_creates_draft_with_valid_scope_threshold_and_owner() -> None:

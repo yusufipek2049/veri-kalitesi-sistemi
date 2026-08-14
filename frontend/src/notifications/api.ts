@@ -21,6 +21,8 @@ export interface InboxResult {
   totalUnread: number;
   cursor: string | null;
   hasMore: boolean;
+  failedCount: number;
+  todayCount: number;
 }
 
 export async function fetchInbox(params?: {
@@ -54,6 +56,28 @@ export async function markDeliveryRead(deliveryId: string): Promise<Notification
   );
   const json = (await response.json()) as DeliveryDetailApiResponse;
   return deliveryFromApi(json.delivery);
+}
+
+export async function markAllRead(): Promise<number> {
+  const response = await developmentFetch(
+    "/api/v1/notifications/inbox/mark-all-read",
+    { method: "POST" }
+  );
+  const json = (await response.json()) as { marked_count: number };
+  return json.marked_count;
+}
+
+export async function bulkMarkRead(deliveryIds: string[]): Promise<number> {
+  const response = await developmentFetch(
+    "/api/v1/notifications/deliveries/bulk-read",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ delivery_ids: deliveryIds }),
+    }
+  );
+  const json = (await response.json()) as { marked_count: number };
+  return json.marked_count;
 }
 
 export async function fetchSubscriptions(params?: {

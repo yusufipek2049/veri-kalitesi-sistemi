@@ -13,7 +13,7 @@ services:
       timeout: 3s
       retries: 20
     ports:
-      - "55432:5432"
+      - "15432:5432"
     volumes:
       - dq-postgres:/var/lib/postgresql/data
       - dq-postgres-tls:/run/postgres-tls
@@ -35,12 +35,23 @@ services:
       DATA_QUALITY_ACTOR_POLICY_VERSION: DEVELOPMENT_DASHBOARD_POLICY_V1
       DATA_QUALITY_LOCAL_SECRET_DIR: /run/secrets/data-sources
 
+  seed:
+    build:
+      context: ../..
+      dockerfile: infra/application/Dockerfile
+    command: ["python", "scripts/seed_database.py"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      <<: *api-environment
+
   api:
     build:
       context: ../..
       dockerfile: infra/application/Dockerfile
     depends_on:
-      migrate:
+      seed:
         condition: service_completed_successfully
     environment: *api-environment
     ports:
@@ -58,7 +69,7 @@ services:
       dockerfile: infra/application/Dockerfile
     command: ["dq-worker"]
     depends_on:
-      migrate:
+      seed:
         condition: service_completed_successfully
     environment:
       <<: *api-environment
@@ -73,6 +84,7 @@ services:
       - dq-postgres-tls:/run/postgres-tls:ro
 
   frontend:
+    profiles: ["demo"]
     image: node:22.17-alpine
     working_dir: /workspace/frontend
     command: ["sh", "-c", "npm ci && npm run dev -- --host 0.0.0.0"]

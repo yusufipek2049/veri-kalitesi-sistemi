@@ -112,6 +112,7 @@ class DataSourceActivationRequest:
     expires_at: datetime | None = None
     business_calendar_version: str | None = None
     decided_at: datetime | None = None
+    request_type: str = "ACTIVATION"
 
 
 @dataclass(frozen=True)

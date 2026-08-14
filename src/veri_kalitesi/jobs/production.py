@@ -101,10 +101,171 @@ def create_production_worker(
         clock=lambda: __import__("datetime").datetime.now(__import__("datetime").timezone.utc),
     )
 
+    # ── Issue bridge & service wiring ──────────────────────────────────
+    from veri_kalitesi.identity import create_service_actor_context
+    from veri_kalitesi.issues.assignment import OwnershipIssueAssignmentResolver
+    from veri_kalitesi.issues.execution_bridge import ExecutionIssueTriggerAdapter
+    from veri_kalitesi.issues.models import (
+        IssueAccessPolicy,
+        IssueAssigneeProfile,
+    )
+    from veri_kalitesi.issues.postgresql_repository import PostgreSQLIssueRepository
+    from veri_kalitesi.issues.service import IssueService
+    from veri_kalitesi.notifications.postgresql_repository import (
+        PostgreSQLNotificationRepository,
+    )
+
+    issue_repository = PostgreSQLIssueRepository(session_factory, schema=schema)
+    notification_repository = PostgreSQLNotificationRepository(session_factory, schema=schema)
+
+    class _ProductionIssueAssigneeDirectory:
+        """Production assignee directory — owner is always active if they exist."""
+
+        def __init__(self, source_repo: PostgreSQLDataSourceRepository) -> None:
+            self._source_repo = source_repo
+
+        def get_assignee_profile(self, user_id: str) -> "IssueAssigneeProfile | None":
+            if not user_id:
+                return None
+            return IssueAssigneeProfile(
+                user_id=user_id,
+                active=True,
+                permitted_source_ids=frozenset(),
+                permitted_dataset_ids=frozenset(),
+            )
+
+    assignee_directory = _ProductionIssueAssigneeDirectory(source_repository)
+
+    assignment_resolver = OwnershipIssueAssignmentResolver(
+        rule_version_lookup=rule_repository,
+        rule_lookup=rule_repository,
+        dataset_lookup=source_repository,
+        data_source_lookup=source_repository,
+        assignee_directory=assignee_directory,
+    )
+
+    class _WorkerNotificationPublisher:
+        """Worker-scoped notification publisher — creates staged events/deliveries."""
+
+        def __init__(self, repo: PostgreSQLNotificationRepository) -> None:
+            self._repo = repo
+
+        def create_for_event(self, event: object, actor_context: object) -> tuple:
+            import hashlib
+            from uuid import uuid4 as _uuid4
+
+            from veri_kalitesi.notifications.contracts import _StagedDelivery, _StagedEvent
+            from veri_kalitesi.notifications.models import (
+                NotificationDeliveryStatus,
+                NotificationEvent,
+            )
+
+            assert isinstance(event, NotificationEvent)
+            now = __import__("datetime").datetime.now(
+                __import__("datetime").timezone.utc
+            )
+            staged_event = _StagedEvent(
+                event_id=event.event_id,
+                event_type=event.event_type.value,
+                scope_type=event.scope_type.value,
+                scope_id=event.scope_id,
+                source_ref=event.source_ref or "",
+                deduplication_key_digest=hashlib.sha256(
+                    event.deduplication_key.encode()
+                ).hexdigest()[:32],
+                payload_digest=hashlib.sha256(
+                    str(event.payload).encode()
+                ).hexdigest()[:16],
+                payload=event.payload,
+                correlation_id=event.correlation_id,
+                policy_version=event.policy_version,
+                occurred_at=event.occurred_at,
+                published_at=now,
+            )
+            delivery_id = str(_uuid4())
+            recipient = (
+                actor_context.actor_id
+                if actor_context is not None
+                else "worker-notification-sink"
+            )
+            staged_delivery = _StagedDelivery(
+                delivery_id=delivery_id,
+                event_id=event.event_id,
+                recipient_user_id=recipient,
+                channel_id="default-inapp-channel",
+                status=NotificationDeliveryStatus.DELIVERED,
+                created_at=now,
+            )
+            with self._repo._session_factory() as session:
+                self._repo._insert_event(session, staged_event)
+                self._repo._insert_delivery(session, staged_delivery)
+                session.commit()
+            return (delivery_id,)
+
+    worker_notification_publisher = _WorkerNotificationPublisher(notification_repository)
+
+    def _issue_actor_context_provider() -> "ActorContext":
+        return create_service_actor_context(
+            actor_id="issue-creation-worker",
+            correlation_id="issue-worker-correlation",
+            roles=frozenset({"ISSUE_CREATION_WORKER"}),
+        )
+
+    issue_service = IssueService(
+        issue_repository,
+        assignment_resolver,
+        worker_notification_publisher,
+        transactional_audit,
+        IssueAccessPolicy(
+            version="ISSUE_ACCESS_V1",
+            actor_policy_version=settings.actor_policy_version,
+        ),
+        assignee_directory=assignee_directory,
+        notification_actor_context_provider=_issue_actor_context_provider,
+    )
+
+    issue_bridge = ExecutionIssueTriggerAdapter(
+        execution_reader=execution_repository,
+    )
+
+    # ── Score publication wiring ───────────────────────────────────────
+    from veri_kalitesi.scoring.postgresql_repository import PostgreSQLScoreRepository
+    from veri_kalitesi.scoring.service import ScoringService
+    from veri_kalitesi.scoring.publication import ScorePublicationService
+
+    score_repository = PostgreSQLScoreRepository(session_factory, schema=schema)
+    scoring_service = ScoringService(
+        repository=score_repository,
+        execution_history=execution_repository,
+        rule_catalog=rule_repository,
+        source_catalog=source_repository,
+        clock=lambda: __import__("datetime").datetime.now(__import__("datetime").timezone.utc),
+    )
+    score_publication_service = ScorePublicationService(
+        scoring_service=scoring_service,
+        score_repository=score_repository,
+        execution_history=execution_repository,
+        rule_catalog=rule_repository,
+        source_catalog=source_repository,
+        transactional_audit=transactional_audit,
+    )
+
+    def _score_actor_context_provider() -> "ActorContext":
+        return create_service_actor_context(
+            actor_id="score-publication-worker",
+            correlation_id="score-worker-correlation",
+            roles=frozenset({"SCORE_PUBLICATION_WORKER"}),
+        )
+
     from veri_kalitesi.jobs.execution_command import PersistentExecutionCommandAdapter
 
     command_adapter = PersistentExecutionCommandAdapter(
         execution_service=execution_service,
+        issue_bridge=issue_bridge,
+        issue_service=issue_service,
+        issue_actor_context_provider=_issue_actor_context_provider,
+        score_publication_service=score_publication_service,
+        score_actor_context_provider=_score_actor_context_provider,
     )
 
     connector_registry = ConnectorRegistry([connector])
@@ -116,7 +277,8 @@ def create_production_worker(
         transactional_audit=transactional_audit,
     )
 
-    from veri_kalitesi.identity import create_service_actor_context
+    from veri_kalitesi.notifications.delivery_service import NotificationDeliveryService
+    from veri_kalitesi.notifications.jobs import NotificationDeliveryJobHandler
 
     def _service_actor_context_provider(data_source_id: str, correlation_id: str) -> "ActorContext":
         return create_service_actor_context(
@@ -133,13 +295,6 @@ def create_production_worker(
 
     lease_policy = JobLeasePolicy(duration=settings.lease_policy_duration)
 
-    from veri_kalitesi.notifications.delivery_service import NotificationDeliveryService
-    from veri_kalitesi.notifications.jobs import NotificationDeliveryJobHandler
-    from veri_kalitesi.notifications.postgresql_repository import (
-        PostgreSQLNotificationRepository,
-    )
-
-    notification_repository = PostgreSQLNotificationRepository(session_factory, schema=schema)
     notification_handler = NotificationDeliveryJobHandler(
         delivery_service=NotificationDeliveryService(repository=notification_repository),
     )

@@ -103,6 +103,41 @@ class _Resolver(Protocol):
     def resolve(self, request: Request) -> ActorContext | None: ...
 
 
+class _CatalogReader(Protocol):
+    """Katalog okuma için minimal protokol — dataset/source çözümleme."""
+
+    def get_dataset(self, dataset_id: str) -> object: ...
+    def get_data_source(self, data_source_id: str) -> object: ...
+
+
+def _resolve_issue_scope_display(
+    scope_type: str,
+    scope_id: str,
+    *,
+    catalog_reader: _CatalogReader | None,
+) -> tuple[str | None, str | None]:
+    """Issue kapsamına göre insan-okunur isim ve üst kapsam adını çözümler."""
+    if catalog_reader is None or not scope_id:
+        return None, None
+    try:
+        if scope_type == "DATASET":
+            dataset = catalog_reader.get_dataset(scope_id)
+            display_name = f"{dataset.namespace}.{dataset.name}"  # type: ignore[attr-defined]
+            parent_name: str | None = None
+            try:
+                source = catalog_reader.get_data_source(dataset.data_source_id)  # type: ignore[attr-defined]
+                parent_name = source.name  # type: ignore[attr-defined]
+            except Exception:
+                pass
+            return display_name, parent_name
+        if scope_type == "SOURCE":
+            source = catalog_reader.get_data_source(scope_id)
+            return source.name, None  # type: ignore[attr-defined]
+    except Exception:
+        return None, None
+    return None, None
+
+
 def register_issues_routes(
     app: FastAPI,
     *,
@@ -117,6 +152,7 @@ def register_issues_routes(
     issue_creation_service: IssueCreationService | None,
     resolver: _Resolver,
     data_origin: str,
+    catalog_reader: _CatalogReader | None = None,
 ) -> None:
     """İhlal alanının route'larını FastAPI uygulamasına kaydeder."""
 
@@ -139,14 +175,23 @@ def register_issues_routes(
         page_actions: list[str] = []
         if issue_creation_service is not None and _can_create_manual_issue(actor_context):
             page_actions.append("CREATE_ISSUE")
+
+        def _enrich_issue(item: IssueListItemResponse) -> IssueListItemResponse:
+            display, parent = _resolve_issue_scope_display(
+                item.scope_type, item.scope_id, catalog_reader=catalog_reader
+            )
+            return item.with_scope_display(scope_display_name=display, scope_parent_name=parent)
+
         return IssueListResponse(
             data_origin=data_origin,
             correlation_id=request.state.correlation_id,
             limit=issue_query_service.page_limit,
             items=tuple(
-                IssueListItemResponse.from_domain(
-                    issue,
-                    available_actions=_issue_actions(issue, actor_context),
+                _enrich_issue(
+                    IssueListItemResponse.from_domain(
+                        issue,
+                        available_actions=_issue_actions(issue, actor_context),
+                    )
                 )
                 for issue in issues
             ),

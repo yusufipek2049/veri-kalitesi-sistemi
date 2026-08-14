@@ -1,17 +1,30 @@
+import { useState } from "react";
 import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  FormControlLabel,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
   Skeleton,
+  TextField,
   Typography,
 } from "@mui/material";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Edit } from "lucide-react";
 import { Link } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
 import { StatusBadge } from "../components/StatusBadge";
-import type { CatalogField, CatalogItemStatus, FieldDetailState } from "./model";
+import type { CatalogField, CatalogItemStatus, FieldDetailState, FieldUpdatePayload } from "./model";
+import { CLASSIFICATION_OPTIONS } from "./model";
 
 interface FieldDetailPageProps {
   state?: FieldDetailState;
@@ -20,6 +33,7 @@ interface FieldDetailPageProps {
   dataSourceName?: string;
   correlationId?: string;
   onRefresh?: () => void;
+  onUpdateField?: (payload: FieldUpdatePayload) => Promise<void>;
 }
 
 const statusTone = (status: CatalogItemStatus): "success" | "unknown" =>
@@ -43,7 +57,52 @@ export function FieldDetailPage({
   dataSourceName,
   correlationId,
   onRefresh,
+  onUpdateField,
 }: FieldDetailPageProps) {
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    nativeDataType: "",
+    isNullable: false,
+    isSensitive: false,
+    classification: "UNCLASSIFIED",
+    status: "ACTIVE" as CatalogItemStatus,
+  });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const handleOpenEdit = () => {
+    if (!field) return;
+    setEditForm({
+      nativeDataType: field.nativeDataType,
+      isNullable: field.isNullable,
+      isSensitive: field.isSensitive,
+      classification: field.classification,
+      status: field.status,
+    });
+    setEditError(null);
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!field || !onUpdateField) return;
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      const payload: FieldUpdatePayload = { expected_version: field.version };
+      if (editForm.nativeDataType !== field.nativeDataType) payload.native_data_type = editForm.nativeDataType;
+      if (editForm.isNullable !== field.isNullable) payload.is_nullable = editForm.isNullable;
+      if (editForm.isSensitive !== field.isSensitive) payload.is_sensitive = editForm.isSensitive;
+      if (editForm.classification !== field.classification) payload.classification = editForm.classification;
+      if (editForm.status !== field.status) payload.status = editForm.status;
+      await onUpdateField(payload);
+      setEditDialogOpen(false);
+    } catch {
+      setEditError("Alan güncellenemedi. Lütfen tekrar deneyin.");
+    } finally {
+      setEditSaving(false);
+    }
+  };
+
   return (
     <AppShell currentPage="Katalog">
       <Box
@@ -117,9 +176,20 @@ export function FieldDetailPage({
                   {datasetName ?? field.datasetId}
                 </Typography>
               </Box>
-              <Button onClick={onRefresh} variant="outlined">
-                Yenile
-              </Button>
+              <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+                {onUpdateField ? (
+                  <Button
+                    onClick={handleOpenEdit}
+                    startIcon={<Edit aria-hidden="true" size={16} />}
+                    variant="outlined"
+                  >
+                    Düzenle
+                  </Button>
+                ) : null}
+                <Button onClick={onRefresh} variant="outlined">
+                  Yenile
+                </Button>
+              </Box>
             </Box>
 
             <Paper variant="outlined" sx={{ borderRadius: 1.5, p: 4 }}>
@@ -180,6 +250,83 @@ export function FieldDetailPage({
             </Paper>
           </>
         ) : null}
+
+        {/* Field edit dialog */}
+        <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Alan Düzenle</DialogTitle>
+          <DialogContent>
+            {editError ? (
+              <Alert onClose={() => setEditError(null)} severity="error" sx={{ mb: 2 }}>
+                {editError}
+              </Alert>
+            ) : null}
+            <Box sx={{ display: "grid", gap: 2.5, mt: 1 }}>
+              <TextField
+                label="Yerel Veri Tipi"
+                value={editForm.nativeDataType}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, nativeDataType: e.target.value }))}
+                fullWidth
+                required
+                error={!editForm.nativeDataType.trim()}
+              />
+              <FormControl fullWidth>
+                <InputLabel>Sınıflandırma</InputLabel>
+                <Select
+                  label="Sınıflandırma"
+                  value={editForm.classification}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, classification: e.target.value }))}
+                >
+                  {CLASSIFICATION_OPTIONS.map((code) => (
+                    <MenuItem key={code} value={code}>
+                      {code}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl fullWidth>
+                <InputLabel>Durum</InputLabel>
+                <Select
+                  label="Durum"
+                  value={editForm.status}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, status: e.target.value as CatalogItemStatus }))}
+                >
+                  <MenuItem value="ACTIVE">Aktif</MenuItem>
+                  <MenuItem value="INACTIVE">Pasif</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={editForm.isNullable}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, isNullable: e.target.checked }))}
+                  />
+                }
+                label="Null olabilir"
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={editForm.isSensitive}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, isSensitive: e.target.checked }))}
+                  />
+                }
+                label="Hassas veri"
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditDialogOpen(false)} disabled={editSaving}>
+              İptal
+            </Button>
+            <Button
+              onClick={() => void handleSaveEdit()}
+              disabled={editSaving || !editForm.nativeDataType.trim()}
+              variant="contained"
+            >
+              {editSaving ? "Kaydediliyor..." : "Kaydet"}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </AppShell>
   );

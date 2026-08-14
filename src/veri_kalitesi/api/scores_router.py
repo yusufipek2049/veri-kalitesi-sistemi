@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated, Protocol
 
@@ -14,6 +15,8 @@ from veri_kalitesi.api.models import (
     ScoreListResponse,
     ScorePublicationResponse,
     ScoreRuleHistoryResponse,
+    ScoreTrendPointResponse,
+    ScoreTrendResponse,
 )
 from veri_kalitesi.dashboard import DashboardQueryError
 from veri_kalitesi.identity import ActorContext
@@ -25,14 +28,109 @@ class _Resolver(Protocol):
     def resolve(self, request: Request) -> ActorContext | None: ...
 
 
+class _CatalogReader(Protocol):
+    """Katalog okuma için minimal protokol — dataset/source çözümleme."""
+
+    def get_dataset(self, dataset_id: str) -> object: ...
+    def get_data_source(self, data_source_id: str) -> object: ...
+
+
+class _RuleVersionReader(Protocol):
+    """Kural sürüm okuma için minimal protokol — rule code çözümleme."""
+
+    def get_version(self, rule_version_id: str) -> object: ...
+
+
+@dataclass(frozen=True)
+class _ScopeDisplayInfo:
+    """Çözümlenmiş kapsam gösterim bilgisi."""
+
+    display_name: str | None
+    parent_name: str | None
+
+
+def _resolve_scope_display(
+    scope_type: str,
+    scope_id: str | None,
+    rule_version_id: str | None,
+    *,
+    catalog_reader: _CatalogReader | None,
+    rule_version_reader: _RuleVersionReader | None,
+) -> _ScopeDisplayInfo:
+    """Skor kapsamına göre insan-okunur isim ve üst kapsam adını çözümler."""
+    if scope_id is None:
+        return _ScopeDisplayInfo(display_name=None, parent_name=None)
+
+    display_name: str | None
+    try:
+        if scope_type == ScoreScopeType.DATASET.value and catalog_reader is not None:
+            dataset = catalog_reader.get_dataset(scope_id)
+            display_name = f"{dataset.namespace}.{dataset.name}"  # type: ignore[attr-defined]
+            parent_name: str | None = None
+            try:
+                source = catalog_reader.get_data_source(dataset.data_source_id)  # type: ignore[attr-defined]
+                parent_name = source.name  # type: ignore[attr-defined]
+            except Exception:
+                pass
+            return _ScopeDisplayInfo(display_name=display_name, parent_name=parent_name)
+
+        if scope_type == ScoreScopeType.SOURCE.value and catalog_reader is not None:
+            source = catalog_reader.get_data_source(scope_id)
+            return _ScopeDisplayInfo(display_name=source.name, parent_name=None)  # type: ignore[attr-defined]
+
+        if scope_type == ScoreScopeType.RULE.value:
+            display_name = None
+            if rule_version_id is not None and rule_version_reader is not None:
+                try:
+                    version = rule_version_reader.get_version(rule_version_id)
+                    display_name = version.definition.get("code") or version.rule_version_id  # type: ignore[attr-defined]
+                except Exception:
+                    pass
+            return _ScopeDisplayInfo(display_name=display_name, parent_name=None)
+
+    except Exception:
+        return _ScopeDisplayInfo(display_name=None, parent_name=None)
+
+    return _ScopeDisplayInfo(display_name=None, parent_name=None)
+
+
+def _apply_scope_display(
+    item: ScoreItemResponse,
+    *,
+    catalog_reader: _CatalogReader | None,
+    rule_version_reader: _RuleVersionReader | None,
+) -> ScoreItemResponse:
+    """ScoreItemResponse'a kapsam gösterim bilgisini ekler."""
+    info = _resolve_scope_display(
+        item.scope_type,
+        item.scope_id,
+        item.rule_version_id,
+        catalog_reader=catalog_reader,
+        rule_version_reader=rule_version_reader,
+    )
+    return item.with_scope_display(
+        scope_display_name=info.display_name,
+        scope_parent_name=info.parent_name,
+    )
+
+
 def register_scores_routes(
     app: FastAPI,
     *,
     score_query_service: ScoreQueryService | None,
     resolver: _Resolver,
     data_origin: str,
+    catalog_reader: _CatalogReader | None = None,
+    rule_version_reader: _RuleVersionReader | None = None,
 ) -> None:
     """Skor alanının route'larını FastAPI uygulamasına kaydeder."""
+
+    def _enrich(item: ScoreItemResponse) -> ScoreItemResponse:
+        return _apply_scope_display(
+            item,
+            catalog_reader=catalog_reader,
+            rule_version_reader=rule_version_reader,
+        )
 
     @app.get(
         "/api/v1/scores",
@@ -45,6 +143,7 @@ def register_scores_routes(
         scope_id: Annotated[str | None, FastApiQuery()] = None,
         period_start: Annotated[datetime | None, FastApiQuery()] = None,
         period_end: Annotated[datetime | None, FastApiQuery()] = None,
+        score_status: Annotated[str | None, FastApiQuery()] = None,
         limit: Annotated[int, FastApiQuery(ge=1, le=200)] = 50,
     ) -> ScoreListResponse:
         if score_query_service is None:
@@ -59,12 +158,87 @@ def register_scores_routes(
             scope_id=scope_id,
             period_start=period_start,
             period_end=period_end,
+            score_status=score_status,
             limit=limit,
         )
         return ScoreListResponse(
             data_origin=data_origin,
             correlation_id=request.state.correlation_id,
-            items=tuple(ScoreItemResponse.from_domain(s) for s in scores),
+            items=tuple(_enrich(ScoreItemResponse.from_domain(s)) for s in scores),
+        )
+
+    @app.get(
+        "/api/v1/scores/trend",
+        response_model=ScoreTrendResponse,
+        tags=["scores"],
+    )
+    async def get_score_trend(
+        request: Request,
+        scope_type: Annotated[str, FastApiQuery()],
+        scope_id: Annotated[str | None, FastApiQuery()] = None,
+        period_start: Annotated[datetime | None, FastApiQuery()] = None,
+        period_end: Annotated[datetime | None, FastApiQuery()] = None,
+        granularity: Annotated[str, FastApiQuery()] = "day",
+    ) -> ScoreTrendResponse:
+        if score_query_service is None:
+            raise DashboardQueryError(
+                "Score query service is not available.", request.state.correlation_id
+            )
+        if granularity not in ("day", "week", "month"):
+            raise DashboardQueryError(
+                f"Invalid granularity '{granularity}'. Must be day, week, or month.",
+                request.state.correlation_id,
+            )
+        actor_context = resolver.resolve(request)
+        parsed_scope_type = ScoreScopeType(scope_type)
+        trend_data = score_query_service.get_score_trend(
+            actor_context,
+            scope_type=parsed_scope_type,
+            scope_id=scope_id,
+            period_start=period_start,
+            period_end=period_end,
+            granularity=granularity,  # type: ignore[arg-type]
+        )
+        return ScoreTrendResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            scope_type=scope_type,
+            scope_id=scope_id,
+            granularity=granularity,
+            items=tuple(
+                ScoreTrendPointResponse(
+                    timestamp=point["timestamp"],
+                    score_value=point["score_value"],
+                    level=point["level"],
+                    change=point["change"],
+                    score_count=point["score_count"],
+                )
+                for point in trend_data
+            ),
+        )
+
+    @app.get(
+        "/api/v1/rules/{quality_rule_id}/scores",
+        response_model=ScoreRuleHistoryResponse,
+        tags=["rules", "scores"],
+    )
+    async def list_rule_scores_by_rule(
+        request: Request,
+        quality_rule_id: str,
+    ) -> ScoreRuleHistoryResponse:
+        """Belirli bir kuralın tüm execution'lardaki skorlarını döndürür."""
+        if score_query_service is None:
+            raise DashboardQueryError(
+                "Score query service is not available.", request.state.correlation_id
+            )
+        actor_context = resolver.resolve(request)
+        # quality_rule_id'yi rule_version_id olarak kullan
+        scores = score_query_service.list_rule_scores(actor_context, quality_rule_id)
+        return ScoreRuleHistoryResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            rule_version_id=quality_rule_id,
+            items=tuple(_enrich(ScoreItemResponse.from_domain(s)) for s in scores),
         )
 
     @app.get(
@@ -86,7 +260,7 @@ def register_scores_routes(
             data_origin=data_origin,
             correlation_id=request.state.correlation_id,
             rule_version_id=rule_version_id,
-            items=tuple(ScoreItemResponse.from_domain(s) for s in scores),
+            items=tuple(_enrich(ScoreItemResponse.from_domain(s)) for s in scores),
         )
 
     @app.get(
@@ -146,8 +320,16 @@ def register_scores_routes(
         return ScoreDetailResponse(
             data_origin=data_origin,
             correlation_id=request.state.correlation_id,
-            score=ScoreItemResponse.from_domain(detail.score),
+            score=_enrich(ScoreItemResponse.from_domain(detail.score)),
             publication=pub_response,
             available_actions=detail.available_actions,
             has_contribution_graph=detail.contribution_graph is not None,
+            calculation_details=(
+                dict(detail.score.calculation_details) if detail.score.calculation_details else None
+            ),
+            contribution_graph=(
+                dict(detail.contribution_graph.graph)
+                if detail.contribution_graph is not None
+                else None
+            ),
         )

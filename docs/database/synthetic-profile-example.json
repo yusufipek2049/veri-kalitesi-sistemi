@@ -1,0 +1,240 @@
+{
+  "profile_schema_version": "SYNTHETIC_PROFILE_V1",
+  "tables": [
+    {
+      "table_name": "synthetic_customers",
+      "row_count": 19000,
+      "columns": [
+        {
+          "column_name": "customer_id",
+          "column_type": "text",
+          "null_ratio": 0.0000,
+          "distinct_ratio": 1.0000,
+          "length_histogram": [
+            {"length": 19, "share": 1.0000, "count": 19000}
+          ]
+        },
+        {
+          "column_name": "customer_number",
+          "column_type": "text",
+          "null_ratio": 0.0000,
+          "distinct_ratio": 1.0000,
+          "length_histogram": [
+            {"length": 17, "share": 1.0000, "count": 19000}
+          ]
+        },
+        {
+          "column_name": "full_name",
+          "column_type": "text",
+          "null_ratio": 0.0300,
+          "distinct_ratio": 0.9450,
+          "length_histogram": [
+            {"length": 8, "share": 0.0500, "count": 950},
+            {"length": 12, "share": 0.3500, "count": 6650},
+            {"length": 15, "share": 0.4000, "count": 7600},
+            {"length": 20, "share": 0.1500, "count": 2850},
+            {"length": 25, "share": 0.0500, "count": 950}
+          ]
+        },
+        {
+          "column_name": "email_address",
+          "column_type": "text",
+          "null_ratio": 0.0250,
+          "distinct_ratio": 0.9800,
+          "length_histogram": [
+            {"length": 22, "share": 0.3000, "count": 5700},
+            {"length": 26, "share": 0.4500, "count": 8550},
+            {"length": 30, "share": 0.2000, "count": 3800},
+            {"length": 35, "share": 0.0500, "count": 950}
+          ]
+        },
+        {
+          "column_name": "customer_status",
+          "column_type": "categorical",
+          "null_ratio": 0.0100,
+          "distinct_ratio": 0.0002,
+          "share_distribution": [
+            {"value_class": "ACTIVE", "share": 0.7500, "count": 14250},
+            {"value_class": "INACTIVE", "share": 0.1500, "count": 2850},
+            {"value_class": "CLOSED", "share": 0.1000, "count": 1900}
+          ]
+        },
+        {
+          "column_name": "activity_score",
+          "column_type": "numeric",
+          "null_ratio": 0.0200,
+          "distinct_ratio": 0.5263,
+          "deciles": {
+            "p10": 5.0000,
+            "p25": 18.0000,
+            "p50": 45.0000,
+            "p75": 72.0000,
+            "p90": 90.0000,
+            "p99": 99.0000
+          }
+        }
+      ]
+    },
+    {
+      "table_name": "synthetic_accounts",
+      "row_count": 19000,
+      "columns": [
+        {
+          "column_name": "account_id",
+          "column_type": "text",
+          "null_ratio": 0.0000,
+          "distinct_ratio": 1.0000,
+          "length_histogram": [
+            {"length": 16, "share": 1.0000, "count": 19000}
+          ]
+        },
+        {
+          "column_name": "account_number",
+          "column_type": "text",
+          "null_ratio": 0.0000,
+          "distinct_ratio": 1.0000,
+          "length_histogram": [
+            {"length": 18, "share": 1.0000, "count": 19000}
+          ]
+        },
+        {
+          "column_name": "account_name",
+          "column_type": "text",
+          "null_ratio": 0.0150,
+          "distinct_ratio": 0.8900,
+          "length_histogram": [
+            {"length": 10, "share": 0.1000, "count": 1900},
+            {"length": 16, "share": 0.4000, "count": 7600},
+            {"length": 22, "share": 0.3500, "count": 6650},
+            {"length": 28, "share": 0.1500, "count": 2850}
+          ]
+        },
+        {
+          "column_name": "iban_code",
+          "column_type": "text",
+          "null_ratio": 0.0100,
+          "distinct_ratio": 1.0000,
+          "length_histogram": [
+            {"length": 20, "share": 0.6000, "count": 11400},
+            {"length": 26, "share": 0.4000, "count": 7600}
+          ]
+        },
+        {
+          "column_name": "account_status",
+          "column_type": "categorical",
+          "null_ratio": 0.0050,
+          "distinct_ratio": 0.0002,
+          "share_distribution": [
+            {"value_class": "ACTIVE", "share": 0.8000, "count": 15200},
+            {"value_class": "INACTIVE", "share": 0.1200, "count": 2280},
+            {"value_class": "CLOSED", "share": 0.0800, "count": 1520}
+          ]
+        },
+        {
+          "column_name": "current_balance",
+          "column_type": "numeric",
+          "null_ratio": 0.0100,
+          "distinct_ratio": 0.9200,
+          "deciles": {
+            "p10": 120.5000,
+            "p25": 580.0000,
+            "p50": 2500.0000,
+            "p75": 8750.0000,
+            "p90": 35000.0000,
+            "p99": 250000.0000
+          }
+        }
+      ]
+    },
+    {
+      "table_name": "synthetic_transactions",
+      "row_count": 19000,
+      "columns": [
+        {
+          "column_name": "transaction_row_id",
+          "column_type": "text",
+          "null_ratio": 0.0000,
+          "distinct_ratio": 1.0000,
+          "length_histogram": [
+            {"length": 22, "share": 1.0000, "count": 19000}
+          ]
+        },
+        {
+          "column_name": "transaction_id",
+          "column_type": "text",
+          "null_ratio": 0.0000,
+          "distinct_ratio": 1.0000,
+          "length_histogram": [
+            {"length": 20, "share": 1.0000, "count": 19000}
+          ]
+        },
+        {
+          "column_name": "transaction_description",
+          "column_type": "text",
+          "null_ratio": 0.0350,
+          "distinct_ratio": 0.7800,
+          "length_histogram": [
+            {"length": 12, "share": 0.1500, "count": 2850},
+            {"length": 18, "share": 0.3500, "count": 6650},
+            {"length": 24, "share": 0.3000, "count": 5700},
+            {"length": 32, "share": 0.2000, "count": 3800}
+          ]
+        },
+        {
+          "column_name": "channel_code",
+          "column_type": "categorical",
+          "null_ratio": 0.0200,
+          "distinct_ratio": 0.0002,
+          "share_distribution": [
+            {"value_class": "BRANCH", "share": 0.2500, "count": 4750},
+            {"value_class": "MOBILE", "share": 0.4000, "count": 7600},
+            {"value_class": "WEB", "share": 0.2500, "count": 4750},
+            {"value_class": "ATM", "share": 0.1000, "count": 1900}
+          ]
+        },
+        {
+          "column_name": "transaction_status",
+          "column_type": "categorical",
+          "null_ratio": 0.0100,
+          "distinct_ratio": 0.0002,
+          "share_distribution": [
+            {"value_class": "ACTIVE", "share": 0.8500, "count": 16150},
+            {"value_class": "INACTIVE", "share": 0.0800, "count": 1520},
+            {"value_class": "CLOSED", "share": 0.0700, "count": 1330}
+          ]
+        },
+        {
+          "column_name": "transaction_amount",
+          "column_type": "numeric",
+          "null_ratio": 0.0050,
+          "distinct_ratio": 0.8500,
+          "deciles": {
+            "p10": 15.0000,
+            "p25": 45.0000,
+            "p50": 150.0000,
+            "p75": 520.0000,
+            "p90": 2500.0000,
+            "p99": 25000.0000
+          }
+        }
+      ]
+    }
+  ],
+  "system_wide": {
+    "volume_curve": [
+      {"period": "daily", "key": "monday", "share": 0.2200},
+      {"period": "daily", "key": "tuesday", "share": 0.2100},
+      {"period": "daily", "key": "wednesday", "share": 0.2000},
+      {"period": "daily", "key": "thursday", "share": 0.1900},
+      {"period": "daily", "key": "friday", "share": 0.1300},
+      {"period": "daily", "key": "saturday", "share": 0.0300},
+      {"period": "daily", "key": "sunday", "share": 0.0200}
+    ],
+    "latency_distribution": {
+      "p50": 120.0000,
+      "p90": 1800.0000,
+      "p99": 14400.0000
+    },
+    "defect_clustering_coefficient": 0.6000
+  }
+}

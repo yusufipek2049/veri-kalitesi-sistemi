@@ -162,6 +162,7 @@ class AuditAccessPolicy:
     required_role: str = "AUDIT_VIEWER"
     max_sync_window_days: int = 31
     max_page_size: int = 100
+    max_export_size: int = 10000
 
 
 @dataclass(frozen=True)
@@ -178,6 +179,34 @@ class AuditQuery:
     after_sequence_no: int = 0
     through_sequence_no: int | None = None
     page_size: int = 50
+
+
+@dataclass(frozen=True)
+class AuditActorCount:
+    actor_id: str
+    count: int
+
+
+@dataclass(frozen=True)
+class AuditSummary:
+    total_count: int
+    result_distribution: Mapping[str, int]
+    action_distribution: Mapping[str, int]
+    top_actors: tuple[AuditActorCount, ...]
+    period_start: datetime
+    period_end: datetime
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "result_distribution",
+            MappingProxyType(dict(self.result_distribution)),
+        )
+        object.__setattr__(
+            self,
+            "action_distribution",
+            MappingProxyType(dict(self.action_distribution)),
+        )
 
 
 @dataclass(frozen=True)

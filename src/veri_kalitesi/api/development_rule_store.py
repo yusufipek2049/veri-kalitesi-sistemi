@@ -20,13 +20,36 @@ from veri_kalitesi.rules import (
 
 
 class DevelopmentRuleReader:
+    def __init__(self) -> None:
+        self._rules: dict[str, tuple[QualityRule, RuleVersion]] = {
+            rule.quality_rule_id: (rule, version) for rule, version in DEVELOPMENT_RULES
+        }
+
     def list_rules_with_latest_version(
         self, allowed_dataset_ids: frozenset[str]
     ) -> list[tuple[QualityRule, RuleVersion]]:
         return sorted(
-            (item for item in DEVELOPMENT_RULES if item[0].dataset_id in allowed_dataset_ids),
+            (item for item in self._rules.values() if item[0].dataset_id in allowed_dataset_ids),
             key=lambda item: (item[0].code.casefold(), item[0].quality_rule_id),
         )
+
+    def get_rule(self, quality_rule_id: str) -> QualityRule:
+        entry = self._rules.get(quality_rule_id)
+        if entry is None:
+            raise KeyError(f"Rule not found: {quality_rule_id}")
+        return entry[0]
+
+    def get_version(self, rule_version_id: str) -> RuleVersion:
+        for _rule, version in self._rules.values():
+            if version.rule_version_id == rule_version_id:
+                return version
+        raise KeyError(f"Rule version not found: {rule_version_id}")
+
+    def list_versions(self, quality_rule_id: str) -> list[RuleVersion]:
+        entry = self._rules.get(quality_rule_id)
+        if entry is None:
+            return []
+        return [entry[1]]
 
 
 class DevelopmentRuleStore:

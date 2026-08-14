@@ -98,6 +98,8 @@ def job_tables(schema: str = DEFAULT_SCHEMA_NAME) -> JobTables:
         Column("progress_percent", SmallInteger, nullable=False, server_default="0"),
         Column("blocked_reason_code", String(100)),
         Column("blocked_until", DateTime(timezone=True)),
+        Column("block_count", SmallInteger, nullable=False, server_default="0"),
+        Column("max_blocks", SmallInteger, nullable=False, server_default="10"),
         UniqueConstraint(
             "job_type",
             "idempotency_key",
@@ -1175,6 +1177,7 @@ class PostgreSQLJobQueueRepository:
                     status=JobStatus.BLOCKED.value,
                     blocked_reason_code=reason_code,
                     blocked_until=blocked_until,
+                    block_count=t.c.block_count + 1,
                     claimed_by=None,
                     lease_expires_at=None,
                     last_heartbeat_at=None,
@@ -1268,6 +1271,8 @@ def _job_values(job: BackgroundJob) -> dict[str, Any]:
         "progress_percent": job.progress_percent,
         "blocked_reason_code": job.blocked_reason_code,
         "blocked_until": job.blocked_until,
+        "block_count": job.block_count,
+        "max_blocks": job.max_blocks,
     }
 
 
@@ -1300,6 +1305,8 @@ def _row_to_job(row: RowMapping) -> BackgroundJob:
         progress_percent=row["progress_percent"],
         blocked_reason_code=row["blocked_reason_code"],
         blocked_until=row["blocked_until"],
+        block_count=row.get("block_count", 0),
+        max_blocks=row.get("max_blocks", 10),
     )
 
 

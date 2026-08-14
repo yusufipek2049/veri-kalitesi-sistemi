@@ -51,6 +51,10 @@ class NotificationEventType(str, Enum):
     CRITICAL_RULE_FAILURE = "CRITICAL_RULE_FAILURE"
     TECHNICAL_ERROR = "TECHNICAL_ERROR"
     ISSUE_ASSIGNED = "ISSUE_ASSIGNED"
+    RULE_APPROVAL_REQUESTED = "RULE_APPROVAL_REQUESTED"
+    RULE_APPROVAL_DECIDED = "RULE_APPROVAL_DECIDED"
+    RULE_APPROVAL_WITHDRAWN = "RULE_APPROVAL_WITHDRAWN"
+    RULE_APPROVAL_EXPIRED = "RULE_APPROVAL_EXPIRED"
 
 
 class NotificationScopeType(str, Enum):
@@ -123,6 +127,30 @@ class NotificationChannelStatus(str, Enum):
 class NotificationSubscriptionStatus(str, Enum):
     ACTIVE = "ACTIVE"
     INACTIVE = "INACTIVE"
+
+
+# ---------------------------------------------------------------------------
+# Severity mapping
+# ---------------------------------------------------------------------------
+
+
+class NotificationSeverity(str, Enum):
+    INFO = "INFO"
+    ACTION_REQUIRED = "ACTION_REQUIRED"
+    WARNING = "WARNING"
+    CRITICAL = "CRITICAL"
+
+
+EVENT_SEVERITY: dict[NotificationEventType, NotificationSeverity] = {
+    NotificationEventType.QUALITY_THRESHOLD: NotificationSeverity.WARNING,
+    NotificationEventType.CRITICAL_RULE_FAILURE: NotificationSeverity.CRITICAL,
+    NotificationEventType.TECHNICAL_ERROR: NotificationSeverity.CRITICAL,
+    NotificationEventType.ISSUE_ASSIGNED: NotificationSeverity.ACTION_REQUIRED,
+    NotificationEventType.RULE_APPROVAL_REQUESTED: NotificationSeverity.ACTION_REQUIRED,
+    NotificationEventType.RULE_APPROVAL_DECIDED: NotificationSeverity.ACTION_REQUIRED,
+    NotificationEventType.RULE_APPROVAL_WITHDRAWN: NotificationSeverity.ACTION_REQUIRED,
+    NotificationEventType.RULE_APPROVAL_EXPIRED: NotificationSeverity.ACTION_REQUIRED,
+}
 
 
 # ---------------------------------------------------------------------------

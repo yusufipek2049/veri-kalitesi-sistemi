@@ -23,6 +23,7 @@ from veri_kalitesi.notifications.models import (
 from veri_kalitesi.notifications.postgresql_repository import (
     PostgreSQLNotificationRepository,
 )
+from veri_kalitesi.notifications.stream_hub import get_stream_hub
 from veri_kalitesi.persistence import transactional_session
 
 logger = logging.getLogger(__name__)
@@ -131,6 +132,23 @@ class NotificationDeliveryService:
                     updated_at=now,
                     delivered_at=now,
                 )
+                # Publish SSE event to the stream hub
+                try:
+                    hub = get_stream_hub()
+                    hub.publish(
+                        delivery.recipient_user_id,
+                        "new_delivery",
+                        {
+                            "delivery_id": delivery.delivery_id,
+                            "event_id": delivery.event_id,
+                            "event_type": event.event_type.value,
+                            "scope_type": event.scope_type.value,
+                            "scope_id": event.scope_id,
+                            "created_at": delivery.created_at.isoformat(),
+                        },
+                    )
+                except Exception:
+                    logger.debug("SSE hub publish failed (non-fatal)")
                 return DeliveryAttemptResult(
                     delivery_id=delivery_id,
                     status=NotificationDeliveryStatus.DELIVERED,

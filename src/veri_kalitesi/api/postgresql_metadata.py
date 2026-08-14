@@ -130,6 +130,53 @@ class PostgreSQLMetadataCommandService:
             correlation_id=correlation_id,
         )
 
+    def update_dataset(
+        self,
+        *,
+        dataset_id: str,
+        updates: dict[str, Any],
+        expected_version: int,
+        actor_context: ActorContext,
+        correlation_id: str,
+    ) -> Any:
+        """Dataset bilgilerini güncelle."""
+        # Get dataset to verify source access
+        dataset = self.repository.get_dataset(dataset_id)
+        self._assert_user_actor(
+            actor_context,
+            required_roles=self.command_policy.metadata_diff_applier_roles,
+            data_source_id=dataset.data_source_id,
+        )
+        return self.repository.update_dataset(
+            dataset_id=dataset_id,
+            updates=updates,
+            expected_version=expected_version,
+        )
+
+    def update_field(
+        self,
+        *,
+        field_id: str,
+        updates: dict[str, Any],
+        expected_version: int,
+        actor_context: ActorContext,
+        correlation_id: str,
+    ) -> Any:
+        """Field bilgilerini güncelle."""
+        # Get field to verify source access
+        field = self.repository.get_data_field(field_id)
+        dataset = self.repository.get_dataset(field.dataset_id)
+        self._assert_user_actor(
+            actor_context,
+            required_roles=self.command_policy.metadata_diff_applier_roles,
+            data_source_id=dataset.data_source_id,
+        )
+        return self.repository.update_field(
+            field_id=field_id,
+            updates=updates,
+            expected_version=expected_version,
+        )
+
     def _assert_user_actor(
         self,
         actor_context: ActorContext,

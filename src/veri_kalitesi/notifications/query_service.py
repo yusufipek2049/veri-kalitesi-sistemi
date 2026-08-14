@@ -6,6 +6,7 @@ Permission: recipient_user_id must match the requesting actor.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from veri_kalitesi.notifications.errors import (
     NotificationAuthorizationError,
@@ -21,6 +22,7 @@ from veri_kalitesi.notifications.models import (
 from veri_kalitesi.notifications.postgresql_repository import (
     PostgreSQLNotificationRepository,
 )
+from veri_kalitesi.persistence import transactional_session
 
 
 @dataclass(frozen=True)
@@ -31,6 +33,8 @@ class InboxPage:
     total_unread: int
     cursor: str | None = None
     has_more: bool = False
+    failed_count: int = 0
+    today_count: int = 0
 
 
 class NotificationQueryService:
@@ -67,11 +71,17 @@ class NotificationQueryService:
         page = deliveries[:limit]
         next_cursor = page[-1].delivery_id if has_more and page else None
         total_unread = self._repository.count_unread(recipient_user_id)
+        failed_count = self._repository.count_failed(recipient_user_id)
+        now = datetime.now(timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_count = self._repository.count_today(recipient_user_id, today_start)
         return InboxPage(
             deliveries=page,
             total_unread=total_unread,
             cursor=next_cursor,
             has_more=has_more,
+            failed_count=failed_count,
+            today_count=today_count,
         )
 
     def count_unread(
@@ -118,6 +128,10 @@ class NotificationQueryService:
             )
         return event
 
+    def get_events_by_ids(self, event_ids: list[str]) -> dict:
+        """Batch-lookup events by IDs. No auth check — caller must verify access."""
+        return self._repository.get_events_by_ids(event_ids)
+
     def list_subscriptions(
         self,
         *,
@@ -140,6 +154,23 @@ class NotificationQueryService:
     ) -> tuple[NotificationChannel, ...]:
         """List notification channels with optional filters."""
         return self._repository.list_channels(status=status, channel_type=channel_type)
+
+    def mark_all_read(
+        self,
+        *,
+        recipient_user_id: str,
+        actor_user_id: str,
+    ) -> int:
+        """Mark all DELIVERED items as READ for a recipient. Returns count."""
+        self._require_self_access(recipient_user_id, actor_user_id)
+        validate_recipient_id(recipient_user_id)
+        now = datetime.now(timezone.utc)
+        with transactional_session(self._repository._session_factory) as session:
+            return self._repository.mark_all_read_for_recipient(
+                session,
+                recipient_user_id,
+                now=now,
+            )
 
     def _require_self_access(
         self,

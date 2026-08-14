@@ -248,10 +248,7 @@ def _to_schedule_backend(schedule: ReportSchedule) -> ExecSchedule:
 
 def _replace(schedule: ReportSchedule, **kwargs: object) -> ReportSchedule:
     """Frozen dataclass field guncelleme yardimcisi."""
-    values = {
-        f.name: kwargs.get(f.name, getattr(schedule, f.name))
-        for f in fields(ReportSchedule)
-    }
+    values = {f.name: kwargs.get(f.name, getattr(schedule, f.name)) for f in fields(ReportSchedule)}
     return ReportSchedule(**values)  # type: ignore[arg-type]
 
 

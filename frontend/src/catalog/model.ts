@@ -231,3 +231,33 @@ export function mapDiscoveryScope(api: DiscoveryScopeApiResponse): DiscoveryScop
     version: api.version,
   };
 }
+
+// ── Update request types ────────────────────────────────────────────
+
+export interface DatasetUpdatePayload {
+  name?: string;
+  namespace?: string;
+  status?: CatalogItemStatus;
+  expected_version?: number;
+}
+
+export interface FieldUpdatePayload {
+  native_data_type?: string;
+  is_nullable?: boolean;
+  is_sensitive?: boolean;
+  classification?: string;
+  status?: CatalogItemStatus;
+  expected_version?: number;
+}
+
+export const CLASSIFICATION_OPTIONS: readonly string[] = [
+  "UNCLASSIFIED",
+  "PUBLIC",
+  "INTERNAL",
+  "CONFIDENTIAL",
+  "RESTRICTED",
+  "PERSONAL_DATA",
+  "SPECIAL_CATEGORY_PERSONAL_DATA",
+  "CUSTOMER_SECRET",
+  "BANK_SECRET",
+] as const;

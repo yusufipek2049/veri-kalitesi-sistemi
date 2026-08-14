@@ -4,11 +4,21 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
   Skeleton,
+  TextField,
   Typography,
 } from "@mui/material";
-import { ArrowLeft, RefreshCw, Search as SearchIcon } from "lucide-react";
+import { ArrowLeft, Edit, ListChecks, RefreshCw, Search as SearchIcon, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
 import { StatusBadge } from "../components/StatusBadge";
@@ -17,21 +27,34 @@ import type {
   CatalogField,
   CatalogItemStatus,
   DatasetDetailState,
+  DatasetUpdatePayload,
   DiscoveryStatus,
   MetadataDiff,
 } from "./model";
+
+interface DatasetRule {
+  id: string;
+  code: string;
+  name: string;
+  dimension: string;
+  status: string;
+  criticality: string;
+  ruleType: string;
+}
 
 interface DatasetDetailPageProps {
   state?: DatasetDetailState;
   dataset?: CatalogDataset;
   dataSourceName?: string;
   fields?: CatalogField[];
+  rules?: DatasetRule[];
   discoveryStatus?: DiscoveryStatus | null;
   latestDiff?: MetadataDiff | null;
   correlationId?: string;
   onRefresh?: () => void;
   onRequestDiscovery?: (dataSourceId: string) => Promise<void>;
   onApplyDiff?: (metadataDiffId: string) => Promise<void>;
+  onUpdateDataset?: (payload: DatasetUpdatePayload) => Promise<void>;
 }
 
 const fieldStatusTone = (status: CatalogItemStatus): "success" | "unknown" =>
@@ -114,17 +137,23 @@ export function DatasetDetailPage({
   dataset,
   dataSourceName,
   fields = [],
+  rules = [],
   discoveryStatus,
   latestDiff,
   correlationId,
   onRefresh,
   onRequestDiscovery,
   onApplyDiff,
+  onUpdateDataset,
 }: DatasetDetailPageProps) {
   const [fieldQuery, setFieldQuery] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [discovering, setDiscovering] = useState(false);
   const [applying, setApplying] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editForm, setEditForm] = useState({ name: "", namespace: "", status: "ACTIVE" as CatalogItemStatus });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const filteredFields = fields.filter((f) =>
     f.name.toLocaleLowerCase("tr-TR").includes(fieldQuery.toLocaleLowerCase("tr-TR")),
@@ -153,6 +182,31 @@ export function DatasetDetailPage({
       setActionError("Fark uygulaması tamamlanamadı.");
     } finally {
       setApplying(false);
+    }
+  };
+
+  const handleOpenEdit = () => {
+    if (!dataset) return;
+    setEditForm({ name: dataset.name, namespace: dataset.namespace, status: dataset.status });
+    setEditError(null);
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!dataset || !onUpdateDataset) return;
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      const payload: DatasetUpdatePayload = { expected_version: dataset.version };
+      if (editForm.name !== dataset.name) payload.name = editForm.name;
+      if (editForm.namespace !== dataset.namespace) payload.namespace = editForm.namespace;
+      if (editForm.status !== dataset.status) payload.status = editForm.status;
+      await onUpdateDataset(payload);
+      setEditDialogOpen(false);
+    } catch {
+      setEditError("Dataset güncellenemedi. Lütfen tekrar deneyin.");
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -230,6 +284,14 @@ export function DatasetDetailPage({
                 </Typography>
               </Box>
               <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+                <Button
+                  component={Link}
+                  to={`/catalog/datasets/${dataset.id}/trend`}
+                  startIcon={<TrendingUp aria-hidden="true" size={16} />}
+                  variant="contained"
+                >
+                  Skor trendi
+                </Button>
                 {onRequestDiscovery ? (
                   <Button
                     disabled={discovering}
@@ -238,6 +300,15 @@ export function DatasetDetailPage({
                     variant="contained"
                   >
                     Metadata keşfet
+                  </Button>
+                ) : null}
+                {onUpdateDataset ? (
+                  <Button
+                    onClick={handleOpenEdit}
+                    startIcon={<Edit aria-hidden="true" size={16} />}
+                    variant="outlined"
+                  >
+                    Düzenle
                   </Button>
                 ) : null}
                 <Button onClick={onRefresh} variant="outlined">
@@ -324,7 +395,23 @@ export function DatasetDetailPage({
                     </Typography>
                   </Box>
                 </Box>
-                {discoveryStatus.partialReasonCode ? (
+                {(discoveryStatus.status === "RUNNING" || discoveryStatus.status === "QUEUED") ? (
+                  <Alert severity="info" sx={{ mt: 2 }}>
+                    <Box sx={{ alignItems: "center", display: "flex", gap: 1 }}>
+                      <CircularProgress aria-label="Keşif devam ediyor" size={16} />
+                      <Typography variant="body2">Metadata keşfi işlemi devam ediyor...</Typography>
+                    </Box>
+                  </Alert>
+                ) : null}
+                {discoveryStatus.status === "TECHNICAL_ERROR" ? (
+                  <Alert severity="error" sx={{ mt: 2 }}>
+                    <Typography variant="body2">
+                      Keşif sırasında teknik hata oluştu.
+                      {discoveryStatus.partialReasonCode ? ` (${discoveryStatus.partialReasonCode})` : ""}
+                    </Typography>
+                  </Alert>
+                ) : null}
+                {discoveryStatus.partialReasonCode && discoveryStatus.status !== "TECHNICAL_ERROR" ? (
                   <Alert severity="warning" sx={{ mt: 2 }}>
                     Kısmi sonuç: {discoveryStatus.partialReasonCode}
                   </Alert>
@@ -413,8 +500,155 @@ export function DatasetDetailPage({
                 </Box>
               )}
             </Paper>
+
+            {/* Rules section */}
+            <Paper variant="outlined" sx={{ borderRadius: 1.5, overflow: "hidden" }}>
+              <Box
+                sx={{
+                  alignItems: "center",
+                  borderBottom: 1,
+                  borderColor: "divider",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  px: 4,
+                  py: 3,
+                }}
+              >
+                <Box sx={{ alignItems: "center", display: "flex", gap: 1 }}>
+                  <ListChecks aria-hidden="true" size={20} />
+                  <Typography component="h2" variant="h3">
+                    Kalite Kuralları
+                  </Typography>
+                </Box>
+                <Box sx={{ alignItems: "center", display: "flex", gap: 2 }}>
+                  <Typography color="text.secondary" variant="body2">
+                    {rules.length} kural
+                  </Typography>
+                  <Button component={Link} to="/rules" size="small" variant="text">
+                    Tüm kurallar
+                  </Button>
+                </Box>
+              </Box>
+              {rules.length > 0 ? (
+                <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }}>
+                  {rules.map((rule) => (
+                    <Box
+                      component="li"
+                      key={rule.id}
+                      sx={{
+                        alignItems: "center",
+                        borderBottom: 1,
+                        borderColor: "divider",
+                        display: "grid",
+                        gap: 2,
+                        gridTemplateColumns: {
+                          xs: "minmax(0, 1fr)",
+                          md: "minmax(200px, 1fr) 140px 120px 120px",
+                        },
+                        minHeight: 52,
+                        px: 4,
+                        py: 1.5,
+                        "&:last-child": { borderBottom: 0 },
+                      }}
+                    >
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography
+                          component={Link}
+                          noWrap
+                          sx={{ fontWeight: 600, textDecoration: "none", "&:hover": { textDecoration: "underline" } }}
+                          to="/rules"
+                          variant="body2"
+                        >
+                          {rule.name}
+                        </Typography>
+                        <Typography color="text.secondary" noWrap variant="caption">
+                          {rule.code}
+                        </Typography>
+                      </Box>
+                      <Typography color="text.secondary" variant="body2">
+                        {rule.dimension}
+                      </Typography>
+                      <StatusBadge
+                        label={rule.status}
+                        tone={rule.status === "ACTIVE" ? "success" : rule.status === "PASSIVE" ? "unknown" : "warning"}
+                      />
+                      <Chip
+                        label={rule.criticality}
+                        size="small"
+                        color={rule.criticality === "CRITICAL" ? "error" : rule.criticality === "HIGH" ? "warning" : "default"}
+                        variant="outlined"
+                      />
+                    </Box>
+                  ))}
+                </Box>
+              ) : (
+                <Box sx={{ p: 4 }}>
+                  <Alert severity="info">
+                    <Typography variant="body2">
+                      Bu dataset için henüz kural tanımlanmamış.{" "}
+                      <Link to="/rules" style={{ textDecoration: "underline" }}>
+                        Kural oluştur
+                      </Link>
+                    </Typography>
+                  </Alert>
+                </Box>
+              )}
+            </Paper>
           </>
         ) : null}
+
+        {/* Dataset edit dialog */}
+        <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Dataset Düzenle</DialogTitle>
+          <DialogContent>
+            {editError ? (
+              <Alert onClose={() => setEditError(null)} severity="error" sx={{ mb: 2 }}>
+                {editError}
+              </Alert>
+            ) : null}
+            <Box sx={{ display: "grid", gap: 2.5, mt: 1 }}>
+              <TextField
+                label="Ad"
+                value={editForm.name}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
+                fullWidth
+                required
+                error={!editForm.name.trim()}
+              />
+              <TextField
+                label="Namespace"
+                value={editForm.namespace}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, namespace: e.target.value }))}
+                fullWidth
+                required
+                error={!editForm.namespace.trim()}
+              />
+              <FormControl fullWidth>
+                <InputLabel>Durum</InputLabel>
+                <Select
+                  label="Durum"
+                  value={editForm.status}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, status: e.target.value as CatalogItemStatus }))}
+                >
+                  <MenuItem value="ACTIVE">Aktif</MenuItem>
+                  <MenuItem value="INACTIVE">Pasif</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditDialogOpen(false)} disabled={editSaving}>
+              İptal
+            </Button>
+            <Button
+              onClick={() => void handleSaveEdit()}
+              disabled={editSaving || !editForm.name.trim() || !editForm.namespace.trim()}
+              variant="contained"
+            >
+              {editSaving ? "Kaydediliyor..." : "Kaydet"}
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Box>
     </AppShell>
   );

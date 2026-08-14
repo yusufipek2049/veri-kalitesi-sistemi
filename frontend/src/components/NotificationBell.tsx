@@ -1,34 +1,42 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Alert,
   Badge,
   Box,
+  Button,
   IconButton,
   List,
   ListItemButton,
   ListItemText,
   Popover,
+  Snackbar,
   Typography,
 } from "@mui/material";
 import { Bell, Inbox } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { fetchInbox, fetchUnreadCount } from "../notifications/api";
 import type { NotificationDelivery } from "../notifications/model";
+import { useNotificationStream } from "../notifications/useNotificationStream";
+
+const POLL_INTERVAL_MS = 30_000;
 
 const eventTypeLabels: Record<string, string> = {
   QUALITY_THRESHOLD: "Kalite eşiği",
   CRITICAL_RULE_FAILURE: "Kritik kural hatası",
   TECHNICAL_ERROR: "Teknik hata",
   ISSUE_ASSIGNED: "Sorun ataması",
+  RULE_APPROVAL_REQUESTED: "Kural onay talebi",
+  RULE_APPROVAL_DECIDED: "Onay kararı",
+  RULE_APPROVAL_WITHDRAWN: "Onay geri çekme",
+  RULE_APPROVAL_EXPIRED: "Onay süresi doldu",
 };
 
-const statusLabels: Record<string, string> = {
-  PENDING: "Bekliyor",
-  SENDING: "Gönderiliyor",
-  DELIVERED: "Teslim edildi",
-  FAILED: "Başarısız",
-  UNDELIVERABLE: "Teslim edilemez",
-  REROUTED: "Yönlendirildi",
-  READ: "Okundu",
+const scopeTypeLabels: Record<string, string> = {
+  DATASET: "Dataset",
+  SOURCE: "Veri kaynağı",
+  RULE: "Kural",
+  EXECUTION: "Çalıştırma",
+  ISSUE_ASSIGNMENT: "Sorun ataması",
 };
 
 function formatDate(value: string): string {
@@ -39,15 +47,43 @@ function formatDate(value: string): string {
 }
 
 function deliveryTitle(delivery: NotificationDelivery): string {
+  if (delivery.eventType) {
+    return eventTypeLabels[delivery.eventType] ?? delivery.eventType;
+  }
   return `Teslimat ${delivery.deliveryId.slice(0, 8)}`;
 }
 
+function deliveryScopeLabel(delivery: NotificationDelivery): string | null {
+  if (!delivery.scopeType || !delivery.scopeId) return null;
+  const typeLabel = scopeTypeLabels[delivery.scopeType] ?? delivery.scopeType;
+  const shortId = delivery.scopeId.length > 20
+    ? `${delivery.scopeId.slice(0, 18)}…`
+    : delivery.scopeId;
+  return `${typeLabel}: ${shortId}`;
+}
+
+function deliveryLinkTarget(delivery: NotificationDelivery): string {
+  if (delivery.scopeType === "DATASET" && delivery.scopeId) {
+    return `/catalog/datasets/${delivery.scopeId}`;
+  }
+  if (delivery.scopeType === "SOURCE") {
+    return "/data-sources";
+  }
+  if (delivery.scopeType === "RULE") {
+    return "/rules";
+  }
+  return "/notifications";
+}
+
 export function NotificationBell() {
+  const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
   const [recentItems, setRecentItems] = useState<NotificationDelivery[]>([]);
   const [errorState, setErrorState] = useState<"idle" | "error" | "unauthorized">("idle");
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const sseConnectedRef = useRef(false);
 
   const loadData = useCallback(async () => {
     abortRef.current?.abort();
@@ -75,12 +111,44 @@ export function NotificationBell() {
     }
   }, []);
 
+  // SSE integration — replaces polling when connected
+  const handleNewDelivery = useCallback((payload: Record<string, unknown>) => {
+    setUnreadCount((c) => c + 1);
+    const eventType = payload.event_type as string | undefined;
+    const label = eventType ? (eventTypeLabels[eventType] ?? eventType) : "Yeni bildirim";
+    setToastMessage(label);
+    // Refresh inbox to keep the popover list current
+    void loadData();
+  }, [loadData]);
+
+  const { connected: sseConnected } = useNotificationStream({
+    enabled: errorState !== "unauthorized",
+    onNewDelivery: handleNewDelivery,
+  });
+
+  // Track SSE connection state for fallback logic
+  useEffect(() => {
+    sseConnectedRef.current = sseConnected;
+  }, [sseConnected]);
+
+  // Polling fallback — only active when SSE is not connected
   useEffect(() => {
     void loadData();
+
+    // Start polling only when SSE is not connected
+    if (sseConnected) return;
+
+    const intervalId = setInterval(() => {
+      if (!sseConnectedRef.current) {
+        void loadData();
+      }
+    }, POLL_INTERVAL_MS);
+
     return () => {
       abortRef.current?.abort();
+      clearInterval(intervalId);
     };
-  }, [loadData]);
+  }, [loadData, sseConnected]);
 
   const handleOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
     setAnchorEl(event.currentTarget);
@@ -88,6 +156,15 @@ export function NotificationBell() {
 
   const handleClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleToastClose = () => {
+    setToastMessage(null);
+  };
+
+  const handleToastNavigate = () => {
+    setToastMessage(null);
+    navigate("/notifications");
   };
 
   const open = Boolean(anchorEl);
@@ -159,18 +236,25 @@ export function NotificationBell() {
                 component={Link}
                 key={delivery.deliveryId}
                 onClick={handleClose}
-                to="/notifications"
+                to={deliveryLinkTarget(delivery)}
               >
                 <ListItemText
                   primary={
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      {eventTypeLabels[delivery.status] ?? statusLabels[delivery.status] ?? delivery.status}
+                      {deliveryTitle(delivery)}
                     </Typography>
                   }
                   secondary={
-                    <Typography color="text.secondary" variant="caption">
-                      {deliveryTitle(delivery)} · {formatDate(delivery.createdAt)}
-                    </Typography>
+                    <>
+                      {deliveryScopeLabel(delivery) ? (
+                        <Typography color="text.secondary" sx={{ display: "block" }} variant="caption">
+                          {deliveryScopeLabel(delivery)}
+                        </Typography>
+                      ) : null}
+                      <Typography color="text.secondary" variant="caption">
+                        {formatDate(delivery.createdAt)}
+                      </Typography>
+                    </>
                   }
                 />
               </ListItemButton>
@@ -189,6 +273,28 @@ export function NotificationBell() {
           </Typography>
         </Box>
       </Popover>
+
+      {/* New notification toast */}
+      <Snackbar
+        anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+        autoHideDuration={5000}
+        message={toastMessage ? `Yeni bildirim: ${toastMessage}` : ""}
+        onClose={handleToastClose}
+        open={toastMessage !== null}
+      >
+        <Alert
+          action={
+            <Button color="inherit" onClick={handleToastNavigate} size="small">
+              Görüntüle
+            </Button>
+          }
+          onClose={handleToastClose}
+          severity="info"
+          sx={{ width: "100%" }}
+        >
+          {toastMessage ? `Yeni bildirim: ${toastMessage}` : ""}
+        </Alert>
+      </Snackbar>
     </>
   );
 }

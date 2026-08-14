@@ -159,12 +159,17 @@ docker-compose.override.yaml
 /.?*/
 !/.github/
 
+# PyInstaller / Windows launcher (exe olusturucu) depoda izlenmez.
+*.spec
+infra/windows-launcher/
+
 # Ajan araclari ve AI prompt dosyalari depoda izlenmez.
 tools/agent-*/
 /docs/agent-prompts/
 /docs/architecture/Subagent-*.md
 /docs/architecture/Ajan-*.md
 /docs/operations/Ajan-*.md
+/docs
 AGENTS.md
 [C]LAUDE.md
 [C]ODEX-KULLANIM.md

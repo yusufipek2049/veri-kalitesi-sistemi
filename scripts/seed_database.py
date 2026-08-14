@@ -16,6 +16,7 @@ import hashlib
 import os
 import sys
 from datetime import datetime, time, timedelta, timezone
+from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
 
@@ -36,13 +37,10 @@ except ImportError:
 from alembic import command as alembic_command
 from alembic.config import Config as AlembicConfig
 
-from veri_kalitesi.audit import (
-    AuditRedactor,
-    PostgreSQLTransactionalAudit,
-    PreparedAuditEvent,
-    build_default_redaction_policy,
-)
-from veri_kalitesi.audit.models import AuditEvent, AuditEventInput, AuditResult
+from veri_kalitesi.audit.models import AuditEvent, AuditEventInput, AuditResult, PreparedAuditEvent
+from veri_kalitesi.audit.postgresql_outbox import PostgreSQLTransactionalAudit
+from veri_kalitesi.audit.redaction import AuditRedactor
+from veri_kalitesi.audit.policies import build_default_redaction_policy
 from veri_kalitesi.data_protection.policy import ClassificationCode
 from veri_kalitesi.data_sources.models import (
     DataSource,
@@ -68,6 +66,13 @@ from veri_kalitesi.executions.models import (
     WorkloadClass,
 )
 from veri_kalitesi.executions.postgresql_repository import PostgreSQLExecutionRepository
+from veri_kalitesi.executions.postgresql_source_usage import (
+    PostgreSQLSourceUsagePolicyRepository,
+)
+from veri_kalitesi.executions.source_usage_policies import (
+    SourceUsagePolicy,
+    SourceUsagePolicyStatus,
+)
 from veri_kalitesi.issues.models import (
     DataQualityIssue,
     IssueHistoryEntry,
@@ -101,6 +106,8 @@ from veri_kalitesi.rules.models import (
     RuleVersion,
 )
 from veri_kalitesi.rules.postgresql_repository import PostgreSQLRuleRepository
+from veri_kalitesi.scoring.models import ScoreLevel, ScoreScopeType, ScoreStatus
+from veri_kalitesi.scoring.postgresql_repository import score_tables
 
 ALEMBIC_INI = ROOT / "alembic.ini"
 
@@ -182,13 +189,37 @@ def _idempotency_hash(key: str) -> str:
     return hashlib.sha256(key.encode()).hexdigest()
 
 
+def _already_seeded(session_factory, schema: str) -> bool:
+    """Check if seed data already exists in the database."""
+    from sqlalchemy import text
+
+    with session_factory() as session:
+        count = session.scalar(text(f'SELECT COUNT(*) FROM "{schema}".data_sources'))
+        return count > 0
+
+
+def _make_seed_evidence() -> dict:
+    """Create valid violation evidence for seed execution results."""
+    return {
+        "fingerprint": "sha256:" + hashlib.sha256(b"seed-violation-fingerprint").hexdigest(),
+        "masked_samples": [
+            "hmac-sha256://seed-sample/" + hashlib.sha256(f"seed-sample-{i}".encode()).hexdigest()
+            for i in range(3)
+        ],
+        "expected_summary": {"population_count": 2_500_000, "eligible_count": 2_500_000},
+        "actual_summary": {"passed_count": 2_499_800, "failed_count": 200},
+        "query_reference": "query-template://seed/dq-acc-001",
+        "plan_reference": "plan://seed/dq-acc-001",
+    }
+
+
 # ---------------------------------------------------------------------------
 # Alembic migration
 # ---------------------------------------------------------------------------
 
 
 def run_alembic_migration(settings: DatabaseSettings) -> None:
-    print(f"[1/8] Alembic migration calistiriliyor ({settings.safe_url()}) ...")
+    print(f"[1/10] Alembic migration calistiriliyor ({settings.safe_url()}) ...")
     cfg = AlembicConfig(str(ALEMBIC_INI))
     cfg.set_main_option("sqlalchemy.url", settings.url.render_as_string(hide_password=False))
     cfg.set_main_option("data_quality_schema", settings.schema)
@@ -207,7 +238,7 @@ def seed_data_sources(
     schema: str,
 ) -> dict[str, DataSource]:
     """3 farkli veri kaynagi ekler."""
-    print("[2/8] Veri kaynaklari ekleniyor ...")
+    print("[2/10] Veri kaynaklari ekleniyor ...")
     sources = {
         "pg_core_banking": DataSource(
             name="Core Banking PostgreSQL",
@@ -285,7 +316,7 @@ def seed_metadata(
     schema: str,
 ) -> dict[str, Dataset]:
     """Her kaynak icin dataset + field + discovery + profile ekler."""
-    print("[3/8] Metadata (dataset, field, discovery, profile) ekleniyor ...")
+    print("[3/10] Metadata (dataset, field, discovery, profile) ekleniyor ...")
     datasets: dict[str, Dataset] = {}
 
     # --- Core Banking datasets ---
@@ -690,7 +721,7 @@ def seed_rules(
     datasets: dict[str, Dataset],
 ) -> dict[str, tuple[QualityRule, RuleVersion]]:
     """6 farkli kalite kurali ekler."""
-    print("[4/8] Kalite kurallari ekleniyor ...")
+    print("[4/10] Kalite kurallari ekleniyor ...")
     rules: dict[str, tuple[QualityRule, RuleVersion]] = {}
 
     definitions = [
@@ -864,7 +895,7 @@ def seed_executions(
     sources: dict[str, DataSource],
 ) -> dict[str, RuleExecution]:
     """3 calistirma (1 basarili, 1 kismi, 1 teknik hata) ekler."""
-    print("[5/8] Kural calistirmalari ekleniyor ...")
+    print("[5/10] Kural calistirmalari ekleniyor ...")
     executions: dict[str, RuleExecution] = {}
 
     rule_version_ids = tuple(v.rule_version_id for _, v in rules.values())
@@ -900,6 +931,7 @@ def seed_executions(
     executions["success"] = created
 
     # Sonuclari ekle
+    seed_evidence = _make_seed_evidence()
     results_success = tuple(
         RuleExecutionResult(
             execution_id=exec_success.execution_id,
@@ -909,7 +941,11 @@ def seed_executions(
             evaluated_count=2_500_000,
             passed_count=2_499_800,
             failed_count=200,
+            excluded_count=0,
+            technical_error_count=0,
+            unknown_count=0,
             measurement_status=MeasurementStatus.PASSED,
+            evidence=seed_evidence,
         )
         for vid in rule_version_ids[:3]
     )
@@ -956,7 +992,22 @@ def seed_executions(
             evaluated_count=44_500_000,
             passed_count=44_000_000,
             failed_count=500_000,
+            excluded_count=0,
+            technical_error_count=0,
+            unknown_count=0,
             measurement_status=MeasurementStatus.FAILED,
+            evidence={
+                "fingerprint": "sha256:" + hashlib.sha256(b"seed-partial-violation").hexdigest(),
+                "masked_samples": [
+                    "hmac-sha256://seed-sample/"
+                    + hashlib.sha256(f"partial-sample-{i}".encode()).hexdigest()
+                    for i in range(3)
+                ],
+                "expected_summary": {"population_count": 45_000_000, "eligible_count": 44_500_000},
+                "actual_summary": {"passed_count": 44_000_000, "failed_count": 500_000},
+                "query_reference": "query-template://seed/dq-txn-001",
+                "plan_reference": "plan://seed/dq-txn-001",
+            },
         ),
     )
     repo.complete_success(
@@ -1006,7 +1057,7 @@ def seed_issues(
     datasets: dict[str, Dataset],
 ) -> dict[str, DataQualityIssue]:
     """3 farkli durumda quality issue ekler."""
-    print("[6/8] Kalite sorunlari ekleniyor ...")
+    print("[6/10] Kalite sorunlari ekleniyor ...")
     issues: dict[str, DataQualityIssue] = {}
 
     issue_defs = [
@@ -1120,7 +1171,7 @@ def seed_jobs(
     audit_outbox: PostgreSQLTransactionalAudit,
 ) -> dict[str, BackgroundJob]:
     """5 farkli durumda is kuyrugu kaydi ekler."""
-    print("[7/8] Is kuyrugu kayitlari ekleniyor ...")
+    print("[7/10] Is kuyrugu kayitlari ekleniyor ...")
     jobs: dict[str, BackgroundJob] = {}
 
     job_defs = [
@@ -1210,7 +1261,7 @@ def seed_reports(
     schedule_repo: PostgreSQLReportScheduleRepository,
 ) -> None:
     """2 rapor + 2 rapor zamani ekler."""
-    print("[8/8] Raporlar ve rapor zamanlari ekleniyor ...")
+    print("[8/10] Raporlar ve rapor zamanlari ekleniyor ...")
 
     # Raporlar
     report_requests = [
@@ -1276,6 +1327,224 @@ def seed_reports(
         print(f"      + Schedule: {sched.name}")
 
 
+def seed_source_usage_policy(
+    repo: PostgreSQLSourceUsagePolicyRepository,
+) -> SourceUsagePolicy:
+    """Global kaynak kullanım politikası ekler (worker için gerekli)."""
+    print("[9/10] Kaynak kullanım politikası ekleniyor ...")
+    policy = SourceUsagePolicy(
+        policy_id=str(uuid4()),
+        policy_version=1,
+        status=SourceUsagePolicyStatus.ACTIVE,
+        source_id=None,
+        source_type=None,
+        max_concurrent_queries=10,
+        max_workers=4,
+        connection_timeout_seconds=15,
+        query_timeout_seconds=300,
+        total_job_timeout_seconds=3600,
+        retry_count=2,
+        retry_delay_seconds=5.0,
+        rate_limit={"requests_per_minute": 100},
+        allowed_windows=(),
+        blocked_windows=(),
+        cpu_limit_percent=80.0,
+        io_limit_percent=70.0,
+        peak_hours_behavior="DEFER",
+        timeout_cancel_behavior="CANCEL",
+        approved_by="SEED_SYSTEM",
+        audit_reference="SEED_POLICY_V1",
+    )
+    repo.save(policy)
+    print(f"      + Global policy {policy.policy_id[:8]}... (ACTIVE)")
+    return policy
+
+
+def seed_quality_scores(
+    session_factory,
+    schema: str,
+    sources: dict[str, DataSource],
+) -> None:
+    """Dashboard trend icin son 20 gunun kalite skorlarini ekler."""
+    print("[10/10] Kalite skorlari ekleniyor ...")
+    from veri_kalitesi.persistence import transactional_session
+    from sqlalchemy import Column, DateTime, Integer, MetaData, String, Table
+    from sqlalchemy.dialects.postgresql import JSON as SA_JSON
+
+    # rule_executions tablosu (FK gereksinimi icin minimal tanim)
+    exec_meta = MetaData(schema=schema)
+    exec_table = Table(
+        "rule_executions",
+        exec_meta,
+        Column("execution_id", String(36), primary_key=True),
+        Column("execution_type", String(20), nullable=False),
+        Column("status", String(30), nullable=False),
+        Column("idempotency_key_hash", String(64), nullable=False, unique=True),
+        Column("payload_hash", String(64), nullable=False),
+        Column("rule_version_ids", SA_JSON, nullable=False),
+        Column("scope", SA_JSON, nullable=False),
+        Column("triggered_by", String(128), nullable=False),
+        Column("correlation_id", String(36), nullable=False),
+        Column("source_ids", SA_JSON, nullable=False),
+        Column("workload_class", String(20), nullable=False),
+        Column("execution_mode", String(20), nullable=False),
+        Column("attempt_count", Integer, nullable=False),
+        Column("created_at", DateTime(timezone=True), nullable=False),
+        extend_existing=True,
+    )
+
+    tables = score_tables(schema)
+    t = tables.quality_scores
+
+    source_configs = [
+        {"key": "pg_core_banking", "base": Decimal("88")},
+        {"key": "mssql_risk", "base": Decimal("76")},
+        {"key": "csv_kyc_export", "base": Decimal("82")},
+    ]
+
+    score_rows: list[dict] = []
+    exec_rows: list[dict] = []
+    now = _utc_now()
+
+    def _level_for(value: Decimal) -> str:
+        if value >= Decimal("90"):
+            return ScoreLevel.GOOD.value
+        if value >= Decimal("75"):
+            return ScoreLevel.ACCEPTABLE.value
+        if value >= Decimal("50"):
+            return ScoreLevel.RISKY.value
+        return ScoreLevel.CRITICAL.value
+
+    # Kaynak skorlari
+    for cfg in source_configs:
+        source_id = sources[cfg["key"]].data_source_id
+        base = cfg["base"]
+        for day_offset in range(20, 0, -1):
+            exec_id = str(uuid4())
+            calculated_at = (now - timedelta(days=day_offset)).replace(
+                hour=6, minute=0, second=0, microsecond=0
+            )
+            variation = (day_offset % 5 - 2) * Decimal("1.5")
+            score_value = base + variation
+            exec_rows.append(
+                {
+                    "execution_id": exec_id,
+                    "execution_type": "SCHEDULED",
+                    "status": "SUCCESS",
+                    "idempotency_key_hash": hashlib.sha256(
+                        f"seed-score-{exec_id}".encode()
+                    ).hexdigest(),
+                    "payload_hash": hashlib.sha256(b"seed-score-payload").hexdigest(),
+                    "rule_version_ids": [],
+                    "scope": {"source_id": source_id},
+                    "triggered_by": "SEED_DASHBOARD",
+                    "correlation_id": str(uuid4()),
+                    "source_ids": [source_id],
+                    "workload_class": "LIGHT",
+                    "execution_mode": "OFFICIAL",
+                    "attempt_count": 0,
+                    "created_at": calculated_at,
+                }
+            )
+            score_rows.append(
+                {
+                    "quality_score_id": str(uuid4()),
+                    "execution_id": exec_id,
+                    "scope_type": ScoreScopeType.SOURCE.value,
+                    "scope_id": source_id,
+                    "score_value": score_value,
+                    "score_status": ScoreStatus.CALCULATED.value,
+                    "measurement_status": "Passed",
+                    "level": _level_for(score_value),
+                    "policy_version": "SEED_SCORING_V1",
+                    "calculation_details": {
+                        "included_in_official_aggregation": True,
+                        "component_count": 5,
+                        "seed": True,
+                    },
+                    "calculated_at": calculated_at,
+                }
+            )
+
+    # Enterprise skorlari (kaynak ortalamalari)
+    for day_offset in range(20, 0, -1):
+        exec_id = str(uuid4())
+        calculated_at = (now - timedelta(days=day_offset)).replace(
+            hour=7, minute=0, second=0, microsecond=0
+        )
+        day_source_values = []
+        for cfg in source_configs:
+            variation = (day_offset % 5 - 2) * Decimal("1.5")
+            day_source_values.append(cfg["base"] + variation)
+        enterprise_value = sum(day_source_values) / len(day_source_values)
+        all_source_ids = [sources[c["key"]].data_source_id for c in source_configs]
+        exec_rows.append(
+            {
+                "execution_id": exec_id,
+                "execution_type": "SCHEDULED",
+                "status": "SUCCESS",
+                "idempotency_key_hash": hashlib.sha256(f"seed-ent-{exec_id}".encode()).hexdigest(),
+                "payload_hash": hashlib.sha256(b"seed-ent-payload").hexdigest(),
+                "rule_version_ids": [],
+                "scope": {"scope": "enterprise"},
+                "triggered_by": "SEED_DASHBOARD",
+                "correlation_id": str(uuid4()),
+                "source_ids": all_source_ids,
+                "workload_class": "LIGHT",
+                "execution_mode": "OFFICIAL",
+                "attempt_count": 0,
+                "created_at": calculated_at,
+            }
+        )
+        score_rows.append(
+            {
+                "quality_score_id": str(uuid4()),
+                "execution_id": exec_id,
+                "scope_type": ScoreScopeType.ENTERPRISE.value,
+                "scope_id": None,
+                "score_value": enterprise_value,
+                "score_status": ScoreStatus.CALCULATED.value,
+                "measurement_status": "Passed",
+                "level": _level_for(enterprise_value),
+                "policy_version": "SEED_SCORING_V1",
+                "calculation_details": {
+                    "included_in_official_aggregation": True,
+                    "component_count": 15,
+                    "seed": True,
+                },
+                "calculated_at": calculated_at,
+            }
+        )
+
+    # Seed skorlari icin bir publication kaydi olustur
+    publication_id = str(uuid4())
+    publication_rows = [
+        {
+            "publication_id": publication_id,
+            "execution_id": exec_rows[0]["execution_id"] if exec_rows else str(uuid4()),
+            "period": "SEED_PERIOD",
+            "input_digest": "sha256:" + hashlib.sha256(b"seed-publication").hexdigest(),
+            "status": "PUBLISHED",
+            "policy_version": "SEED_SCORING_V1",
+            "published_at": now - timedelta(days=1),
+            "superseded_at": None,
+        }
+    ]
+
+    with transactional_session(session_factory) as session:
+        for row in exec_rows:
+            session.execute(exec_table.insert().values(**row))
+        pub_table = tables.score_publications
+        for row in publication_rows:
+            session.execute(pub_table.insert().values(**row))
+        for row in score_rows:
+            row["publication_id"] = publication_id
+            session.execute(t.insert().values(**row))
+
+    source_count = len(score_rows) - 20
+    print(f"      + {source_count} kaynak skoru + 20 enterprise skoru ({len(score_rows)} toplam)")
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -1300,7 +1569,15 @@ def main() -> int:
     # 2. Session factory
     session_factory = create_session_factory(settings)
 
-    # 3. Audit altyapisi
+    # 3. Idempotency check — skip if already seeded
+    if _already_seeded(session_factory, schema):
+        print("=" * 60)
+        print("  Seed verisi zaten mevcut, atlanıyor.")
+        print("  Temiz başlangıç için: docker compose down -v")
+        print("=" * 60)
+        return 0
+
+    # 4. Audit altyapisi
     redactor = AuditRedactor(build_default_redaction_policy())
     prepared_repo = _SeedPreparedAuditRepository()
     audit_outbox = PostgreSQLTransactionalAudit(
@@ -1311,7 +1588,7 @@ def main() -> int:
         schema=schema,
     )
 
-    # 4. Repository'ler
+    # 5. Repository'ler
     ds_repo = PostgreSQLDataSourceRepository(session_factory, schema=schema)
     rule_repo = PostgreSQLRuleRepository(session_factory, schema=schema)
     exec_repo = PostgreSQLExecutionRepository(session_factory, schema=schema)
@@ -1319,6 +1596,7 @@ def main() -> int:
     job_repo = PostgreSQLJobQueueRepository(session_factory, schema=schema)
     report_repo = PostgreSQLReportRepository(session_factory, schema=schema)
     report_sched_repo = PostgreSQLReportScheduleRepository(session_factory, schema=schema)
+    source_usage_policy_repo = PostgreSQLSourceUsagePolicyRepository(session_factory, schema=schema)
 
     print("=" * 60)
     print("  Veri Kalitesi Sistemi — Seed Script")
@@ -1326,7 +1604,7 @@ def main() -> int:
     print(f"  Schema   : {schema}")
     print("=" * 60)
 
-    # 5. Seed verileri
+    # 6. Seed verileri
     sources = seed_data_sources(ds_repo, audit_outbox, schema)
     datasets = seed_metadata(ds_repo, audit_outbox, sources, schema)
     rules = seed_rules(rule_repo, audit_outbox, datasets)
@@ -1334,8 +1612,10 @@ def main() -> int:
     seed_issues(issue_repo, audit_outbox, datasets)
     seed_jobs(job_repo, audit_outbox)
     seed_reports(report_repo, report_sched_repo)
+    seed_source_usage_policy(source_usage_policy_repo)
+    seed_quality_scores(session_factory, schema, sources)
 
-    # 6. Publish pending audit events
+    # 7. Publish pending audit events
     outbox_status = audit_outbox.publish_pending()
     print(f"\nAudit outbox: {outbox_status.published_count} event publish edildi.")
 

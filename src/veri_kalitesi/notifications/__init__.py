@@ -23,6 +23,7 @@ from veri_kalitesi.notifications.errors import (
     NotificationValidationError,
 )
 from veri_kalitesi.notifications.models import (
+    EVENT_SEVERITY,
     MANDATORY_EVENT_TYPES,
     Notification,
     NotificationAccessPolicy,
@@ -33,6 +34,7 @@ from veri_kalitesi.notifications.models import (
     NotificationEvent,
     NotificationEventType,
     NotificationScopeType,
+    NotificationSeverity,
     NotificationStatus,
     NotificationSubscription,
     NotificationSubscriptionStatus,
@@ -81,6 +83,7 @@ __all__ = [
     "DefaultNotificationBatchStager",
     "DeliveryAttemptResult",
     "DispatchOutcome",
+    "EVENT_SEVERITY",
     "FakeChannelAdapter",
     "InboxPage",
     "MANDATORY_EVENT_TYPES",
@@ -112,6 +115,7 @@ __all__ = [
     "NotificationRepository",
     "NotificationScopeType",
     "NotificationService",
+    "NotificationSeverity",
     "NotificationStatus",
     "NotificationSubscription",
     "NotificationSubscriptionStatus",

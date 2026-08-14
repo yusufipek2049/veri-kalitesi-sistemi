@@ -14,7 +14,6 @@ import {
   assigneeOptionsFromApi,
   issueFromApiItem,
   issuesFromApi,
-  syntheticIssues,
   type IssueAssigneeOption,
   type IssueCreateInput,
   type IssueListItem,
@@ -29,7 +28,7 @@ export function IssuesRoute() {
   const requestedState = new URLSearchParams(window.location.search).get("state") as IssueState | null;
   const fixtureState = import.meta.env.DEV && requestedState && issueStates.includes(requestedState) ? requestedState : null;
   const [state, setState] = useState<IssueState>(fixtureState ?? "loading");
-  const [items, setItems] = useState<IssueListItem[]>(syntheticIssues);
+  const [items, setItems] = useState<IssueListItem[]>([]);
   const [correlationId, setCorrelationId] = useState<string>();
   const [pageActions, setPageActions] = useState<string[]>([]);
   const load = useCallback(async (signal?: AbortSignal) => {

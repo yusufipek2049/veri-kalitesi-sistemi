@@ -11,10 +11,12 @@ from typing import Any, Mapping
 
 from veri_kalitesi.audit.errors import AuditValidationError
 from veri_kalitesi.audit.models import (
+    AuditActorCount,
     AuditEvent,
     AuditIntegrityResult,
     AuditQuery,
     AuditResult,
+    AuditSummary,
     PreparedAuditEvent,
 )
 
@@ -113,31 +115,7 @@ class SQLiteAuditRepository:
         return _row_to_event(row) if row is not None else None
 
     def query_events(self, query: AuditQuery) -> tuple[tuple[AuditEvent, ...], bool]:
-        clauses = [
-            "sequence_no > ?",
-            "julianday(occurred_at) >= julianday(?)",
-            "julianday(occurred_at) <= julianday(?)",
-        ]
-        parameters: list[object] = [
-            query.after_sequence_no,
-            query.start_at.isoformat(),
-            query.end_at.isoformat(),
-        ]
-        if query.through_sequence_no is not None:
-            clauses.append("sequence_no <= ?")
-            parameters.append(query.through_sequence_no)
-        optional_filters = (
-            ("actor_id", query.actor_id),
-            ("action", query.action),
-            ("object_type", query.object_type),
-            ("object_id", query.object_id),
-            ("correlation_id", query.correlation_id),
-            ("result", query.result.value if query.result is not None else None),
-        )
-        for column, value in optional_filters:
-            if value is not None:
-                clauses.append(f"{column} = ?")
-                parameters.append(value)
+        clauses, parameters = _query_filters(query, include_cursor=True)
         parameters.append(query.page_size + 1)
         statement = f"""
             SELECT * FROM audit_events
@@ -149,6 +127,60 @@ class SQLiteAuditRepository:
             rows = self.connection.execute(statement, parameters).fetchall()
         has_more = len(rows) > query.page_size
         return tuple(_row_to_event(row) for row in rows[: query.page_size]), has_more
+
+    def query_summary(self, query: AuditQuery) -> AuditSummary:
+        clauses, parameters = _query_filters(query, include_cursor=False)
+        where_clause = " AND ".join(clauses)
+        with self._lock:
+            total_count = int(
+                self.connection.execute(
+                    f"SELECT COUNT(*) FROM audit_events WHERE {where_clause}",
+                    parameters,
+                ).fetchone()[0]
+            )
+            result_rows = self.connection.execute(
+                f"""
+                SELECT result, COUNT(*) AS count
+                FROM audit_events
+                WHERE {where_clause}
+                GROUP BY result
+                """,
+                parameters,
+            ).fetchall()
+            action_rows = self.connection.execute(
+                f"""
+                SELECT action, COUNT(*) AS count
+                FROM audit_events
+                WHERE {where_clause}
+                GROUP BY action
+                ORDER BY count DESC, action ASC
+                """,
+                parameters,
+            ).fetchall()
+            actor_rows = self.connection.execute(
+                f"""
+                SELECT actor_id, COUNT(*) AS count
+                FROM audit_events
+                WHERE {where_clause}
+                GROUP BY actor_id
+                ORDER BY count DESC, actor_id ASC
+                LIMIT 5
+                """,
+                parameters,
+            ).fetchall()
+        result_distribution = {result.value: 0 for result in AuditResult}
+        result_distribution.update({str(row["result"]): int(row["count"]) for row in result_rows})
+        return AuditSummary(
+            total_count=total_count,
+            result_distribution=result_distribution,
+            action_distribution={str(row["action"]): int(row["count"]) for row in action_rows},
+            top_actors=tuple(
+                AuditActorCount(actor_id=str(row["actor_id"]), count=int(row["count"]))
+                for row in actor_rows
+            ),
+            period_start=query.start_at,
+            period_end=query.end_at,
+        )
 
     def latest_sequence_no(self) -> int:
         with self._lock:
@@ -174,6 +206,37 @@ class SQLiteAuditRepository:
                 return AuditIntegrityResult(False, index, event.event_id)
             previous_hash = event.event_hash
         return AuditIntegrityResult(True, len(rows))
+
+
+def _query_filters(
+    query: AuditQuery,
+    *,
+    include_cursor: bool,
+) -> tuple[list[str], list[object]]:
+    clauses = [
+        "julianday(occurred_at) >= julianday(?)",
+        "julianday(occurred_at) <= julianday(?)",
+    ]
+    parameters: list[object] = [query.start_at.isoformat(), query.end_at.isoformat()]
+    if include_cursor:
+        clauses.insert(0, "sequence_no > ?")
+        parameters.insert(0, query.after_sequence_no)
+    if query.through_sequence_no is not None:
+        clauses.append("sequence_no <= ?")
+        parameters.append(query.through_sequence_no)
+    optional_filters = (
+        ("actor_id", query.actor_id),
+        ("action", query.action),
+        ("object_type", query.object_type),
+        ("object_id", query.object_id),
+        ("correlation_id", query.correlation_id),
+        ("result", query.result.value if query.result is not None else None),
+    )
+    for column, value in optional_filters:
+        if value is not None:
+            clauses.append(f"{column} = ?")
+            parameters.append(value)
+    return clauses, parameters
 
 
 def compute_event_hash(prepared: PreparedAuditEvent, previous_hash: str) -> str:

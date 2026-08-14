@@ -60,7 +60,7 @@ class PostgreSQLRuleExecutionExecutor:
                 f"Unsupported IR version: {version.ir_version}",
                 retryable=False,
             )
-        source_id = self._resolve_source_id(version)
+        source_id, dataset = self._resolve_source_and_dataset(version)
         source = self.source_repository.get_data_source(source_id)
         if source is None or source.status is not DataSourceStatus.ACTIVE:
             raise ExecutionTechnicalError(
@@ -69,20 +69,28 @@ class PostgreSQLRuleExecutionExecutor:
             )
         secret = self.secret_resolver.resolve(source.secret_reference)
         definition = dict(version.definition)
+        table = dataset.name
         custom_sql = definition.get("sql") or definition.get("count_query")
         try:
             if custom_sql is not None:
-                population = self.connector.execute_count_query(
+                failed_count = self.connector.execute_count_query(
                     source,
                     secret,
                     custom_sql,
                     connection_timeout_seconds=timeouts.connection_seconds,
                     query_timeout_seconds=timeouts.query_seconds,
                 )
-                failed_count = 0
+                population_sql = f'SELECT COUNT(*) FROM "{table}"'
+                population = self.connector.execute_count_query(
+                    source,
+                    secret,
+                    population_sql,
+                    connection_timeout_seconds=timeouts.connection_seconds,
+                    query_timeout_seconds=timeouts.query_seconds,
+                )
             else:
-                violation_sql = self._build_violation_query(version, definition)
-                population_sql = self._build_population_query(definition)
+                violation_sql = self._build_violation_query(version, definition, table)
+                population_sql = self._build_population_query(table)
                 violation_count = self.connector.execute_count_query(
                     source,
                     secret,
@@ -122,7 +130,7 @@ class PostgreSQLRuleExecutionExecutor:
             evidence={},
         )
 
-    def _resolve_source_id(self, version: RuleVersion) -> str:
+    def _resolve_source_and_dataset(self, version: RuleVersion) -> tuple[str, object]:
         rule = self.rule_repository.get_rule(version.quality_rule_id)
         if rule is None:
             raise ExecutionTechnicalError(
@@ -140,11 +148,18 @@ class PostgreSQLRuleExecutionExecutor:
                 f"Dataset {rule.dataset_id} not found.",
                 retryable=False,
             )
-        return dataset.data_source_id
+        return dataset.data_source_id, dataset
 
     @staticmethod
-    def _build_violation_query(version: RuleVersion, definition: dict[str, Any]) -> str:
-        table, field = _require_table_field(definition)
+    def _build_violation_query(
+        version: RuleVersion, definition: dict[str, Any], table: str
+    ) -> str:
+        field = definition.get("field_id", "")
+        if not field:
+            raise ExecutionTechnicalError(
+                "Rule definition lacks field_id for template query.",
+                retryable=False,
+            )
         rule_type = version.rule_type
         if rule_type is RuleType.REQUIRED:
             return f'SELECT COUNT(*) FROM "{table}" WHERE "{field}" IS NULL'
@@ -154,8 +169,8 @@ class PostgreSQLRuleExecutionExecutor:
                 f'FROM "{table}" WHERE "{field}" IS NOT NULL'
             )
         if rule_type is RuleType.RANGE:
-            low = definition.get("min")
-            high = definition.get("max")
+            low = definition.get("minimum")
+            high = definition.get("maximum")
             conditions: list[str] = []
             if low is not None:
                 conditions.append(f'"{field}" < {low}')
@@ -170,12 +185,12 @@ class PostgreSQLRuleExecutionExecutor:
                 f'WHERE "{field}" IS NOT NULL AND "{field}" !~ \'{pattern}\''
             )
         if rule_type is RuleType.FRESHNESS:
-            max_age = definition.get("max_age_seconds", 86400)
-            ts_field = definition.get("timestamp_field", field)
+            max_age_minutes = definition.get("max_age_minutes", 1440)
+            ts_field = definition.get("field_id", field)
             return (
                 f'SELECT COUNT(*) FROM "{table}" '
                 f'WHERE "{ts_field}" IS NOT NULL '
-                f"AND \"{ts_field}\" < NOW() - INTERVAL '{max_age} seconds'"
+                f"AND \"{ts_field}\" < NOW() - INTERVAL '{max_age_minutes} minutes'"
             )
         raise ExecutionTechnicalError(
             f"Unsupported template rule type: {rule_type.value}",
@@ -183,20 +198,8 @@ class PostgreSQLRuleExecutionExecutor:
         )
 
     @staticmethod
-    def _build_population_query(definition: dict[str, Any]) -> str:
-        table, field = _require_table_field(definition)
-        return f'SELECT COUNT(*) FROM "{table}" WHERE "{field}" IS NOT NULL'
-
-
-def _require_table_field(definition: dict[str, Any]) -> tuple[str, str]:
-    table = definition.get("table", "")
-    field = definition.get("field", "")
-    if not table or not field:
-        raise ExecutionTechnicalError(
-            "Rule definition lacks table/field for template query.",
-            retryable=False,
-        )
-    return table, field
+    def _build_population_query(table: str) -> str:
+        return f'SELECT COUNT(*) FROM "{table}"'
 
 
 def _measurement_status(failed_count: int, population: int, threshold: float) -> MeasurementStatus:

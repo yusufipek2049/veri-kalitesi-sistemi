@@ -197,9 +197,7 @@ def _app(
     )
     from veri_kalitesi.scoring.repository import SQLiteScoreRepository
 
-    DashboardQueryService(
-        SQLiteScoreRepository(), authorization, clock=lambda: NOW
-    )
+    DashboardQueryService(SQLiteScoreRepository(), authorization, clock=lambda: NOW)
     return create_dashboard_api(
         actor_context_resolver=resolver,
         allowed_origins=("http://127.0.0.1:5173",),

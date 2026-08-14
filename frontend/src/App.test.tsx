@@ -10,6 +10,9 @@ vi.mock("./components/AppShell", () => ({
 vi.mock("./dataSources/DataSourcesRoute", () => ({
   DataSourcesRoute: () => <div>Veri kaynakları rotası</div>,
 }));
+vi.mock("./dashboard/DashboardPage", () => ({
+  DashboardPage: () => <div>Genel Bakış rotası</div>,
+}));
 
 import { ApplicationRoutes } from "./App";
 
@@ -22,10 +25,10 @@ function renderRoute(path: string) {
 }
 
 describe("production route surface", () => {
-  it("ana rotayı çalışan veri kaynakları yüzeyine yönlendirir", async () => {
+  it("ana rotayı genel bakış yüzeyine yönlendirir", async () => {
     renderRoute("/");
 
-    expect(await screen.findByText("Veri kaynakları rotası")).toBeInTheDocument();
+    expect(await screen.findByText("Genel Bakış rotası")).toBeInTheDocument();
   });
 
   it.each(["/profiling", "/reports", "/investigation"])(

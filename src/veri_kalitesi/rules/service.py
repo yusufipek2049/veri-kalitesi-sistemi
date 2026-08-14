@@ -21,6 +21,7 @@ from veri_kalitesi.data_sources.models import (
 )
 from veri_kalitesi.data_sources.postgresql import is_read_only_sql
 from veri_kalitesi.identity import ActorContext, ActorType, is_trusted_actor_context
+from veri_kalitesi.notifications.models import NotificationEventType
 from veri_kalitesi.rules.contracts import RuleRepository, AuditT
 from veri_kalitesi.rules.errors import (
     RuleAuthorizationError,
@@ -66,6 +67,23 @@ class RuleTestExecutor(Protocol):
     ) -> RuleTestComputation: ...
 
 
+class RuleApprovalNotificationSink(Protocol):
+    """Optional notification publisher for rule approval events."""
+
+    def publish_rule_approval_event(
+        self,
+        *,
+        event_type: NotificationEventType,
+        quality_rule_id: str,
+        rule_code: str,
+        rule_name: str,
+        recipient_user_id: str,
+        actor_context: ActorContext | None,
+        correlation_id: str,
+        payload: dict[str, Any],
+    ) -> None: ...
+
+
 class BusinessCalendar(Protocol):
     @property
     def version(self) -> str: ...
@@ -85,6 +103,7 @@ class RuleService(Generic[AuditT]):
         approval_policy: RuleApprovalPolicy | None = None,
         approval_calendar: BusinessCalendar | None = None,
         enforce_command_authorization: bool = False,
+        notification_sink: RuleApprovalNotificationSink | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ) -> None:
         self.repository = repository
@@ -95,6 +114,7 @@ class RuleService(Generic[AuditT]):
         self.approval_policy = approval_policy
         self.approval_calendar = approval_calendar
         self.enforce_command_authorization = enforce_command_authorization
+        self.notification_sink = notification_sink
         self.clock = clock
         if approval_policy is not None:
             _validate_approval_policy(approval_policy)
@@ -540,6 +560,23 @@ class RuleService(Generic[AuditT]):
             audit_outbox=self.transactional_audit,
         )
         self.transactional_audit.publish_pending()
+        self._publish_approval_notification(
+            event_type=NotificationEventType.RULE_APPROVAL_REQUESTED,
+            quality_rule_id=quality_rule_id,
+            rule=rule,
+            recipient_user_id=rule.owner_user_id,
+            actor_context=actor_context,
+            correlation_id=context.correlation_id,
+            payload={
+                "rule_code": rule.code,
+                "rule_name": rule.name,
+                "maker_actor_id": context.actor_id,
+                "dataset_id": rule.dataset_id,
+                "approval_request_id": stored.approval_request_id,
+                "target_at": target_at.isoformat() if target_at else None,
+                "expires_at": expires_at.isoformat() if expires_at else None,
+            },
+        )
         return stored
 
     def decide_rule_approval(
@@ -613,6 +650,22 @@ class RuleService(Generic[AuditT]):
             audit_outbox=self.transactional_audit,
         )
         self.transactional_audit.publish_pending()
+        self._publish_approval_notification(
+            event_type=NotificationEventType.RULE_APPROVAL_DECIDED,
+            quality_rule_id=rule.quality_rule_id,
+            rule=rule,
+            recipient_user_id=request.maker_actor_id,
+            actor_context=actor_context,
+            correlation_id=context.correlation_id,
+            payload={
+                "rule_code": rule.code,
+                "rule_name": rule.name,
+                "decision": status.value,
+                "reason_code": normalized_reason,
+                "checker_actor_id": context.actor_id,
+                "approval_request_id": request.approval_request_id,
+            },
+        )
         return stored
 
     def withdraw_rule_approval(
@@ -681,6 +734,21 @@ class RuleService(Generic[AuditT]):
             audit_outbox=self.transactional_audit,
         )
         self.transactional_audit.publish_pending()
+        self._publish_approval_notification(
+            event_type=NotificationEventType.RULE_APPROVAL_WITHDRAWN,
+            quality_rule_id=rule.quality_rule_id,
+            rule=rule,
+            recipient_user_id=rule.owner_user_id,
+            actor_context=actor_context,
+            correlation_id=context.correlation_id,
+            payload={
+                "rule_code": rule.code,
+                "rule_name": rule.name,
+                "maker_actor_id": context.actor_id,
+                "reason_code": normalized_reason,
+                "approval_request_id": request.approval_request_id,
+            },
+        )
         return stored
 
     def expire_due_rule_approvals(
@@ -740,6 +808,21 @@ class RuleService(Generic[AuditT]):
                 audit_outbox=self.transactional_audit,
             )
             self.transactional_audit.publish_pending()
+            self._publish_approval_notification(
+                event_type=NotificationEventType.RULE_APPROVAL_EXPIRED,
+                quality_rule_id=rule.quality_rule_id,
+                rule=rule,
+                recipient_user_id=request.maker_actor_id,
+                actor_context=actor_context,
+                correlation_id=context.correlation_id,
+                payload={
+                    "rule_code": rule.code,
+                    "rule_name": rule.name,
+                    "maker_actor_id": request.maker_actor_id,
+                    "approval_request_id": request.approval_request_id,
+                    "expires_at": request.expires_at.isoformat() if request.expires_at else None,
+                },
+            )
             expired_requests.append(stored)
         return tuple(expired_requests)
 
@@ -794,6 +877,35 @@ class RuleService(Generic[AuditT]):
         if self.approval_policy is None:
             return criticality is RuleCriticality.CRITICAL
         return criticality in self.approval_policy.criticalities
+
+    def _publish_approval_notification(
+        self,
+        *,
+        event_type: NotificationEventType,
+        quality_rule_id: str,
+        rule: QualityRule,
+        recipient_user_id: str,
+        actor_context: ActorContext | None,
+        correlation_id: str,
+        payload: dict[str, Any],
+    ) -> None:
+        """Publish a rule approval notification event if a sink is configured."""
+        if self.notification_sink is None:
+            return
+        try:
+            self.notification_sink.publish_rule_approval_event(
+                event_type=event_type,
+                quality_rule_id=quality_rule_id,
+                rule_code=rule.code,
+                rule_name=rule.name,
+                recipient_user_id=recipient_user_id,
+                actor_context=actor_context,
+                correlation_id=correlation_id,
+                payload=payload,
+            )
+        except Exception:
+            # Notification failures must not break the approval workflow.
+            pass
 
     def _require_approval_policy(self) -> RuleApprovalPolicy:
         if self.approval_policy is None:

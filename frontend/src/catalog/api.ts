@@ -5,12 +5,12 @@ import type {
   CatalogFieldDetailApiResponse,
   DiscoveryStatusApiResponse,
   DiscoveryResponse,
+  DiscoveryDiffApiResponse,
   DiffApplicationApiResponse,
+  DatasetUpdatePayload,
+  FieldUpdatePayload,
 } from "./model";
 import { developmentFetch } from "../development/fetch";
-
-const CSRF_HEADER = "X-CSRF-Token";
-let csrfProof: string | undefined;
 
 interface ProblemBody {
   detail?: string;
@@ -53,31 +53,20 @@ async function catalogApiError(response: Response): Promise<CatalogApiError> {
   );
 }
 
-function commandHeaders(): Record<string, string> {
-  if (!csrfProof) {
-    throw new CatalogApiError(
-      401,
-      "CATALOG_CSRF_PROOF_MISSING",
-      "A fresh data source list must be loaded before changing state.",
-    );
-  }
-  return { [CSRF_HEADER]: csrfProof, "Content-Type": "application/json" };
-}
-
 // ── GET endpoints ───────────────────────────────────────────────────
 
 export async function listCatalogDatasets(params?: {
   status?: string;
   nameContains?: string;
   limit?: number;
-}): Promise<CatalogDatasetListApiResponse> {
+}, signal?: AbortSignal): Promise<CatalogDatasetListApiResponse> {
   const searchParams = new URLSearchParams();
   if (params?.status) searchParams.set("status", params.status);
   if (params?.nameContains) searchParams.set("name_contains", params.nameContains);
   if (params?.limit) searchParams.set("limit", String(params.limit));
   const query = searchParams.toString();
   const url = `/api/v1/datasets${query ? `?${query}` : ""}`;
-  const response = await developmentFetch(url);
+  const response = await developmentFetch(url, { signal });
   if (!response.ok) throw await catalogApiError(response);
   return (await response.json()) as CatalogDatasetListApiResponse;
 }
@@ -118,6 +107,61 @@ export async function getDiscoveryStatus(
   return (await response.json()) as DiscoveryStatusApiResponse;
 }
 
+export async function getDiscoveryDiff(
+  discoveryId: number,
+): Promise<DiscoveryDiffApiResponse> {
+  const response = await developmentFetch(
+    `/api/v1/metadata-discoveries/${discoveryId}/diff`,
+  );
+  if (!response.ok) throw await catalogApiError(response);
+  return (await response.json()) as DiscoveryDiffApiResponse;
+}
+
+/**
+ * Poll discovery status until terminal state or timeout.
+ * Terminal states: SUCCESS, PARTIAL, TECHNICAL_ERROR, CANCELLED
+ */
+export async function pollDiscoveryStatus(
+  discoveryId: number,
+  options: {
+    intervalMs?: number;
+    timeoutMs?: number;
+    signal?: AbortSignal;
+    onProgress?: (status: DiscoveryStatusApiResponse) => void;
+  } = {},
+): Promise<DiscoveryStatusApiResponse> {
+  const intervalMs = options.intervalMs ?? 3000;
+  const timeoutMs = options.timeoutMs ?? 60_000;
+  const terminalStates = new Set(["SUCCESS", "PARTIAL", "TECHNICAL_ERROR", "CANCELLED"]);
+  const startTime = Date.now();
+
+  return new Promise((resolve, reject) => {
+    const poll = async () => {
+      if (options.signal?.aborted) {
+        reject(new DOMException("Polling aborted", "AbortError"));
+        return;
+      }
+      if (Date.now() - startTime > timeoutMs) {
+        reject(new Error("Discovery polling timed out."));
+        return;
+      }
+      try {
+        const status = await getDiscoveryStatus(discoveryId);
+        options.onProgress?.(status);
+        if (terminalStates.has(status.status)) {
+          resolve(status);
+          return;
+        }
+      } catch (error) {
+        reject(error);
+        return;
+      }
+      setTimeout(poll, intervalMs);
+    };
+    void poll();
+  });
+}
+
 // ── Command endpoints ───────────────────────────────────────────────
 
 export async function requestMetadataDiscovery(
@@ -128,7 +172,7 @@ export async function requestMetadataDiscovery(
     `/api/v1/data-sources/${encodeURIComponent(dataSourceId)}/metadata-discoveries`,
     {
       method: "POST",
-      headers: commandHeaders(),
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ idempotency_key: idempotencyKey ?? null }),
     },
   );
@@ -144,10 +188,44 @@ export async function applyMetadataDiff(
     `/api/v1/metadata-diffs/${encodeURIComponent(metadataDiffId)}/application`,
     {
       method: "POST",
-      headers: commandHeaders(),
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     },
   );
   if (!response.ok) throw await catalogApiError(response);
   return (await response.json()) as DiffApplicationApiResponse;
+}
+
+// ── PATCH endpoints (catalog editing) ───────────────────────────────
+
+export async function updateDataset(
+  datasetId: string,
+  payload: DatasetUpdatePayload,
+): Promise<CatalogDatasetDetailApiResponse> {
+  const response = await developmentFetch(
+    `/api/v1/datasets/${encodeURIComponent(datasetId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+  if (!response.ok) throw await catalogApiError(response);
+  return (await response.json()) as CatalogDatasetDetailApiResponse;
+}
+
+export async function updateField(
+  fieldId: string,
+  payload: FieldUpdatePayload,
+): Promise<CatalogFieldDetailApiResponse> {
+  const response = await developmentFetch(
+    `/api/v1/fields/${encodeURIComponent(fieldId)}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+  );
+  if (!response.ok) throw await catalogApiError(response);
+  return (await response.json()) as CatalogFieldDetailApiResponse;
 }

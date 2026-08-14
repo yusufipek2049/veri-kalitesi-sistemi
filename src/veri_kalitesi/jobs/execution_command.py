@@ -25,6 +25,15 @@ class IssueServicePort(Protocol):
     ) -> Any: ...
 
 
+class ScorePublicationPort(Protocol):
+    def publish_execution(
+        self,
+        command: Any,
+        *,
+        actor_context: ActorContext | None = None,
+    ) -> Any: ...
+
+
 @dataclass(frozen=True)
 class PersistentExecutionCommandAdapter:
     """Queue'nun CancellableExecutionCommand portunu ExecutionService'e bağlar.
@@ -35,6 +44,7 @@ class PersistentExecutionCommandAdapter:
 
     DS-05: Issue bridge injection — execution tamamlandıktan sonra issue
     post-processing yapılır. Bridge None ise sadece execution yapılır.
+    Skor yayımı — execution başarılıysa skor hesaplanır ve yayımlanır.
     """
 
     execution_service: ExecutionService[Any]
@@ -42,6 +52,8 @@ class PersistentExecutionCommandAdapter:
     issue_bridge: ExecutionIssueTriggerAdapter | None = None
     issue_service: IssueServicePort | None = None
     issue_actor_context_provider: Callable[[], ActorContext] | None = None
+    score_publication_service: ScorePublicationPort | None = None
+    score_actor_context_provider: Callable[[], ActorContext] | None = None
 
     def execute(
         self,
@@ -67,6 +79,14 @@ class PersistentExecutionCommandAdapter:
             else JobCompletionOutcome.QUALITY_FAILURE
         )
 
+        # Skor yayımı — execution başarılıysa skor hesapla ve yayımla
+        if (
+            self.score_publication_service is not None
+            and result.status.value in {"SUCCESS", "PARTIAL"}
+        ):
+            self._process_score_publication(execution_id)
+
+        # Issue post-processing — başarısız/uyarı sonuçlarından issue üret
         if self.issue_bridge is not None and self.issue_service is not None:
             self._process_issue_post_processing(execution_id)
 
@@ -91,6 +111,34 @@ class PersistentExecutionCommandAdapter:
                     execution_id,
                 )
                 raise
+
+    def _process_score_publication(self, execution_id: str) -> None:
+        assert self.score_publication_service is not None
+        from datetime import datetime, timezone
+
+        actor_context: ActorContext | None = None
+        if self.score_actor_context_provider is not None:
+            actor_context = self.score_actor_context_provider()
+
+        try:
+            from veri_kalitesi.scoring.publication import ScorePublicationCommand
+
+            now = datetime.now(timezone.utc)
+            period = now.strftime("%Y-%m-%d")
+            command = ScorePublicationCommand(
+                execution_id=execution_id,
+                period=period,
+                configuration_version="DEFAULT_SCORING_V1",
+                idempotency_key=execution_id,
+            )
+            self.score_publication_service.publish_execution(
+                command, actor_context=actor_context
+            )
+        except Exception:
+            logger.exception(
+                "Score publication failed for execution %s",
+                execution_id,
+            )
 
     def cancel(self, execution_id: str) -> None:
         try:

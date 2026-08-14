@@ -252,6 +252,15 @@ class PostgreSQLNotificationRepository:
             raise NotificationNotFoundError(f"Notification event {event_id} not found.")
         return _row_to_event(row)
 
+    def get_events_by_ids(self, event_ids: list[str]) -> dict[str, NotificationEvent]:
+        """Batch-lookup events by their IDs. Returns {event_id: event} map."""
+        if not event_ids:
+            return {}
+        t = self._tables.notification_events
+        with self._session_factory() as session:
+            rows = session.execute(select(t).where(t.c.event_id.in_(event_ids))).mappings().all()
+        return {row["event_id"]: _row_to_event(row) for row in rows}
+
     def list_for_recipient(
         self,
         recipient_user_id: str,
@@ -304,6 +313,65 @@ class PostgreSQLNotificationRepository:
                 )
             )
         return int(result or 0)
+
+    def count_failed(self, recipient_user_id: str) -> int:
+        """Count FAILED + UNDELIVERABLE deliveries for a recipient."""
+        t = self._tables.notification_deliveries
+        with self._session_factory() as session:
+            result = session.scalar(
+                select(func.count(t.c.delivery_id)).where(
+                    and_(
+                        t.c.recipient_user_id == recipient_user_id,
+                        t.c.status.in_(
+                            [
+                                NotificationDeliveryStatus.FAILED.value,
+                                NotificationDeliveryStatus.UNDELIVERABLE.value,
+                            ]
+                        ),
+                    )
+                )
+            )
+        return int(result or 0)
+
+    def count_today(self, recipient_user_id: str, today_start: datetime) -> int:
+        """Count deliveries created since today_start for a recipient."""
+        t = self._tables.notification_deliveries
+        with self._session_factory() as session:
+            result = session.scalar(
+                select(func.count(t.c.delivery_id)).where(
+                    and_(
+                        t.c.recipient_user_id == recipient_user_id,
+                        t.c.created_at >= today_start,
+                    )
+                )
+            )
+        return int(result or 0)
+
+    def mark_all_read_for_recipient(
+        self,
+        session: Any,
+        recipient_user_id: str,
+        *,
+        now: datetime,
+    ) -> int:
+        """Transition all DELIVERED items to READ for a recipient. Returns count."""
+        t = self._tables.notification_deliveries
+        result = session.execute(
+            update(t)
+            .where(
+                and_(
+                    t.c.recipient_user_id == recipient_user_id,
+                    t.c.status == NotificationDeliveryStatus.DELIVERED.value,
+                )
+            )
+            .values(
+                status=NotificationDeliveryStatus.READ.value,
+                version=t.c.version + 1,
+                updated_at=now,
+                read_at=now,
+            )
+        )
+        return int(result.rowcount)
 
     def list_pending_retry(
         self,

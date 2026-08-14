@@ -60,6 +60,15 @@ def build_default_redaction_policy() -> AuditRedactionPolicy:
                     "integrity_valid",
                 }
             ),
+            "AUDIT_EXPORT_COMPLETED": frozenset(
+                {
+                    "policy_version",
+                    "query_reason_code",
+                    "filter_count",
+                    "export_format",
+                    "exported_count",
+                }
+            ),
             "REPORT_PREVIEW_AUTHORIZATION": frozenset(
                 {
                     "policy_version",

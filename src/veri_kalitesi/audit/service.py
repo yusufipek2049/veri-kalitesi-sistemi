@@ -26,6 +26,7 @@ from veri_kalitesi.audit.models import (
     AuditQuery,
     AuditQueryPage,
     AuditResult,
+    AuditSummary,
     PreparedAuditEvent,
 )
 from veri_kalitesi.audit.redaction import AuditRedactor
@@ -51,6 +52,8 @@ class AuditSink(Protocol):
 
 class AuditQueryRepository(Protocol):
     def query_events(self, query: AuditQuery) -> tuple[tuple[AuditEvent, ...], bool]: ...
+
+    def query_summary(self, query: AuditQuery) -> AuditSummary: ...
 
     def latest_sequence_no(self) -> int: ...
 
@@ -115,9 +118,15 @@ class AuditQueryService:
         self,
         query: AuditQuery,
         actor_context: ActorContext | None,
+        *,
+        max_page_size: int | None = None,
     ) -> AuditQueryPage:
         context = self._authorize(actor_context)
-        normalized = _validate_query(query, self.policy)
+        normalized = _validate_query(
+            query,
+            self.policy,
+            max_page_size=max_page_size,
+        )
         try:
             through_sequence_no = (
                 normalized.through_sequence_no
@@ -142,6 +151,56 @@ class AuditQueryService:
             through_sequence_no=through_sequence_no,
             policy_version=self.policy.version,
         )
+
+    def export(
+        self,
+        query: AuditQuery,
+        actor_context: ActorContext | None,
+        *,
+        export_format: str,
+    ) -> AuditQueryPage:
+        """Return one policy-bounded export snapshot and record its completion."""
+
+        context = self._authorize(actor_context)
+        normalized = _validate_query(
+            query,
+            self.policy,
+            max_page_size=self.policy.max_export_size,
+        )
+        try:
+            through_sequence_no = self.repository.latest_sequence_no()
+            normalized = _with_snapshot(normalized, through_sequence_no)
+            events, _has_more = self.repository.query_events(normalized)
+            integrity = self.repository.verify_integrity()
+        except AuditQueryValidationError:
+            raise
+        except (sqlite3.Error, SQLAlchemyError, OSError, ValueError, TypeError) as exc:
+            raise AuditQueryTechnicalError(context.correlation_id) from exc
+        page = AuditQueryPage(
+            events=events,
+            integrity=integrity,
+            next_after_sequence_no=None,
+            through_sequence_no=through_sequence_no,
+            policy_version=self.policy.version,
+        )
+        self._record_export(context, normalized, len(events), export_format)
+        return page
+
+    def summary(
+        self,
+        query: AuditQuery,
+        actor_context: ActorContext | None,
+    ) -> AuditSummary:
+        context = self._authorize(actor_context)
+        normalized = _validate_query(query, self.policy)
+        try:
+            summary = self.repository.query_summary(normalized)
+        except AuditQueryValidationError:
+            raise
+        except (sqlite3.Error, SQLAlchemyError, OSError, ValueError, TypeError) as exc:
+            raise AuditQueryTechnicalError(context.correlation_id) from exc
+        self._record_view(context, normalized, summary.total_count, True)
+        return summary
 
     def _authorize(self, context: ActorContext | None) -> ActorContext:
         now = self.clock()
@@ -215,6 +274,35 @@ class AuditQueryService:
         )
         self._append_access_audit(event)
 
+    def _record_export(
+        self,
+        context: ActorContext,
+        query: AuditQuery,
+        exported_count: int,
+        export_format: str,
+    ) -> None:
+        event = AuditEventInput(
+            actor_id=context.actor_id,
+            actor_type=context.actor_type.value,
+            correlation_id=context.correlation_id,
+            action="AUDIT_EXPORT_COMPLETED",
+            object_type="AuditExport",
+            object_id=None,
+            result=AuditResult.SUCCESS,
+            reason_code="EXPORT_COMPLETED",
+            old_values={},
+            new_values={
+                "policy_version": self.policy.version,
+                "query_reason_code": query.reason_code,
+                "filter_count": _filter_count(query),
+                "export_format": export_format,
+                "exported_count": exported_count,
+            },
+            occurred_at=self.clock(),
+            session_id=context.session_id,
+        )
+        self._append_access_audit(event)
+
     def _append_access_audit(self, event: AuditEventInput) -> None:
         try:
             self.audit_sink.append(event)
@@ -241,9 +329,20 @@ def _validate_access_policy(policy: AuditAccessPolicy) -> None:
         or not 1 <= policy.max_page_size <= 1000
     ):
         raise AuditQueryValidationError("Audit page size policy is invalid.")
+    if (
+        isinstance(policy.max_export_size, bool)
+        or not isinstance(policy.max_export_size, int)
+        or not 1 <= policy.max_export_size <= 100000
+    ):
+        raise AuditQueryValidationError("Audit export size policy is invalid.")
 
 
-def _validate_query(query: AuditQuery, policy: AuditAccessPolicy) -> AuditQuery:
+def _validate_query(
+    query: AuditQuery,
+    policy: AuditAccessPolicy,
+    *,
+    max_page_size: int | None = None,
+) -> AuditQuery:
     if query.start_at.tzinfo is None or query.start_at.utcoffset() is None:
         raise AuditQueryValidationError("Audit query start time must be timezone-aware.")
     if query.end_at.tzinfo is None or query.end_at.utcoffset() is None:
@@ -272,7 +371,7 @@ def _validate_query(query: AuditQuery, policy: AuditAccessPolicy) -> AuditQuery:
         isinstance(query.page_size, bool)
         or not isinstance(query.page_size, int)
         or query.page_size < 1
-        or query.page_size > policy.max_page_size
+        or query.page_size > (max_page_size or policy.max_page_size)
     ):
         raise AuditQueryValidationError("Audit query page size is invalid.")
     for value in (

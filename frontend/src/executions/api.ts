@@ -40,8 +40,24 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function fetchExecutions(signal?: AbortSignal): Promise<ExecutionListApiResponse> {
-  const response = await developmentFetch("/api/v1/executions", {
+export interface ExecutionFilterParams {
+  datasetId?: string;
+  scheduleId?: string;
+}
+
+export async function fetchExecutions(
+  signalOrFilters?: AbortSignal | ExecutionFilterParams,
+  extraSignal?: AbortSignal,
+): Promise<ExecutionListApiResponse> {
+  const filters: ExecutionFilterParams | undefined =
+    signalOrFilters && "datasetId" in signalOrFilters ? signalOrFilters : undefined;
+  const signal = signalOrFilters instanceof AbortSignal ? signalOrFilters : extraSignal;
+  const params = new URLSearchParams();
+  if (filters?.datasetId) params.set("dataset_id", filters.datasetId);
+  if (filters?.scheduleId) params.set("schedule_id", filters.scheduleId);
+  const query = params.toString();
+  const url = query ? `/api/v1/executions?${query}` : "/api/v1/executions";
+  const response = await developmentFetch(url, {
     credentials: "same-origin",
     headers: { Accept: "application/json" },
     signal,

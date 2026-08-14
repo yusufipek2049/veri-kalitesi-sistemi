@@ -19,6 +19,7 @@ from veri_kalitesi.audit.postgresql_outbox import PostgreSQLTransactionalAudit
 from veri_kalitesi.executions.errors import (
     ExecutionConflictError,
     ExecutionNotFoundError,
+    ExecutionValidationError,
 )
 from veri_kalitesi.executions.models import (
     ExecutionMode,
@@ -50,12 +51,16 @@ class PostgreSQLExecutionStartService:
         job_queue: PostgreSQLJobQueueRepository,
         transactional_audit: PostgreSQLTransactionalAudit,
         strategy_engine: ExecutionStrategyEngine | None = None,
+        rule_catalog: object | None = None,
+        source_catalog: object | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ) -> None:
         self._repository = repository
         self._job_queue = job_queue
         self._transactional_audit = transactional_audit
         self._strategy_engine = strategy_engine
+        self._rule_catalog = rule_catalog
+        self._source_catalog = source_catalog
         self._clock = clock
 
     def start_manual(
@@ -67,6 +72,11 @@ class PostgreSQLExecutionStartService:
         actor_context: ActorContext,
         execution_mode: ExecutionMode = ExecutionMode.OFFICIAL,
     ) -> RuleExecution:
+        self._validate_execution_request(
+            rule_version_ids=rule_version_ids,
+            source_ids=source_ids,
+            actor_context=actor_context,
+        )
         now = self._clock()
         execution_id = uuid4().hex
         correlation_id = uuid4().hex
@@ -174,6 +184,87 @@ class PostgreSQLExecutionStartService:
     @staticmethod
     def _hash_text(value: str) -> str:
         return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+    def _validate_execution_request(
+        self,
+        *,
+        rule_version_ids: tuple[str, ...],
+        source_ids: tuple[str, ...],
+        actor_context: ActorContext,
+    ) -> None:
+        """Validate actor authorization, rule version integrity, and source scope."""
+        if not rule_version_ids:
+            raise ExecutionValidationError("At least one rule_version_id is required.")
+        if not source_ids:
+            raise ExecutionValidationError("At least one source_id is required.")
+
+        # Check actor has execution role
+        execution_roles = {"DATA_STEWARD", "DATA_OWNER", "DATA_VIEWER", "PLATFORM_ADMIN"}
+        if not actor_context.roles.intersection(execution_roles):
+            raise ExecutionValidationError(
+                "Actor lacks the required role to start an execution."
+            )
+
+        # Check source scope
+        if actor_context.permitted_source_ids:
+            for sid in source_ids:
+                if sid not in actor_context.permitted_source_ids:
+                    raise ExecutionValidationError(
+                        f"Source '{sid}' is outside the actor's permitted scope."
+                    )
+
+        # Validate rule versions are active and match the requested sources
+        if self._rule_catalog is not None and self._source_catalog is not None:
+            resolved_source_ids: set[str] = set()
+            for vid in rule_version_ids:
+                try:
+                    version = self._rule_catalog.get_version(vid)
+                except Exception as exc:
+                    raise ExecutionValidationError(
+                        f"Rule version '{vid}' not found."
+                    ) from exc
+                if version is None:
+                    raise ExecutionValidationError(
+                        f"Rule version '{vid}' not found."
+                    )
+                try:
+                    rule = self._rule_catalog.get_rule(version.quality_rule_id)
+                except Exception as exc:
+                    raise ExecutionValidationError(
+                        f"Quality rule '{version.quality_rule_id}' not found."
+                    ) from exc
+                if rule is None or rule.status.value != "ACTIVE":
+                    raise ExecutionValidationError(
+                        f"Rule '{version.quality_rule_id}' is not active."
+                    )
+                # Verify this is the latest version
+                try:
+                    all_versions = self._rule_catalog.list_versions(version.quality_rule_id)
+                except Exception:
+                    all_versions = []
+                if all_versions:
+                    latest = max(all_versions, key=lambda v: v.version_no)
+                    if version.rule_version_id != latest.rule_version_id:
+                        raise ExecutionValidationError(
+                            f"Rule version '{vid}' is not the latest active version."
+                        )
+                # Resolve the data source for this rule
+                try:
+                    dataset = self._source_catalog.get_dataset(rule.dataset_id)
+                    if dataset is not None:
+                        resolved_source_ids.add(dataset.data_source_id)
+                except Exception:
+                    pass
+
+            # Verify client source_ids match the rules' actual sources
+            if resolved_source_ids:
+                requested = set(source_ids)
+                if not resolved_source_ids.issubset(requested):
+                    extra = resolved_source_ids - requested
+                    raise ExecutionValidationError(
+                        f"Rule definitions require sources {sorted(extra)} which are not"
+                        f" included in the request."
+                    )
 
 
 class PostgreSQLExecutionCancelService:

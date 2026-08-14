@@ -15,6 +15,9 @@ class RuleReader(Protocol):
     def list_rules_with_latest_version(
         self, allowed_dataset_ids: frozenset[str]
     ) -> list[tuple[QualityRule, RuleVersion]]: ...
+    def get_rule(self, quality_rule_id: str) -> QualityRule: ...
+    def get_version(self, rule_version_id: str) -> RuleVersion: ...
+    def list_versions(self, quality_rule_id: str) -> list[RuleVersion]: ...
 
 
 class RuleQueryError(Exception):
@@ -53,4 +56,45 @@ class RuleQueryService:
         except (sqlite3.Error, SQLAlchemyError, OSError) as exc:
             raise RuleQueryTechnicalError(
                 "Rule query could not be completed.", correlation_id
+            ) from exc
+
+    def get_version(self, rule_version_id: str) -> RuleVersion:
+        """Rule version kimliğine göre sürüm getir."""
+        try:
+            return self.reader.get_version(rule_version_id)
+        except (sqlite3.Error, SQLAlchemyError, OSError) as exc:
+            raise RuleQueryTechnicalError(
+                "Rule version query could not be completed.", "n/a"
+            ) from exc
+
+    def get_rule_with_latest_version(
+        self, quality_rule_id: str, actor_context: ActorContext | None
+    ) -> tuple[QualityRule, RuleVersion]:
+        """Tek kural ve en son surumunu getir."""
+        correlation_id = (
+            actor_context.correlation_id if actor_context is not None else "authorization-denied"
+        )
+        try:
+            decision = self.authorization_service.authorize_dashboard(actor_context)
+        except IdentityError as exc:
+            raise RuleQueryAuthorizationError(
+                "Rule scope is not available.", correlation_id
+            ) from exc
+        try:
+            rule = self.reader.get_rule(quality_rule_id)
+            if (
+                rule.dataset_id not in decision.permitted_dataset_ids
+                and decision.permitted_dataset_ids != frozenset()
+            ):
+                raise RuleQueryAuthorizationError(
+                    "Rule is outside permitted scope.", correlation_id
+                )
+            versions = self.reader.list_versions(quality_rule_id)
+            if not versions:
+                raise RuleQueryTechnicalError("Rule has no versions.", correlation_id)
+            latest = versions[-1]
+            return rule, latest
+        except (sqlite3.Error, SQLAlchemyError, OSError) as exc:
+            raise RuleQueryTechnicalError(
+                "Rule detail query could not be completed.", correlation_id
             ) from exc

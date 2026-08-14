@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
+from typing import Literal
 
 from veri_kalitesi.identity import ActorContext
 from veri_kalitesi.rules.models import QualityRule
@@ -115,6 +116,7 @@ class ScoreQueryService:
         scope_id: str | None = None,
         period_start: datetime | None = None,
         period_end: datetime | None = None,
+        score_status: str | None = None,
         limit: int = 50,
     ) -> list[QualityScore]:
         scope = resolve_query_scope(actor_context)
@@ -129,6 +131,7 @@ class ScoreQueryService:
             scope_id=scope_id,
             period_start=period_start,
             period_end=period_end,
+            score_status=score_status,
             limit=limit,
             allowed_source_ids=scope.allowed_source_ids or None,
             allowed_dataset_ids=scope.allowed_dataset_ids or None,
@@ -192,6 +195,59 @@ class ScoreQueryService:
             reason_codes=comparison.reason_codes,
             delta_value=comparison.delta,
         )
+
+    def get_score_trend(
+        self,
+        actor_context: ActorContext | None,
+        *,
+        scope_type: ScoreScopeType,
+        scope_id: str | None = None,
+        period_start: datetime | None = None,
+        period_end: datetime | None = None,
+        granularity: Literal["day", "week", "month"] = "day",
+    ) -> list[dict]:
+        """Return aggregated score trend for a scope over a time range."""
+        scores = self.list_scores(
+            actor_context,
+            scope_type=scope_type,
+            scope_id=scope_id,
+            period_start=period_start,
+            period_end=period_end,
+            limit=1000,
+        )
+        if not scores:
+            return []
+        # Sort by calculated_at ascending
+        scores.sort(key=lambda s: s.calculated_at)
+        # Group by granularity bucket
+        buckets: dict[datetime, list[QualityScore]] = {}
+        for score in scores:
+            key = _bucket_key(score.calculated_at, granularity)
+            buckets.setdefault(key, []).append(score)
+        # Build trend points
+        result: list[dict] = []
+        prev_value: Decimal | None = None
+        for key in sorted(buckets.keys()):
+            bucket_scores = buckets[key]
+            # Use the last score in the bucket as the representative value
+            latest = bucket_scores[-1]
+            value = latest.score_value
+            level = latest.level.value if latest.level else None
+            change: Decimal | None = None
+            if value is not None and prev_value is not None:
+                change = value - prev_value
+            result.append(
+                {
+                    "timestamp": key,
+                    "score_value": float(value) if value is not None else None,
+                    "level": level,
+                    "change": float(change) if change is not None else None,
+                    "score_count": len(bucket_scores),
+                }
+            )
+            if value is not None:
+                prev_value = value
+        return result
 
     def _assert_rule_in_scope(self, rule_version_id: str, scope: ScoreQueryScope) -> None:
         if self.rule_catalog is None:
@@ -266,3 +322,17 @@ def _compute_available_actions(
     scope: ScoreQueryScope,
 ) -> tuple[str, ...]:
     return ()
+
+
+def _bucket_key(dt: datetime, granularity: Literal["day", "week", "month"]) -> datetime:
+    """Truncate a datetime to the start of its granularity bucket."""
+    if granularity == "day":
+        return dt.replace(hour=0, minute=0, second=0, microsecond=0)
+    if granularity == "week":
+        # Week starts on Monday
+        start = dt.replace(hour=0, minute=0, second=0, microsecond=0)
+        days_since_monday = start.weekday()
+        return start - timedelta(days=days_since_monday)
+    if granularity == "month":
+        return dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    return dt.replace(hour=0, minute=0, second=0, microsecond=0)

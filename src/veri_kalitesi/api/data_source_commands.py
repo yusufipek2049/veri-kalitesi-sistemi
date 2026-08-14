@@ -175,6 +175,52 @@ class DataSourceCommandAdapter:
         except Exception as exc:
             self._raise_command_error(exc, context)
 
+    def request_deactivation(
+        self, *, data_source_id: str, actor_context: ActorContext | None
+    ) -> DataSourceCommandResult:
+        context = self._require_context(actor_context)
+        try:
+            deactivation_request = self.service.request_deactivation(
+                actor_context=context,
+                data_source_id=data_source_id,
+            )
+            return DataSourceCommandResult(
+                self.query_service.get_view_for_actor(data_source_id, context),
+                activation_request=deactivation_request,
+            )
+        except Exception as exc:
+            self._raise_command_error(exc, context)
+
+    def decide_deactivation(
+        self,
+        *,
+        deactivation_request_id: str,
+        decision: str,
+        reason_code: str,
+        actor_context: ActorContext | None,
+    ) -> DataSourceCommandResult:
+        context = self._require_context(actor_context)
+        try:
+            before = self.service.repository.get_activation_request(deactivation_request_id)
+            replayed = before.status is not DataSourceActivationStatus.PENDING
+            deactivation_request = self.service.decide_deactivation(
+                actor_context=context,
+                deactivation_request_id=deactivation_request_id,
+                decision=decision,
+                reason_code=reason_code,
+            )
+            return DataSourceCommandResult(
+                self.query_service.get_view_for_actor(deactivation_request.data_source_id, context),
+                activation_request=deactivation_request,
+                replayed=replayed,
+            )
+        except AuthorizationError as exc:
+            if exc.code == "DATA_SOURCE_MAKER_CHECKER_VIOLATION":
+                self._audit_maker_checker_denial(context, deactivation_request_id)
+            self._raise_command_error(exc, context)
+        except Exception as exc:
+            self._raise_command_error(exc, context)
+
     def _audit_maker_checker_denial(
         self, context: ActorContext, activation_request_id: str
     ) -> None:

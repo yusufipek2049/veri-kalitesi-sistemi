@@ -1,9 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ThemeModeProvider } from "../theme/ThemeModeProvider";
 import { ExecutionsPage } from "./ExecutionsPage";
-import type { ExecutionListItem } from "./model";
+import type { ExecutionDetail, ExecutionListItem } from "./model";
 
 function renderPage() {
   return render(<ThemeModeProvider><MemoryRouter initialEntries={["/executions"]}><ExecutionsPage /></MemoryRouter></ThemeModeProvider>);
@@ -50,6 +50,7 @@ describe("Çalıştırmalar ekranı", () => {
       attemptCount: 1,
       progressPercent: 100,
       availableActions: [],
+      datasets: [],
       createdAt: "2026-07-23T09:00:00Z",
     }];
     render(<ThemeModeProvider><MemoryRouter><ExecutionsPage items={items} /></MemoryRouter></ThemeModeProvider>);
@@ -69,6 +70,7 @@ describe("Çalıştırmalar ekranı", () => {
       progressPercent: 0,
       blockedReasonCode: "SOURCE_LOCKED",
       availableActions: [],
+      datasets: [],
       createdAt: "2026-07-23T09:00:00Z",
     }];
     render(<ThemeModeProvider><MemoryRouter><ExecutionsPage items={items} /></MemoryRouter></ThemeModeProvider>);
@@ -87,11 +89,216 @@ describe("Çalıştırmalar ekranı", () => {
       attemptCount: 1,
       progressPercent: 65,
       availableActions: ["cancel"],
+      datasets: [{ datasetId: "ds-tx", name: "transactions", namespace: "public", sourceId: "src-core", sourceName: "Core DB" }],
       createdAt: "2026-07-23T09:00:00Z",
       startedAt: "2026-07-23T09:01:00Z",
     }];
     render(<ThemeModeProvider><MemoryRouter><ExecutionsPage items={items} /></MemoryRouter></ThemeModeProvider>);
     const progressbar = screen.getByRole("progressbar");
     expect(progressbar).toBeVisible();
+  });
+
+  it("dataset isimlerini ve schedule bilgisini gosterir", () => {
+    const items: ExecutionListItem[] = [{
+      id: "execution-with-datasets",
+      executionType: "SCHEDULED",
+      status: "SUCCESS",
+      workloadClass: "LIGHT",
+      ruleCount: 1,
+      sourceCount: 1,
+      attemptCount: 1,
+      progressPercent: 100,
+      availableActions: [],
+      datasets: [{ datasetId: "ds-tx", name: "transactions", namespace: "public", sourceId: "src-core", sourceName: "Core DB" }],
+      scheduleId: "schedule-daily-tx",
+      createdAt: "2026-07-23T09:00:00Z",
+      startedAt: "2026-07-23T09:01:00Z",
+      finishedAt: "2026-07-23T09:10:00Z",
+    }];
+    render(<ThemeModeProvider><MemoryRouter><ExecutionsPage items={items} /></MemoryRouter></ThemeModeProvider>);
+    expect(screen.getByText("transactions (public) @ Core DB")).toBeVisible();
+    expect(screen.getByText("Zamanlanmış: schedule-daily-tx")).toBeVisible();
+  });
+
+  it("baslatma dialog'u dropdown alanlari ve otomatik idempotency anahtari gosterir", () => {
+    const onStart = vi.fn();
+    const ruleOptions = [{ ruleVersionId: "rv-1", label: "Müşteri KYK (v3)" }];
+    const sourceOptions = [{ sourceId: "src-1", label: "Core DB" }];
+    render(
+      <ThemeModeProvider>
+        <MemoryRouter>
+          <ExecutionsPage
+            onStart={onStart}
+            ruleOptions={ruleOptions}
+            sourceOptions={sourceOptions}
+          />
+        </MemoryRouter>
+      </ThemeModeProvider>,
+    );
+    fireEvent.click(screen.getByText("Çalıştırma başlat"));
+    expect(screen.getByRole("combobox", { name: /kural/i })).toBeVisible();
+    expect(screen.getByRole("combobox", { name: /kaynak/i })).toBeVisible();
+    const idempotencyField = screen.getByLabelText(/idempotency anahtarı/i);
+    expect(idempotencyField).toBeVisible();
+    expect((idempotencyField as HTMLInputElement).value).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
+  });
+
+  it("detay dialog'unda job bilgilerini gosterir", () => {
+    const detail: ExecutionDetail = {
+      item: {
+        id: "execution-job-detail",
+        executionType: "MANUAL",
+        status: "RUNNING",
+        workloadClass: "LIGHT",
+        ruleCount: 1,
+        sourceCount: 1,
+        attemptCount: 2,
+        progressPercent: 50,
+        availableActions: ["cancel"],
+        datasets: [],
+        createdAt: "2026-07-23T09:00:00Z",
+        startedAt: "2026-07-23T09:01:00Z",
+      },
+      results: [],
+      ruleDefinitions: [],
+      jobInfo: {
+        jobId: "execution-job-detail",
+        status: "RUNNING",
+        queuePosition: null,
+        workerId: "worker-a",
+        leasedUntil: "2026-07-23T09:06:00Z",
+        attemptCount: 2,
+        lastErrorClass: null,
+        completedAt: null,
+        completionOutcome: null,
+      },
+    };
+    render(
+      <ThemeModeProvider>
+        <MemoryRouter>
+          <ExecutionsPage detailOpen executionDetail={detail} onCloseDetail={() => {}} />
+        </MemoryRouter>
+      </ThemeModeProvider>,
+    );
+    expect(screen.getByText("Job Bilgileri")).toBeVisible();
+    expect(screen.getAllByText("execution-job-detail").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("worker-a")).toBeVisible();
+  });
+
+  it("onAdhocSql verildiginde 'Ozel SQL' butonu gosterir", () => {
+    const onAdhocSql = vi.fn();
+    render(
+      <ThemeModeProvider>
+        <MemoryRouter>
+          <ExecutionsPage onAdhocSql={onAdhocSql} />
+        </MemoryRouter>
+      </ThemeModeProvider>,
+    );
+    expect(screen.getByText("Özel SQL")).toBeVisible();
+  });
+
+  it("onAdhocSql yoksa 'Ozel SQL' butonu gostermez", () => {
+    render(
+      <ThemeModeProvider>
+        <MemoryRouter>
+          <ExecutionsPage />
+        </MemoryRouter>
+      </ThemeModeProvider>,
+    );
+    expect(screen.queryByText("Özel SQL")).not.toBeInTheDocument();
+  });
+
+  it("Ozel SQL dialog'u SQL editor, kaynak, zaman asimi ve satir limiti alanlarini gosterir", () => {
+    const onAdhocSql = vi.fn();
+    const sourceOptions = [{ sourceId: "src-1", label: "Core DB" }];
+    render(
+      <ThemeModeProvider>
+        <MemoryRouter>
+          <ExecutionsPage onAdhocSql={onAdhocSql} sourceOptions={sourceOptions} />
+        </MemoryRouter>
+      </ThemeModeProvider>,
+    );
+    fireEvent.click(screen.getByText("Özel SQL"));
+    expect(screen.getByText("Özel SQL Çalıştır")).toBeVisible();
+    expect(screen.getByPlaceholderText(/Salt okunur SQL/)).toBeVisible();
+    expect(screen.getByRole("combobox", { name: /kaynak/i })).toBeVisible();
+    expect(screen.getByDisplayValue("30")).toBeVisible();
+    expect(screen.getByDisplayValue("1000")).toBeVisible();
+  });
+
+  it("Ozel SQL dialog'unda bos SQL ile submit engellenir", async () => {
+    const onAdhocSql = vi.fn();
+    render(
+      <ThemeModeProvider>
+        <MemoryRouter>
+          <ExecutionsPage onAdhocSql={onAdhocSql} />
+        </MemoryRouter>
+      </ThemeModeProvider>,
+    );
+    fireEvent.click(screen.getByText("Özel SQL"));
+    // Submit button should be disabled when SQL is empty
+    const submitBtn = screen.getByText("Çalıştır").closest("button");
+    expect(submitBtn).toBeDisabled();
+    expect(onAdhocSql).not.toHaveBeenCalled();
+  });
+
+  it("Ozel SQL dialog'unda SELECT ile baslamayan SQL hata verir", async () => {
+    const onAdhocSql = vi.fn();
+    render(
+      <ThemeModeProvider>
+        <MemoryRouter>
+          <ExecutionsPage onAdhocSql={onAdhocSql} />
+        </MemoryRouter>
+      </ThemeModeProvider>,
+    );
+    fireEvent.click(screen.getByText("Özel SQL"));
+    fireEvent.change(screen.getByPlaceholderText(/Salt okunur SQL/), { target: { value: "INSERT INTO x VALUES (1)" } });
+    fireEvent.click(screen.getByText("Çalıştır"));
+    await waitFor(() => {
+      expect(screen.getByText("SQL sorgusu SELECT ile başlamalıdır.")).toBeVisible();
+    });
+    expect(onAdhocSql).not.toHaveBeenCalled();
+  });
+
+  it("Ozel SQL dialog'nda yasak keyword iceren SQL hata verir", async () => {
+    const onAdhocSql = vi.fn();
+    render(
+      <ThemeModeProvider>
+        <MemoryRouter>
+          <ExecutionsPage onAdhocSql={onAdhocSql} />
+        </MemoryRouter>
+      </ThemeModeProvider>,
+    );
+    fireEvent.click(screen.getByText("Özel SQL"));
+    fireEvent.change(screen.getByPlaceholderText(/Salt okunur SQL/), { target: { value: "SELECT * FROM t; DROP TABLE x" } });
+    fireEvent.click(screen.getByText("Çalıştır"));
+    await waitFor(() => {
+      expect(screen.getByText(/DROP içermemelidir/)).toBeVisible();
+    });
+    expect(onAdhocSql).not.toHaveBeenCalled();
+  });
+
+  it("Gecerli SQL ile submit onAdhocSql'i dogru parametrelerle cagirir", async () => {
+    const onAdhocSql = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ThemeModeProvider>
+        <MemoryRouter>
+          <ExecutionsPage onAdhocSql={onAdhocSql} />
+        </MemoryRouter>
+      </ThemeModeProvider>,
+    );
+    fireEvent.click(screen.getByText("Özel SQL"));
+    fireEvent.change(screen.getByPlaceholderText(/Salt okunur SQL/), { target: { value: "SELECT * FROM customers WHERE email IS NULL" } });
+    fireEvent.click(screen.getByText("Çalıştır"));
+    await waitFor(() => {
+      expect(onAdhocSql).toHaveBeenCalledWith(
+        "SELECT * FROM customers WHERE email IS NULL",
+        [],
+        30,
+        1000,
+      );
+    });
   });
 });

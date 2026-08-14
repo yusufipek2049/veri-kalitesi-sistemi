@@ -18,7 +18,6 @@ from __future__ import annotations
 import argparse
 import ast
 import json
-import os
 import re
 import sys
 from pathlib import Path
@@ -66,28 +65,32 @@ class _GraphBuilder(ast.NodeVisitor):
         if nid in self._seen_node_ids:
             return nid
         self._seen_node_ids.add(nid)
-        self.nodes.append({
-            "id": nid,
-            "label": f"{name}()",
-            "file_type": "code",
-            "source_file": self.source_file,
-            "source_location": f"L{lineno}",
-            "_origin": "ast",
-            "node_type": node_type,
-        })
+        self.nodes.append(
+            {
+                "id": nid,
+                "label": f"{name}()",
+                "file_type": "code",
+                "source_file": self.source_file,
+                "source_location": f"L{lineno}",
+                "_origin": "ast",
+                "node_type": node_type,
+            }
+        )
         return nid
 
     def _add_edge(self, source: str, target: str, relation: str) -> None:
-        self.edges.append({
-            "source": source,
-            "target": target,
-            "relation": relation,
-            "confidence": "EXTRACTED",
-            "confidence_score": 1.0,
-            "weight": 1.0,
-            "_origin": "ast",
-            "source_file": self.source_file,
-        })
+        self.edges.append(
+            {
+                "source": source,
+                "target": target,
+                "relation": relation,
+                "confidence": "EXTRACTED",
+                "confidence_score": 1.0,
+                "weight": 1.0,
+                "_origin": "ast",
+                "source_file": self.source_file,
+            }
+        )
 
     # --- ziyaretçiler ---
 

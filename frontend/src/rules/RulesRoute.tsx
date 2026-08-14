@@ -4,6 +4,7 @@ import {
   createRule,
   createRuleVersion,
   decideRuleApproval,
+  fetchRuleDetail,
   fetchRules,
   passivateRule,
   requestRuleApproval,
@@ -11,9 +12,9 @@ import {
   withdrawRuleApproval,
   activateRule,
 } from "./api";
-import { ruleFromApi, rulesFromApi, syntheticRules, type RuleCreateRequest, type RuleListItem, type RuleState, type RuleTestResult, type RuleVersionCreateRequest } from "./model";
+import { ruleFromApi, rulesFromApi, type RuleCreateRequest, type RuleListItem, type RuleState, type RuleTestResult, type RuleVersionCreateRequest } from "./model";
 import { RulesPage } from "./RulesPage";
-import { listCatalogDatasets } from "../catalog/api";
+import { listCatalogDatasets, listCatalogFields } from "../catalog/api";
 
 const ruleStates: RuleState[] = ["normal", "loading", "empty", "error", "unauthorized", "long-content"];
 
@@ -21,9 +22,10 @@ export function RulesRoute() {
   const requestedState = new URLSearchParams(window.location.search).get("state") as RuleState | null;
   const fixtureState = import.meta.env.DEV && requestedState && ruleStates.includes(requestedState) ? requestedState : null;
   const [state, setState] = useState<RuleState>(fixtureState ?? "loading");
-  const [items, setItems] = useState<RuleListItem[]>(syntheticRules);
+  const [items, setItems] = useState<RuleListItem[]>([]);
   const [correlationId, setCorrelationId] = useState<string>();
   const [catalogDatasets, setCatalogDatasets] = useState<{ id: string; name: string; namespace: string }[]>([]);
+  const [catalogFields, setCatalogFields] = useState<{ id: string; name: string; datasetId: string }[]>([]);
   const load = useCallback(async (signal?: AbortSignal) => {
     if (fixtureState) return;
     setState("loading");
@@ -136,9 +138,31 @@ export function RulesRoute() {
     setCorrelationId(response.correlation_id);
   }, []);
 
+  const handleLoadFields = useCallback(async (datasetId: string) => {
+    try {
+      const response = await listCatalogFields(datasetId);
+      setCatalogFields((prev) => {
+        // Merge, avoiding duplicates from different dataset loads
+        const existing = new Set(prev.map((f) => f.id));
+        const newFields = response.items
+          .map((f) => ({ id: f.data_field_id, name: f.name, datasetId: f.dataset_id }))
+          .filter((f) => !existing.has(f.id));
+        return [...prev, ...newFields];
+      });
+    } catch {
+      // Field loading failure is non-fatal
+    }
+  }, []);
+
+  const handleLoadRuleDetail = useCallback(async (ruleId: string): Promise<Record<string, unknown>> => {
+    const response = await fetchRuleDetail(ruleId);
+    return response.definition;
+  }, []);
+
   return (
     <RulesPage
       catalogDatasets={catalogDatasets}
+      catalogFields={catalogFields}
       correlationId={correlationId}
       items={items}
       onRefresh={() => void load()}
@@ -151,6 +175,8 @@ export function RulesRoute() {
       onDecideApproval={handleDecideApproval}
       onWithdrawApproval={handleWithdrawApproval}
       onPassivateRule={handlePassivateRule}
+      onLoadFields={handleLoadFields}
+      onLoadRuleDetail={handleLoadRuleDetail}
     />
   );
 }

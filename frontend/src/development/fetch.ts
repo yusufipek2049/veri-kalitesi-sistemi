@@ -1,4 +1,19 @@
-/** Geliştirme modu için API yardımcısı — isteklere X-Development-User-Id header'ını ekler. */
+/**
+ * Geliştirme modu için API yardımcısı.
+ *
+ * İsteklere otomatik olarak:
+ *  - X-Development-User-Id (localStorage'dan)
+ *  - X-CSRF-Token (modül-düzeyinde tutulan, her yanıttan güncellenen kanıt)
+ * ekler. CSRF kanıtı, GET/HEAD/OPTIONS dışı tüm isteklerde otomatik gönderilir;
+ * her yanıttan X-CSRF-Token header'ı okunup depolanır.
+ *
+ * Domain modülleri CSRF yönetimiyle ilgilenmez — tüm kanıt akışı buradan yürütülür.
+ */
+
+const CSRF_HEADER = "X-CSRF-Token";
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+let csrfProof: string | undefined;
 
 function getDevelopmentHeaders(): Record<string, string> {
   try {
@@ -16,6 +31,7 @@ export function developmentFetch(
   input: RequestInfo | URL,
   init?: RequestInit,
 ): Promise<Response> {
+  const method = (init?.method ?? "GET").toUpperCase();
   const headers: Record<string, string> = {
     ...getDevelopmentHeaders(),
     ...(init?.headers as Record<string, string> ?? {}),
@@ -24,5 +40,18 @@ export function developmentFetch(
   if (init?.body && typeof init.body === "string") {
     headers["Content-Type"] = headers["Content-Type"] ?? "application/json";
   }
-  return fetch(input, { ...init, headers });
+  // Auto-attach CSRF proof for state-changing requests (unless caller already set it)
+  if (!SAFE_METHODS.has(method) && csrfProof && !headers[CSRF_HEADER]) {
+    headers[CSRF_HEADER] = csrfProof;
+  }
+  return fetch(input, { ...init, headers }).then(async (response) => {
+    const receivedProof = response.headers.get(CSRF_HEADER);
+    if (receivedProof) csrfProof = receivedProof;
+    return response;
+  });
+}
+
+/** @internal Testlerde CSRF durumunu sıfırlamak için — üretim kodunda kullanmayın. */
+export function __resetCsrfProof(): void {
+  csrfProof = undefined;
 }

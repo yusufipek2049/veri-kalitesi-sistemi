@@ -3,6 +3,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
@@ -31,6 +32,7 @@ import {
   ScanSearch,
   type LucideIcon,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
 import { StatusBadge } from "../components/StatusBadge";
 import { designTokens } from "../theme/tokens";
@@ -47,6 +49,7 @@ interface DataSourcesPageProps {
   state?: DataSourceState;
   items?: DataSourceListItem[];
   correlationId?: string;
+  datasetsBySource?: Map<string, { id: string; name: string; namespace: string }[]>;
   onRefresh?: () => void;
   onCreate?: (payload: DataSourceCreateRequest) => Promise<void>;
   onTest?: (dataSourceId: string) => Promise<void>;
@@ -58,6 +61,12 @@ interface DataSourcesPageProps {
   ) => Promise<void>;
   onPassivate?: (dataSourceId: string, reasonCode: string) => Promise<void>;
   onDiscoverMetadata?: (dataSourceId: string) => Promise<void>;
+  onRequestDeactivation?: (dataSourceId: string) => Promise<void>;
+  onDecideDeactivation?: (
+    deactivationRequestId: string,
+    decision: "APPROVE" | "REJECT",
+    reasonCode: string,
+  ) => Promise<void>;
 }
 
 const statusLabels: Record<string, string> = {
@@ -74,6 +83,9 @@ const actionLabels: Record<DataSourceAction, string> = {
   REQUEST_ACTIVATION: "Aktivasyon talep et",
   APPROVE_ACTIVATION: "Onayla",
   REJECT_ACTIVATION: "Reddet",
+  REQUEST_DEACTIVATION: "Deaktivasyon talep et",
+  APPROVE_DEACTIVATION: "Deaktivasyonu onayla",
+  REJECT_DEACTIVATION: "Deaktivasyonu reddet",
   PASSIVATE: "Pasifleştir",
   DISCOVER_METADATA: "Metadata keşfet",
 };
@@ -83,6 +95,9 @@ const actionIcons: Record<DataSourceAction, LucideIcon> = {
   REQUEST_ACTIVATION: Power,
   APPROVE_ACTIVATION: Check,
   REJECT_ACTIVATION: X,
+  REQUEST_DEACTIVATION: PowerOff,
+  APPROVE_DEACTIVATION: Check,
+  REJECT_DEACTIVATION: X,
   PASSIVATE: PowerOff,
   DISCOVER_METADATA: ScanSearch,
 };
@@ -117,23 +132,30 @@ function SourceRow({
   item,
   actionLoading,
   onAction,
+  datasets,
 }: {
   item: DataSourceListItem;
   actionLoading: string | null;
   onAction: (item: DataSourceListItem, action: DataSourceAction) => void;
+  datasets?: { id: string; name: string; namespace: string }[];
 }) {
   const Icon = sourceIcon(item.sourceType);
   return (
-    <Box component="li" sx={{ alignItems: "center", borderBottom: 1, borderColor: "divider", display: "grid", gap: 3, gridTemplateColumns: { xs: "40px minmax(0, 1fr)", md: "40px minmax(180px, 1fr) 120px 130px minmax(170px, auto)" }, minHeight: 76, px: 4, py: 3, "&:last-child": { borderBottom: 0 } }}>
+    <Box component="li" sx={{ alignItems: "center", borderBottom: 1, borderColor: "divider", display: "grid", gap: 3, gridTemplateColumns: { xs: "40px minmax(0, 1fr)", md: "40px minmax(180px, 1fr) 120px 130px minmax(200px, auto) minmax(170px, auto)" }, minHeight: 76, px: 4, py: 3, "&:last-child": { borderBottom: 0 } }}>
       <Box aria-hidden="true" data-testid="source-icon-slot" sx={(theme) => ({ alignItems: "center", bgcolor: theme.status.infoSurface, borderRadius: 1, color: theme.status.info, display: "flex", height: 40, justifyContent: "center", width: 40 })}>
         <Icon size={designTokens.layout.navIconSize} strokeWidth={1.8} />
       </Box>
       <Box sx={{ minWidth: 0 }}>
         <Typography noWrap sx={{ fontWeight: 700 }}>{item.name}</Typography>
-        <Typography color="text.secondary" noWrap variant="caption">{item.id}</Typography>
+        <Typography color="text.secondary" noWrap variant="caption">{item.sourceType} · {item.id}</Typography>
       </Box>
       <Typography color="text.secondary" variant="body2">{item.sourceType}</Typography>
       <StatusBadge label={statusLabels[item.status] ?? item.status} tone={sourceTone(item.status)} />
+      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+        {datasets && datasets.length > 0 ? datasets.map((ds) => (
+          <Chip key={ds.id} component={Link} to={`/catalog/datasets/${ds.id}`} label={`${ds.namespace}.${ds.name}`} size="small" variant="outlined" clickable sx={{ fontSize: "0.7rem" }} />
+        )) : <Typography color="text.secondary" variant="body2">—</Typography>}
+      </Box>
       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, justifyContent: "flex-end" }}>
         {item.availableActions.map((action) => {
           const ActionIcon = actionIcons[action];
@@ -175,6 +197,7 @@ export function DataSourcesPage({
   state = "normal",
   items = syntheticDataSources,
   correlationId,
+  datasetsBySource,
   onRefresh,
   onCreate,
   onTest,
@@ -182,9 +205,12 @@ export function DataSourcesPage({
   onDecideActivation,
   onPassivate,
   onDiscoverMetadata,
+  onRequestDeactivation,
+  onDecideDeactivation,
 }: DataSourcesPageProps) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("ALL");
+  const [datasetQuery, setDatasetQuery] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -194,13 +220,26 @@ export function DataSourcesPage({
   const [connectionParameters, setConnectionParameters] = useState("");
   const [passivationSource, setPassivationSource] = useState<DataSourceListItem | null>(null);
   const [passivationReason, setPassivationReason] = useState("");
-  const [decision, setDecision] = useState<{ item: DataSourceListItem; value: "APPROVE" | "REJECT" } | null>(null);
+  const [decision, setDecision] = useState<{ item: DataSourceListItem; value: "APPROVE" | "REJECT"; type: "activation" | "deactivation" } | null>(null);
   const [decisionReason, setDecisionReason] = useState("");
 
-  const visibleItems = useMemo(() => items.filter((item) => {
-    const matchesQuery = `${item.name} ${item.id} ${item.sourceType}`.toLocaleLowerCase("tr-TR").includes(query.toLocaleLowerCase("tr-TR"));
-    return matchesQuery && (status === "ALL" || item.status === status);
-  }), [items, query, status]);
+  const visibleItems = useMemo(() => {
+    const dsQ = datasetQuery.toLocaleLowerCase("tr-TR");
+    return items.filter((item) => {
+      const matchesQuery = `${item.name} ${item.id} ${item.sourceType}`.toLocaleLowerCase("tr-TR").includes(query.toLocaleLowerCase("tr-TR"));
+      const matchesStatus = status === "ALL" || item.status === status;
+      if (!matchesQuery || !matchesStatus) return false;
+      // When dataset search is active, only show sources that have matching datasets
+      if (dsQ) {
+        const datasets = datasetsBySource?.get(item.id) ?? [];
+        const hasMatch = datasets.some((ds) =>
+          `${ds.name} ${ds.namespace} ${ds.id}`.toLocaleLowerCase("tr-TR").includes(dsQ),
+        );
+        return hasMatch;
+      }
+      return true;
+    });
+  }, [items, query, status, datasetQuery, datasetsBySource]);
   const effectiveItems = state === "long-content"
     ? Array.from({ length: 4 }, (_, group) => items.map((item) => ({ ...item, id: `${item.id}-${group + 1}`, name: `${item.name} ${group + 1}` }))).flat()
     : visibleItems;
@@ -230,7 +269,14 @@ export function DataSourcesPage({
     }
     if (action === "APPROVE_ACTIVATION" || action === "REJECT_ACTIVATION") {
       setDecisionReason("");
-      setDecision({ item, value: action === "APPROVE_ACTIVATION" ? "APPROVE" : "REJECT" });
+      setDecision({ item, value: action === "APPROVE_ACTIVATION" ? "APPROVE" : "REJECT", type: "activation" });
+    }
+    if (action === "REQUEST_DEACTIVATION" && onRequestDeactivation) {
+      void run(`${item.id}:${action}`, () => onRequestDeactivation(item.id)).catch(() => undefined);
+    }
+    if (action === "APPROVE_DEACTIVATION" || action === "REJECT_DEACTIVATION") {
+      setDecisionReason("");
+      setDecision({ item, value: action === "APPROVE_DEACTIVATION" ? "APPROVE" : "REJECT", type: "deactivation" });
     }
   };
 
@@ -269,12 +315,23 @@ export function DataSourcesPage({
   };
 
   const submitDecision = async () => {
-    if (!decision || !onDecideActivation || !decision.item.pendingActivationRequestId) return;
-    try {
-      await run(`${decision.item.id}:${decision.value}`, () => onDecideActivation(decision.item.pendingActivationRequestId!, decision.value, decisionReason.trim()));
-      setDecision(null);
-    } catch {
-      // Error is rendered by the shared action alert.
+    if (!decision || !decision.item) return;
+    if (decision.type === "activation") {
+      if (!onDecideActivation || !decision.item.pendingActivationRequestId) return;
+      try {
+        await run(`${decision.item.id}:${decision.value}`, () => onDecideActivation(decision.item.pendingActivationRequestId!, decision.value, decisionReason.trim()));
+        setDecision(null);
+      } catch {
+        // Error is rendered by the shared action alert.
+      }
+    } else {
+      if (!onDecideDeactivation || !decision.item.pendingDeactivationRequestId) return;
+      try {
+        await run(`${decision.item.id}:${decision.value}`, () => onDecideDeactivation(decision.item.pendingDeactivationRequestId!, decision.value, decisionReason.trim()));
+        setDecision(null);
+      } catch {
+        // Error is rendered by the shared action alert.
+      }
     }
   };
 
@@ -289,11 +346,18 @@ export function DataSourcesPage({
           </Box>
         </Box>
         {actionError ? <Alert onClose={() => setActionError(null)} severity="error">{actionError}</Alert> : null}
-        {state !== "unauthorized" ? <Paper component="section" variant="outlined" sx={{ borderRadius: 1.5, p: 4 }}><Box aria-label="Veri kaynağı filtreleri" sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "2fr 1fr" } }}><TextField label="Kaynak ara" onChange={(event) => setQuery(event.target.value)} slotProps={{ input: { startAdornment: <Search aria-hidden="true" size={16} /> } }} value={query} /><FormControl><InputLabel id="source-status-label">Durum</InputLabel><Select label="Durum" labelId="source-status-label" onChange={(event) => setStatus(event.target.value)} value={status}><MenuItem value="ALL">Tüm durumlar</MenuItem>{Object.entries(statusLabels).map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}</Select></FormControl></Box></Paper> : null}
+        {state !== "unauthorized" ? <Paper component="section" variant="outlined" sx={{ borderRadius: 1.5, p: 4 }}><Box aria-label="Veri kaynağı filtreleri" sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr 1fr" } }}><TextField label="Kaynak ara" onChange={(event) => setQuery(event.target.value)} slotProps={{ input: { startAdornment: <Search aria-hidden="true" size={16} /> } }} value={query} /><TextField label="Dataset ara" onChange={(event) => setDatasetQuery(event.target.value)} slotProps={{ input: { startAdornment: <Database aria-hidden="true" size={16} /> } }} value={datasetQuery} /><FormControl><InputLabel id="source-status-label">Durum</InputLabel><Select label="Durum" labelId="source-status-label" onChange={(event) => setStatus(event.target.value)} value={status}><MenuItem value="ALL">Tüm durumlar</MenuItem>{Object.entries(statusLabels).map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}</Select></FormControl></Box></Paper> : null}
         {state === "loading" ? <Box aria-busy="true" aria-label="Veri kaynakları yükleniyor">{Array.from({ length: 4 }, (_, index) => <Skeleton height={76} key={index} />)}</Box> : null}
         {state === "empty" || state === "error" || state === "unauthorized" ? <StateMessage correlationId={correlationId} onRefresh={onRefresh} state={state} /> : null}
         {(state === "normal" || state === "long-content") && effectiveItems.length === 0 ? <StateMessage state="empty" /> : null}
-        {(state === "normal" || state === "long-content") && effectiveItems.length > 0 ? <Paper component="section" variant="outlined" sx={{ borderRadius: 1.5, overflow: "hidden" }}><Box sx={{ alignItems: "center", borderBottom: 1, borderColor: "divider", display: "flex", justifyContent: "space-between", px: 4, py: 3 }}><Typography component="h2" variant="h3">Kaynak Envanteri</Typography><Typography color="text.secondary" variant="body2">{effectiveItems.length} kaynak</Typography></Box><Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }}>{effectiveItems.map((item) => <SourceRow actionLoading={actionLoading} item={item} key={item.id} onAction={handleAction} />)}</Box></Paper> : null}
+        {(state === "normal" || state === "long-content") && effectiveItems.length > 0 ? <Paper component="section" variant="outlined" sx={{ borderRadius: 1.5, overflow: "hidden" }}><Box sx={{ alignItems: "center", borderBottom: 1, borderColor: "divider", display: "flex", justifyContent: "space-between", px: 4, py: 3 }}><Typography component="h2" variant="h3">Kaynak Envanteri</Typography><Typography color="text.secondary" variant="body2">{effectiveItems.length} kaynak</Typography></Box><Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }}>{effectiveItems.map((item) => {
+          const allDatasets = datasetsBySource?.get(item.id);
+          const dsQ = datasetQuery.toLocaleLowerCase("tr-TR");
+          const filteredDatasets = dsQ && allDatasets
+            ? allDatasets.filter((ds) => `${ds.name} ${ds.namespace} ${ds.id}`.toLocaleLowerCase("tr-TR").includes(dsQ))
+            : allDatasets;
+          return <SourceRow actionLoading={actionLoading} datasets={filteredDatasets} item={item} key={item.id} onAction={handleAction} />;
+        })}</Box></Paper> : null}
 
         <Dialog fullWidth maxWidth="sm" onClose={() => !createLoading && setCreateOpen(false)} open={createOpen}>
           <DialogTitle>Yeni PostgreSQL veri kaynağı</DialogTitle>
@@ -320,9 +384,13 @@ export function DataSourcesPage({
         </Dialog>
 
         <Dialog fullWidth maxWidth="xs" onClose={() => setDecision(null)} open={decision !== null}>
-          <DialogTitle>{decision?.value === "APPROVE" ? "Aktivasyon talebini onayla" : "Aktivasyon talebini reddet"}</DialogTitle>
+          <DialogTitle>
+            {decision?.type === "deactivation"
+              ? (decision?.value === "APPROVE" ? "Deaktivasyon talebini onayla" : "Deaktivasyon talebini reddet")
+              : (decision?.value === "APPROVE" ? "Aktivasyon talebini onayla" : "Aktivasyon talebini reddet")}
+          </DialogTitle>
           <DialogContent><TextField autoFocus fullWidth label="Karar gerekçe kodu" onChange={(e) => setDecisionReason(e.target.value)} required value={decisionReason} /></DialogContent>
-          <DialogActions><Button onClick={() => setDecision(null)}>İptal</Button><Button disabled={!decisionReason.trim() || !decision?.item.pendingActivationRequestId} onClick={() => void submitDecision()} variant="contained">Kararı gönder</Button></DialogActions>
+          <DialogActions><Button onClick={() => setDecision(null)}>İptal</Button><Button disabled={!decisionReason.trim() || (decision?.type === "activation" ? !decision?.item.pendingActivationRequestId : !decision?.item.pendingDeactivationRequestId)} onClick={() => void submitDecision()} variant="contained">Kararı gönder</Button></DialogActions>
         </Dialog>
       </Box>
     </AppShell>

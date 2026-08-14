@@ -15,6 +15,8 @@ export interface IssueListItem {
   triggerType: string;
   scopeType: string;
   scopeId: string;
+  scopeDisplayName: string | null;
+  scopeParentName: string | null;
   status: string;
   priority: IssuePriority;
   occurrenceCount: number;
@@ -40,6 +42,8 @@ export interface IssueListApiResponse {
     trigger_type: string;
     scope_type: string;
     scope_id: string;
+    scope_display_name: string | null;
+    scope_parent_name: string | null;
     status: string;
     priority: IssuePriority;
     occurrence_count: number;
@@ -72,14 +76,14 @@ export interface IssueCreateInput {
 }
 
 export const syntheticIssues: IssueListItem[] = [
-  { id: "issue-critical-customer", issueNo: "DQI-2026-0018", title: "Kritik müşteri verisi kalite sorunu", sourceEventType: "QUALITY", triggerType: "CRITICAL_RULE_FAILURE", scopeType: "DATASET", scopeId: "dataset-customer", status: "NEW", priority: "CRITICAL", occurrenceCount: 1, version: 1, sourceExecutionId: "exec-001", sourceRuleVersionId: "rv-001", availableActions: [], createdAt: "2026-07-23T08:10:00Z", updatedAt: "2026-07-23T08:10:00Z", lastSeenAt: "2026-07-23T08:10:00Z" },
-  { id: "issue-technical-risk", issueNo: "DQI-2026-0017", title: "Risk verimartışı teknik hatası", sourceEventType: "TECHNICAL", triggerType: "TECHNICAL_ERROR", scopeType: "SOURCE", scopeId: "source-risk-mart", status: "ASSIGNED", priority: "HIGH", occurrenceCount: 3, version: 1, sourceExecutionId: null, sourceRuleVersionId: null, availableActions: ["START_INVESTIGATION", "REASSIGN"], createdAt: "2026-07-22T15:00:00Z", updatedAt: "2026-07-23T07:40:00Z", lastSeenAt: "2026-07-23T07:40:00Z" },
-  { id: "issue-account-investigation", issueNo: "DQI-2026-0016", title: "Hesap verisi eşleşme sorunu", sourceEventType: "QUALITY", triggerType: "QUALITY_THRESHOLD", scopeType: "DATASET", scopeId: "dataset-account", status: "INVESTIGATING", priority: "HIGH", occurrenceCount: 2, version: 2, sourceExecutionId: "exec-002", sourceRuleVersionId: "rv-002", availableActions: ["REASSIGN", "RESOLVE"], createdAt: "2026-07-21T10:30:00Z", updatedAt: "2026-07-22T16:20:00Z", lastSeenAt: "2026-07-22T16:20:00Z" },
-  { id: "issue-transaction-waiting", issueNo: "DQI-2026-0015", title: "İşlem verisi çözüm bekliyor", sourceEventType: "QUALITY", triggerType: "QUALITY_THRESHOLD", scopeType: "DATASET", scopeId: "dataset-transaction", status: "WAITING_FOR_RESOLUTION", priority: "MEDIUM", occurrenceCount: 4, version: 3, sourceExecutionId: "exec-003", sourceRuleVersionId: "rv-003", availableActions: ["RESOLVE"], createdAt: "2026-07-19T09:00:00Z", updatedAt: "2026-07-22T11:45:00Z", lastSeenAt: "2026-07-22T11:45:00Z" },
-  { id: "issue-risk-resolved", issueNo: "DQI-2026-0014", title: "Risk verisi kritik kontrol", sourceEventType: "QUALITY", triggerType: "CRITICAL_RULE_FAILURE", scopeType: "DATASET", scopeId: "dataset-risk", status: "RESOLVED", priority: "CRITICAL", occurrenceCount: 1, version: 4, sourceExecutionId: "exec-004", sourceRuleVersionId: "rv-004", availableActions: [], createdAt: "2026-07-18T13:15:00Z", updatedAt: "2026-07-21T14:10:00Z", lastSeenAt: "2026-07-18T13:15:00Z" },
-  { id: "issue-customer-verified", issueNo: "DQI-2026-0013", title: "Müşteri verisi doğrulandı", sourceEventType: "QUALITY", triggerType: "QUALITY_THRESHOLD", scopeType: "DATASET", scopeId: "dataset-customer", status: "VERIFIED", priority: "MEDIUM", occurrenceCount: 1, version: 5, sourceExecutionId: "exec-005", sourceRuleVersionId: "rv-005", availableActions: [], createdAt: "2026-07-17T12:00:00Z", updatedAt: "2026-07-20T15:30:00Z", lastSeenAt: "2026-07-17T12:00:00Z" },
-  { id: "issue-account-closed", issueNo: "DQI-2026-0012", title: "Hesap verisi kapatıldı", sourceEventType: "QUALITY", triggerType: "QUALITY_THRESHOLD", scopeType: "DATASET", scopeId: "dataset-account", status: "CLOSED", priority: "LOW", occurrenceCount: 1, version: 6, sourceExecutionId: "exec-006", sourceRuleVersionId: "rv-006", availableActions: [], createdAt: "2026-07-15T08:00:00Z", updatedAt: "2026-07-19T10:00:00Z", lastSeenAt: "2026-07-15T08:00:00Z" },
-  { id: "issue-source-cancelled", issueNo: "DQI-2026-0011", title: "Müşteri dosya kaynağı iptal", sourceEventType: "TECHNICAL", triggerType: "TECHNICAL_ERROR", scopeType: "SOURCE", scopeId: "source-customer-file", status: "CANCELLED", priority: "LOW", occurrenceCount: 1, version: 2, sourceExecutionId: null, sourceRuleVersionId: null, availableActions: [], createdAt: "2026-07-14T09:00:00Z", updatedAt: "2026-07-18T09:00:00Z", lastSeenAt: "2026-07-14T09:00:00Z" },
+  { id: "issue-critical-customer", issueNo: "DQI-2026-0018", title: "Kritik müşteri verisi kalite sorunu", sourceEventType: "QUALITY", triggerType: "CRITICAL_RULE_FAILURE", scopeType: "DATASET", scopeId: "dataset-customer", scopeDisplayName: "public.customers", scopeParentName: "Production DB", status: "NEW", priority: "CRITICAL", occurrenceCount: 1, version: 1, sourceExecutionId: "exec-001", sourceRuleVersionId: "rv-001", availableActions: [], createdAt: "2026-07-23T08:10:00Z", updatedAt: "2026-07-23T08:10:00Z", lastSeenAt: "2026-07-23T08:10:00Z" },
+  { id: "issue-technical-risk", issueNo: "DQI-2026-0017", title: "Risk verimartışı teknik hatası", sourceEventType: "TECHNICAL", triggerType: "TECHNICAL_ERROR", scopeType: "SOURCE", scopeId: "source-risk-mart", scopeDisplayName: "Risk Mart DB", scopeParentName: null, status: "ASSIGNED", priority: "HIGH", occurrenceCount: 3, version: 1, sourceExecutionId: null, sourceRuleVersionId: null, availableActions: ["START_INVESTIGATION", "REASSIGN"], createdAt: "2026-07-22T15:00:00Z", updatedAt: "2026-07-23T07:40:00Z", lastSeenAt: "2026-07-23T07:40:00Z" },
+  { id: "issue-account-investigation", issueNo: "DQI-2026-0016", title: "Hesap verisi eşleşme sorunu", sourceEventType: "QUALITY", triggerType: "QUALITY_THRESHOLD", scopeType: "DATASET", scopeId: "dataset-account", scopeDisplayName: "public.accounts", scopeParentName: "Production DB", status: "INVESTIGATING", priority: "HIGH", occurrenceCount: 2, version: 2, sourceExecutionId: "exec-002", sourceRuleVersionId: "rv-002", availableActions: ["REASSIGN", "RESOLVE"], createdAt: "2026-07-21T10:30:00Z", updatedAt: "2026-07-22T16:20:00Z", lastSeenAt: "2026-07-22T16:20:00Z" },
+  { id: "issue-transaction-waiting", issueNo: "DQI-2026-0015", title: "İşlem verisi çözüm bekliyor", sourceEventType: "QUALITY", triggerType: "QUALITY_THRESHOLD", scopeType: "DATASET", scopeId: "dataset-transaction", scopeDisplayName: "public.transactions", scopeParentName: "Production DB", status: "WAITING_FOR_RESOLUTION", priority: "MEDIUM", occurrenceCount: 4, version: 3, sourceExecutionId: "exec-003", sourceRuleVersionId: "rv-003", availableActions: ["RESOLVE"], createdAt: "2026-07-19T09:00:00Z", updatedAt: "2026-07-22T11:45:00Z", lastSeenAt: "2026-07-22T11:45:00Z" },
+  { id: "issue-risk-resolved", issueNo: "DQI-2026-0014", title: "Risk verisi kritik kontrol", sourceEventType: "QUALITY", triggerType: "CRITICAL_RULE_FAILURE", scopeType: "DATASET", scopeId: "dataset-risk", scopeDisplayName: "public.risk_scores", scopeParentName: "Risk Mart DB", status: "RESOLVED", priority: "CRITICAL", occurrenceCount: 1, version: 4, sourceExecutionId: "exec-004", sourceRuleVersionId: "rv-004", availableActions: [], createdAt: "2026-07-18T13:15:00Z", updatedAt: "2026-07-21T14:10:00Z", lastSeenAt: "2026-07-18T13:15:00Z" },
+  { id: "issue-customer-verified", issueNo: "DQI-2026-0013", title: "Müşteri verisi doğrulandı", sourceEventType: "QUALITY", triggerType: "QUALITY_THRESHOLD", scopeType: "DATASET", scopeId: "dataset-customer", scopeDisplayName: "public.customers", scopeParentName: "Production DB", status: "VERIFIED", priority: "MEDIUM", occurrenceCount: 1, version: 5, sourceExecutionId: "exec-005", sourceRuleVersionId: "rv-005", availableActions: [], createdAt: "2026-07-17T12:00:00Z", updatedAt: "2026-07-20T15:30:00Z", lastSeenAt: "2026-07-17T12:00:00Z" },
+  { id: "issue-account-closed", issueNo: "DQI-2026-0012", title: "Hesap verisi kapatıldı", sourceEventType: "QUALITY", triggerType: "QUALITY_THRESHOLD", scopeType: "DATASET", scopeId: "dataset-account", scopeDisplayName: "public.accounts", scopeParentName: "Production DB", status: "CLOSED", priority: "LOW", occurrenceCount: 1, version: 6, sourceExecutionId: "exec-006", sourceRuleVersionId: "rv-006", availableActions: [], createdAt: "2026-07-15T08:00:00Z", updatedAt: "2026-07-19T10:00:00Z", lastSeenAt: "2026-07-15T08:00:00Z" },
+  { id: "issue-source-cancelled", issueNo: "DQI-2026-0011", title: "Müşteri dosya kaynağı iptal", sourceEventType: "TECHNICAL", triggerType: "TECHNICAL_ERROR", scopeType: "SOURCE", scopeId: "source-customer-file", scopeDisplayName: "Customer File Store", scopeParentName: null, status: "CANCELLED", priority: "LOW", occurrenceCount: 1, version: 2, sourceExecutionId: null, sourceRuleVersionId: null, availableActions: [], createdAt: "2026-07-14T09:00:00Z", updatedAt: "2026-07-18T09:00:00Z", lastSeenAt: "2026-07-14T09:00:00Z" },
 ];
 
 export function issueFromApiItem(
@@ -93,6 +97,8 @@ export function issueFromApiItem(
     triggerType: item.trigger_type,
     scopeType: item.scope_type,
     scopeId: item.scope_id,
+    scopeDisplayName: item.scope_display_name ?? null,
+    scopeParentName: item.scope_parent_name ?? null,
     status: item.status,
     priority: item.priority,
     occurrenceCount: item.occurrence_count,

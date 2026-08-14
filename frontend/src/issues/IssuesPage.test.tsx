@@ -268,6 +268,8 @@ describe("Sorunlar ekranı", () => {
               triggerType: "MANUAL",
               scopeType: "DATASET",
               scopeId: "dataset-x",
+              scopeDisplayName: "Dataset X",
+              scopeParentName: null,
               status: "NEW",
               priority: "MEDIUM",
               occurrenceCount: 1,

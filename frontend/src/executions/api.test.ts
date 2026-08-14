@@ -42,19 +42,19 @@ describe("çalıştırma detay API istemcisi", () => {
       api_version: "v1",
       data_origin: "test",
       correlation_id: "c-detail",
-      item: {
+      execution: {
         execution_id: "e-1", execution_type: "MANUAL", status: "SUCCESS",
         workload_class: "LIGHT", rule_count: 1, source_count: 1, attempt_count: 1,
         error_class: null, progress_percent: 100, blocked_reason_code: null,
         available_actions: [], created_at: "2026-07-23T09:00:00Z",
         started_at: "2026-07-23T09:01:00Z", finished_at: "2026-07-23T09:10:00Z",
       },
-      results: [],
+      rule_results: [],
     };
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: 200 })));
     const result = await fetchExecutionDetail("e-1");
     expect(result.correlation_id).toBe("c-detail");
-    expect(result.item.execution_id).toBe("e-1");
+    expect(result.execution.execution_id).toBe("e-1");
   });
 
   it("bulunamadı hatasını not_found türüne dönüştürür", async () => {

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Iterator, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 import hashlib
@@ -13,18 +13,23 @@ import math
 import os
 import resource
 from time import perf_counter
-from typing import Any
+from typing import Any, Literal
 
 import psycopg
 from psycopg import sql
+from contextvars import ContextVar
 
 from veri_kalitesi.synthetic_data.errors import (
     SyntheticDataTechnicalError,
     SyntheticDataValidationError,
 )
+from veri_kalitesi.synthetic_data.profile_schema import (
+    SyntheticProfileArtifact,
+    load_profile as _load_profile_artifact,
+)
 
 
-GENERATOR_VERSION = "RELATIONAL_BANKING_GENERATOR_V1"
+GENERATOR_VERSION = "RELATIONAL_BANKING_GENERATOR_V5"
 SCHEMA_VERSION = "RELATIONAL_BANKING_SCHEMA_V1"
 CONFIGURATION_VERSION = "RELATIONAL_QUALITY_CONFIGURATION_V1"
 GROUND_TRUTH_VERSION = "RELATIONAL_GROUND_TRUTH_V1"
@@ -126,6 +131,9 @@ class GenerationSummary:
     generation_duration_seconds: float
     database_size_bytes: int
     peak_memory_bytes: int
+    # Faz 5: Profil soyağacı izlenebilirliği
+    profile_version: str | None = None
+    profile_sha256: str | None = None
 
     @property
     def total_rows(self) -> int:
@@ -413,6 +421,277 @@ DEFECT_DIMENSIONS: Mapping[str, str] = {
     "outlier": "outlier_detection",
 }
 
+CLUSTERS_PER_TABLE = 8
+
+SCENARIO_CLUSTER_INTENSITY: Mapping[str, float] = {
+    "clean-baseline": 0.0,
+    "mixed-quality": 0.6,
+    "high-defect": 0.8,
+    "stale-data": 0.6,
+    "duplicate-heavy": 0.6,
+    "referential-integrity": 0.6,
+}
+
+
+# ── Faz 5: Profil bazlı parametre override ─────────────────────────────
+
+
+@dataclass(frozen=True)
+class ProfileOverrides:
+    """Profil dosyasından çıkarılan üretim parametreleri.
+
+    Profil verilmezse mevcut kod içi varsayılanlar kullanılır.
+    Yalnızca dağılım ve takvim parametrelerini override eder;
+    kusur enjeksiyonu mekaniği (DefectTruth, _selected_defects ground truth)
+    etkilenmez — FP==0, FN==0 korunur.
+    """
+
+    distributions: Mapping[str, MeasureDistribution] = field(default_factory=dict)
+    weekend_rejection_threshold: float = 0.6
+    month_end_boost_threshold: float = 0.15
+    business_hours_threshold: float = 0.75
+    delay_fast_threshold: float = 0.70
+    delay_medium_threshold: float = 0.90
+    delay_slow_max_days: int = 7
+    cluster_intensity: float = 0.0
+
+
+_PROFILE_OVERRIDES: ContextVar[ProfileOverrides | None] = ContextVar(
+    "_profile_overrides", default=None
+)
+
+
+def _extract_distribution_overrides(
+    artifact: SyntheticProfileArtifact,
+) -> dict[str, MeasureDistribution]:
+    """Profil artefaktından tablo dağılım override'ları çıkarır.
+
+    Her tablo için numeric kolonun decile değerlerini mevcut dağılım
+    ailesine eşleyerek yeni MeasureDistribution oluşturur.
+    """
+    result: dict[str, MeasureDistribution] = {}
+    for table_profile in artifact.tables:
+        table_name = table_profile.table_name
+        existing = MEASURE_DISTRIBUTIONS.get(table_name)
+        if existing is None:
+            continue
+        deciles = None
+        for col in table_profile.columns:
+            if col.deciles is not None:
+                deciles = col.deciles
+                break
+        if deciles is None:
+            continue
+        result[table_name] = _distribution_from_deciles(existing, deciles)
+    return result
+
+
+def _distribution_from_deciles(
+    existing: MeasureDistribution,
+    deciles: object,
+) -> MeasureDistribution:
+    """Mevcut dağılım ailesini koruyarak decile'lardan yeni parametreler çıkarır."""
+    p10 = deciles.p10
+    p50 = deciles.p50
+    p90 = deciles.p90
+    family = existing.family
+    if family == "uniform":
+        return MeasureDistribution("uniform", low=p10, high=p90)
+    if family == "lognormal":
+        import math as _math
+        mu = _math.log(max(p50, 1e-12))
+        sigma = max((_math.log(max(p90, 1e-12)) - _math.log(max(p10, 1e-12))) / 2.568, 0.01)
+        return MeasureDistribution(
+            "lognormal", mu=mu, sigma=sigma,
+            low=existing.low, high=existing.high,
+        )
+    # bounded_normal
+    return MeasureDistribution(
+        "bounded_normal", mu=p50,
+        sigma=max((p90 - p10) / 2.568, 0.01),
+        low=existing.low, high=existing.high,
+    )
+
+
+def _extract_calendar_overrides(
+    artifact: SyntheticProfileArtifact,
+) -> tuple[float, float, float]:
+    """Profilin volume_curve'undan takvim parametrelerini çıkarır.
+
+    Returns:
+        (weekend_rejection, month_end_boost, business_hours)
+    """
+    weekday_share = 0.0
+    weekend_share = 0.0
+    business_share = 0.0
+    off_peak_share = 0.0
+    for vol in artifact.system_wide.volume_curve:
+        if vol.period == "daily":
+            key = vol.key.lower()
+            if key in ("saturday", "sunday"):
+                weekend_share += vol.share
+            else:
+                weekday_share += vol.share
+        elif vol.period == "hourly":
+            key = vol.key.lower()
+            if "business" in key or "peak" in key:
+                business_share += vol.share
+            else:
+                off_peak_share += vol.share
+    total_day = weekday_share + weekend_share
+    weekend_ratio = weekend_share / total_day if total_day > 0 else 0.0
+    weekend_rejection = min(2.0 * weekend_ratio, 0.95) if weekend_ratio > 0 else 0.6
+    total_hour = business_share + off_peak_share
+    business_ratio = business_share / total_hour if total_hour > 0 else 0.75
+    business_hours = min(max(business_ratio, 0.50), 0.95)
+    month_end_boost = 0.15
+    return weekend_rejection, month_end_boost, business_hours
+
+
+def _extract_delay_overrides(
+    artifact: SyntheticProfileArtifact,
+) -> tuple[float, float, int]:
+    """Profilin latency_distribution'undan gecikme parametrelerini çıkarır.
+
+    Returns:
+        (fast_threshold, medium_threshold, slow_max_days)
+    """
+    latency = artifact.system_wide.latency_distribution
+    if latency is None:
+        return 0.70, 0.90, 7
+    p50 = latency.p50
+    p90 = latency.p90
+    p99 = latency.p99
+    fast_threshold = min(max(0.50, 0.70 * (p50 / max(p90, 1.0)) ** 0.1), 0.90)
+    medium_threshold = min(max(fast_threshold + 0.05, 0.90), 0.98)
+    slow_max_days = max(1, min(int(p99 / max(p50, 1.0)), 30))
+    return fast_threshold, medium_threshold, slow_max_days
+
+
+def extract_profile_overrides(
+    artifact: SyntheticProfileArtifact,
+) -> ProfileOverrides:
+    """Profil artefaktından üretim override parametrelerini çıkarır."""
+    distributions = _extract_distribution_overrides(artifact)
+    weekend_rej, month_end_boost, biz_hours = _extract_calendar_overrides(artifact)
+    fast_thr, medium_thr, slow_days = _extract_delay_overrides(artifact)
+    return ProfileOverrides(
+        distributions=distributions,
+        weekend_rejection_threshold=weekend_rej,
+        month_end_boost_threshold=month_end_boost,
+        business_hours_threshold=biz_hours,
+        delay_fast_threshold=fast_thr,
+        delay_medium_threshold=medium_thr,
+        delay_slow_max_days=slow_days,
+        cluster_intensity=artifact.system_wide.defect_clustering_coefficient,
+    )
+
+
+def _get_overrides() -> ProfileOverrides | None:
+    """Aktif profil override'larını döndürür — profil yoksa None."""
+    return _PROFILE_OVERRIDES.get()
+
+
+def _get_distribution(table_name: str) -> MeasureDistribution | None:
+    """Tablo için etkin dağılım tanımı — profil override veya kod içi varsayılan."""
+    overrides = _get_overrides()
+    if overrides is not None and table_name in overrides.distributions:
+        return overrides.distributions[table_name]
+    return MEASURE_DISTRIBUTIONS.get(table_name)
+
+
+def _get_cluster_intensity(scenario: str) -> float:
+    """Senaryo için etkin kümelenme yoğunluğu — profil override veya kod içi varsayılan."""
+    overrides = _get_overrides()
+    if overrides is not None:
+        return overrides.cluster_intensity
+    return SCENARIO_CLUSTER_INTENSITY.get(scenario, 0.0)
+
+
+@dataclass(frozen=True)
+class MeasureDistribution:
+    """Kolon başına ölçü dağılım tanımı.
+
+    Faz 4'te profil YAML dosyasından beslenecek genişletilebilir yapı.
+    """
+
+    family: Literal["lognormal", "uniform", "bounded_normal"]
+    mu: float = 0.0
+    sigma: float = 1.0
+    low: float | None = None
+    high: float | None = None
+
+
+MEASURE_DISTRIBUTIONS: Mapping[str, MeasureDistribution] = {
+    "synthetic_customers": MeasureDistribution("uniform", low=0.0, high=100.0),
+    "synthetic_customer_contacts": MeasureDistribution(
+        "bounded_normal", mu=0.7, sigma=0.15, low=0.0, high=1.0
+    ),
+    "synthetic_customer_addresses": MeasureDistribution(
+        "bounded_normal", mu=0.6, sigma=0.2, low=0.0, high=1.0
+    ),
+    "synthetic_accounts": MeasureDistribution(
+        "lognormal", mu=7.0, sigma=1.5, low=0.01, high=500_000.0
+    ),
+    "synthetic_account_balances": MeasureDistribution(
+        "lognormal", mu=7.0, sigma=1.2, low=0.0, high=1_000_000.0
+    ),
+    "synthetic_transactions": MeasureDistribution(
+        "lognormal", mu=5.0, sigma=1.5, low=0.01, high=50_000.0
+    ),
+    "synthetic_cards": MeasureDistribution(
+        "lognormal", mu=8.0, sigma=1.0, low=100.0, high=200_000.0
+    ),
+    "synthetic_card_transactions": MeasureDistribution(
+        "lognormal", mu=4.5, sigma=1.5, low=0.01, high=30_000.0
+    ),
+    "synthetic_loans": MeasureDistribution(
+        "lognormal", mu=9.0, sigma=1.0, low=1_000.0, high=1_000_000.0
+    ),
+    "synthetic_loan_installments": MeasureDistribution(
+        "lognormal", mu=6.0, sigma=1.0, low=50.0, high=100_000.0
+    ),
+    "synthetic_payments": MeasureDistribution(
+        "lognormal", mu=5.5, sigma=1.5, low=0.01, high=100_000.0
+    ),
+    "synthetic_beneficiaries": MeasureDistribution(
+        "lognormal", mu=7.0, sigma=1.0, low=100.0, high=500_000.0
+    ),
+    "synthetic_merchants": MeasureDistribution("uniform", low=0.0, high=100.0),
+    "synthetic_merchant_transactions": MeasureDistribution(
+        "lognormal", mu=6.0, sigma=1.5, low=0.01, high=200_000.0
+    ),
+    "synthetic_customer_risk_profiles": MeasureDistribution("uniform", low=0.0, high=100.0),
+    "synthetic_service_requests": MeasureDistribution(
+        "lognormal", mu=2.0, sigma=1.5, low=0.1, high=500.0
+    ),
+    "synthetic_data_events": MeasureDistribution(
+        "lognormal", mu=3.0, sigma=2.0, low=1.0, high=86_400.0
+    ),
+}
+
+
+def _cluster_index(table_name: str, defect_type: str, index: int) -> int:
+    """Satırı deterministik olarak bir kusur kümesine atar."""
+    return _entropy(0, f"{table_name}:{defect_type}:cluster", index) % CLUSTERS_PER_TABLE
+
+
+def _cluster_multiplier(table_name: str, defect_type: str, cluster: int, intensity: float) -> float:
+    """Küme sağlık çarpanı; ortalaması 1.0 olan deterministik değer.
+
+    Tüm kümelerin ham sağlık değerleri hesaplanır, ardından ortalamaya
+    normalize edilir — böylece çarpanların ortalaması tam 1.0 olur ve
+    toplam kusur oranı korunur.
+    """
+    if intensity <= 0.0:
+        return 1.0
+    raw_health: list[float] = []
+    for c in range(CLUSTERS_PER_TABLE):
+        uniform = _entropy(0, f"{table_name}:{defect_type}:health", c) / float(2**64)
+        raw_health.append(1.0 + intensity * (2.0 * uniform - 1.0))
+    mean_health = sum(raw_health) / len(raw_health)
+    return raw_health[cluster] / mean_health
+
 
 def validate_generation_request(
     *,
@@ -497,20 +776,152 @@ def _valid_formatted_value(kind: str, seed: int, index: int) -> str:
 
 
 def _measure(seed: int, table_name: str, index: int) -> Decimal:
-    first = max(_uniform(seed, f"{table_name}:normal-a", index), 1e-12)
-    second = _uniform(seed, f"{table_name}:normal-b", index)
-    normal = math.sqrt(-2.0 * math.log(first)) * math.cos(2.0 * math.pi * second)
-    value = min(math.exp(7.0 + normal), 1_000_000.0)
+    """Tabloya özel dağılımdan ölçü değeri üretir.
+
+    Faz 5: Profil override varsa profil dağılımını kullanır.
+    Tanımlı dağılım yoksa mevcut lognormal(7, 1) fallback davranışı.
+    """
+    distribution = _get_distribution(table_name)
+    if distribution is None:
+        first = max(_uniform(seed, f"{table_name}:normal-a", index), 1e-12)
+        second = _uniform(seed, f"{table_name}:normal-b", index)
+        normal = math.sqrt(-2.0 * math.log(first)) * math.cos(2.0 * math.pi * second)
+        value = min(math.exp(7.0 + normal), 1_000_000.0)
+        return Decimal(f"{value:.2f}")
+    return _sample_measure(seed, table_name, index, distribution)
+
+
+def _sample_measure(
+    seed: int, table_name: str, index: int, distribution: MeasureDistribution
+) -> Decimal:
+    """Verilen dağılım tanımından deterministik ölçü değeri çeker."""
+    family = distribution.family
+    if family == "uniform":
+        low = distribution.low if distribution.low is not None else 0.0
+        high = distribution.high if distribution.high is not None else 1.0
+        u = _uniform(seed, f"{table_name}:measure", index)
+        value = low + u * (high - low)
+    elif family == "lognormal":
+        first = max(_uniform(seed, f"{table_name}:normal-a", index), 1e-12)
+        second = _uniform(seed, f"{table_name}:normal-b", index)
+        normal = math.sqrt(-2.0 * math.log(first)) * math.cos(2.0 * math.pi * second)
+        value = math.exp(distribution.mu + distribution.sigma * normal)
+    elif family == "bounded_normal":
+        first = max(_uniform(seed, f"{table_name}:normal-a", index), 1e-12)
+        second = _uniform(seed, f"{table_name}:normal-b", index)
+        normal = math.sqrt(-2.0 * math.log(first)) * math.cos(2.0 * math.pi * second)
+        value = distribution.mu + distribution.sigma * normal
+    else:
+        raise SyntheticDataTechnicalError(f"Unsupported distribution family: {family}")
+    if distribution.low is not None:
+        value = max(value, distribution.low)
+    if distribution.high is not None:
+        value = min(value, distribution.high)
     return Decimal(f"{value:.2f}")
 
 
 def _event_time(seed: int, table_name: str, index: int) -> datetime:
-    day_offset = _entropy(seed, f"{table_name}:event-day", index) % 180
-    seasonal_boost = 21 if index % 10 < 3 else 0
-    second_offset = _entropy(seed, f"{table_name}:event-second", index) % 86_400
-    return REFERENCE_TIME - timedelta(
-        days=max(0, int(day_offset) - seasonal_boost), seconds=int(second_offset)
+    """Gerçek takvim ekseniyle deterministik zaman damgası üretir.
+
+    Hafta içi/hafta sonu ağırlığı, mesai saati yoğunluğu ve ay sonu yığılması
+    gerçekçi bir dağılım sağlar. Tüm tarihler 180 günlük pencere içinde kalır
+    ve REFERENCE_TIME'ı geçmez.
+    """
+    import calendar
+
+    # 180 günlük pencere: [REFERENCE_TIME - 180 gün, REFERENCE_TIME]
+    window_start_date = (REFERENCE_TIME - timedelta(days=180)).date()
+    base_day_offset = _entropy(seed, f"{table_name}:event-day", index) % 180
+    candidate_date = (REFERENCE_TIME - timedelta(days=int(base_day_offset))).date()
+
+    # Hafta içi/hafta sonu ağırlığı: hafta sonu hacmi düşük
+    # weekday(): 0-4 = Pazartesi-Cuma, 5-6 = Cumartesi-Pazar
+    # Faz 5: Profil override ile ayarlanabilir.
+    overrides = _get_overrides()
+    weekend_thr = overrides.weekend_rejection_threshold if overrides else 0.6
+    month_end_thr = overrides.month_end_boost_threshold if overrides else 0.15
+    business_thr = overrides.business_hours_threshold if overrides else 0.75
+    is_weekend = candidate_date.weekday() >= 5
+    weekend_rejection = _uniform(seed, f"{table_name}:weekend-reject", index)
+    if is_weekend and weekend_rejection < weekend_thr:
+        # Hafta sonu kayıtlarının %60'ını reddet ve geriye doğru en yakın Cuma'ya kaydır
+        days_since_friday = candidate_date.weekday() - 4  # Cumartesi=2, Pazar=3
+        candidate_date = candidate_date - timedelta(days=days_since_friday)
+        # Pencere başlangıcından önceye gitmemeli
+        if candidate_date < window_start_date:
+            candidate_date = window_start_date
+
+    # Ay sonu yığılması: ayın son 3 günü hacim artışı
+    day_of_month = candidate_date.day
+    _, last_day = calendar.monthrange(candidate_date.year, candidate_date.month)
+    is_month_end = day_of_month >= last_day - 2
+    month_end_boost = _uniform(seed, f"{table_name}:month-end-boost", index)
+    if not is_month_end and month_end_boost < month_end_thr:
+        # Ayın son 3 gününe çek (ileriye, ama REFERENCE_TIME'ı geçmemeli)
+        days_to_month_end = last_day - day_of_month
+        candidate_date = candidate_date + timedelta(days=days_to_month_end)
+        # REFERENCE_TIME'ı geçerse geriye al
+        if candidate_date > REFERENCE_TIME.date():
+            candidate_date = REFERENCE_TIME.date()
+
+    # Mesai saati yoğunluğu: 09:00-18:00 yüksek, gece düşük
+    hour_entropy = _entropy(seed, f"{table_name}:event-hour", index)
+    business_hours_boost = _uniform(seed, f"{table_name}:business-boost", index)
+    if business_hours_boost < business_thr:
+        # %75 olasılıkla mesai saatleri (09-18)
+        hour = 9 + (hour_entropy % 9)  # 09:00-17:59
+    else:
+        # %25 olasılıkla mesai dışı (00-08, 18-23)
+        off_peak = hour_entropy % 15
+        hour = off_peak if off_peak < 9 else 18 + (off_peak - 9)
+
+    # Dakika ve saniye
+    minute = _entropy(seed, f"{table_name}:event-minute", index) % 60
+    second = _entropy(seed, f"{table_name}:event-second", index) % 60
+
+    result = datetime(
+        candidate_date.year,
+        candidate_date.month,
+        candidate_date.day,
+        int(hour),
+        int(minute),
+        int(second),
+        tzinfo=timezone.utc,
     )
+    # REFERENCE_TIME'ı geçmemeli
+    return min(result, REFERENCE_TIME)
+
+
+def _ingestion_delay(seed: int, table_name: str, index: int) -> timedelta:
+    """Late-arriving kayıt için kuyruklu gecikme dağılımı.
+
+    Çoğu kayıt hızlı gelir (dakikalar), ama kuyruklu bir dağılımla
+    bazıları saatler/günler sonra gelir. Deterministik.
+    """
+    delay_entropy = _entropy(seed, f"{table_name}:ingestion-delay", index)
+    delay_uniform = _uniform(seed, f"{table_name}:ingestion-delay-u", index)
+
+    # Kuyruklu dağılım: profil override ile ayarlanabilir eşikler.
+    # Faz 5: Varsayılanlar %70 hızlı, %20 orta, %8 yavaş, %2 çok yavaş.
+    overrides = _get_overrides()
+    fast_thr = overrides.delay_fast_threshold if overrides else 0.70
+    medium_thr = overrides.delay_medium_threshold if overrides else 0.90
+    slow_max = overrides.delay_slow_max_days if overrides else 7
+    if delay_uniform < fast_thr:
+        # Hızlı: 0-30 dakika
+        delay_minutes = delay_entropy % 30
+        return timedelta(minutes=int(delay_minutes))
+    if delay_uniform < medium_thr:
+        # Orta: 30 dakika - 4 saat
+        delay_minutes = 30 + (delay_entropy % 210)  # 30-240 dk
+        return timedelta(minutes=int(delay_minutes))
+    if delay_uniform < 0.98:
+        # Yavaş: 4-24 saat
+        delay_hours = 4 + (delay_entropy % 20)
+        return timedelta(hours=int(delay_hours))
+    # Çok yavaş: 1-slow_max gün
+    delay_days = 1 + (delay_entropy % slow_max)
+    return timedelta(days=int(delay_days))
 
 
 def _scenario_rates(scenario: str, *, supports_relation_defect: bool) -> dict[str, float]:
@@ -555,10 +966,18 @@ def _selected_defects(
     index: int,
 ) -> tuple[str, ...]:
     rates = _scenario_rates(scenario, supports_relation_defect=bool(spec.relations))
+    # Faz 5: Profil override ile kümelenme yoğunluğu ayarlanabilir.
+    intensity = _get_cluster_intensity(scenario)
     selected: list[str] = []
     for defect_type, rate in rates.items():
         selection_index = index // 2 if defect_type == "duplicate" else index
-        if _uniform(seed, f"{spec.name}:defect:{defect_type}", selection_index) < rate:
+        if intensity > 0.0:
+            cluster = _cluster_index(spec.name, defect_type, index)
+            multiplier = _cluster_multiplier(spec.name, defect_type, cluster, intensity)
+            effective_rate = min(rate * multiplier, 0.95)
+        else:
+            effective_rate = rate
+        if _uniform(seed, f"{spec.name}:defect:{defect_type}", selection_index) < effective_rate:
             selected.append(defect_type)
     return tuple(selected)
 
@@ -586,7 +1005,7 @@ def build_source_row(
         "effective_to": REFERENCE_TIME.date() + timedelta(days=index % 30),
         "event_time": _event_time(seed, spec.name, index),
         "updated_at": _event_time(seed, spec.name, index) + timedelta(hours=2),
-        "ingestion_time": _event_time(seed, spec.name, index) + timedelta(hours=3),
+        "ingestion_time": _event_time(seed, spec.name, index) + _ingestion_delay(seed, spec.name, index),
         "synthetic_origin": True,
     }
     for relation in spec.relations:
@@ -644,10 +1063,14 @@ def _apply_defect(
         values[relation.column] = f"SYN-MISSING-{_entropy(seed, spec.name, index):016X}"
         return relation.column
     if defect_type == "stale_record":
-        stale_event = REFERENCE_TIME - timedelta(days=900 + index % 30)
+        # Takvimle tutarlı stale_record: event_time'ı STALE_THRESHOLD'dan eski yap
+        # 900-1080 gün arası deterministik, takvim desenine uygun
+        stale_days = 900 + (index % 180)
+        stale_event = _event_time(seed, f"{spec.name}:stale", index) - timedelta(days=stale_days)
+        stale_delay = _ingestion_delay(seed, f"{spec.name}:stale", index)
         values["event_time"] = stale_event
         values["updated_at"] = stale_event + timedelta(hours=1)
-        values["ingestion_time"] = stale_event + timedelta(hours=2)
+        values["ingestion_time"] = stale_event + timedelta(hours=1) + stale_delay
         return "updated_at"
     if defect_type == "outlier":
         values[spec.measure_column] = OUTLIER_THRESHOLD + Decimal(index + 1)
@@ -742,6 +1165,7 @@ class PostgreSQLSyntheticDatasetManager:
         row_count: int,
         reset: bool,
         progress: bool = True,
+        profile: SyntheticProfileArtifact | None = None,
     ) -> GenerationSummary:
         database_name = self._database_name()
         validate_generation_request(
@@ -751,6 +1175,42 @@ class PostgreSQLSyntheticDatasetManager:
             row_count=row_count,
             scenario=scenario,
         )
+        # Faz 5: Profil override bağlamını kur.
+        overrides = extract_profile_overrides(profile) if profile is not None else None
+        profile_version: str | None = None
+        profile_sha256: str | None = None
+        if profile is not None:
+            profile_version = profile.profile_schema_version
+            profile_sha256 = _compute_profile_sha256(profile)
+        token = _PROFILE_OVERRIDES.set(overrides) if overrides is not None else None
+        try:
+            return self._generate_with_context(
+                environment=environment,
+                seed=seed,
+                scenario=scenario,
+                row_count=row_count,
+                reset=reset,
+                progress=progress,
+                profile_version=profile_version,
+                profile_sha256=profile_sha256,
+            )
+        finally:
+            if token is not None:
+                _PROFILE_OVERRIDES.reset(token)
+
+    def _generate_with_context(
+        self,
+        *,
+        environment: str,
+        seed: int,
+        scenario: str,
+        row_count: int,
+        reset: bool,
+        progress: bool,
+        profile_version: str | None,
+        profile_sha256: str | None,
+    ) -> GenerationSummary:
+        """Profil override bağlamı altında üretim işlemini yürütür."""
         if reset:
             self.reset()
         started = perf_counter()
@@ -810,6 +1270,8 @@ class PostgreSQLSyntheticDatasetManager:
                     canonical_sha256=digest.hexdigest(),
                     generation_duration_seconds=duration,
                     peak_memory_bytes=peak_memory_bytes,
+                    profile_version=profile_version,
+                    profile_sha256=profile_sha256,
                 )
             database_size = self._database_size()
         except (psycopg.Error, OSError, ValueError, TypeError) as exc:
@@ -832,6 +1294,8 @@ class PostgreSQLSyntheticDatasetManager:
             generation_duration_seconds=perf_counter() - started,
             database_size_bytes=database_size,
             peak_memory_bytes=peak_memory_bytes,
+            profile_version=profile_version,
+            profile_sha256=profile_sha256,
         )
         if not summary.all_validations_passed:
             raise SyntheticDataTechnicalError(
@@ -880,6 +1344,8 @@ class PostgreSQLSyntheticDatasetManager:
                     rule_validation_duration_seconds DOUBLE PRECISION NOT NULL,
                     peak_memory_bytes BIGINT NOT NULL,
                     synthetic_origin BOOLEAN NOT NULL,
+                    profile_version TEXT,
+                    profile_sha256 TEXT,
                     UNIQUE (generator_version, seed, scenario, row_count_per_table)
                 )
                 """
@@ -1310,6 +1776,8 @@ class PostgreSQLSyntheticDatasetManager:
         canonical_sha256: str,
         generation_duration_seconds: float,
         peak_memory_bytes: int,
+        profile_version: str | None = None,
+        profile_sha256: str | None = None,
     ) -> None:
         cursor.execute(
             sql.SQL(
@@ -1322,10 +1790,11 @@ class PostgreSQLSyntheticDatasetManager:
                     total_expected_defect_count, defect_configuration,
                     canonical_sha256, generation_duration_seconds,
                     profiling_duration_seconds, rule_validation_duration_seconds,
-                    peak_memory_bytes, synthetic_origin
+                    peak_memory_bytes, synthetic_origin,
+                    profile_version, profile_sha256
                 ) VALUES (
                     %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                    %s, %s, %s, %s, %s, %s, %s, %s, TRUE
+                    %s, %s, %s, %s, %s, %s, %s, %s, TRUE, %s, %s
                 )
                 """
             ).format(sql.Identifier(CONTROL_SCHEMA)),
@@ -1361,6 +1830,8 @@ class PostgreSQLSyntheticDatasetManager:
                 sum(metric.profiling_duration_seconds for metric in profile_metrics),
                 sum(metric.execution_duration_seconds for metric in validation_metrics),
                 peak_memory_bytes,
+                profile_version,
+                profile_sha256,
             ),
         )
         cursor.executemany(
@@ -1508,8 +1979,15 @@ def _connect(args: argparse.Namespace) -> psycopg.Connection[Any]:
         raise SyntheticDataTechnicalError("Synthetic PostgreSQL connection failed.") from exc
 
 
+def _compute_profile_sha256(artifact: SyntheticProfileArtifact) -> str:
+    """Profil artefaktının deterministik SHA-256 hash'ini hesaplar."""
+    from veri_kalitesi.synthetic_data.profile_schema import artifact_to_dict
+    payload = json.dumps(artifact_to_dict(artifact), sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def _summary_payload(summary: GenerationSummary) -> dict[str, object]:
-    return {
+    result: dict[str, object] = {
         "run_id": summary.run_id,
         "generator_version": summary.generator_version,
         "schema_version": summary.schema_version,
@@ -1544,6 +2022,12 @@ def _summary_payload(summary: GenerationSummary) -> dict[str, object]:
         "peak_memory_bytes": summary.peak_memory_bytes,
         "ground_truth_validation_passed": summary.all_validations_passed,
     }
+    # Faz 5: Profil izlenebilirlik bilgileri.
+    if summary.profile_version is not None:
+        result["profile_version"] = summary.profile_version
+    if summary.profile_sha256 is not None:
+        result["profile_sha256"] = summary.profile_sha256
+    return result
 
 
 def build_argument_parser() -> argparse.ArgumentParser:
@@ -1562,6 +2046,13 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--row-count", type=int, default=DEFAULT_ROW_COUNT)
     parser.add_argument("--reset", action="store_true")
     parser.add_argument("--quiet", action="store_true")
+    parser.add_argument(
+        "--profile",
+        type=str,
+        default=None,
+        help="Sentetik profil JSON dosyası yolu (opsiyonel). "
+        "Gizlilik kapısından geçer, ihlali üretim durdurur.",
+    )
     return parser
 
 
@@ -1574,6 +2065,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         row_count=args.row_count,
         scenario=args.scenario,
     )
+    # Faz 5: Profil yükleme ve gizlilik kapısı.
+    profile: SyntheticProfileArtifact | None = None
+    if args.profile is not None:
+        profile = _load_profile_artifact(args.profile)
     connection = _connect(args)
     try:
         manager = PostgreSQLSyntheticDatasetManager(connection)
@@ -1589,6 +2084,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             row_count=args.row_count,
             reset=args.reset,
             progress=not args.quiet,
+            profile=profile,
         )
         print(json.dumps(_summary_payload(summary), sort_keys=True))
         return 0

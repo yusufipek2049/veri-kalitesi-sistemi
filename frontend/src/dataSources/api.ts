@@ -5,9 +5,6 @@ import type {
 } from "./model";
 import { developmentFetch } from "../development/fetch";
 
-const CSRF_HEADER = "X-CSRF-Token";
-let csrfProof: string | undefined;
-
 interface ProblemBody {
   code?: string;
   detail?: string;
@@ -51,21 +48,6 @@ async function dataSourceApiError(response: Response): Promise<DataSourceApiErro
   );
 }
 
-function commandHeaders(): Record<string, string> {
-  if (!csrfProof) {
-    throw new DataSourceApiError(
-      401,
-      "DATA_SOURCE_CSRF_PROOF_MISSING",
-      "A fresh data source list must be loaded before changing state.",
-    );
-  }
-  return {
-    "Content-Type": "application/json",
-    Accept: "application/json",
-    [CSRF_HEADER]: csrfProof,
-  };
-}
-
 async function command(
   path: string,
   body?: Record<string, unknown> | DataSourceCreateRequest,
@@ -73,7 +55,10 @@ async function command(
   const response = await developmentFetch(path, {
     method: "POST",
     credentials: "same-origin",
-    headers: commandHeaders(),
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!response.ok) throw await dataSourceApiError(response);
@@ -89,8 +74,6 @@ export async function fetchDataSources(
     signal,
   });
   if (!response.ok) throw await dataSourceApiError(response);
-  const receivedProof = response.headers.get(CSRF_HEADER);
-  if (receivedProof) csrfProof = receivedProof;
   return response.json() as Promise<DataSourceListApiResponse>;
 }
 
@@ -128,6 +111,23 @@ export function passivateDataSource(
   return command(
     `/api/v1/data-sources/${encodeURIComponent(dataSourceId)}/passivation`,
     { reason_code: reasonCode },
+  );
+}
+
+export function requestDataSourceDeactivation(
+  dataSourceId: string,
+): Promise<DataSourceMutationApiResponse> {
+  return command(`/api/v1/data-sources/${encodeURIComponent(dataSourceId)}/deactivation`);
+}
+
+export function decideDataSourceDeactivation(
+  deactivationRequestId: string,
+  decision: "APPROVE" | "REJECT",
+  reasonCode: string,
+): Promise<DataSourceMutationApiResponse> {
+  return command(
+    `/api/v1/data-source-deactivation-requests/${encodeURIComponent(deactivationRequestId)}/decision`,
+    { decision, reason_code: reasonCode },
   );
 }
 

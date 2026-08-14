@@ -28,7 +28,6 @@ Basit perplexity yaklaşımı (gelecek iterasyon):
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from dataclasses import dataclass, field
 
@@ -83,7 +82,12 @@ def parse_blocks(text: str) -> list[Block]:
             # Bitişik boş-satır-olmayan satırları aynı blokta topla
             block_lines = [line]
             i += 1
-            while i < n and lines[i].strip() and not lines[i].startswith("```") and not lines[i].startswith("|"):
+            while (
+                i < n
+                and lines[i].strip()
+                and not lines[i].startswith("```")
+                and not lines[i].startswith("|")
+            ):
                 block_lines.append(lines[i])
                 i += 1
             blocks.append(Block(kind="prose", lines=block_lines))
@@ -167,9 +171,7 @@ def compact_segment(text: str, keep_ratio: float, preserve_structured: bool) -> 
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Tek-segment sıkıştırıcı (uzunluk-tabanlı)"
-    )
+    parser = argparse.ArgumentParser(description="Tek-segment sıkıştırıcı (uzunluk-tabanlı)")
     parser.add_argument(
         "--ratio",
         type=int,

@@ -68,6 +68,9 @@ def test_fr_007_data_source_list_is_scope_filtered_and_data_minimum() -> None:
             "pending_activation_maker_actor_id": None,
             "pending_activation_requested_at": None,
             "pending_activation_expires_at": None,
+            "pending_deactivation_request_id": None,
+            "pending_deactivation_maker_actor_id": None,
+            "pending_deactivation_requested_at": None,
         }
     ]
     assert "secret_reference" not in response.text

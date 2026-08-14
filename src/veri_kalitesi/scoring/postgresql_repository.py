@@ -273,6 +273,7 @@ class PostgreSQLScoreRepository:
         scope_id: str | None = None,
         period_start: datetime | None = None,
         period_end: datetime | None = None,
+        score_status: str | None = None,
         limit: int = 50,
         allowed_source_ids: frozenset[str] | None = None,
         allowed_dataset_ids: frozenset[str] | None = None,
@@ -291,6 +292,8 @@ class PostgreSQLScoreRepository:
             conditions.append(t.c.calculated_at >= period_start)
         if period_end is not None:
             conditions.append(t.c.calculated_at <= period_end)
+        if score_status is not None:
+            conditions.append(t.c.score_status == score_status)
         scope_filters = _build_scope_filter(
             t, allowed_source_ids, allowed_dataset_ids, can_view_enterprise
         )

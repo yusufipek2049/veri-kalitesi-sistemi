@@ -205,6 +205,64 @@ def test_nfr_sec_007_cors_preflight_allows_only_configured_origin_and_csrf_heade
     assert "access-control-allow-origin" not in denied.headers
 
 
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("PATCH", "/api/v1/datasets/dataset-a"),
+        ("PUT", "/api/v1/data-sources/source-a/discovery-scope"),
+    ],
+    ids=("dataset-patch", "discovery-scope-put"),
+)
+def test_nfr_sec_007_cors_preflight_allows_api_mutation_methods(
+    method: str,
+    path: str,
+) -> None:
+    setup = _setup()
+
+    response = setup.client.options(
+        path,
+        headers={
+            "Origin": ORIGIN,
+            "Access-Control-Request-Method": method,
+            "Access-Control-Request-Headers": CSRF_HEADER_NAME,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == ORIGIN
+    assert method in response.headers["access-control-allow-methods"]
+
+
+def test_nfr_sec_007_cors_methods_cover_registered_api_routes() -> None:
+    setup = _setup()
+    registered_methods = {
+        method
+        for route in setup.client.app.routes
+        if getattr(route, "path", "").startswith("/api/v1/")
+        for method in (getattr(route, "methods", set()) or set())
+        if method not in {"HEAD", "OPTIONS"}
+    }
+
+    response = setup.client.options(
+        "/api/v1/rules",
+        headers={
+            "Origin": ORIGIN,
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+    allowed_methods = {
+        method.strip()
+        for method in response.headers["access-control-allow-methods"].split(",")
+    }
+
+    assert registered_methods <= allowed_methods
+
+
+def test_nfr_sec_007_cors_rejects_wildcard_origin_configuration() -> None:
+    with pytest.raises(ValueError, match="CORS origins must be explicit"):
+        create_dashboard_api(allowed_origins=("*",))
+
+
 def test_fr_005_session_store_failure_returns_safe_503() -> None:
     setup = _setup()
     setup.session_repository.connection.close()

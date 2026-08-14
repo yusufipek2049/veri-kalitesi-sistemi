@@ -59,6 +59,19 @@ class DataSourceMutationService(Protocol):
         actor_context: ActorContext | None,
     ) -> DataSourceCommandResult: ...
 
+    def request_deactivation(
+        self, *, data_source_id: str, actor_context: ActorContext | None
+    ) -> DataSourceCommandResult: ...
+
+    def decide_deactivation(
+        self,
+        *,
+        deactivation_request_id: str,
+        decision: str,
+        reason_code: str,
+        actor_context: ActorContext | None,
+    ) -> DataSourceCommandResult: ...
+
 
 class _Resolver(Protocol):
     def resolve(self, request: Request) -> Any: ...
@@ -245,4 +258,72 @@ def register_data_sources_routes(
             data_origin=data_origin,
             correlation_id=request.state.correlation_id,
             item=DataSourceListItemResponse.from_view(result.view),
+        )
+
+    @app.post(
+        "/api/v1/data-sources/{data_source_id}/deactivation",
+        response_model=DataSourceMutationResponse,
+        status_code=201,
+        tags=["data-sources"],
+    )
+    async def request_data_source_deactivation(
+        data_source_id: str,
+        request: Request,
+        response: Response,
+    ) -> DataSourceMutationResponse:
+        if data_source_mutation_service is None:
+            raise DataSourceQueryTechnicalError(
+                "Data source mutation service is unavailable.", request.state.correlation_id
+            )
+        actor_context = getattr(request.state, "actor_context", None)
+        result = data_source_mutation_service.request_deactivation(
+            data_source_id=data_source_id,
+            actor_context=actor_context,
+        )
+        response.status_code = 201
+        response.headers["Cache-Control"] = "no-store"
+        return DataSourceMutationResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=DataSourceListItemResponse.from_view(result.view),
+            activation_request_status=(
+                result.activation_request.status.value
+                if result.activation_request is not None
+                else None
+            ),
+        )
+
+    @app.post(
+        "/api/v1/data-source-deactivation-requests/{deactivation_request_id}/decision",
+        response_model=DataSourceMutationResponse,
+        tags=["data-sources"],
+    )
+    async def decide_data_source_deactivation(
+        deactivation_request_id: str,
+        payload: DataSourceActivationDecisionRequest,
+        request: Request,
+        response: Response,
+    ) -> DataSourceMutationResponse:
+        if data_source_mutation_service is None:
+            raise DataSourceQueryTechnicalError(
+                "Data source mutation service is unavailable.", request.state.correlation_id
+            )
+        actor_context = getattr(request.state, "actor_context", None)
+        result = data_source_mutation_service.decide_deactivation(
+            deactivation_request_id=deactivation_request_id,
+            decision=payload.decision,
+            reason_code=payload.reason_code,
+            actor_context=actor_context,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return DataSourceMutationResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            item=DataSourceListItemResponse.from_view(result.view),
+            activation_request_status=(
+                result.activation_request.status.value
+                if result.activation_request is not None
+                else None
+            ),
+            replayed=result.replayed,
         )
