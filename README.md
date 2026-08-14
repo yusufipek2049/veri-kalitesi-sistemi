@@ -38,6 +38,20 @@ Yığın: **FastAPI** · **Python ≥ 3.10** · **PostgreSQL 16** · **SQLAlchem
 
 ---
 
+## Üç Katman
+
+| | Anlamı |
+|---|---|
+| **Arka uç** | Kuralların hizmete, hizmetin uçlara dönüştüğü yer. Kompozisyon kökü —
+her şeyi görünür kılan, erişimi mümkün kılan. Domain, doğrulama, denetim;
+kodun omurgası. *FastAPI · Python ≥ 3.10* |
+| **Ön uç** | Durumun görünüme büründüğü yüzey. Uçlardan akan her şeyin
+insana açılan kapısı. Anlık yansıma, kesintisiz geri bildirim. *React 19 · MUI 9 · Vite 8* |
+| **Veri tabanı** | Hakiketin kilitli kaldığı yer. Her dönüşümün kaydedildiği,
+her göçün iz bıraktığı tek kaynak. Şema sürümlenir, geri dönüşü yok. *PostgreSQL 16 · SQLAlchemy 2.0 · Alembic* |
+
+---
+
 ## Eşik
 
 | Araç | Sınır |
