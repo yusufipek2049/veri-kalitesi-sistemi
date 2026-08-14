@@ -9,8 +9,8 @@ bir yargının izini taşır. Ölçüm ile ölçülen birbirine karışmaz.
 
 ## Kavram
 
-Sonlu ilişkisel kaynaklar. Salt-okunur bağlam. Nitelik kurallarının
-uygulanmasıyla ortaya çıkan skorlar, sorunlar, denetim izleri.
+Sonlu relational source'lar. Read-only bağlam. Kalite kurallarının
+uygulanmasıyla ortaya çıkan skorlar, issue'lar, audit izleri.
 
 Üç döngü: **bağlan** → **ölç** → **yorumla**.
 
@@ -21,20 +21,20 @@ Kaynak verisi değişmez; değişen, onun hakkında bilinen şeydir.
 ## Mimari
 
 ```
-İstemci ──▶ API ──▶ PostgreSQL ◀── İşçi
+Client ──▶ API ──▶ PostgreSQL ◀── Worker
 ```
 
 | Katman | Özü |
 |--------|-----|
 | API | Kompozisyon kökünden doğan uçlar — okunur her şey buradan akar |
-| İşçi | Kuyruktan kapılan, alt süreçte izole edilmiş, kalp atışlı |
-| Veri tabanı | Tek hakikat — sürümlü şema, doğrusal göç zinciri |
-| İstemci | Reaktif yüzey — uçlardan beslenen, durumu yansıtan |
+| Worker | Kuyruktan kapılan, alt süreçte izole edilmiş, kalp atışlı |
+| Database | Tek hakikat — sürümlü şema, doğrusal migration zinciri |
+| Client | Reaktif yüzey — uçlardan beslenen, durumu yansıtan |
 
 Yığın: **FastAPI** · **Python ≥ 3.10** · **PostgreSQL 16** · **SQLAlchemy 2.0** ·
 **Alembic** · **React 19** · **MUI 9** · **Vite 8** · **TypeScript 7**
 
-İşçi: saf Python kuyru tarama, fork yalıtımı, kira mekanizması.
+Worker: saf Python kuyru tarama, fork isolation, lease mekanizması.
 
 ---
 
@@ -42,13 +42,13 @@ Yığın: **FastAPI** · **Python ≥ 3.10** · **PostgreSQL 16** · **SQLAlchem
 
 | | Anlamı |
 |---|---|
-| **Arka uç** | Kuralların hizmete, hizmetin uçlara dönüştüğü yer. Kompozisyon kökü —
-her şeyi görünür kılan, erişimi mümkün kılan. Domain, doğrulama, denetim;
+| **Backend** | Kuralların service'e, service'in endpoint'lere dönüştüğü yer. Composition root —
+her şeyi görünür kılan, erişimi mümkün kılan. Domain, validation, audit;
 kodun omurgası. *FastAPI · Python ≥ 3.10* |
-| **Ön uç** | Durumun görünüme büründüğü yüzey. Uçlardan akan her şeyin
+| **Frontend** | Durumun görünüme büründüğü yüzey. Endpoint'lerden akan her şeyin
 insana açılan kapısı. Anlık yansıma, kesintisiz geri bildirim. *React 19 · MUI 9 · Vite 8* |
-| **Veri tabanı** | Hakiketin kilitli kaldığı yer. Her dönüşümün kaydedildiği,
-her göçün iz bıraktığı tek kaynak. Şema sürümlenir, geri dönüşü yok. *PostgreSQL 16 · SQLAlchemy 2.0 · Alembic* |
+| **Database** | Hakiketin kilitli kaldığı yer. Her dönüşümün kaydedildiği,
+her migration'ın iz bıraktığı tek kaynak. Şema sürümlenir, geri dönüşü yok. *PostgreSQL 16 · SQLAlchemy 2.0 · Alembic* |
 
 ---
 
@@ -73,7 +73,7 @@ cp -r infra/development/runtime-secrets.example \
 docker compose -f infra/development/compose.yaml up --build
 ```
 
-Beş kap, sırayla: `postgres :55432` → `migrate` → `api :8000` → `işci` → `istemci :5173`.
+Beş container, sırayla: `postgres :55432` → `migrate` → `api :8000` → `worker` → `frontend :5173`.
 
 Doğrulama:
 
@@ -82,7 +82,7 @@ curl -s http://127.0.0.1:8000/api/v1/openapi.json | head -c 100
 curl -s http://127.0.0.1:8000/api/v1/development/users | python3 -m json.tool
 ```
 
-Tarayıcıda `http://localhost:5173` — gelişim kullanıcısı seçilerek içeri adım atılır.
+Tarayıcıda `http://localhost:5173` — dev user seçilerek içeri adım atılır.
 
 Demo veri (isteğe bağlı):
 
@@ -97,26 +97,26 @@ DATA_QUALITY_DATABASE_URL="postgresql+psycopg://dq_app:${DQ_POSTGRES_PASSWORD}@1
 
 | Alan | Kapsam |
 |------|--------|
-| Kaynaklar | yaratma, etkinleştirme, dondurma, bağlantı sınaması, üst veri |
-| Kurallar | sorgulama, sürümleme |
-| Sorunlar | yaratma, inceleme, atama, çözüm, doğrulama, kapatma |
-| Yürütmeler | başlatma, iptal, sorgulama |
-| Skorlar | listeleme, ayrıntı, karşılaştırma |
-| Denetim | olay sorgulama |
-| Bildirimler | gelen kutusu, teslimat, kanal, abonelik |
-| Katalog | keşif, veri kümesi/alan tarama, fark uygulaması |
-| İşçi | EXECUTION · METADATA_DISCOVERY · NOTIFICATION_DELIVERY |
+| Data Sources | create, activate, passivate, connection test, metadata |
+| Rules | query, versioning |
+| Issues | create, investigate, assign, resolve, verify, close |
+| Executions | start, cancel, query |
+| Scores | list, detail, compare |
+| Audit | event query |
+| Notifications | inbox, delivery, channel, subscription |
+| Catalog | discovery, dataset/field browsing, diff application |
+| Worker | EXECUTION · METADATA_DISCOVERY · NOTIFICATION_DELIVERY |
 
-Bağlanmamış uçlar — gösterim, profil, rapor, lineage, governance — kodda
-vardır; kompozisyon kökünde henüz ete kemiğe bürünmemiştir.
+Unwired endpoint'ler — dashboard, profile, report, lineage, governance — kodda
+vardır; composition root'ta henüz ete kemiğe bürünmemiştir.
 
 ---
 
 ## Kalite
 
 ```bash
-pytest -q                          # bütün sınamalar
-python3 scripts/test_postgresql.py # PostgreSQL bütünleşik
+pytest -q                          # tüm testler
+python3 scripts/test_postgresql.py # PostgreSQL integration
 ruff check . && ruff format --check .
 mypy src
 cd frontend && npm test && npm run typecheck && npm run build
@@ -127,8 +127,8 @@ cd frontend && npm test && npm run typecheck && npm run build
 ## Durdur
 
 ```bash
-docker compose -f infra/development/compose.yaml down     # hacim kalır
-docker compose -f infra/development/compose.yaml down -v  # hacim gider
+docker compose -f infra/development/compose.yaml down     # volume kalır
+docker compose -f infra/development/compose.yaml down -v  # volume gider
 ```
 
 ---
@@ -137,19 +137,19 @@ docker compose -f infra/development/compose.yaml down -v  # hacim gider
 
 | Değişken | Anlamı |
 |----------|--------|
-| `DATA_QUALITY_DATABASE_URL` | Bağlantının kendisi |
-| `DATA_QUALITY_DATABASE_SCHEMA` | İsim uzayı (`dq`) |
-| `DATA_QUALITY_RUNTIME_ENVIRONMENT` | Bağlam kipı |
-| `DATA_QUALITY_ALLOWED_ORIGINS` | CORS sınırları |
-| `DQ_WORKER_ID` · `_CAPACITY` · `_LEASE_SECONDS` | İşçi kimliği ve temposu |
+| `DATA_QUALITY_DATABASE_URL` | Connection string |
+| `DATA_QUALITY_DATABASE_SCHEMA` | Namespace (`dq`) |
+| `DATA_QUALITY_RUNTIME_ENVIRONMENT` | Runtime mode |
+| `DATA_QUALITY_ALLOWED_ORIGINS` | CORS boundaries |
+| `DQ_WORKER_ID` · `_CAPACITY` · `_LEASE_SECONDS` | Worker identity & tempo |
 
 ---
 
 ## Henüz Dışarıda
 
-Üretim olgunluğundan ayıran: IdP/LDAP, PAM, HA, mesaj kuyruğu, SIEM/WORM,
-ServiceNow, DR, banka uyumu — her biri ayrı bir emek.
+Production olgunluğundan ayıran: IdP/LDAP, PAM, HA, message broker, SIEM/WORM,
+ServiceNow, DR, banka compliance — her biri ayrı bir emek.
 
-Kodda var, yürütmeye bağlı değil: retention, sentetik veri, secure SDLC,
-olay müdahale, raporlama, lineage, governance.
+Kodda var, runtime'a bağlı değil: retention, synthetic data, secure SDLC,
+incident response, reporting, lineage, governance.
 
