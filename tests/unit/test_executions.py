@@ -812,7 +812,7 @@ def test_fr_037_uc_007_supports_once_weekly_and_monthly_schedules(
     assert all(item.tzinfo is timezone.utc for item in preview)
 
 
-def test_fr_037_uc_007_due_schedule_creates_one_idempotent_scheduled_execution() -> None:
+def test_two_scheduler_workers_create_one_idempotent_scheduled_execution() -> None:
     created_at = datetime(2026, 7, 16, 6, 0, tzinfo=timezone.utc)
     due_at = datetime(2026, 7, 16, 7, 0, tzinfo=timezone.utc)
     execution_service, execution_repository, version = _service(
@@ -834,7 +834,13 @@ def test_fr_037_uc_007_due_schedule_creates_one_idempotent_scheduled_execution()
         local_time="10:00",
     )
 
-    first = scheduler.trigger_due(now=due_at)
+    assert scheduler.trigger_due(now=due_at - timedelta(seconds=1)) == ()
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        concurrent_results = tuple(
+            pool.map(lambda _index: scheduler.trigger_due(now=due_at), range(2))
+        )
+    first = tuple(item for result in concurrent_results for item in result)
     repeated = scheduler.trigger_due(now=due_at)
 
     assert len(first) == 1

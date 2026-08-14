@@ -20,6 +20,7 @@ class PersistentJobSettings:
     idle_wait_seconds: float
     shutdown_grace_seconds: float
     database: DatabaseSettings
+    schedule_trigger_interval_seconds: float = 5.0
     local_secret_dir: str | None = None
     issue_policy_version: str = "ISSUE_ACCESS_POLICY_V1"
     actor_policy_version: str = "DASHBOARD_POLICY_V1"
@@ -41,6 +42,8 @@ class PersistentJobSettings:
             raise ValueError("Worker idle wait must be positive.")
         if self.shutdown_grace_seconds < 0:
             raise ValueError("Worker shutdown grace must not be negative.")
+        if self.schedule_trigger_interval_seconds <= 0:
+            raise ValueError("Schedule trigger interval must be positive.")
         if not self.issue_policy_version.strip():
             raise ValueError("Issue policy version must not be blank.")
         if not self.actor_policy_version.strip():
@@ -60,6 +63,9 @@ class PersistentJobSettings:
             idle_wait_seconds=float(os.environ.get("DQ_WORKER_IDLE_WAIT_SECONDS", "0.5")),
             shutdown_grace_seconds=float(os.environ.get("DQ_WORKER_SHUTDOWN_GRACE_SECONDS", "5.0")),
             database=DatabaseSettings.from_environment(),
+            schedule_trigger_interval_seconds=float(
+                os.environ.get("DQ_SCHEDULE_TRIGGER_INTERVAL_SECONDS", "5.0")
+            ),
             local_secret_dir=os.environ.get("DATA_QUALITY_LOCAL_SECRET_DIR"),
             issue_policy_version=os.environ.get(
                 "DATA_QUALITY_ISSUE_POLICY_VERSION",

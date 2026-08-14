@@ -46,6 +46,16 @@ class ScheduleRepository(Protocol[_AuditT]):
 
     def due(self, now: datetime) -> list[Schedule]: ...
 
+    def claim_due(
+        self,
+        schedule_id: str,
+        *,
+        scheduled_for: datetime,
+        triggered_at: datetime,
+        next_run_at: datetime | None,
+        is_active: bool,
+    ) -> bool: ...
+
     def advance(
         self,
         schedule_id: str,
@@ -198,6 +208,34 @@ class SQLiteScheduleRepository:
             )
         return self.get(schedule_id)
 
+    def claim_due(
+        self,
+        schedule_id: str,
+        *,
+        scheduled_for: datetime,
+        triggered_at: datetime,
+        next_run_at: datetime | None,
+        is_active: bool,
+    ) -> bool:
+        """Ayni vade yalnizca bir tetikleyici tarafindan sahiplenilir."""
+
+        with self._lock, self.connection:
+            result = self.connection.execute(
+                """
+                UPDATE schedules
+                SET last_triggered_at = ?, next_run_at = ?, is_active = ?
+                WHERE schedule_id = ? AND is_active = 1 AND next_run_at = ?
+                """,
+                (
+                    triggered_at.astimezone(timezone.utc).isoformat(),
+                    _datetime_text(next_run_at),
+                    1 if is_active else 0,
+                    schedule_id,
+                    scheduled_for.astimezone(timezone.utc).isoformat(),
+                ),
+            )
+        return result.rowcount == 1
+
     def get(self, schedule_id: str) -> Schedule:
         with self._lock:
             row = self.connection.execute(
@@ -307,6 +345,15 @@ class SchedulingService:
             scheduled_for = schedule.next_run_at
             if scheduled_for is None:
                 continue
+            following = preview_runs(schedule, after=scheduled_for, count=1)
+            if not self.repository.claim_due(
+                schedule.schedule_id,
+                scheduled_for=scheduled_for,
+                triggered_at=current,
+                next_run_at=following[0] if following else None,
+                is_active=bool(following),
+            ):
+                continue
             try:
                 execution = self.execution_service.start_scheduled(
                     idempotency_key=f"schedule:{schedule.schedule_id}:{scheduled_for.isoformat()}",
@@ -317,7 +364,7 @@ class SchedulingService:
                     },
                     correlation_id=f"schedule-{schedule.schedule_id}-{int(scheduled_for.timestamp())}",
                 )
-            except ExecutionValidationError:
+            except Exception as exc:
                 self.repository.advance(
                     schedule.schedule_id,
                     triggered_at=current,
@@ -325,18 +372,17 @@ class SchedulingService:
                     is_active=False,
                 )
                 if self.technical_event_sink is not None:
-                    self.technical_event_sink.notify_schedule_failure(
-                        schedule, "INVALID_EXECUTION_SCOPE"
-                    )
+                    try:
+                        error_class = (
+                            "INVALID_EXECUTION_SCOPE"
+                            if isinstance(exc, ExecutionValidationError)
+                            else type(exc).__name__
+                        )
+                        self.technical_event_sink.notify_schedule_failure(schedule, error_class)
+                    except Exception:
+                        pass
                 continue
             executions.append(execution)
-            following = preview_runs(schedule, after=scheduled_for, count=1)
-            self.repository.advance(
-                schedule.schedule_id,
-                triggered_at=current,
-                next_run_at=following[0] if following else None,
-                is_active=bool(following),
-            )
         return tuple(executions)
 
 
