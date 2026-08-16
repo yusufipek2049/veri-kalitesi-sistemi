@@ -92,6 +92,7 @@ from veri_kalitesi.notifications.models import (
     NotificationEventType,
     NotificationScopeType,
 )
+from veri_kalitesi.issues.clamav import build_production_scanner
 from veri_kalitesi.persistence import SessionFactory, create_session_factory
 from veri_kalitesi.governance import (
     GovernanceApprovalCommandService,
@@ -120,44 +121,59 @@ from veri_kalitesi.dashboard.metadata_health import MetadataHealthQueryService
 from veri_kalitesi.dashboard.issue_performance import IssuePerformanceQueryService
 from veri_kalitesi.dashboard.scoring_policy_impact import ScoringPolicyImpactQueryService
 
-CURRENT_MIGRATION_HEAD = "20260814_25"
+CURRENT_MIGRATION_HEAD = "20260816_27"
+# Migration zincirinin head'i tarafindan olusturulan tam tablo envanteri.
+# tests/unit/test_migration_preflight.py bu iki sabiti alembic/versions ile
+# karsilastirir; yeni migration eklendiginde ikisi birlikte guncellenmelidir.
 REQUIRED_TABLES = frozenset(
     {
-        "data_sources",
-        "data_source_activation_requests",
-        "datasets",
+        "audit_events",
+        "audit_outbox",
+        "background_jobs",
+        "connection_test_results",
         "data_fields",
-        "quality_rules",
-        "rule_versions",
-        "rule_test_results",
-        "rule_approval_requests",
+        "data_processing_inventory_versions",
+        "data_profiles",
         "data_quality_issues",
+        "data_source_activation_requests",
+        "data_source_connection_revisions",
+        "data_sources",
+        "dataset_partial_score_policies",
+        "datasets",
+        "discovery_scopes",
+        "execution_attempts",
+        "governance_approval_requests",
+        "issue_evidence",
+        "issue_evidence_files",
         "issue_history",
+        "issue_relationships",
         "issue_resolutions",
         "issue_verifications",
-        "issue_relationships",
-        "issue_evidence",
-        "rule_executions",
-        "score_contribution_graphs",
-        "scoring_configurations",
-        "scoring_configuration_approvals",
-        "dataset_partial_score_policies",
-        "score_publications",
-        "quality_scores",
-        "audit_outbox",
-        "audit_events",
-        "background_jobs",
         "job_dead_letters",
-        "workers",
-        "source_usage_policies",
-        "metadata_discovery_results",
-        "discovery_scopes",
+        "lineage_evidence_snapshots",
         "metadata_diffs",
+        "metadata_discovery_results",
         "notification_channels",
+        "notification_deliveries",
         "notification_events",
         "notification_subscriptions",
-        "notification_deliveries",
+        "profile_comparisons",
+        "quality_rules",
+        "quality_scores",
+        "report_schedules",
         "reports",
+        "rule_approval_requests",
+        "rule_execution_results",
+        "rule_executions",
+        "rule_test_results",
+        "rule_versions",
+        "schedules",
+        "score_contribution_graphs",
+        "score_publications",
+        "scoring_configuration_approvals",
+        "scoring_configurations",
+        "source_usage_policies",
+        "workers",
     }
 )
 
@@ -306,9 +322,15 @@ def create_application(
     if settings.migration_check_enabled:
         preflight_database(settings, session_factory)
 
+    # Kanit dosyasi malware tarayicisi: yapilandirilmamissa None kalir ve
+    # yukleme akisi fail-closed davranir (yuklenen dosya SCAN_FAILED olur).
+    evidence_scanner = build_production_scanner()
+
     def readiness_check() -> None:
         with session_factory() as session:
             session.execute(text("SELECT 1"))
+        if evidence_scanner is not None:
+            evidence_scanner.ping()
 
     audit_repository = PostgreSQLAuditRepository(session_factory, schema=settings.database.schema)
     redactor = AuditRedactor(build_default_redaction_policy())
@@ -386,6 +408,7 @@ def create_application(
         checker_roles=frozenset({"DATA_OWNER"}),
         applier_roles=frozenset({"DATA_GOVERNANCE_SPECIALIST"}),
     )
+
     # Composite catalog for governance command service (dataset + rule + execution + dead-letter)
     class _GovernanceCompositeCatalog:
         def __init__(self, source_repo, rule_repo, exec_repo, job_repo):
@@ -605,9 +628,7 @@ def create_application(
     )
 
     # Analytics insights reader and services
-    insights_reader = PostgreSQLInsightsReader(
-        session_factory, schema=settings.database.schema
-    )
+    insights_reader = PostgreSQLInsightsReader(session_factory, schema=settings.database.schema)
     rule_health_service = RuleHealthQueryService(
         reader=insights_reader,
         authorization_service=authorization,
@@ -672,8 +693,9 @@ def create_application(
         storage=LocalEvidenceStorage(
             os.environ.get("DQ_EVIDENCE_STORAGE_ROOT", ".local/issue-evidence")
         ),
-        # Production is deliberately fail-closed until an AV adapter is configured.
-        scanner=None,
+        # clamd yapilandirilmamissa None kalir; tarayicisiz kurulum fail-closed
+        # davranir ve hicbir dosya AVAILABLE olmaz (DQ_CLAMAV_HOST/SOCKET).
+        scanner=evidence_scanner,
         policy=EvidenceFilePolicy(version="EVIDENCE_FILE_POLICY_V1"),
         audit_sink=audit_service,
         clock=lambda: datetime.now(timezone.utc),

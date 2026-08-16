@@ -13,7 +13,12 @@ import pytest
 
 from veri_kalitesi.data_protection.policy import ClassificationCode
 from veri_kalitesi.data_sources.models import CatalogItemStatus, Criticality, DataField, Dataset
-from veri_kalitesi.executions.models import ExecutionMode, ExecutionStatus, ExecutionType, RuleExecution
+from veri_kalitesi.executions.models import (
+    ExecutionMode,
+    ExecutionStatus,
+    ExecutionType,
+    RuleExecution,
+)
 from veri_kalitesi.governance.errors import (
     GovernanceAuthorizationError,
     GovernanceConflictError,
@@ -217,9 +222,7 @@ class FakeOwnershipWriter:
             from veri_kalitesi.data_sources.errors import ConflictError
 
             raise ConflictError("version mismatch")
-        updated = replace(
-            dataset, owner_user_id=owner_user_id, version=dataset.version + 1
-        )
+        updated = replace(dataset, owner_user_id=owner_user_id, version=dataset.version + 1)
         self.catalog.datasets[dataset_id] = updated
         return updated
 
@@ -268,7 +271,6 @@ class FakeExecutionWriter:
         self.reprocessed: list = []
 
     def apply_manual_start(self, *, request, actor_context) -> RuleExecution:
-        from veri_kalitesi.executions.errors import ExecutionConflictError
         after = request.change_summary.get("after", {})
         rule_version_ids = tuple(after.get("rule_version_ids", ()))
         execution = RuleExecution(
@@ -289,6 +291,7 @@ class FakeExecutionWriter:
 
     def apply_cancel(self, *, request, actor_context) -> RuleExecution:
         from veri_kalitesi.executions.errors import ExecutionNotFoundError
+
         execution = self.catalog.executions.get(request.object_id)
         if execution is None:
             raise ExecutionNotFoundError("execution missing")
@@ -480,9 +483,7 @@ def test_maker_cannot_decide_own_request_and_violation_is_audited() -> None:
             reason_code="OWNERSHIP.VERIFIED",
         )
 
-    assert any(
-        event.action == "GOVERNANCE_MAKER_CHECKER_VIOLATION" for event in sink.events
-    )
+    assert any(event.action == "GOVERNANCE_MAKER_CHECKER_VIOLATION" for event in sink.events)
 
 
 def test_scoped_owner_approves_request() -> None:
@@ -499,13 +500,9 @@ def test_scoped_owner_approves_request() -> None:
     assert decided.status is GovernanceApprovalStatus.APPROVED
     assert decided.checker_actor_id == "checker-1"
     assert decided.checker_role == "DATA_OWNER"
-    assert repository.get(request.approval_request_id).status is (
-        GovernanceApprovalStatus.APPROVED
-    )
+    assert repository.get(request.approval_request_id).status is (GovernanceApprovalStatus.APPROVED)
     decided_events = [
-        event
-        for event in _audit.prepared_events
-        if event.action == "GOVERNANCE_APPROVAL_DECIDED"
+        event for event in _audit.prepared_events if event.action == "GOVERNANCE_APPROVAL_DECIDED"
     ]
     assert decided_events and decided_events[-1].actor_id == "checker-1"
 
@@ -599,9 +596,7 @@ def test_apply_updates_owner_and_is_idempotent() -> None:
         approval_request_id=request.approval_request_id,
     )
     assert replayed.status is GovernanceApprovalStatus.APPLIED
-    assert repository.get(request.approval_request_id).status is (
-        GovernanceApprovalStatus.APPLIED
-    )
+    assert repository.get(request.approval_request_id).status is (GovernanceApprovalStatus.APPLIED)
 
 
 def test_apply_requires_approved_request_and_applier_role() -> None:
@@ -643,7 +638,9 @@ def test_apply_after_object_change_marks_application_failed() -> None:
 # ----------------------------------------------------------------------
 
 
-def _seed_execution(catalog: FakeCatalog, *, status: ExecutionStatus = ExecutionStatus.QUEUED) -> RuleExecution:
+def _seed_execution(
+    catalog: FakeCatalog, *, status: ExecutionStatus = ExecutionStatus.QUEUED
+) -> RuleExecution:
     execution = RuleExecution(
         idempotency_key_hash="seed",
         payload_hash="seed",
@@ -968,9 +965,7 @@ def test_expired_request_cannot_be_decided() -> None:
             reason_code="OWNERSHIP.VERIFIED",
         )
 
-    assert repository.get(request.approval_request_id).status is (
-        GovernanceApprovalStatus.EXPIRED
-    )
+    assert repository.get(request.approval_request_id).status is (GovernanceApprovalStatus.EXPIRED)
 
 
 # ----------------------------------------------------------------------
@@ -1109,9 +1104,7 @@ def test_metadata_apply_updates_dataset_and_is_idempotent() -> None:
         approval_request_id=request.approval_request_id,
     )
     assert replayed.status is GovernanceApprovalStatus.APPLIED
-    assert repository.get(request.approval_request_id).status is (
-        GovernanceApprovalStatus.APPLIED
-    )
+    assert repository.get(request.approval_request_id).status is (GovernanceApprovalStatus.APPLIED)
 
 
 def test_field_sensitivity_apply_updates_field() -> None:
@@ -1181,3 +1174,414 @@ def test_metadata_apply_after_version_change_marks_application_failed() -> None:
     assert repository.get(request.approval_request_id).status is (
         GovernanceApprovalStatus.APPLICATION_FAILED
     )
+
+
+# ----------------------------------------------------------------------
+# F-03: cok-dataset'li execution taleplerinde kapsam disina tasma
+# ----------------------------------------------------------------------
+
+SECOND_DATASET_ID = "dataset-secondary"
+SECOND_RULE_ID = "rule-exec-2"
+SECOND_RULE_VERSION_ID = "rv-exec-2"
+
+
+def _seed_second_dataset(catalog: FakeCatalog) -> None:
+    """Alfabetik olarak DATASET_ID'den sonra gelen ikinci bir dataset ekler."""
+
+    catalog.datasets[SECOND_DATASET_ID] = Dataset(
+        data_source_id="source-1",
+        namespace="core",
+        name="Ikincil tablo",
+        owner_user_id="other-owner",
+        dataset_id=SECOND_DATASET_ID,
+        version=5,
+    )
+    catalog.rules[SECOND_RULE_ID] = QualityRule(
+        code="RQ-002",
+        name="Ikinci kural",
+        dataset_id=SECOND_DATASET_ID,
+        field_ids=(),
+        primary_dimension=QualityDimension.COMPLETENESS,
+        owner_user_id="rule-owner",
+        status=RuleStatus.ACTIVE,
+        quality_rule_id=SECOND_RULE_ID,
+    )
+    catalog.rule_versions[SECOND_RULE_VERSION_ID] = RuleVersion(
+        quality_rule_id=SECOND_RULE_ID,
+        version_no=1,
+        rule_type=RuleType.REQUIRED,
+        definition={"field_id": FIELD_ID, "operator": "IS_NOT_NULL"},
+        threshold=0.95,
+        weight=1.0,
+        criticality=RuleCriticality.HIGH,
+        rule_version_id=SECOND_RULE_VERSION_ID,
+    )
+
+
+def test_execution_start_rejects_maker_without_every_dataset() -> None:
+    """Maker yalniz D1'e yetkiliyken D1+D2 talebi reddedilmelidir."""
+
+    service, _repository, catalog, _sink, _audit, _exec = _service()
+    _seed_second_dataset(catalog)
+
+    with pytest.raises(GovernanceAuthorizationError, match=SECOND_DATASET_ID):
+        service.submit_request(
+            actor_context=_actor("maker-1", {"DATA_STEWARD"}, dataset_ids={DATASET_ID}),
+            request_type="EXECUTION_MANUAL_START",
+            object_id="new-exec-id",
+            reason_code="EXECUTION.MANUAL.START",
+            proposed_changes={"rule_version_ids": [RULE_VERSION_ID, SECOND_RULE_VERSION_ID]},
+        )
+
+
+def test_execution_start_allows_maker_permitted_on_every_dataset() -> None:
+    service, _repository, catalog, _sink, _audit, _exec = _service()
+    _seed_second_dataset(catalog)
+
+    request = service.submit_request(
+        actor_context=_actor(
+            "maker-1", {"DATA_STEWARD"}, dataset_ids={DATASET_ID, SECOND_DATASET_ID}
+        ),
+        request_type="EXECUTION_MANUAL_START",
+        object_id="new-exec-id",
+        reason_code="EXECUTION.MANUAL.START",
+        proposed_changes={"rule_version_ids": [RULE_VERSION_ID, SECOND_RULE_VERSION_ID]},
+    )
+
+    assert request.status is GovernanceApprovalStatus.SUBMITTED
+    # Tam kapsam talepte saklanir; scope_id yalniz birincil dataset'tir.
+    assert set(request.change_summary["before"]["dataset_versions"]) == {
+        DATASET_ID,
+        SECOND_DATASET_ID,
+    }
+
+
+def test_execution_cancel_rejects_maker_without_every_dataset() -> None:
+    service, _repository, catalog, _sink, _audit, _exec = _service()
+    _seed_second_dataset(catalog)
+    catalog.executions[EXECUTION_ID] = RuleExecution(
+        idempotency_key_hash="hash",
+        payload_hash="payload",
+        rule_version_ids=(RULE_VERSION_ID, SECOND_RULE_VERSION_ID),
+        scope={},
+        triggered_by="scheduler",
+        correlation_id="correlation-exec",
+        execution_id=EXECUTION_ID,
+        execution_type=ExecutionType.SCHEDULED,
+        status=ExecutionStatus.QUEUED,
+    )
+
+    with pytest.raises(GovernanceAuthorizationError, match=SECOND_DATASET_ID):
+        service.submit_request(
+            actor_context=_actor("maker-1", {"DATA_STEWARD"}, dataset_ids={DATASET_ID}),
+            request_type="EXECUTION_CANCEL",
+            object_id=EXECUTION_ID,
+            reason_code="EXECUTION.CANCEL",
+            proposed_changes={"reason": "cancel attempt"},
+        )
+
+
+def test_dead_letter_reprocess_rejects_maker_without_every_dataset() -> None:
+    service, _repository, catalog, _sink, _audit, _exec = _service()
+    _seed_second_dataset(catalog)
+    catalog.executions[EXECUTION_ID] = RuleExecution(
+        idempotency_key_hash="hash",
+        payload_hash="payload",
+        rule_version_ids=(RULE_VERSION_ID, SECOND_RULE_VERSION_ID),
+        scope={},
+        triggered_by="scheduler",
+        correlation_id="correlation-exec",
+        execution_id=EXECUTION_ID,
+        execution_type=ExecutionType.SCHEDULED,
+        status=ExecutionStatus.QUEUED,
+    )
+    catalog.dead_letters[DEAD_LETTER_ID] = DeadLetterRecord(
+        dead_letter_id=DEAD_LETTER_ID,
+        job_id=EXECUTION_ID,
+        error_class="CONNECTOR_TIMEOUT",
+        attempt_count=3,
+        status=DeadLetterStatus.OPEN,
+        created_at=NOW,
+    )
+
+    with pytest.raises(GovernanceAuthorizationError, match=SECOND_DATASET_ID):
+        service.submit_request(
+            actor_context=_actor("maker-1", {"DATA_STEWARD"}, dataset_ids={DATASET_ID}),
+            request_type="DEAD_LETTER_REPROCESS",
+            object_id=DEAD_LETTER_ID,
+            reason_code="EXECUTION.DEAD.LETTER.REPROCESS",
+        )
+
+
+def _submit_multi_dataset_start(service, catalog):
+    _seed_second_dataset(catalog)
+    return service.submit_request(
+        actor_context=_actor(
+            "maker-1", {"DATA_STEWARD"}, dataset_ids={DATASET_ID, SECOND_DATASET_ID}
+        ),
+        request_type="EXECUTION_MANUAL_START",
+        object_id="new-exec-id",
+        reason_code="EXECUTION.MANUAL.START",
+        proposed_changes={"rule_version_ids": [RULE_VERSION_ID, SECOND_RULE_VERSION_ID]},
+    )
+
+
+def test_checker_must_be_permitted_on_every_request_dataset() -> None:
+    """Checker yalniz birincil scope_id'ye yetkili olsa bile karar veremez."""
+
+    service, _repository, catalog, _sink, _audit, _exec = _service()
+    request = _submit_multi_dataset_start(service, catalog)
+
+    with pytest.raises(GovernanceAuthorizationError, match="outside the governance object scope"):
+        service.decide_request(
+            actor_context=_actor("checker-1", {"DATA_OWNER"}, dataset_ids={DATASET_ID}),
+            approval_request_id=request.approval_request_id,
+            decision="APPROVE",
+            reason_code="EXECUTION.VERIFIED",
+        )
+
+
+def test_applier_must_be_permitted_on_every_request_dataset() -> None:
+    service, _repository, catalog, _sink, _audit, exec_writer = _service()
+    request = _submit_multi_dataset_start(service, catalog)
+    service.decide_request(
+        actor_context=_actor(
+            "checker-1", {"DATA_OWNER"}, dataset_ids={DATASET_ID, SECOND_DATASET_ID}
+        ),
+        approval_request_id=request.approval_request_id,
+        decision="APPROVE",
+        reason_code="EXECUTION.VERIFIED",
+    )
+
+    with pytest.raises(GovernanceAuthorizationError, match="outside the governance object scope"):
+        service.apply_request(
+            actor_context=_actor(
+                "applier-1", {"DATA_GOVERNANCE_SPECIALIST"}, dataset_ids={DATASET_ID}
+            ),
+            approval_request_id=request.approval_request_id,
+        )
+    assert not exec_writer.started
+
+
+def test_withdraw_must_be_permitted_on_every_request_dataset() -> None:
+    service, _repository, catalog, _sink, _audit, _exec = _service()
+    request = _submit_multi_dataset_start(service, catalog)
+
+    with pytest.raises(GovernanceAuthorizationError, match="outside the governance object scope"):
+        service.withdraw_request(
+            actor_context=_actor("maker-1", {"DATA_STEWARD"}, dataset_ids={DATASET_ID}),
+            approval_request_id=request.approval_request_id,
+            reason_code="EXECUTION.WITHDRAWN",
+        )
+
+
+def test_multi_dataset_request_full_flow_with_complete_scope() -> None:
+    """Tum kapsama yetkili aktorlerle akis bozulmadan tamamlanir."""
+
+    service, _repository, catalog, _sink, _audit, exec_writer = _service()
+    request = _submit_multi_dataset_start(service, catalog)
+    full_scope = {DATASET_ID, SECOND_DATASET_ID}
+
+    service.decide_request(
+        actor_context=_actor("checker-1", {"DATA_OWNER"}, dataset_ids=full_scope),
+        approval_request_id=request.approval_request_id,
+        decision="APPROVE",
+        reason_code="EXECUTION.VERIFIED",
+    )
+    applied = service.apply_request(
+        actor_context=_actor("applier-1", {"DATA_GOVERNANCE_SPECIALIST"}, dataset_ids=full_scope),
+        approval_request_id=request.approval_request_id,
+    )
+
+    assert applied.status is GovernanceApprovalStatus.APPLIED
+    assert len(exec_writer.started) == 1
+
+
+# ----------------------------------------------------------------------
+# F-08: eszamanli CAS kaybi ve bayat oturum
+# ----------------------------------------------------------------------
+
+
+class _CasLosingRepository(FakeGovernanceRepository):
+    """Servis okuduktan sonra baska bir islemin kazandigi durumu taklit eder."""
+
+    def __init__(self, *, fail_transitions: int = 1) -> None:
+        super().__init__()
+        self.remaining_failures = fail_transitions
+        self.transition_calls = 0
+
+    def transition(self, request, *, expected_version, expected_status, audit_event, audit_outbox):
+        self.transition_calls += 1
+        if self.remaining_failures > 0:
+            self.remaining_failures -= 1
+            raise GovernanceConflictError(
+                "Governance approval request was decided concurrently or superseded."
+            )
+        return super().transition(
+            request,
+            expected_version=expected_version,
+            expected_status=expected_status,
+            audit_event=audit_event,
+            audit_outbox=audit_outbox,
+        )
+
+
+def test_decision_losing_the_version_cas_surfaces_a_conflict() -> None:
+    """Eszamanli karar CAS'i kaybederse sessizce basarili sayilmamalidir."""
+
+    repository = _CasLosingRepository()
+    service, _repo, _catalog, _sink, _audit, _exec = _service(repository=repository)
+    request = _submit_execution_start(service)
+
+    with pytest.raises(GovernanceConflictError, match="concurrently|superseded"):
+        service.decide_request(
+            actor_context=_actor("checker-1", {"DATA_OWNER"}),
+            approval_request_id=request.approval_request_id,
+            decision="APPROVE",
+            reason_code="EXECUTION.VERIFIED",
+        )
+
+    # Talep bekleyen durumda kalir; karar uygulanmis gibi gorunmez.
+    assert repository.get(request.approval_request_id).status is (
+        GovernanceApprovalStatus.SUBMITTED
+    )
+
+
+def test_apply_losing_the_version_cas_surfaces_a_conflict() -> None:
+    repository = _CasLosingRepository(fail_transitions=0)
+    service, _repo, _catalog, _sink, _audit, exec_writer = _service(repository=repository)
+    request = _submit_execution_start(service)
+    service.decide_request(
+        actor_context=_actor("checker-1", {"DATA_OWNER"}),
+        approval_request_id=request.approval_request_id,
+        decision="APPROVE",
+        reason_code="EXECUTION.VERIFIED",
+    )
+    repository.remaining_failures = 1
+
+    with pytest.raises(GovernanceConflictError):
+        service.apply_request(
+            actor_context=_actor("applier-1", {"DATA_GOVERNANCE_SPECIALIST"}),
+            approval_request_id=request.approval_request_id,
+        )
+
+    assert repository.get(request.approval_request_id).status is (GovernanceApprovalStatus.APPROVED)
+
+
+def test_second_decision_on_an_already_decided_request_is_rejected() -> None:
+    service, repository, _catalog, _sink, _audit, _exec = _service()
+    request = _submit_execution_start(service)
+    service.decide_request(
+        actor_context=_actor("checker-1", {"DATA_OWNER"}),
+        approval_request_id=request.approval_request_id,
+        decision="APPROVE",
+        reason_code="EXECUTION.VERIFIED",
+    )
+
+    with pytest.raises(GovernanceValidationError, match="not pending"):
+        service.decide_request(
+            actor_context=_actor("checker-2", {"DATA_OWNER"}),
+            approval_request_id=request.approval_request_id,
+            decision="REJECT",
+            reason_code="EXECUTION.REJECTED",
+        )
+
+    assert repository.get(request.approval_request_id).status is (GovernanceApprovalStatus.APPROVED)
+
+
+def _stale_actor(actor_id: str, roles: set[str]):
+    """Suresi dolmus oturum baglami."""
+
+    return ActorContextIssuer().issue(
+        actor_id=actor_id,
+        actor_type=ActorType.USER,
+        authentication_source="synthetic-identity-adapter",
+        session_id=f"session-{actor_id}",
+        roles=frozenset(roles),
+        permitted_source_ids=frozenset({"source-1"}),
+        permitted_dataset_ids=frozenset({DATASET_ID}),
+        can_view_enterprise=False,
+        privileged=False,
+        issued_at=NOW - timedelta(hours=3),
+        expires_at=NOW - timedelta(minutes=1),
+        policy_version=ACTOR_POLICY_VERSION,
+        correlation_id=f"correlation-{actor_id}",
+    )
+
+
+def test_stale_session_cannot_submit() -> None:
+    service, _repository, _catalog, _sink, _audit, _exec = _service()
+
+    with pytest.raises(GovernanceAuthorizationError, match="not currently valid"):
+        service.submit_request(
+            actor_context=_stale_actor("maker-1", {"DATA_STEWARD"}),
+            request_type="EXECUTION_MANUAL_START",
+            object_id="new-exec-id",
+            reason_code="EXECUTION.MANUAL.START",
+            proposed_changes={"rule_version_ids": [RULE_VERSION_ID]},
+        )
+
+
+def test_stale_session_cannot_decide() -> None:
+    service, repository, _catalog, _sink, _audit, _exec = _service()
+    request = _submit_execution_start(service)
+
+    with pytest.raises(GovernanceAuthorizationError, match="not currently valid"):
+        service.decide_request(
+            actor_context=_stale_actor("checker-1", {"DATA_OWNER"}),
+            approval_request_id=request.approval_request_id,
+            decision="APPROVE",
+            reason_code="EXECUTION.VERIFIED",
+        )
+
+    assert repository.get(request.approval_request_id).status is (
+        GovernanceApprovalStatus.SUBMITTED
+    )
+
+
+def test_stale_session_cannot_apply() -> None:
+    service, _repository, _catalog, _sink, _audit, exec_writer = _service()
+    request = _submit_execution_start(service)
+    service.decide_request(
+        actor_context=_actor("checker-1", {"DATA_OWNER"}),
+        approval_request_id=request.approval_request_id,
+        decision="APPROVE",
+        reason_code="EXECUTION.VERIFIED",
+    )
+
+    with pytest.raises(GovernanceAuthorizationError, match="not currently valid"):
+        service.apply_request(
+            actor_context=_stale_actor("applier-1", {"DATA_GOVERNANCE_SPECIALIST"}),
+            approval_request_id=request.approval_request_id,
+        )
+    assert not exec_writer.started
+
+
+def test_policy_version_drift_in_the_session_is_rejected() -> None:
+    """Aktor baglami eski politika surumuyle imzalandiysa kabul edilmez."""
+
+    service, _repository, _catalog, _sink, _audit, _exec = _service()
+    drifted = ActorContextIssuer().issue(
+        actor_id="maker-1",
+        actor_type=ActorType.USER,
+        authentication_source="synthetic-identity-adapter",
+        session_id="session-drift",
+        roles=frozenset({"DATA_STEWARD"}),
+        permitted_source_ids=frozenset({"source-1"}),
+        permitted_dataset_ids=frozenset({DATASET_ID}),
+        can_view_enterprise=False,
+        privileged=False,
+        issued_at=NOW - timedelta(minutes=5),
+        expires_at=NOW + timedelta(hours=1),
+        policy_version="OUTDATED_POLICY_V0",
+        correlation_id="correlation-drift",
+    )
+
+    with pytest.raises(GovernanceAuthorizationError, match="policy version"):
+        service.submit_request(
+            actor_context=drifted,
+            request_type="EXECUTION_MANUAL_START",
+            object_id="new-exec-id",
+            reason_code="EXECUTION.MANUAL.START",
+            proposed_changes={"rule_version_ids": [RULE_VERSION_ID]},
+        )

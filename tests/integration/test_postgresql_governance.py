@@ -47,10 +47,15 @@ from veri_kalitesi.data_sources.postgresql_repository import (
     PostgreSQLDataSourceRepository,
 )
 from veri_kalitesi.governance import GovernanceApprovalQueryService, GovernanceView
-from veri_kalitesi.governance.errors import GovernanceConflictError
+from veri_kalitesi.governance.errors import (
+    GovernanceConflictError,
+    GovernanceValidationError,
+)
 from veri_kalitesi.governance.models import (
     GovernanceApprovalPolicy,
+    GovernanceApprovalRequest,
     GovernanceApprovalStatus,
+    GovernanceRequestType,
 )
 from veri_kalitesi.governance.repository import PostgreSQLGovernanceApprovalRepository
 from veri_kalitesi.governance.service import (
@@ -896,3 +901,82 @@ def test_metadata_request_invalidated_when_dataset_changes(pg: PgFixture) -> Non
 
     stored = governance_repo.get(request.approval_request_id)
     assert stored.status is GovernanceApprovalStatus.INVALIDATED
+
+
+# ----------------------------------------------------------------------
+# F-02: execution talepleri scope_version=0 ile gercek PostgreSQL'e yazilabilmeli
+# ----------------------------------------------------------------------
+
+_EXECUTION_REQUEST_TYPES_WITH_OBJECTS = (
+    (GovernanceRequestType.EXECUTION_MANUAL_START, "RuleExecution"),
+    (GovernanceRequestType.EXECUTION_CANCEL, "RuleExecution"),
+    (GovernanceRequestType.DEAD_LETTER_REPROCESS, "DeadLetterRecord"),
+)
+
+
+@pytest.mark.parametrize(("request_type", "object_type"), _EXECUTION_REQUEST_TYPES_WITH_OBJECTS)
+def test_execution_requests_persist_with_zero_scope_version(
+    pg: PgFixture, request_type: GovernanceRequestType, object_type: str
+) -> None:
+    """ck_governance_approval_scope_version execution tiplerinde 0'i kabul etmeli."""
+
+    repository = PostgreSQLGovernanceApprovalRepository(pg.session_factory, schema=pg.schema)
+    audit = _audit(pg)
+    request = GovernanceApprovalRequest(
+        request_type=request_type,
+        object_type=object_type,
+        object_id=str(uuid4()),
+        scope_type="DATASET",
+        scope_id="dataset-exec-scope",
+        scope_version=0,
+        maker_actor_id="maker-1",
+        maker_roles=("DATA_STEWARD",),
+        policy_version="GOVERNANCE_APPROVAL_POLICY_V1",
+        correlation_id="correlation-exec",
+        change_summary={"before": {"status": None}, "after": {"status": "QUEUED"}},
+        status=GovernanceApprovalStatus.SUBMITTED,
+        reason_code="EXECUTION.MANUAL.START",
+        requested_at=NOW,
+    )
+
+    stored = repository.add(
+        request,
+        audit_event=_prepared(audit, object_id=request.object_id),
+        audit_outbox=audit,
+    )
+
+    assert repository.get(stored.approval_request_id).scope_version == 0
+
+
+def test_versioned_request_still_rejects_zero_scope_version(pg: PgFixture) -> None:
+    """Execution disi tipler pozitif versiyon zorunlulugunu korumali.
+
+    Ihlal, yaniltici "pending request" cakismasi degil, domain dogrulama
+    hatasi olarak raporlanmalidir (F-02 siniflandirma duzeltmesi).
+    """
+
+    repository = PostgreSQLGovernanceApprovalRepository(pg.session_factory, schema=pg.schema)
+    audit = _audit(pg)
+    request = GovernanceApprovalRequest(
+        request_type=GovernanceRequestType.DATASET_OWNER_CHANGE,
+        object_type="Dataset",
+        object_id=str(uuid4()),
+        scope_type="DATASET",
+        scope_id="dataset-owner-scope",
+        scope_version=0,
+        maker_actor_id="maker-1",
+        maker_roles=("DATA_STEWARD",),
+        policy_version="GOVERNANCE_APPROVAL_POLICY_V1",
+        correlation_id="correlation-owner",
+        change_summary={"before": {"owner_user_id": "a"}, "after": {"owner_user_id": "b"}},
+        status=GovernanceApprovalStatus.SUBMITTED,
+        reason_code="OWNERSHIP.TRANSFER",
+        requested_at=NOW,
+    )
+
+    with pytest.raises(GovernanceValidationError, match="ck_governance_approval_scope_version"):
+        repository.add(
+            request,
+            audit_event=_prepared(audit, object_id=request.object_id),
+            audit_outbox=audit,
+        )

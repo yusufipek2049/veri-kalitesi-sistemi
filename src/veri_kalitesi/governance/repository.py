@@ -6,6 +6,7 @@ uygulama ayrı satır güncellemeleri ve ayrı audit olaylarıdır.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -99,8 +100,7 @@ class PostgreSQLGovernanceApprovalRepository:
             row = (
                 session.execute(
                     select(self.tables.approval_requests).where(
-                        self.tables.approval_requests.c.approval_request_id
-                        == approval_request_id
+                        self.tables.approval_requests.c.approval_request_id == approval_request_id
                     )
                 )
                 .mappings()
@@ -123,13 +123,11 @@ class PostgreSQLGovernanceApprovalRepository:
         scope_conditions = []
         if dataset_ids:
             scope_conditions.append(
-                (table.c.scope_type == "DATASET")
-                & (table.c.scope_id.in_(sorted(dataset_ids)))
+                (table.c.scope_type == "DATASET") & (table.c.scope_id.in_(sorted(dataset_ids)))
             )
         if source_ids:
             scope_conditions.append(
-                (table.c.scope_type == "DATA_SOURCE")
-                & (table.c.scope_id.in_(sorted(source_ids)))
+                (table.c.scope_type == "DATA_SOURCE") & (table.c.scope_id.in_(sorted(source_ids)))
             )
         with self.session_factory() as session:
             rows = (
@@ -159,14 +157,10 @@ class PostgreSQLGovernanceApprovalRepository:
         with transactional_session(self.session_factory) as session:
             try:
                 session.execute(
-                    insert(self.tables.approval_requests).values(
-                        **_request_to_values(request)
-                    )
+                    insert(self.tables.approval_requests).values(**_request_to_values(request))
                 )
             except IntegrityError as exc:
-                raise GovernanceConflictError(
-                    "Object already has a pending governance approval request."
-                ) from exc
+                raise _classify_integrity_error(exc) from exc
             audit_outbox.stage(audit_event, session=session)
         return request
 
@@ -208,9 +202,7 @@ class PostgreSQLGovernanceApprovalRepository:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _require_postgresql_audit(
-        self, audit_outbox: PostgreSQLTransactionalAudit
-    ) -> None:
+    def _require_postgresql_audit(self, audit_outbox: PostgreSQLTransactionalAudit) -> None:
         if not isinstance(audit_outbox, PostgreSQLTransactionalAudit):
             raise GovernanceValidationError("PostgreSQL audit outbox is required.")
 
@@ -219,6 +211,45 @@ class PostgreSQLGovernanceApprovalRepository:
             raise GovernanceConflictError(
                 "Governance approval request was decided concurrently or superseded."
             )
+
+
+#: Nesne başına tek bekleyen talep kısmi unique index'i (migration 24).
+PENDING_REQUEST_INDEX = "ux_governance_approval_pending_object"
+
+
+def _violated_constraint(exc: IntegrityError) -> str:
+    """psycopg diagnostics'ten ihlal edilen constraint adını çıkarır."""
+
+    diagnostics = getattr(getattr(exc, "orig", None), "diag", None)
+    name = getattr(diagnostics, "constraint_name", None)
+    if name:
+        return str(name)
+    message = str(getattr(exc, "orig", exc))
+    for candidate in re.findall(r'"([a-z0-9_]+)"', message):
+        if candidate.startswith(("ux_governance", "ck_governance", "ix_governance")):
+            return str(candidate)
+    return ""
+
+
+def _classify_integrity_error(exc: IntegrityError) -> Exception:
+    """IntegrityError'ı ihlal edilen constraint'e göre doğru domain hatasına çevirir.
+
+    F-02: Her IntegrityError'ı "pending request" çakışması saymak, check
+    constraint ihlallerini (ör. ``ck_governance_approval_scope_version``)
+    yanlış bir 409 ve yanıltıcı mesajın arkasına gizliyordu.
+    """
+
+    constraint = _violated_constraint(exc)
+    if constraint == PENDING_REQUEST_INDEX:
+        return GovernanceConflictError("Object already has a pending governance approval request.")
+    if constraint.startswith("ck_"):
+        return GovernanceValidationError(
+            f"Governance approval request violates database invariant {constraint!r}."
+        )
+    return GovernanceConflictError(
+        "Governance approval request could not be stored due to a database constraint"
+        f"{f' ({constraint})' if constraint else ''}."
+    )
 
 
 def _request_to_values(request: GovernanceApprovalRequest) -> dict:

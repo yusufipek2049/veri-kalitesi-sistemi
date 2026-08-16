@@ -759,11 +759,11 @@ def _seed(fixture: _Fixture) -> None:
             connection.execute(
                 text(
                     f'''INSERT INTO "{schema}".data_quality_issues
-                        (issue_id, issue_no, source_event_id, source_event_type,
+                        (issue_id, issue_no, title, source_event_id, source_event_type,
                          trigger_type, scope_type, scope_id, status, priority,
                          assignee_user_id, deduplication_key_digest, payload_digest,
                          occurrence_count, version, created_at, updated_at, last_seen_at)
-                        VALUES (:issue_id, :issue_no, :event_id, 'QUALITY',
+                        VALUES (:issue_id, :issue_no, :title, :event_id, 'QUALITY',
                                 'QUALITY_THRESHOLD', 'DATASET', :dataset_id, :status,
                                 'HIGH', :actor_id, :dedup, :payload, 1, 1,
                                 :now, :now, :now)'''
@@ -771,6 +771,8 @@ def _seed(fixture: _Fixture) -> None:
                 {
                     "issue_id": issue_id,
                     "issue_no": f"DQI-{issue_id.replace('-', '')[:12].upper()}",
+                    # title migration 18'de NOT NULL oldu; fixture guncellenmemisti.
+                    "title": f"DQI-{issue_id.replace('-', '')[:12].upper()}",
                     "event_id": str(uuid4()),
                     "dataset_id": fixture.dataset_id,
                     "status": status,

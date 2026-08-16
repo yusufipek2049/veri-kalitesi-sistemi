@@ -223,7 +223,7 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
         policy = self.policy
         parsed_type = _parse_request_type(request_type)
         context = self._authorize_actor(
-            actor_context, required_roles=policy.maker_roles, dataset_id=None
+            actor_context, required_roles=policy.maker_roles, dataset_ids=None
         )
         normalized_reason = _validate_reason_code(reason_code)
         requested_at = self.clock()
@@ -306,9 +306,7 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
                 )
         else:
             if not dataset.owner_user_id or not dataset.owner_user_id.strip():
-                raise GovernanceValidationError(
-                    "Dataset has no owner; use DATASET_OWNER_ASSIGN."
-                )
+                raise GovernanceValidationError("Dataset has no owner; use DATASET_OWNER_ASSIGN.")
             if dataset.owner_user_id == normalized_owner:
                 raise GovernanceValidationError("New owner must differ from the current owner.")
         return GovernanceApprovalRequest(
@@ -351,9 +349,7 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
         _normalize_enum_attribute(updates, "status", CatalogItemStatus, label="status")
         for attribute, value in updates.items():
             if _attribute_value(dataset, attribute) == value:
-                raise GovernanceValidationError(
-                    "Proposed metadata change must modify the dataset."
-                )
+                raise GovernanceValidationError("Proposed metadata change must modify the dataset.")
         return GovernanceApprovalRequest(
             request_type=GovernanceRequestType.METADATA_CRITICAL_CHANGE,
             object_type="Dataset",
@@ -442,9 +438,7 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
             )
         rule_version_ids = tuple(proposed_changes["rule_version_ids"])
         if not rule_version_ids:
-            raise GovernanceValidationError(
-                "At least one rule_version_id is required."
-            )
+            raise GovernanceValidationError("At least one rule_version_id is required.")
         execution_mode_raw = proposed_changes.get("execution_mode", "OFFICIAL")
         try:
             execution_mode = ExecutionMode(execution_mode_raw)
@@ -455,10 +449,7 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
             raise GovernanceNotFoundError(
                 "Could not resolve any dataset for the given rule versions."
             )
-        if not dataset_ids & context.permitted_dataset_ids:
-            raise GovernanceAuthorizationError(
-                "Maker is outside the dataset scope for execution governance."
-            )
+        _assert_full_dataset_scope(context, dataset_ids)
         dataset_versions = self._build_dataset_versions(dataset_ids)
         primary_dataset_id = sorted(dataset_ids)[0]
         return GovernanceApprovalRequest(
@@ -499,14 +490,9 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
             ExecutionStatus.TIMEOUT,
             ExecutionStatus.CANCELLED,
         }:
-            raise GovernanceValidationError(
-                "Cannot request cancellation of a terminal execution."
-            )
+            raise GovernanceValidationError("Cannot request cancellation of a terminal execution.")
         dataset_ids = self._resolve_execution_dataset_ids(execution.rule_version_ids)
-        if not dataset_ids & context.permitted_dataset_ids:
-            raise GovernanceAuthorizationError(
-                "Maker is outside the dataset scope for execution governance."
-            )
+        _assert_full_dataset_scope(context, dataset_ids)
         cancel_reason = ""
         if proposed_changes and "reason" in proposed_changes:
             cancel_reason = str(proposed_changes["reason"])
@@ -547,15 +533,10 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
     ) -> GovernanceApprovalRequest:
         letter = self._get_dead_letter(object_id)
         if letter.status is DeadLetterStatus.REPROCESSED:
-            raise GovernanceValidationError(
-                "Dead letter has already been reprocessed."
-            )
+            raise GovernanceValidationError("Dead letter has already been reprocessed.")
         execution = self._get_execution(letter.job_id)
         dataset_ids = self._resolve_execution_dataset_ids(execution.rule_version_ids)
-        if not dataset_ids & context.permitted_dataset_ids:
-            raise GovernanceAuthorizationError(
-                "Maker is outside the dataset scope for execution governance."
-            )
+        _assert_full_dataset_scope(context, dataset_ids)
         dataset_versions = self._build_dataset_versions(dataset_ids)
         primary_dataset_id = sorted(dataset_ids)[0]
         return GovernanceApprovalRequest(
@@ -581,9 +562,7 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
             requested_at=requested_at,
         )
 
-    def _resolve_execution_dataset_ids(
-        self, rule_version_ids: tuple[str, ...]
-    ) -> frozenset[str]:
+    def _resolve_execution_dataset_ids(self, rule_version_ids: tuple[str, ...]) -> frozenset[str]:
         dataset_ids: set[str] = set()
         for vid in rule_version_ids:
             try:
@@ -594,9 +573,7 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
                 continue
         return frozenset(dataset_ids)
 
-    def _build_dataset_versions(
-        self, dataset_ids: frozenset[str]
-    ) -> dict[str, int]:
+    def _build_dataset_versions(self, dataset_ids: frozenset[str]) -> dict[str, int]:
         result: dict[str, int] = {}
         for dataset_id in sorted(dataset_ids):
             try:
@@ -610,17 +587,13 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
         try:
             return self.catalog.get_execution(execution_id)
         except (ExecutionNotFoundErr, KeyError) as exc:
-            raise GovernanceNotFoundError(
-                "Governance target execution not found."
-            ) from exc
+            raise GovernanceNotFoundError("Governance target execution not found.") from exc
 
     def _get_dead_letter(self, dead_letter_id: str) -> DeadLetterRecord:
         try:
             return self.catalog.get_dead_letter(dead_letter_id)
         except (KeyError, Exception) as exc:
-            raise GovernanceNotFoundError(
-                "Governance target dead letter not found."
-            ) from exc
+            raise GovernanceNotFoundError("Governance target dead letter not found.") from exc
 
     # ------------------------------------------------------------------
     # Checker: karar verme
@@ -637,7 +610,9 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
         policy = self.policy
         request = self.repository.get(approval_request_id)
         context = self._authorize_actor(
-            actor_context, required_roles=policy.checker_roles, dataset_id=request.scope_id
+            actor_context,
+            required_roles=policy.checker_roles,
+            dataset_ids=_request_scope_dataset_ids(request),
         )
         if request.status is not GovernanceApprovalStatus.SUBMITTED:
             raise GovernanceValidationError("Governance approval request is not pending.")
@@ -689,14 +664,14 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
         policy = self.policy
         request = self.repository.get(approval_request_id)
         context = self._authorize_actor(
-            actor_context, required_roles=policy.maker_roles, dataset_id=request.scope_id
+            actor_context,
+            required_roles=policy.maker_roles,
+            dataset_ids=_request_scope_dataset_ids(request),
         )
         if request.status is not GovernanceApprovalStatus.SUBMITTED:
             raise GovernanceValidationError("Governance approval request is not pending.")
         if request.maker_actor_id != context.actor_id:
-            raise GovernanceAuthorizationError(
-                "Only the approval request maker can withdraw it."
-            )
+            raise GovernanceAuthorizationError("Only the approval request maker can withdraw it.")
         normalized_reason = _validate_reason_code(reason_code)
         withdrawn = _replace_status(
             request,
@@ -721,14 +696,14 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
         policy = self.policy
         request = self.repository.get(approval_request_id)
         context = self._authorize_actor(
-            actor_context, required_roles=policy.applier_roles, dataset_id=request.scope_id
+            actor_context,
+            required_roles=policy.applier_roles,
+            dataset_ids=_request_scope_dataset_ids(request),
         )
         if request.status is GovernanceApprovalStatus.APPLIED:
             return request
         if request.status is not GovernanceApprovalStatus.APPROVED:
-            raise GovernanceValidationError(
-                "Only an approved governance request can be applied."
-            )
+            raise GovernanceValidationError("Only an approved governance request can be applied.")
         if request.request_type in _OWNERSHIP_REQUEST_TYPES:
             return self._apply_ownership(request, context)
         if request.request_type is GovernanceRequestType.METADATA_CRITICAL_CHANGE:
@@ -892,9 +867,7 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
             return False
         return all(_attribute_value(target, key) == value for key, value in after.items())
 
-    def _fail_application(
-        self, request: GovernanceApprovalRequest, context: ActorContext
-    ) -> None:
+    def _fail_application(self, request: GovernanceApprovalRequest, context: ActorContext) -> None:
         failed = _replace_status(
             request,
             GovernanceApprovalStatus.APPLICATION_FAILED,
@@ -968,12 +941,9 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
         if current is not None:
             current_version = _object_version(current)
             attributes_changed = any(
-                _attribute_value(current, attribute) != value
-                for attribute, value in before.items()
+                _attribute_value(current, attribute) != value for attribute, value in before.items()
             )
-            version_changed = (
-                request.scope_version > 0 and current_version != request.scope_version
-            )
+            version_changed = request.scope_version > 0 and current_version != request.scope_version
         else:
             attributes_changed = False
             version_changed = False
@@ -1063,7 +1033,7 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
         context: ActorContext | None,
         *,
         required_roles: frozenset[str],
-        dataset_id: str | None,
+        dataset_ids: frozenset[str] | None,
     ) -> ActorContext:
         policy = self.policy
         now = self.clock()
@@ -1077,9 +1047,7 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
         if context.policy_version != policy.actor_policy_version:
             raise GovernanceAuthorizationError("Actor context policy version is not accepted.")
         if context.actor_type not in policy.allowed_actor_types:
-            raise GovernanceAuthorizationError(
-                "Actor type is not allowed for governance approval."
-            )
+            raise GovernanceAuthorizationError("Actor type is not allowed for governance approval.")
         if context.privileged:
             raise GovernanceAuthorizationError(
                 "Privileged actors cannot bypass governance approval."
@@ -1090,7 +1058,7 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
             )
         if context.roles.isdisjoint(required_roles):
             raise GovernanceAuthorizationError("Actor does not have the required approval role.")
-        if dataset_id is not None and dataset_id not in context.permitted_dataset_ids:
+        if dataset_ids is not None and not dataset_ids <= context.permitted_dataset_ids:
             raise GovernanceAuthorizationError("Actor is outside the governance object scope.")
         return context
 
@@ -1266,6 +1234,43 @@ def _attribute_value(target: object, attribute: str) -> Any:
 def _object_version(target: object) -> int:
     """OCC version of a governance target; 0 for objects without version."""
     return getattr(target, "version", 0)
+
+
+def _assert_full_dataset_scope(context: ActorContext, dataset_ids: frozenset[str]) -> None:
+    """Maker, talebin dokunduğu dataset'lerin tamamına yetkili olmalıdır.
+
+    F-03: Eskiden yalnız bir kesişim aranıyordu; D1'e yetkili bir maker,
+    talebe D2 kurallarını da ekleyerek kapsam dışına taşabiliyordu.
+    """
+
+    outside = dataset_ids - context.permitted_dataset_ids
+    if outside:
+        raise GovernanceAuthorizationError(
+            "Maker is outside the dataset scope for execution governance: "
+            + ", ".join(sorted(outside))
+        )
+
+
+def _request_scope_dataset_ids(request: GovernanceApprovalRequest) -> frozenset[str]:
+    """Talebin dokunduğu dataset kapsamının tamamı.
+
+    F-03: ``scope_id`` çok dataset'e dokunan execution taleplerinde yalnız
+    birincil (alfabetik ilk) dataset'tir. Tam kapsam maker aşamasında
+    ``change_summary.before.dataset_versions`` içine yazılır; checker, maker
+    geri çekmesi ve applier yetkilendirmesi bu kümenin tamamı üzerinden
+    yapılmalıdır, aksi halde aktör kapsam dışı bir dataset üzerinde karar
+    verebilir.
+    """
+
+    scope: set[str] = set()
+    if request.scope_type == "DATASET" and request.scope_id:
+        scope.add(request.scope_id)
+    before = request.change_summary.get("before")
+    if isinstance(before, Mapping):
+        dataset_versions = before.get("dataset_versions")
+        if isinstance(dataset_versions, Mapping):
+            scope.update(str(dataset_id) for dataset_id in dataset_versions)
+    return frozenset(scope)
 
 
 def _first_matching_role(actor_roles: frozenset[str], policy_roles: frozenset[str]) -> str:
