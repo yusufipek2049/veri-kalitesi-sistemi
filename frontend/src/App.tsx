@@ -3,7 +3,6 @@ import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { Alert, Box, Button, Typography } from "@mui/material";
 import { DevelopmentLoginPage, DevelopmentUserSwitcher } from "./development/DevelopmentLoginPage";
 import { DevelopmentUserProvider, useDevelopmentUser } from "./development/UserContext";
-import { AuditRoute } from "./audit/AuditRoute";
 import { AppShell } from "./components/AppShell";
 import {
   CatalogApiError,
@@ -33,22 +32,25 @@ import {
   type FieldUpdatePayload,
   type MetadataDiff,
 } from "./catalog/model";
-import { DataSourcesRoute } from "./dataSources/DataSourcesRoute";
-import { ExecutionsRoute } from "./executions/ExecutionsRoute";
-import { GovernanceTasksRoute } from "./governance/GovernanceTasksRoute";
-import { RuleHealthPage } from "./analytics/RuleHealthPage";
-import { MetadataHealthPage } from "./analytics/MetadataHealthPage";
-import { IssuePerformancePage } from "./analytics/IssuePerformancePage";
-import { ScoringPolicyImpactPage } from "./analytics/ScoringPolicyImpactPage";
-import { IssuesRoute } from "./issues/IssuesRoute";
 import { fetchChannels, fetchInbox, fetchSubscriptions, fetchUnreadCount, markAllRead, bulkMarkRead, markDeliveryRead } from "./notifications/api";
 import type { NotificationChannel, NotificationDelivery, NotificationSubscription } from "./notifications/model";
 import { useNotificationRoute } from "./notifications/useNotificationRoute";
-import { RulesRoute } from "./rules/RulesRoute";
 import { fetchRules } from "./rules/api";
 import { rulesFromApi } from "./rules/model";
 import { LauncherControlProvider } from "./launcherControl";
 
+// F-10: Analytics, governance, issues, rules ve audit yuzeyleri baslangic
+// paketini gereksiz buyutuyordu; hepsi route seviyesinde lazy yuklenir.
+const AuditRoute = lazy(() => import("./audit/AuditRoute").then((module) => ({ default: module.AuditRoute })));
+const DataSourcesRoute = lazy(() => import("./dataSources/DataSourcesRoute").then((module) => ({ default: module.DataSourcesRoute })));
+const ExecutionsRoute = lazy(() => import("./executions/ExecutionsRoute").then((module) => ({ default: module.ExecutionsRoute })));
+const GovernanceTasksRoute = lazy(() => import("./governance/GovernanceTasksRoute").then((module) => ({ default: module.GovernanceTasksRoute })));
+const IssuesRoute = lazy(() => import("./issues/IssuesRoute").then((module) => ({ default: module.IssuesRoute })));
+const RulesRoute = lazy(() => import("./rules/RulesRoute").then((module) => ({ default: module.RulesRoute })));
+const RuleHealthPage = lazy(() => import("./analytics/RuleHealthPage").then((module) => ({ default: module.RuleHealthPage })));
+const MetadataHealthPage = lazy(() => import("./analytics/MetadataHealthPage").then((module) => ({ default: module.MetadataHealthPage })));
+const IssuePerformancePage = lazy(() => import("./analytics/IssuePerformancePage").then((module) => ({ default: module.IssuePerformancePage })));
+const ScoringPolicyImpactPage = lazy(() => import("./analytics/ScoringPolicyImpactPage").then((module) => ({ default: module.ScoringPolicyImpactPage })));
 const CatalogPage = lazy(() => import("./catalog/CatalogPage").then((module) => ({ default: module.CatalogPage })));
 const DatasetDetailPage = lazy(() => import("./catalog/DatasetDetailPage").then((module) => ({ default: module.DatasetDetailPage })));
 const FieldDetailPage = lazy(() => import("./catalog/FieldDetailPage").then((module) => ({ default: module.FieldDetailPage })));

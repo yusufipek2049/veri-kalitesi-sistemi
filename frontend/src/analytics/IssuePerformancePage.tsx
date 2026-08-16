@@ -62,10 +62,13 @@ export function IssuePerformancePage() {
         signal,
       );
       if (signal?.aborted) return;
+      const nextSummary = issuePerformanceSummaryFromApi(response.summary);
       setData(response);
       setCorrelationId(response.correlation_id);
-      setSummary(issuePerformanceSummaryFromApi(response.summary));
-      setState(response.items.length > 0 || summary?.openIssueCount ? "normal" : "empty");
+      setSummary(nextSummary);
+      // Bos durum bu yanittan hesaplanir; bir onceki render'in summary state'i
+      // henuz guncellenmedigi icin oradan okumak yanlis "empty" uretiyordu.
+      setState(response.items.length > 0 || nextSummary.openIssueCount ? "normal" : "empty");
     } catch (error) {
       if (signal?.aborted) return;
       if (error instanceof AnalyticsApiError) {

@@ -17,11 +17,10 @@ from veri_kalitesi.dashboard.errors import (
     DashboardValidationError,
 )
 from veri_kalitesi.dashboard.models import DashboardAccessScope
+from veri_kalitesi.dashboard.postgresql_insights import ANALYTICS_ROW_LIMIT
 from veri_kalitesi.identity import ActorContext, AuthorizationService, IdentityError
 
-OPEN_STATUSES = frozenset(
-    {"NEW", "ASSIGNED", "INVESTIGATING", "WAITING_FOR_RESOLUTION"}
-)
+OPEN_STATUSES = frozenset({"NEW", "ASSIGNED", "INVESTIGATING", "WAITING_FOR_RESOLUTION"})
 AGE_BUCKETS = [
     ("0-1", 0, 1),
     ("2-3", 2, 3),
@@ -77,6 +76,11 @@ class IssuePerformanceQueryService:
             start_at=params.start_at,
             end_at=params.end_at,
         )
+        # F-09: Depo tavanin bir fazlasini ceker; fazlalik geldiginde metrikler
+        # tam veri uzerinde hesaplanmis gibi sunulmaz, sonuc kesik isaretlenir.
+        truncated = len(issues) > ANALYTICS_ROW_LIMIT
+        if truncated:
+            issues = issues[:ANALYTICS_ROW_LIMIT]
 
         # Optional filters
         if priority:
@@ -100,9 +104,7 @@ class IssuePerformanceQueryService:
 
         # ── Open issues ──
         open_issues = [i for i in issues if i.status in OPEN_STATUSES]
-        critical_open = [
-            i for i in open_issues if i.priority in ("HIGH", "CRITICAL")
-        ]
+        critical_open = [i for i in open_issues if i.priority in ("HIGH", "CRITICAL")]
 
         # ── MTTA: created_at -> first ISSUE_INVESTIGATION_STARTED ──
         mtta_values: list[float] = []
@@ -110,17 +112,11 @@ class IssuePerformanceQueryService:
         for issue in issues:
             ih = history_by_issue.get(issue.issue_id, [])
             first_investigation = next(
-                (
-                    h
-                    for h in ih
-                    if h.action == "ISSUE_INVESTIGATION_STARTED"
-                ),
+                (h for h in ih if h.action == "ISSUE_INVESTIGATION_STARTED"),
                 None,
             )
             if first_investigation is not None:
-                delta = (
-                    first_investigation.occurred_at - issue.created_at
-                ).total_seconds()
+                delta = (first_investigation.occurred_at - issue.created_at).total_seconds()
                 if delta >= 0:
                     mtta_values.append(delta)
             elif issue.status not in OPEN_STATUSES:
@@ -137,9 +133,7 @@ class IssuePerformanceQueryService:
                 None,
             )
             if first_resolved is not None:
-                delta = (
-                    first_resolved.occurred_at - issue.created_at
-                ).total_seconds()
+                delta = (first_resolved.occurred_at - issue.created_at).total_seconds()
                 if delta >= 0:
                     mttr_values.append(delta)
             else:
@@ -158,9 +152,7 @@ class IssuePerformanceQueryService:
                 None,
             )
             if first_resolved is not None and first_verified is not None:
-                delta = (
-                    first_verified.occurred_at - first_resolved.occurred_at
-                ).total_seconds()
+                delta = (first_verified.occurred_at - first_resolved.occurred_at).total_seconds()
                 if delta >= 0:
                     verification_values.append(delta)
 
@@ -168,18 +160,12 @@ class IssuePerformanceQueryService:
         verified_issues = [
             i
             for i in issues
-            if any(
-                h.action == "ISSUE_VERIFIED"
-                for h in history_by_issue.get(i.issue_id, [])
-            )
+            if any(h.action == "ISSUE_VERIFIED" for h in history_by_issue.get(i.issue_id, []))
         ]
         verified_with_result = [
             i
             for i in verified_issues
-            if any(
-                h.action == "ISSUE_VERIFIED"
-                for h in history_by_issue.get(i.issue_id, [])
-            )
+            if any(h.action == "ISSUE_VERIFIED" for h in history_by_issue.get(i.issue_id, []))
         ]
         verification_success = MetricRatio(
             numerator=len(verified_with_result),
@@ -194,9 +180,7 @@ class IssuePerformanceQueryService:
                 recurrence_set.add(rel.predecessor_issue_id)
                 recurrence_set.add(rel.successor_issue_id)
         recurring_issues = [
-            i
-            for i in issues
-            if i.occurrence_count > 1 or i.issue_id in recurrence_set
+            i for i in issues if i.occurrence_count > 1 or i.issue_id in recurrence_set
         ]
 
         # ── Reopened: ISSUE_VERIFICATION_FAILED history ──
@@ -226,9 +210,7 @@ class IssuePerformanceQueryService:
         items: list[dict[str, Any]] = []
         for issue in issues:
             ih = history_by_issue.get(issue.issue_id, [])
-            first_resolved = next(
-                (h for h in ih if h.action == "ISSUE_RESOLVED"), None
-            )
+            first_resolved = next((h for h in ih if h.action == "ISSUE_RESOLVED"), None)
             first_investigation = next(
                 (h for h in ih if h.action == "ISSUE_INVESTIGATION_STARTED"),
                 None,
@@ -264,8 +246,7 @@ class IssuePerformanceQueryService:
                     "age_seconds": age_seconds,
                     "time_to_ack_seconds": tta,
                     "time_to_resolve_seconds": ttr,
-                    "recurrence_count": max(issue.occurrence_count - 1, 0)
-                    + recurrence_rels,
+                    "recurrence_count": max(issue.occurrence_count - 1, 0) + recurrence_rels,
                     "reason_codes": [],
                 }
             )
@@ -284,14 +265,10 @@ class IssuePerformanceQueryService:
             status_breakdown[i.status] = status_breakdown.get(i.status, 0) + 1
         priority_breakdown: dict[str, int] = {}
         for i in issues:
-            priority_breakdown[i.priority] = (
-                priority_breakdown.get(i.priority, 0) + 1
-            )
+            priority_breakdown[i.priority] = priority_breakdown.get(i.priority, 0) + 1
         trigger_breakdown: dict[str, int] = {}
         for i in issues:
-            trigger_breakdown[i.trigger_type] = (
-                trigger_breakdown.get(i.trigger_type, 0) + 1
-            )
+            trigger_breakdown[i.trigger_type] = trigger_breakdown.get(i.trigger_type, 0) + 1
 
         summary = {
             "open_issue_count": len(open_issues),
@@ -308,6 +285,8 @@ class IssuePerformanceQueryService:
             "reopened_count": reopened_count,
             "aging_issue_count": len(open_issues),
             "missing_timeline_count": missing_timeline_count,
+            "result_truncated": truncated,
+            "result_row_limit": ANALYTICS_ROW_LIMIT,
         }
         breakdowns = {
             "by_status": status_breakdown,
@@ -323,9 +302,7 @@ class IssuePerformanceQueryService:
 
     # ── Private helpers ──
 
-    def _authorize(
-        self, actor_context: ActorContext | None
-    ) -> tuple[DashboardAccessScope, str]:
+    def _authorize(self, actor_context: ActorContext | None) -> tuple[DashboardAccessScope, str]:
         try:
             decision = self._auth.authorize_dashboard(actor_context)
         except IdentityError as exc:

@@ -265,6 +265,13 @@ def _analytics_tables(schema: str) -> dict[str, Table]:
     }
 
 
+#: F-09: Tarih araligi genisledikce sinirsiz buyuyen analytics sorgulari icin
+#: ust sinir. Sorgular bilerek ``ANALYTICS_ROW_LIMIT + 1`` satir ceker: fazladan
+#: satir gelmesi tavanin asildigini kanitlar ve cagiran katman sonucu sessizce
+#: kirpmak yerine "truncated" olarak isaretler.
+ANALYTICS_ROW_LIMIT = 50_000
+
+
 class PostgreSQLInsightsReader:
     """Analytics dashboard sorgulari icin salt-okunur PostgreSQL adaptoru."""
 
@@ -403,36 +410,31 @@ class PostgreSQLInsightsReader:
             return []
         v = self._t["versions"]
         with transactional_session(self._session_factory) as session:
-            # Get full rows for latest versions (ordered by version_no desc per rule)
+            # F-09: Eskiden her kuralin tum gecmis versiyonlari cekilip Python'da
+            # eleniyordu; DISTINCT ON ile secim tamamen veritabaninda yapilir ve
+            # kural basina yalniz bir satir aktarilir.
             rows = (
                 session.execute(
                     select(v)
                     .where(v.c.quality_rule_id.in_(sorted(rule_ids)))
+                    .distinct(v.c.quality_rule_id)
                     .order_by(v.c.quality_rule_id, v.c.version_no.desc())
                 )
                 .mappings()
                 .all()
             )
-        # Deduplicate: keep only the first (highest version_no) per rule
-        seen: set[str] = set()
-        result: list[_RuleVersionRow] = []
-        for r in rows:
-            rid = str(r["quality_rule_id"])
-            if rid in seen:
-                continue
-            seen.add(rid)
-            result.append(
-                _RuleVersionRow(
-                    rule_version_id=str(r["rule_version_id"]),
-                    quality_rule_id=rid,
-                    version_no=int(r["version_no"]),
-                    rule_type=str(r["rule_type"]),
-                    threshold=float(r["threshold"]) if r["threshold"] is not None else 0.0,
-                    criticality=str(r["criticality"]),
-                    created_at=r["created_at"],
-                )
+        return [
+            _RuleVersionRow(
+                rule_version_id=str(r["rule_version_id"]),
+                quality_rule_id=str(r["quality_rule_id"]),
+                version_no=int(r["version_no"]),
+                rule_type=str(r["rule_type"]),
+                threshold=float(r["threshold"]) if r["threshold"] is not None else 0.0,
+                criticality=str(r["criticality"]),
+                created_at=r["created_at"],
             )
-        return result
+            for r in rows
+        ]
 
     # ── Score queries ──
 
@@ -483,6 +485,7 @@ class PostgreSQLInsightsReader:
                         )
                     )
                     .order_by(t.c.policy_version, t.c.scope_type, t.c.calculated_at)
+                    .limit(ANALYTICS_ROW_LIMIT + 1)
                 )
                 .mappings()
                 .all()
@@ -524,7 +527,10 @@ class PostgreSQLInsightsReader:
         with transactional_session(self._session_factory) as session:
             rows = (
                 session.execute(
-                    select(t).where(and_(*conditions)).order_by(t.c.created_at.desc())
+                    select(t)
+                    .where(and_(*conditions))
+                    .order_by(t.c.created_at.desc())
+                    .limit(ANALYTICS_ROW_LIMIT + 1)
                 )
                 .mappings()
                 .all()
@@ -622,9 +628,7 @@ class PostgreSQLInsightsReader:
         t = self._t["configurations"]
         with transactional_session(self._session_factory) as session:
             row = (
-                session.execute(
-                    select(t).where(t.c.configuration_id == configuration_id)
-                )
+                session.execute(select(t).where(t.c.configuration_id == configuration_id))
                 .mappings()
                 .one_or_none()
             )
@@ -635,11 +639,7 @@ class PostgreSQLInsightsReader:
     def get_active_configuration(self) -> _ConfigurationRow | None:
         t = self._t["configurations"]
         with transactional_session(self._session_factory) as session:
-            row = (
-                session.execute(select(t).where(t.c.is_active.is_(True)))
-                .mappings()
-                .one_or_none()
-            )
+            row = session.execute(select(t).where(t.c.is_active.is_(True))).mappings().one_or_none()
         if row is None:
             return None
         return _map_config_row(row)
@@ -656,9 +656,7 @@ class PostgreSQLInsightsReader:
         t = self._t["contribution_graphs"]
         with transactional_session(self._session_factory) as session:
             rows = (
-                session.execute(
-                    select(t).where(t.c.quality_score_id.in_(sorted(score_ids)))
-                )
+                session.execute(select(t).where(t.c.quality_score_id.in_(sorted(score_ids))))
                 .mappings()
                 .all()
             )
@@ -684,9 +682,7 @@ def _map_score_row(r: Any) -> _ScoreRow:
         scope_id=str(r["scope_id"]) if r["scope_id"] is not None else None,
         score_value=float(r["score_value"]) if r["score_value"] is not None else None,
         score_status=str(r["score_status"]),
-        measurement_status=(
-            str(r["measurement_status"]) if r["measurement_status"] else None
-        ),
+        measurement_status=(str(r["measurement_status"]) if r["measurement_status"] else None),
         level=str(r["level"]) if r["level"] else None,
         policy_version=str(r["policy_version"]) if r["policy_version"] else None,
         calculated_at=r["calculated_at"],
@@ -702,12 +698,8 @@ def _map_config_row(r: Any) -> _ConfigurationRow:
         critical_upper_exclusive=float(r["critical_upper_exclusive"]),
         risky_upper_exclusive=float(r["risky_upper_exclusive"]),
         acceptable_upper_exclusive=float(r["acceptable_upper_exclusive"]),
-        dimension_weights=(
-            dict(r["dimension_weights"]) if r["dimension_weights"] else {}
-        ),
-        criticality_weights=(
-            dict(r["criticality_weights"]) if r["criticality_weights"] else {}
-        ),
+        dimension_weights=(dict(r["dimension_weights"]) if r["dimension_weights"] else {}),
+        criticality_weights=(dict(r["criticality_weights"]) if r["criticality_weights"] else {}),
         is_active=bool(r["is_active"]),
         created_at=r["created_at"],
     )

@@ -7,16 +7,24 @@ adaylardan birini secer; secim kalici bir kanit kaydina donusur.
 
 from __future__ import annotations
 
+import logging
 from typing import Protocol, Sequence
 
+from veri_kalitesi.executions.errors import ExecutionNotFoundError
 from veri_kalitesi.executions.models import ExecutionAttempt, RuleExecution, RuleExecutionResult
 from veri_kalitesi.issues.evidence import IssueEvidenceCandidate, IssueEvidenceKind
 from veri_kalitesi.issues.models import DataQualityIssue
+from veri_kalitesi.operational_logging import current_correlation_id
 from veri_kalitesi.rules.models import QualityRule, RuleVersion
 
+logger = logging.getLogger(__name__)
 
 RESULT_CANDIDATE_PREFIX = "RESULT"
 LOG_CANDIDATE_PREFIX = "LOG"
+
+#: Silinmiş veya erişilemeyen kayıt: meşru biçimde "kanıt yok" demektir.
+#: Bağlantı/serialization gibi teknik arızalar bu kümeye girmez ve loglanır.
+_MISSING_RECORD_ERRORS = (ExecutionNotFoundError, KeyError, LookupError)
 
 
 class ExecutionEvidenceReader(Protocol):
@@ -50,7 +58,11 @@ class ExecutionIssueEvidenceCandidateProvider:
             return ()
         try:
             execution = self._execution_reader.get(execution_id)
-        except Exception:  # noqa: BLE001 - calistirma silinmis/erisilemez olabilir
+        except _MISSING_RECORD_ERRORS:
+            # Calistirma silinmis: issue icin gercekten kanit adayi yok.
+            return ()
+        except Exception as exc:  # noqa: BLE001 - altyapi arizasi yutulmadan raporlanir
+            _log_degraded("execution", execution_id, exc)
             return ()
 
         observed_at = execution.finished_at or execution.started_at or execution.created_at
@@ -94,13 +106,19 @@ class ExecutionIssueEvidenceCandidateProvider:
     def _safe_results(self, execution_id: str) -> Sequence[RuleExecutionResult]:
         try:
             return tuple(self._execution_reader.list_results(execution_id))
-        except Exception:  # noqa: BLE001
+        except _MISSING_RECORD_ERRORS:
+            return ()
+        except Exception as exc:  # noqa: BLE001
+            _log_degraded("results", execution_id, exc)
             return ()
 
     def _safe_attempts(self, execution_id: str) -> Sequence[ExecutionAttempt]:
         try:
             return tuple(self._execution_reader.list_attempts(execution_id))
-        except Exception:  # noqa: BLE001
+        except _MISSING_RECORD_ERRORS:
+            return ()
+        except Exception as exc:  # noqa: BLE001
+            _log_degraded("attempts", execution_id, exc)
             return ()
 
     def _result_label(self, result: RuleExecutionResult) -> str:
@@ -120,9 +138,33 @@ class ExecutionIssueEvidenceCandidateProvider:
         try:
             version = self._rule_reader.get_version(rule_version_id)
             rule = self._rule_reader.get_rule(version.quality_rule_id)
-        except Exception:  # noqa: BLE001
+        except _MISSING_RECORD_ERRORS:
+            return rule_version_id
+        except Exception as exc:  # noqa: BLE001
+            _log_degraded("rule_name", rule_version_id, exc)
             return rule_version_id
         return rule.name
+
+
+def _log_degraded(stage: str, object_id: str, exc: Exception) -> None:
+    """Teknik arizayi correlation ID ile raporlar.
+
+    F-07: Bu hatalar kullaniciya mesru bir "kanit yok" sonucu gibi
+    gorunuyordu; artik bos liste donmeye devam ediyoruz ama ariza sessiz
+    kalmiyor.
+    """
+
+    logger.warning(
+        "Issue evidence candidates degraded",
+        extra={
+            "event": "issue_evidence_candidates_degraded",
+            "stage": stage,
+            "object_id": object_id,
+            "error_class": type(exc).__name__,
+            "correlation_id": current_correlation_id(),
+        },
+        exc_info=exc,
+    )
 
 
 def _attempt_label(attempt: ExecutionAttempt) -> str:

@@ -11,6 +11,7 @@ import pytest
 from veri_kalitesi.dashboard.analytics_models import AnalyticsFilterParams
 from veri_kalitesi.dashboard.errors import DashboardValidationError
 from veri_kalitesi.dashboard.issue_performance import IssuePerformanceQueryService, _percentile
+from veri_kalitesi.dashboard.postgresql_insights import ANALYTICS_ROW_LIMIT
 from veri_kalitesi.identity import ActorContext, ActorContextIssuer
 from veri_kalitesi.identity.models import ActorType
 
@@ -90,12 +91,28 @@ def service(reader: FakeReader) -> IssuePerformanceQueryService:
 def test_open_issues_counted(service: IssuePerformanceQueryService, reader: FakeReader) -> None:
     now = datetime.now(timezone.utc)
     reader.issues = [
-        SimpleNamespace(issue_id="i-1", scope_type="DATASET", scope_id="ds-1",
-                       status="NEW", priority="HIGH", trigger_type="QUALITY_THRESHOLD",
-                       occurrence_count=1, created_at=now, updated_at=now),
-        SimpleNamespace(issue_id="i-2", scope_type="DATASET", scope_id="ds-1",
-                       status="RESOLVED", priority="MEDIUM", trigger_type="MANUAL",
-                       occurrence_count=1, created_at=now, updated_at=now),
+        SimpleNamespace(
+            issue_id="i-1",
+            scope_type="DATASET",
+            scope_id="ds-1",
+            status="NEW",
+            priority="HIGH",
+            trigger_type="QUALITY_THRESHOLD",
+            occurrence_count=1,
+            created_at=now,
+            updated_at=now,
+        ),
+        SimpleNamespace(
+            issue_id="i-2",
+            scope_type="DATASET",
+            scope_id="ds-1",
+            status="RESOLVED",
+            priority="MEDIUM",
+            trigger_type="MANUAL",
+            occurrence_count=1,
+            created_at=now,
+            updated_at=now,
+        ),
     ]
     result = service.get_issue_performance(_make_actor(), _make_params())
     assert result.summary["open_issue_count"] == 1
@@ -105,16 +122,28 @@ def test_mtta_from_history(service: IssuePerformanceQueryService, reader: FakeRe
     now = datetime.now(timezone.utc)
     created = now - timedelta(hours=2)
     reader.issues = [
-        SimpleNamespace(issue_id="i-1", scope_type="DATASET", scope_id="ds-1",
-                       status="INVESTIGATING", priority="HIGH", trigger_type="QUALITY_THRESHOLD",
-                       occurrence_count=1, created_at=created, updated_at=now),
+        SimpleNamespace(
+            issue_id="i-1",
+            scope_type="DATASET",
+            scope_id="ds-1",
+            status="INVESTIGATING",
+            priority="HIGH",
+            trigger_type="QUALITY_THRESHOLD",
+            occurrence_count=1,
+            created_at=created,
+            updated_at=now,
+        ),
     ]
     reader.history = [
-        SimpleNamespace(issue_id="i-1", action="ISSUE_CREATED", new_status="NEW",
-                       occurred_at=created),
-        SimpleNamespace(issue_id="i-1", action="ISSUE_INVESTIGATION_STARTED",
-                       new_status="INVESTIGATING",
-                       occurred_at=created + timedelta(hours=1)),
+        SimpleNamespace(
+            issue_id="i-1", action="ISSUE_CREATED", new_status="NEW", occurred_at=created
+        ),
+        SimpleNamespace(
+            issue_id="i-1",
+            action="ISSUE_INVESTIGATION_STARTED",
+            new_status="INVESTIGATING",
+            occurred_at=created + timedelta(hours=1),
+        ),
     ]
     result = service.get_issue_performance(_make_actor(), _make_params())
     assert result.summary["mtta_sample_count"] == 1
@@ -125,9 +154,17 @@ def test_mtta_from_history(service: IssuePerformanceQueryService, reader: FakeRe
 def test_unresolved_not_in_mttr(service: IssuePerformanceQueryService, reader: FakeReader) -> None:
     now = datetime.now(timezone.utc)
     reader.issues = [
-        SimpleNamespace(issue_id="i-1", scope_type="DATASET", scope_id="ds-1",
-                       status="NEW", priority="HIGH", trigger_type="QUALITY_THRESHOLD",
-                       occurrence_count=1, created_at=now, updated_at=now),
+        SimpleNamespace(
+            issue_id="i-1",
+            scope_type="DATASET",
+            scope_id="ds-1",
+            status="NEW",
+            priority="HIGH",
+            trigger_type="QUALITY_THRESHOLD",
+            occurrence_count=1,
+            created_at=now,
+            updated_at=now,
+        ),
     ]
     result = service.get_issue_performance(_make_actor(), _make_params())
     assert result.summary["unresolved_count"] == 1
@@ -159,3 +196,51 @@ def test_window_over_365_days_raises(service: IssuePerformanceQueryService) -> N
     )
     with pytest.raises(DashboardValidationError, match="365"):
         service.get_issue_performance(_make_actor(), params)
+
+
+# ----------------------------------------------------------------------
+# F-09: limitsiz analytics sorgusu tavana baglanir, kesilme raporlanir
+# ----------------------------------------------------------------------
+
+
+def _bulk_issues(count: int) -> list[Any]:
+    now = datetime.now(timezone.utc)
+    return [
+        SimpleNamespace(
+            issue_id=f"i-{index}",
+            scope_type="DATASET",
+            scope_id="ds-1",
+            status="NEW",
+            priority="HIGH",
+            trigger_type="QUALITY_THRESHOLD",
+            occurrence_count=1,
+            created_at=now,
+            updated_at=now,
+        )
+        for index in range(count)
+    ]
+
+
+def test_result_is_not_marked_truncated_under_the_limit(
+    service: IssuePerformanceQueryService, reader: FakeReader
+) -> None:
+    reader.issues = _bulk_issues(10)
+
+    result = service.get_issue_performance(_make_actor(), _make_params())
+
+    assert result.summary["result_truncated"] is False
+    assert result.summary["result_row_limit"] == ANALYTICS_ROW_LIMIT
+    assert result.summary["open_issue_count"] == 10
+
+
+def test_exceeding_the_row_limit_is_reported_not_silently_trimmed(
+    service: IssuePerformanceQueryService, reader: FakeReader
+) -> None:
+    """Depo tavanin bir fazlasini dondururse metrikler kesik olarak isaretlenir."""
+
+    reader.issues = _bulk_issues(ANALYTICS_ROW_LIMIT + 1)
+
+    result = service.get_issue_performance(_make_actor(), _make_params())
+
+    assert result.summary["result_truncated"] is True
+    assert result.summary["open_issue_count"] == ANALYTICS_ROW_LIMIT

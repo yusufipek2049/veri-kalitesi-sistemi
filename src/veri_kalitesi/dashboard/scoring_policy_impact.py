@@ -15,6 +15,7 @@ from veri_kalitesi.dashboard.errors import (
     DashboardValidationError,
 )
 from veri_kalitesi.dashboard.models import DashboardAccessScope
+from veri_kalitesi.dashboard.postgresql_insights import ANALYTICS_ROW_LIMIT
 from veri_kalitesi.identity import ActorContext, AuthorizationService, IdentityError
 
 CONTRIBUTION_GRAPH_V1 = "DQ_SCORE_CONTRIBUTION_GRAPH_V1"
@@ -60,16 +61,12 @@ class ScoringPolicyImpactQueryService:
         if not configurations:
             raise DashboardNotFoundError("No scoring configurations found.")
 
-        active_config = next(
-            (c for c in configurations if c.is_active), None
-        )
+        active_config = next((c for c in configurations if c.is_active), None)
         inactive_configs = [c for c in configurations if not c.is_active]
 
         # Resolve baseline and candidate
         if baseline_version:
-            baseline = next(
-                (c for c in configurations if c.version == baseline_version), None
-            )
+            baseline = next((c for c in configurations if c.version == baseline_version), None)
             if baseline is None:
                 raise DashboardNotFoundError(
                     f"Baseline configuration version {baseline_version!r} not found."
@@ -78,9 +75,7 @@ class ScoringPolicyImpactQueryService:
             baseline = active_config
 
         if candidate_version:
-            candidate = next(
-                (c for c in configurations if c.version == candidate_version), None
-            )
+            candidate = next((c for c in configurations if c.version == candidate_version), None)
             if candidate is None:
                 raise DashboardNotFoundError(
                     f"Candidate configuration version {candidate_version!r} not found."
@@ -90,19 +85,23 @@ class ScoringPolicyImpactQueryService:
 
         if baseline is None:
             raise DashboardNotFoundError("No active baseline configuration.")
+        if candidate is None:
+            # baseline'a dusulen dalda da None kalabilir; fail-closed.
+            raise DashboardNotFoundError("No candidate configuration to compare.")
 
         # ── Observed impact ──
         all_scores = self._score_reader.list_scores_by_policy_version(
             start_at=params.start_at,
             end_at=params.end_at,
         )
+        # F-09: Tavan asildiginda karsilastirma tam veri uzerinde yapilmis gibi
+        # sunulmaz; sonuc kesik isaretlenir.
+        truncated = len(all_scores) > ANALYTICS_ROW_LIMIT
+        if truncated:
+            all_scores = all_scores[:ANALYTICS_ROW_LIMIT]
 
-        baseline_scores = [
-            s for s in all_scores if s.policy_version == baseline.version
-        ]
-        candidate_scores = [
-            s for s in all_scores if s.policy_version == candidate.version
-        ]
+        baseline_scores = [s for s in all_scores if s.policy_version == baseline.version]
+        candidate_scores = [s for s in all_scores if s.policy_version == candidate.version]
 
         observed_items = self._compute_observed_impact(
             baseline_scores, candidate_scores, access_scope
@@ -122,30 +121,18 @@ class ScoringPolicyImpactQueryService:
         deteriorated = sum(1 for i in all_impact_items if (i.get("delta") or 0) < 0)
         unchanged = sum(1 for i in all_impact_items if (i.get("delta") or 0) == 0)
         not_simulatable = sum(
-            1
-            for i in simulated_items
-            if i.get("reason_code") == "NOT_SIMULATABLE"
+            1 for i in simulated_items if i.get("reason_code") == "NOT_SIMULATABLE"
         )
 
         # Average deltas
-        observed_deltas = [
-            i["delta"] for i in observed_items if i.get("delta") is not None
-        ]
+        observed_deltas = [i["delta"] for i in observed_items if i.get("delta") is not None]
         simulated_deltas = [
             i["delta"]
             for i in simulated_items
             if i.get("delta") is not None and i.get("reason_code") != "NOT_SIMULATABLE"
         ]
-        avg_observed = (
-            sum(observed_deltas) / len(observed_deltas)
-            if observed_deltas
-            else None
-        )
-        avg_simulated = (
-            sum(simulated_deltas) / len(simulated_deltas)
-            if simulated_deltas
-            else None
-        )
+        avg_observed = sum(observed_deltas) / len(observed_deltas) if observed_deltas else None
+        avg_simulated = sum(simulated_deltas) / len(simulated_deltas) if simulated_deltas else None
 
         # Level changes
         level_changed = sum(
@@ -167,6 +154,8 @@ class ScoringPolicyImpactQueryService:
             "unchanged_count": unchanged,
             "level_changed_count": level_changed,
             "not_simulatable_count": not_simulatable,
+            "result_truncated": truncated,
+            "result_row_limit": ANALYTICS_ROW_LIMIT,
         }
         breakdowns = {
             "configuration_diff": config_diff,
@@ -247,9 +236,7 @@ class ScoringPolicyImpactQueryService:
     ) -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = []
         score_ids = frozenset(
-            s.quality_score_id
-            for s in baseline_scores
-            if s.score_value is not None
+            s.quality_score_id for s in baseline_scores if s.score_value is not None
         )
         if not score_ids:
             return items
@@ -321,9 +308,7 @@ class ScoringPolicyImpactQueryService:
                 continue
 
             # Attempt simulation: reweight components
-            simulated_result = self._simulate_score(
-                score, graph, baseline, candidate
-            )
+            simulated_result = self._simulate_score(score, graph, baseline, candidate)
             if simulated_result is None:
                 items.append(
                     {
@@ -421,26 +406,21 @@ class ScoringPolicyImpactQueryService:
             "critical_upper_exclusive": {
                 "before": baseline.critical_upper_exclusive,
                 "after": candidate.critical_upper_exclusive,
-                "delta": candidate.critical_upper_exclusive
-                - baseline.critical_upper_exclusive,
+                "delta": candidate.critical_upper_exclusive - baseline.critical_upper_exclusive,
             },
             "risky_upper_exclusive": {
                 "before": baseline.risky_upper_exclusive,
                 "after": candidate.risky_upper_exclusive,
-                "delta": candidate.risky_upper_exclusive
-                - baseline.risky_upper_exclusive,
+                "delta": candidate.risky_upper_exclusive - baseline.risky_upper_exclusive,
             },
             "acceptable_upper_exclusive": {
                 "before": baseline.acceptable_upper_exclusive,
                 "after": candidate.acceptable_upper_exclusive,
-                "delta": candidate.acceptable_upper_exclusive
-                - baseline.acceptable_upper_exclusive,
+                "delta": candidate.acceptable_upper_exclusive - baseline.acceptable_upper_exclusive,
             },
         }
         # Dimension weights
-        all_dims = set(baseline.dimension_weights.keys()) | set(
-            candidate.dimension_weights.keys()
-        )
+        all_dims = set(baseline.dimension_weights.keys()) | set(candidate.dimension_weights.keys())
         dim_diff: dict[str, dict[str, Any]] = {}
         for dim in sorted(all_dims):
             before = baseline.dimension_weights.get(dim, 0)
@@ -448,9 +428,7 @@ class ScoringPolicyImpactQueryService:
             dim_diff[dim] = {
                 "before": float(before) if before else 0,
                 "after": float(after) if after else 0,
-                "delta": float(after - before)
-                if before is not None and after is not None
-                else 0,
+                "delta": float(after - before) if before is not None and after is not None else 0,
             }
         diff["dimension_weights"] = dim_diff
 
@@ -465,18 +443,14 @@ class ScoringPolicyImpactQueryService:
             crit_diff[crit] = {
                 "before": float(before) if before else 0,
                 "after": float(after) if after else 0,
-                "delta": float(after - before)
-                if before is not None and after is not None
-                else 0,
+                "delta": float(after - before) if before is not None and after is not None else 0,
             }
         diff["criticality_weights"] = crit_diff
         return diff
 
     # ── Private helpers ──
 
-    def _authorize(
-        self, actor_context: ActorContext | None
-    ) -> tuple[DashboardAccessScope, str]:
+    def _authorize(self, actor_context: ActorContext | None) -> tuple[DashboardAccessScope, str]:
         try:
             decision = self._auth.authorize_dashboard(actor_context)
         except IdentityError as exc:

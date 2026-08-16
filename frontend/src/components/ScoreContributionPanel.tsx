@@ -25,6 +25,12 @@ import {
 import type { EChartsCoreOption } from "echarts/core";
 import { copyTableToClipboard } from "./exportTable";
 
+// Bu modulleri import etmek yetmez, echarts cekirdegine kaydedilmeleri gerekir.
+// Kayit eksikti ve grafik yalniz DashboardPage/DatasetTrendPage daha once
+// yuklendiyse calisiyordu; route seviyesinde lazy yukleme ile bu varsayim
+// gecersiz oldugundan panel tek basina acildiginda bos kaliyordu.
+echarts.use([BarChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
+
 interface ContributionComponent {
   component_ref: string;
   component_type: "RULE" | "DATASET" | "DIMENSION" | "SOURCE" | "UNKNOWN";

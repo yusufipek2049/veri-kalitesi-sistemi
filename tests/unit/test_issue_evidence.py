@@ -12,6 +12,7 @@ AC-05: Cozum, kayitli olmayan veya baska issue'ya ait kaniti reddeder (fail-clos
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -315,3 +316,88 @@ def test_issue_without_source_execution_has_no_candidates() -> None:
 
     assert records == ()
     assert candidates == ()
+
+
+# ----------------------------------------------------------------------
+# F-07: altyapi hatalari sessizce "kanit yok" sonucuna donusmemeli
+# ----------------------------------------------------------------------
+
+
+class _BrokenExecutionReader:
+    """Baglanti arizasini taklit eden reader."""
+
+    def __init__(self, *, fail_on: str) -> None:
+        self.fail_on = fail_on
+        self._delegate = FakeExecutionReader()
+
+    def get(self, execution_id: str):
+        if self.fail_on == "get":
+            raise ConnectionError("database connection lost")
+        return self._delegate.get(execution_id)
+
+    def list_results(self, execution_id: str):
+        if self.fail_on == "results":
+            raise ConnectionError("database connection lost")
+        return self._delegate.list_results(execution_id)
+
+    def list_attempts(self, execution_id: str):
+        if self.fail_on == "attempts":
+            raise ConnectionError("database connection lost")
+        return self._delegate.list_attempts(execution_id)
+
+
+def test_deleted_execution_yields_no_candidates_without_warning(caplog) -> None:
+    """Silinmis calistirma mesru bicimde bos sonuc uretir; log kirletmez."""
+
+    provider = ExecutionIssueEvidenceCandidateProvider(FakeExecutionReader())
+
+    with caplog.at_level(logging.WARNING):
+        candidates = provider.list_candidates(_issue(execution_id="execution-deleted"))
+
+    assert candidates == ()
+    assert not [
+        record
+        for record in caplog.records
+        if getattr(record, "event", "") == "issue_evidence_candidates_degraded"
+    ]
+
+
+@pytest.mark.parametrize("failing_stage", ["get", "results", "attempts"])
+def test_infrastructure_failure_is_reported_not_silently_swallowed(
+    caplog, failing_stage: str
+) -> None:
+    provider = ExecutionIssueEvidenceCandidateProvider(
+        _BrokenExecutionReader(fail_on=failing_stage)
+    )
+
+    with caplog.at_level(logging.WARNING):
+        provider.list_candidates(_issue())
+
+    degraded = [
+        record
+        for record in caplog.records
+        if getattr(record, "event", "") == "issue_evidence_candidates_degraded"
+    ]
+    assert degraded, f"{failing_stage} asamasindaki ariza raporlanmadi"
+    assert degraded[0].error_class == "ConnectionError"
+
+
+def test_rule_name_lookup_failure_is_reported(caplog) -> None:
+    class _BrokenRuleReader:
+        def get_version(self, rule_version_id: str):
+            raise ConnectionError("database connection lost")
+
+        def get_rule(self, quality_rule_id: str):
+            raise AssertionError("unreachable")
+
+    provider = ExecutionIssueEvidenceCandidateProvider(FakeExecutionReader(), _BrokenRuleReader())
+
+    with caplog.at_level(logging.WARNING):
+        candidates = provider.list_candidates(_issue())
+
+    assert candidates  # aday listesi uretilmeye devam eder
+    assert [
+        record
+        for record in caplog.records
+        if getattr(record, "event", "") == "issue_evidence_candidates_degraded"
+    ]
