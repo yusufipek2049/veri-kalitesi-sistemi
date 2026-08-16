@@ -9,9 +9,9 @@ dependencies = [
     "psycopg==3.3.4",
     "psycopg-binary==3.3.4",
     "pydantic==2.12.5",
-    "python-multipart==0.0.22",
+    "python-multipart==0.0.32",
     "SQLAlchemy==2.0.51",
-    "starlette==1.0.0",
+    "starlette==1.6.0",
     "tomli==2.4.1",
 ]
 
