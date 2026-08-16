@@ -59,6 +59,68 @@ test.beforeEach(async ({ page }) => {
       status: 200,
     });
   });
+  await page.route("**/api/v1/issues/*/evidence", async (route) => {
+    const request = route.request();
+    if (request.method() === "GET") {
+      await route.fulfill({
+        body: JSON.stringify({
+          api_version: "v1",
+          data_origin: "synthetic-development",
+          correlation_id: "e2e-evidence-list",
+          issue_id: "issue-account-investigation",
+          items: [],
+          candidates: [
+            {
+              candidate_key: "RESULT:execution-account-quality:rule-version-account-iban-2",
+              kind: "EXECUTION_RESULT",
+              label: "Kural sonucu — IBAN biçimi (4188/182400 başarısız)",
+              execution_id: "execution-account-quality",
+              rule_version_id: "rule-version-account-iban-2",
+              evaluated_count: 182400,
+              failed_count: 4188,
+              measurement_status: "Failed",
+              observed_at: "2026-07-22T06:19:00Z",
+            },
+          ],
+        }),
+        contentType: "application/json",
+        status: 200,
+      });
+      return;
+    }
+    expect(request.method()).toBe("POST");
+    expect(request.headers()["x-csrf-token"]).toBe("e2e-csrf-proof");
+    expect(request.postDataJSON()).toEqual({
+      candidate_key: "RESULT:execution-account-quality:rule-version-account-iban-2",
+    });
+    await route.fulfill({
+      body: JSON.stringify({
+        api_version: "v1",
+        data_origin: "synthetic-development",
+        correlation_id: "e2e-evidence-capture",
+        item: {
+          evidence_id: "550e8400-e29b-41d4-a716-446655440000",
+          issue_id: "issue-account-investigation",
+          kind: "EXECUTION_RESULT",
+          label: "Kural sonucu — IBAN biçimi (4188/182400 başarısız)",
+          execution_id: "execution-account-quality",
+          rule_version_id: "rule-version-account-iban-2",
+          evaluated_count: 182400,
+          failed_count: 4188,
+          measurement_status: "Failed",
+          fingerprint: null,
+          query_reference: null,
+          plan_reference: null,
+          content_digest: "a".repeat(64),
+          observed_at: "2026-07-22T06:19:00Z",
+          captured_at: "2026-07-23T09:00:00Z",
+          captured_by: "development-dashboard-user",
+        },
+      }),
+      contentType: "application/json",
+      status: 201,
+    });
+  });
   await page.route("**/api/v1/issues/*/resolution", async (route) => {
     const request = route.request();
     expect(request.method()).toBe("POST");
@@ -208,8 +270,7 @@ test("sorun zorunlu kanıtla çözülür ve kaydedilmemiş çözüm korunur", as
   await page.getByRole("menuitem", { name: "Çözüm kaydet" }).click();
   await page.getByRole("textbox", { name: /Kök neden/ }).fill("Kaynak eşlemesi hatalı");
   await page.getByRole("textbox", { name: /Düzeltici faaliyet/ }).fill("Eşleme yapılandırması düzeltildi");
-  await page.getByRole("textbox", { name: /Kanıt referansı/ }).fill("geçersiz-referans");
-  await expect(page.getByText("Geçerli bir UUID girin.")).toBeVisible();
+  // Kanıt seçilmeden çözüm kaydedilemez.
   await expect(page.getByRole("button", { name: "Kaydet" })).toBeDisabled();
   await page.screenshot({
     path: testInfo.outputPath("issues--resolution-validation--1440x900.png"),
@@ -219,9 +280,8 @@ test("sorun zorunlu kanıtla çözülür ve kaydedilmemiş çözüm korunur", as
   await page.getByRole("button", { name: "Vazgeç" }).click();
   await expect(page.getByText("Değişiklikler kaydedilmedi")).toBeVisible();
   await page.getByRole("button", { name: "Forma dön" }).click();
-  await page.getByRole("textbox", { name: /Kanıt referansı/ }).fill(
-    "550e8400-e29b-41d4-a716-446655440000",
-  );
+  await page.getByRole("combobox", { name: /Kanıt/ }).click();
+  await page.getByRole("option", { name: /Kural sonucu/ }).click();
   await page.getByLabel("Tamamlanma zamanı").fill("2026-07-23T09:30");
   await page.screenshot({
     path: testInfo.outputPath("issues--resolution-ready--1440x900.png"),

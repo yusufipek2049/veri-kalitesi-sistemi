@@ -19,12 +19,14 @@ from veri_kalitesi.api.identity import (
 from veri_kalitesi.api.issues_router import IssueAssigneeOptionProvider
 from veri_kalitesi.api.service_groups import (
     ActorResolverIdentity,
+    AnalyticsServices,
     ApiOptions,
     AuditServices,
     BffSessionIdentity,
     CatalogServices,
     DataSourceServices,
     ExecutionServices,
+    GovernanceServices,
     IssueServices,
     NotificationServices,
     ReportingServices,
@@ -34,6 +36,7 @@ from veri_kalitesi.api.postgresql_metadata import PostgreSQLMetadataCommandServi
 from veri_kalitesi.api.rule_commands import RuleCommandAdapter
 from veri_kalitesi.api.postgresql_execution import (
     PostgreSQLExecutionCancelService,
+    PostgreSQLExecutionGovernanceWriter,
     PostgreSQLExecutionStartService,
 )
 from veri_kalitesi.api.settings import ApplicationSettings
@@ -62,6 +65,7 @@ from veri_kalitesi.data_sources.catalog import CatalogQueryService
 from veri_kalitesi.executions.postgresql_repository import PostgreSQLExecutionRepository
 from veri_kalitesi.executions.query import ExecutionQueryService
 from veri_kalitesi.executions.strategy_engine import ExecutionStrategyEngine
+from veri_kalitesi.executions.governance import ExecutionCriticalityGuard
 from veri_kalitesi.identity import (
     ActorContext,
     DashboardAuthorizationPolicy,
@@ -79,6 +83,7 @@ from veri_kalitesi.issues import (
     IssueService,
     IssueTrigger,
     IssueVerificationResolver,
+    PostgreSQLIssueEvidenceProvider,
     PostgreSQLIssueRepository,
 )
 from veri_kalitesi.jobs import PostgreSQLJobQueueRepository
@@ -88,6 +93,14 @@ from veri_kalitesi.notifications.models import (
     NotificationScopeType,
 )
 from veri_kalitesi.persistence import SessionFactory, create_session_factory
+from veri_kalitesi.governance import (
+    GovernanceApprovalCommandService,
+    GovernanceApprovalPolicy,
+    GovernanceApprovalQueryService,
+    PostgreSQLDatasetOwnershipWriter,
+    PostgreSQLGovernanceApprovalRepository,
+    PostgreSQLMetadataGovernanceWriter,
+)
 from veri_kalitesi.rules import (
     PostgreSQLRuleRepository,
     RuleApprovalPolicy,
@@ -101,8 +114,13 @@ from veri_kalitesi.scoring.postgresql_contributions import (
 from veri_kalitesi.scoring.postgresql_repository import PostgreSQLScoreRepository
 from veri_kalitesi.scoring.query import ScoreQueryService
 from veri_kalitesi.dashboard.service import DashboardQueryService
+from veri_kalitesi.dashboard.postgresql_insights import PostgreSQLInsightsReader
+from veri_kalitesi.dashboard.rule_health import RuleHealthQueryService
+from veri_kalitesi.dashboard.metadata_health import MetadataHealthQueryService
+from veri_kalitesi.dashboard.issue_performance import IssuePerformanceQueryService
+from veri_kalitesi.dashboard.scoring_policy_impact import ScoringPolicyImpactQueryService
 
-CURRENT_MIGRATION_HEAD = "20260813_23"
+CURRENT_MIGRATION_HEAD = "20260814_25"
 REQUIRED_TABLES = frozenset(
     {
         "data_sources",
@@ -118,6 +136,7 @@ REQUIRED_TABLES = frozenset(
         "issue_resolutions",
         "issue_verifications",
         "issue_relationships",
+        "issue_evidence",
         "rule_executions",
         "score_contribution_graphs",
         "scoring_configurations",
@@ -356,9 +375,68 @@ def create_application(
     )
     command_adapter = DataSourceCommandAdapter(service, query_service, audit_service)
     rule_query_service = RuleQueryService(rule_repository, authorization)
+    job_queue_repository = PostgreSQLJobQueueRepository(session_factory)
+    governance_approval_repository = PostgreSQLGovernanceApprovalRepository(
+        session_factory, schema=settings.database.schema
+    )
+    governance_policy = GovernanceApprovalPolicy(
+        version="GOVERNANCE_APPROVAL_POLICY_V1",
+        actor_policy_version=settings.actor_policy_version,
+        maker_roles=frozenset({"DATA_STEWARD", "DATA_GOVERNANCE_SPECIALIST"}),
+        checker_roles=frozenset({"DATA_OWNER"}),
+        applier_roles=frozenset({"DATA_GOVERNANCE_SPECIALIST"}),
+    )
+    # Composite catalog for governance command service (dataset + rule + execution + dead-letter)
+    class _GovernanceCompositeCatalog:
+        def __init__(self, source_repo, rule_repo, exec_repo, job_repo):
+            self._source_repo = source_repo
+            self._rule_repo = rule_repo
+            self._exec_repo = exec_repo
+            self._job_repo = job_repo
+
+        def get_dataset(self, dataset_id):
+            return self._source_repo.get_dataset(dataset_id)
+
+        def get_data_field(self, field_id):
+            return self._source_repo.get_data_field(field_id)
+
+        def get_rule_version(self, rule_version_id):
+            return self._rule_repo.get_version(rule_version_id)
+
+        def get_rule(self, quality_rule_id):
+            return self._rule_repo.get_rule(quality_rule_id)
+
+        def get_execution(self, execution_id):
+            return self._exec_repo.get(execution_id)
+
+        def get_dead_letter(self, dead_letter_id):
+            for letter in self._job_repo.list_dead_letters():
+                if letter.dead_letter_id == dead_letter_id:
+                    return letter
+            raise KeyError(f"Dead letter {dead_letter_id} not found")
+
+    governance_catalog = _GovernanceCompositeCatalog(
+        repository, rule_repository, execution_repository, job_queue_repository
+    )
+    governance_command_service = GovernanceApprovalCommandService(
+        governance_approval_repository,
+        governance_catalog,
+        PostgreSQLDatasetOwnershipWriter(repository),
+        audit_sink=audit_service,
+        transactional_audit=transactional_audit,
+        policy=governance_policy,
+        metadata_writer=PostgreSQLMetadataGovernanceWriter(repository),
+        execution_writer=None,  # wired after execution services
+    )
+    governance_query_service = GovernanceApprovalQueryService(
+        rule_repository,
+        repository,
+        authorization,
+        center_reader=governance_approval_repository,
+        center_policy=governance_policy,
+    )
     issue_query_service = IssueQueryService(issue_repository, authorization)
     execution_query_service = ExecutionQueryService(execution_repository, authorization)
-    job_queue_repository = PostgreSQLJobQueueRepository(session_factory)
     execution_start_service = PostgreSQLExecutionStartService(
         execution_repository,
         job_queue=job_queue_repository,
@@ -372,6 +450,20 @@ def create_application(
         transactional_audit=transactional_audit,
         job_queue=job_queue_repository,
     )
+    # Execution governance guard and writer
+    execution_governance_guard = ExecutionCriticalityGuard(
+        rule_lookup=rule_repository,
+        dataset_lookup=repository,
+        execution_lookup=execution_repository,
+    )
+    execution_governance_writer = PostgreSQLExecutionGovernanceWriter(
+        start_service=execution_start_service,
+        cancel_service=execution_cancel_service,
+        job_queue=job_queue_repository,
+        transactional_audit=transactional_audit,
+    )
+    # Wire execution writer into governance command service
+    governance_command_service.execution_writer = execution_governance_writer
     notification_publisher = (
         phase_b_providers.issue_notification_publisher
         if phase_b_providers is not None
@@ -512,20 +604,79 @@ def create_application(
         clock=lambda: datetime.now(timezone.utc),
     )
 
-    # IssueInvestigationEvidenceService oluştur
-    issue_investigation_evidence_service = None
+    # Analytics insights reader and services
+    insights_reader = PostgreSQLInsightsReader(
+        session_factory, schema=settings.database.schema
+    )
+    rule_health_service = RuleHealthQueryService(
+        reader=insights_reader,
+        authorization_service=authorization,
+    )
+    metadata_health_service = MetadataHealthQueryService(
+        reader=insights_reader,
+        authorization_service=authorization,
+        stale_after_days=30,
+        classification_policy_version="CLASSIFICATION_POLICY_V1",
+    )
+    issue_performance_service = IssuePerformanceQueryService(
+        reader=insights_reader,
+        authorization_service=authorization,
+    )
+    scoring_policy_impact_service = ScoringPolicyImpactQueryService(
+        reader=insights_reader,
+        score_reader=insights_reader,
+        authorization_service=authorization,
+    )
+
+    # Issue investigation kanıtı kaynak execution sonucundan okunur.
     from veri_kalitesi.issues.investigation import IssueInvestigationEvidenceService
-
-    class _PassthroughEvidenceProvider:
-        """Development/production için boş kanıt sağlayıcı — Unknown döner."""
-
-        def get_evidence_for_issue(self, issue_id, scope_type, scope_id):
-            return None
 
     issue_investigation_evidence_service = IssueInvestigationEvidenceService(
         reader=issue_repository,
         authorization_service=authorization,
-        evidence_provider=_PassthroughEvidenceProvider(),
+        evidence_provider=PostgreSQLIssueEvidenceProvider(
+            issue_repository,
+            execution_repository,
+            rule_repository,
+        ),
+    )
+
+    # Cozum kaniti defteri: adaylar kaynak calistirmanin sonuc ve loglarindan turetilir,
+    # secilen aday issue_evidence tablosuna yazilir ve cozum kaydi ona FK ile baglanir.
+    from veri_kalitesi.issues.evidence import IssueEvidenceService
+    from veri_kalitesi.issues.evidence_candidates import (
+        ExecutionIssueEvidenceCandidateProvider,
+    )
+
+    issue_evidence_service = IssueEvidenceService(
+        issue_reader=issue_repository,
+        evidence_store=issue_repository,
+        candidate_provider=ExecutionIssueEvidenceCandidateProvider(
+            execution_repository,
+            rule_repository,
+        ),
+        authorization_service=authorization,
+        clock=lambda: datetime.now(timezone.utc),
+    )
+    from veri_kalitesi.issues.evidence_files import (
+        EvidenceFilePolicy,
+        IssueEvidenceFileService,
+        LocalEvidenceStorage,
+    )
+    import os
+
+    issue_evidence_upload_service = IssueEvidenceFileService(
+        issue_reader=issue_repository,
+        repository=issue_repository,
+        authorization_service=authorization,
+        storage=LocalEvidenceStorage(
+            os.environ.get("DQ_EVIDENCE_STORAGE_ROOT", ".local/issue-evidence")
+        ),
+        # Production is deliberately fail-closed until an AV adapter is configured.
+        scanner=None,
+        policy=EvidenceFilePolicy(version="EVIDENCE_FILE_POLICY_V1"),
+        audit_sink=audit_service,
+        clock=lambda: datetime.now(timezone.utc),
     )
 
     app = create_dashboard_api(
@@ -550,6 +701,8 @@ def create_application(
             query=issue_query_service,
             investigation=issue_service,
             investigation_evidence=issue_investigation_evidence_service,
+            evidence_catalog=issue_evidence_service,
+            evidence_upload=issue_evidence_upload_service,
             assignment=issue_service if phase_b_providers is not None else None,
             assignee_options=(
                 phase_b_providers.issue_assignee_option_provider
@@ -566,6 +719,7 @@ def create_application(
             start=execution_start_service,
             cancel=execution_cancel_service,
             job_queue=job_queue_repository,
+            governance_guard=execution_governance_guard,
         ),
         audit=AuditServices(query=audit_query_service),
         catalog=CatalogServices(
@@ -579,6 +733,16 @@ def create_application(
             delivery=notification_delivery_service,
         ),
         reporting=ReportingServices(query=report_query_service),
+        governance=GovernanceServices(
+            query=governance_query_service,
+            command=governance_command_service,
+        ),
+        analytics=AnalyticsServices(
+            rule_health=rule_health_service,
+            metadata_health=metadata_health_service,
+            issue_performance=issue_performance_service,
+            scoring_policy_impact=scoring_policy_impact_service,
+        ),
     )
     app.state.application_settings = settings
     app.state.session_factory = session_factory

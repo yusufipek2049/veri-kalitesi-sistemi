@@ -12,7 +12,7 @@ from veri_kalitesi.api.service_groups import (
     ApiOptions,
     ExecutionServices,
 )
-from veri_kalitesi.api.development import create_development_app
+from veri_kalitesi.api.development import create_synthetic_development_app
 from veri_kalitesi.audit.models import (
     AuditFailureMode,
     AuditFailurePolicy,
@@ -119,10 +119,10 @@ def test_ds02_ac_postgresql_reader_failure_returns_safe_technical_error() -> Non
 
 
 def test_development_api_exposes_all_synthetic_execution_states() -> None:
-    response = TestClient(create_development_app()).get("/api/v1/executions")
+    response = TestClient(create_synthetic_development_app()).get("/api/v1/executions")
 
     assert response.status_code == 200
-    assert len(response.json()["items"]) == 8
+    assert len(response.json()["items"]) == 9
     assert {item["status"] for item in response.json()["items"]} == {
         "QUEUED",
         "RUNNING",

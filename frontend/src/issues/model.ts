@@ -262,3 +262,188 @@ export function evidenceComponentValueText(
     return String(component.value);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Çözüm kanıtı defteri
+//
+// Çözüm formu artık serbest metin UUID istemez: kanıtlar kural çalıştırmasının
+// sonuç ve loglarından türetilir, seçilen aday kalıcı bir kanıt kaydına dönüşür
+// ve çözüm o kaydın kimliğine bağlanır.
+// ---------------------------------------------------------------------------
+
+export type IssueEvidenceKind =
+  | "EXECUTION_RESULT"
+  | "EXECUTION_LOG"
+  | "LEGACY_REFERENCE"
+  | "UPLOADED_FILE";
+
+export interface IssueEvidenceRecord {
+  evidenceId: string;
+  issueId: string;
+  kind: IssueEvidenceKind;
+  label: string;
+  executionId: string;
+  ruleVersionId: string | null;
+  evaluatedCount: number | null;
+  failedCount: number | null;
+  measurementStatus: string | null;
+  fingerprint: string | null;
+  queryReference: string | null;
+  planReference: string | null;
+  contentDigest: string;
+  observedAt: string;
+  capturedAt: string;
+  capturedBy: string;
+  originalFilename?: string | null;
+  detectedMediaType?: string | null;
+  byteSize?: number | null;
+  scanStatus?: "PENDING_SCAN" | "AVAILABLE" | "REJECTED" | "SCAN_FAILED" | null;
+  scanReasonCode?: string | null;
+  classification?: string | null;
+}
+
+export interface IssueEvidenceCandidate {
+  candidateKey: string;
+  kind: IssueEvidenceKind;
+  label: string;
+  executionId: string;
+  ruleVersionId: string | null;
+  evaluatedCount: number | null;
+  failedCount: number | null;
+  measurementStatus: string | null;
+  observedAt: string;
+}
+
+export interface IssueEvidenceApiItem {
+  evidence_id: string;
+  issue_id: string;
+  kind: string;
+  label: string;
+  execution_id: string;
+  rule_version_id: string | null;
+  evaluated_count: number | null;
+  failed_count: number | null;
+  measurement_status: string | null;
+  fingerprint: string | null;
+  query_reference: string | null;
+  plan_reference: string | null;
+  content_digest: string;
+  observed_at: string;
+  captured_at: string;
+  captured_by: string;
+  original_filename?: string | null;
+  detected_media_type?: string | null;
+  byte_size?: number | null;
+  scan_status?: "PENDING_SCAN" | "AVAILABLE" | "REJECTED" | "SCAN_FAILED" | null;
+  scan_reason_code?: string | null;
+  classification?: string | null;
+}
+
+export interface IssueEvidenceApiCandidate {
+  candidate_key: string;
+  kind: string;
+  label: string;
+  execution_id: string;
+  rule_version_id: string | null;
+  evaluated_count: number | null;
+  failed_count: number | null;
+  measurement_status: string | null;
+  observed_at: string;
+}
+
+export interface IssueEvidenceListApiResponse {
+  api_version: "v1";
+  data_origin: string;
+  correlation_id: string;
+  issue_id: string;
+  items: readonly IssueEvidenceApiItem[];
+  candidates: readonly IssueEvidenceApiCandidate[];
+}
+
+const EVIDENCE_KINDS = new Set<IssueEvidenceKind>([
+  "EXECUTION_RESULT",
+  "EXECUTION_LOG",
+  "LEGACY_REFERENCE",
+  "UPLOADED_FILE",
+]);
+
+function normalizeEvidenceKind(raw: string): IssueEvidenceKind {
+  const normalized = raw.trim() as IssueEvidenceKind;
+  return EVIDENCE_KINDS.has(normalized) ? normalized : "LEGACY_REFERENCE";
+}
+
+export function issueEvidenceRecordFromApi(
+  item: IssueEvidenceApiItem,
+): IssueEvidenceRecord {
+  return {
+    evidenceId: item.evidence_id,
+    issueId: item.issue_id,
+    kind: normalizeEvidenceKind(item.kind),
+    label: item.label,
+    executionId: item.execution_id,
+    ruleVersionId: item.rule_version_id,
+    evaluatedCount: item.evaluated_count,
+    failedCount: item.failed_count,
+    measurementStatus: item.measurement_status,
+    fingerprint: item.fingerprint,
+    queryReference: item.query_reference,
+    planReference: item.plan_reference,
+    contentDigest: item.content_digest,
+    observedAt: item.observed_at,
+    capturedAt: item.captured_at,
+    capturedBy: item.captured_by,
+    originalFilename: item.original_filename ?? null,
+    detectedMediaType: item.detected_media_type ?? null,
+    byteSize: item.byte_size ?? null,
+    scanStatus: item.scan_status ?? null,
+    scanReasonCode: item.scan_reason_code ?? null,
+    classification: item.classification ?? null,
+  };
+}
+
+export function issueEvidenceCandidateFromApi(
+  item: IssueEvidenceApiCandidate,
+): IssueEvidenceCandidate {
+  return {
+    candidateKey: item.candidate_key,
+    kind: normalizeEvidenceKind(item.kind),
+    label: item.label,
+    executionId: item.execution_id,
+    ruleVersionId: item.rule_version_id,
+    evaluatedCount: item.evaluated_count,
+    failedCount: item.failed_count,
+    measurementStatus: item.measurement_status,
+    observedAt: item.observed_at,
+  };
+}
+
+/** Kanıt seçeneği: kayıtlı kanıt veya henüz kaydedilmemiş aday. */
+export type IssueEvidenceOption =
+  | { kind: "record"; value: string; label: string; record: IssueEvidenceRecord }
+  | {
+      kind: "candidate";
+      value: string;
+      label: string;
+      candidate: IssueEvidenceCandidate;
+    };
+
+export function issueEvidenceOptions(
+  records: readonly IssueEvidenceRecord[],
+  candidates: readonly IssueEvidenceCandidate[],
+): IssueEvidenceOption[] {
+  return [
+    ...records.filter((record) => record.kind !== "UPLOADED_FILE"
+      || record.scanStatus === "AVAILABLE").map<IssueEvidenceOption>((record) => ({
+      kind: "record",
+      value: `record:${record.evidenceId}`,
+      label: record.label,
+      record,
+    })),
+    ...candidates.map<IssueEvidenceOption>((candidate) => ({
+      kind: "candidate",
+      value: `candidate:${candidate.candidateKey}`,
+      label: candidate.label,
+      candidate,
+    })),
+  ];
+}

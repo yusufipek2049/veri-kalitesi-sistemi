@@ -18,6 +18,7 @@ from veri_kalitesi.audit.models import (
 )
 from veri_kalitesi.identity import ActorContext, ActorType, is_trusted_actor_context
 from veri_kalitesi.issues.contracts import AuditT, IssueRepository
+from veri_kalitesi.issues.evidence import IssueEvidenceReader
 from veri_kalitesi.notifications.contracts import NotificationBatchStager
 from veri_kalitesi.issues.errors import (
     IssueAssignmentError,
@@ -126,6 +127,7 @@ class IssueService(Generic[AuditT]):
         relationship_resolver: IssueRelationshipResolver | None = None,
         notification_actor_context_provider: Callable[[], ActorContext] | None = None,
         notification_batch_stager: NotificationBatchStager | None = None,
+        evidence_reader: IssueEvidenceReader | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ) -> None:
         validate_access_policy(access_policy)
@@ -140,6 +142,11 @@ class IssueService(Generic[AuditT]):
         self.relationship_resolver = relationship_resolver
         self.notification_actor_context_provider = notification_actor_context_provider
         self.notification_batch_stager = notification_batch_stager
+        # Kanit defteri: depo zaten kanit okuyabiliyorsa varsayilan olarak o kullanilir,
+        # boylece uretim bileseni ayrica baglanmayi unutulsa da cozum dogrulamasi calisir.
+        if evidence_reader is None and hasattr(repository, "get_evidence"):
+            evidence_reader = repository  # type: ignore[assignment]
+        self.evidence_reader = evidence_reader
         self.clock = clock
 
     def create_for_trigger(
@@ -650,6 +657,7 @@ class IssueService(Generic[AuditT]):
             )
         if draft.completed_at < issue.created_at or draft.completed_at > now:
             raise IssueValidationError("completed_at is outside the issue lifetime.")
+        self._require_issue_evidence(issue, draft.evidence_reference_id, context.correlation_id)
 
         protected = self._protect_resolution(draft, context)
         if (
@@ -962,6 +970,42 @@ class IssueService(Generic[AuditT]):
             raise IssueValidationError("Resolution protection returned no result.")
         validate_protected_resolution(protected)
         return protected
+
+    def _require_issue_evidence(
+        self,
+        issue: DataQualityIssue,
+        evidence_reference_id: str,
+        correlation_id: str,
+    ) -> None:
+        """Cozum kaniti gercek ve bu issue'ya ait olmali (fail-closed).
+
+        Kanit defteri bagli degilse dogrulama yapilamaz; bu durumda yalnizca
+        ``validate_resolution_draft`` bicim kontrolu gecerlidir.
+        """
+        if self.evidence_reader is None:
+            return
+        try:
+            record = self.evidence_reader.get_evidence(evidence_reference_id)
+        except _PERSISTENCE_ERRORS as exc:
+            raise IssueTechnicalError("Issue evidence could not be read.", correlation_id) from exc
+        if record is None:
+            raise IssueValidationError("evidence_reference_id does not match a stored evidence.")
+        if record.issue_id != issue.issue_id:
+            raise IssueValidationError("evidence_reference_id belongs to another issue.")
+        if record.kind.value == "UPLOADED_FILE":
+            file_reader = self.evidence_reader
+            if not hasattr(file_reader, "get_evidence_file"):
+                raise IssueTechnicalError(
+                    "Uploaded evidence status could not be verified.", correlation_id
+                )
+            try:
+                file = file_reader.get_evidence_file(evidence_reference_id)  # type: ignore[attr-defined]
+            except _PERSISTENCE_ERRORS as exc:
+                raise IssueTechnicalError(
+                    "Uploaded evidence status could not be verified.", correlation_id
+                ) from exc
+            if file is None or file.deleted_at is not None or file.scan_status.value != "AVAILABLE":
+                raise IssueValidationError("Uploaded evidence is not available.")
 
     def _resolve_assignee_profile(
         self,

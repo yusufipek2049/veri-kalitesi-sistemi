@@ -218,6 +218,35 @@ def test_fr_036_fr_043_fr_044_uc_008_manual_execution_persists_queue_history_and
     assert (result.checked_count, result.passed_count, result.failed_count) == (125, 100, 25)
 
 
+def test_queue_selected_execution_is_claimed_before_running() -> None:
+    executor = FakeExecutionExecutor([(_computation(10, 8, 2),)])
+    service, repository, version = _service(executor)
+    queued = _start(service, version)
+
+    completed = service.run_for_execution_id(queued.execution_id)
+
+    assert completed is not None
+    assert completed.status is ExecutionStatus.SUCCESS
+    assert completed.started_at is not None
+    assert completed.finished_at is not None
+    assert completed.started_at <= completed.finished_at
+
+
+def test_unhandled_job_failure_moves_active_execution_out_of_queue() -> None:
+    service, repository, version = _service(
+        FakeExecutionExecutor([(_computation(1, 1, 0),)])
+    )
+    queued = _start(service, version)
+
+    failed = service.fail_active_execution(queued.execution_id, "UNEXPECTED")
+
+    assert failed is not None
+    assert failed.status is ExecutionStatus.TECHNICAL_ERROR
+    assert failed.error_class == "UNEXPECTED"
+    assert failed.finished_at is not None
+    assert repository.get(queued.execution_id).status is ExecutionStatus.TECHNICAL_ERROR
+
+
 def test_fr_045_nfr_rel_005_ac_024_concurrent_repeats_return_one_execution_id() -> None:
     executor = FakeExecutionExecutor([(_computation(1, 1, 0),)])
     service, repository, version = _service(executor)

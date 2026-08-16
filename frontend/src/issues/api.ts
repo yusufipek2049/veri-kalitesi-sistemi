@@ -1,7 +1,13 @@
-import { developmentFetch } from '../development/fetch';
+import {
+  developmentFetch,
+  recordCsrfProof,
+  stateChangingHeaders,
+} from '../development/fetch';
 import type {
   InvestigationEvidenceApiResponse,
   IssueAssigneeOptionsApiResponse,
+  IssueEvidenceApiItem,
+  IssueEvidenceListApiResponse,
   IssueListApiResponse,
   IssuePriority,
 } from "./model";
@@ -312,4 +318,114 @@ function evidenceErrorKind(
   if (status === 404) return "not-found";
   if (status === 503) return "unavailable";
   return "technical";
+}
+
+/**
+ * Çözüm formunda seçilebilir kanıtlar: kayıtlı kanıtlar ve kural
+ * çalıştırmasının sonuç/log adayları.
+ */
+export async function fetchIssueEvidence(
+  issueId: string,
+  signal?: AbortSignal,
+): Promise<IssueEvidenceListApiResponse> {
+  const response = await developmentFetch(
+    `/api/v1/issues/${encodeURIComponent(issueId)}/evidence`,
+    {
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+      signal,
+    },
+  );
+  if (!response.ok) throw issueApiError(response);
+  return response.json() as Promise<IssueEvidenceListApiResponse>;
+}
+
+/** Bir çalıştırma adayını kalıcı kanıt kaydına dönüştürür (idempotent). */
+export async function captureIssueEvidence(
+  issueId: string,
+  candidateKey: string,
+): Promise<{
+  api_version: "v1";
+  data_origin: string;
+  correlation_id: string;
+  item: IssueEvidenceApiItem;
+}> {
+  const response = await developmentFetch(
+    `/api/v1/issues/${encodeURIComponent(issueId)}/evidence`,
+    {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ candidate_key: candidateKey }),
+    },
+  );
+  if (!response.ok) throw issueApiError(response);
+  return response.json();
+}
+
+export async function uploadIssueEvidence(
+  issueId: string,
+  file: File,
+  label: string,
+  classification: string,
+  onProgress?: (percentage: number) => void,
+): Promise<{
+  api_version: "v1";
+  data_origin: string;
+  correlation_id: string;
+  item: IssueEvidenceApiItem;
+}> {
+  const body = new FormData();
+  body.append("file", file);
+  body.append("label", label);
+  body.append("evidence_type", "UPLOADED_FILE");
+  body.append("classification", classification);
+  body.append("idempotency_key", crypto.randomUUID());
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `/api/v1/issues/${encodeURIComponent(issueId)}/evidence/uploads`);
+    xhr.withCredentials = true;
+    xhr.setRequestHeader("Accept", "application/json");
+    Object.entries(stateChangingHeaders()).forEach(([name, value]) => {
+      xhr.setRequestHeader(name, value);
+    });
+    xhr.upload.addEventListener("progress", (event) => {
+      if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100));
+    });
+    xhr.addEventListener("load", () => {
+      recordCsrfProof(xhr.getResponseHeader("X-CSRF-Token"));
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(JSON.parse(xhr.responseText));
+        return;
+      }
+      reject(new IssueApiError(
+        xhr.status === 401 || xhr.status === 403 ? "unauthorized"
+          : xhr.status === 409 ? "conflict"
+            : xhr.status === 422 ? "validation" : "technical",
+        xhr.getResponseHeader("X-Correlation-ID") ?? undefined,
+      ));
+    });
+    xhr.addEventListener("error", () => reject(new IssueApiError("technical")));
+    xhr.send(body);
+  });
+}
+
+export async function downloadIssueEvidence(issueId: string, evidenceId: string): Promise<void> {
+  const response = await developmentFetch(
+    `/api/v1/issues/${encodeURIComponent(issueId)}/evidence/${encodeURIComponent(evidenceId)}/download`,
+    { credentials: "same-origin" },
+  );
+  if (!response.ok) throw issueApiError(response);
+  const blob = await response.blob();
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? "evidence";
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
 }

@@ -8,6 +8,7 @@ from typing import Any
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     Column,
     DateTime,
@@ -38,6 +39,12 @@ from veri_kalitesi.issues.errors import (
     IssueRelationshipError,
     IssueValidationError,
 )
+from veri_kalitesi.issues.evidence import IssueEvidenceKind, IssueEvidenceRecord
+from veri_kalitesi.issues.evidence_files import (
+    EvidenceClassification,
+    EvidenceScanStatus,
+    IssueEvidenceFileRecord,
+)
 from veri_kalitesi.issues.models import (
     DataQualityIssue,
     IssueHistoryEntry,
@@ -66,6 +73,8 @@ class IssueTables:
     resolutions: Table
     verifications: Table
     relationships: Table
+    evidence: Table
+    evidence_files: Table
 
 
 def issue_tables(schema: str = DEFAULT_SCHEMA_NAME) -> IssueTables:
@@ -147,6 +156,74 @@ def issue_tables(schema: str = DEFAULT_SCHEMA_NAME) -> IssueTables:
             name="ck_issue_history_receipt_consistency",
         ),
     )
+    evidence = Table(
+        "issue_evidence",
+        metadata,
+        Column("sequence_no", BigInteger, Identity(), primary_key=True),
+        Column("evidence_id", String(36), nullable=False, unique=True),
+        Column(
+            "issue_id",
+            String(36),
+            ForeignKey(f"{schema}.data_quality_issues.issue_id"),
+            nullable=False,
+        ),
+        Column("kind", String(30), nullable=False),
+        Column("label", String(200), nullable=False),
+        Column("execution_id", String(64), nullable=False),
+        Column("rule_version_id", String(36)),
+        Column("evaluated_count", Integer),
+        Column("failed_count", Integer),
+        Column("measurement_status", String(40)),
+        Column("fingerprint", String(128)),
+        Column("query_reference", String(200)),
+        Column("plan_reference", String(200)),
+        Column("content_digest", String(64), nullable=False),
+        Column("source_digest", String(64), nullable=False),
+        Column("observed_at", DateTime(timezone=True), nullable=False),
+        Column("captured_at", DateTime(timezone=True), nullable=False),
+        Column("captured_by", String(128), nullable=False),
+        CheckConstraint(
+            "kind IN ('EXECUTION_RESULT', 'EXECUTION_LOG', 'LEGACY_REFERENCE', 'UPLOADED_FILE')",
+            name="ck_issue_evidence_kind",
+        ),
+        UniqueConstraint("issue_id", "source_digest", name="uq_issue_evidence_source"),
+    )
+    evidence_files = Table(
+        "issue_evidence_files",
+        metadata,
+        Column("file_id", String(36), primary_key=True),
+        Column("evidence_id", String(36), ForeignKey(f"{schema}.issue_evidence.evidence_id"),
+               nullable=False),
+        Column("original_filename", String(255), nullable=False),
+        Column("safe_filename", String(255), nullable=False),
+        Column("declared_media_type", String(120)),
+        Column("detected_media_type", String(120), nullable=False),
+        Column("byte_size", BigInteger, nullable=False),
+        Column("object_key", String(500), nullable=False, unique=True),
+        Column("sha256_digest", String(64), nullable=False),
+        Column("scan_status", String(30), nullable=False),
+        Column("scan_reason_code", String(100)),
+        Column("scan_completed_at", DateTime(timezone=True)),
+        Column("classification", String(40), nullable=False),
+        Column("uploaded_by", String(128), nullable=False),
+        Column("uploaded_at", DateTime(timezone=True), nullable=False),
+        Column("retention_until", DateTime(timezone=True)),
+        Column("legal_hold", Boolean, nullable=False, server_default="false"),
+        Column("deleted_at", DateTime(timezone=True)),
+        Column("deleted_by", String(128)),
+        Column("idempotency_digest", String(64), nullable=False),
+        CheckConstraint("byte_size > 0", name="ck_issue_evidence_file_size"),
+        CheckConstraint("sha256_digest ~ '^[0-9a-f]{64}$'", name="ck_issue_evidence_file_sha256"),
+        CheckConstraint(
+            "scan_status IN ('UPLOADING','PENDING_SCAN','AVAILABLE','REJECTED','SCAN_FAILED')",
+            name="ck_issue_evidence_file_scan_status",
+        ),
+        CheckConstraint(
+            "scan_status <> 'AVAILABLE' OR scan_completed_at IS NOT NULL",
+            name="ck_issue_evidence_file_available_at",
+        ),
+        UniqueConstraint("evidence_id", name="uq_issue_evidence_file_evidence"),
+    )
     resolutions = Table(
         "issue_resolutions",
         metadata,
@@ -160,7 +237,12 @@ def issue_tables(schema: str = DEFAULT_SCHEMA_NAME) -> IssueTables:
         ),
         Column("root_cause", Text, nullable=False),
         Column("corrective_action", Text, nullable=False),
-        Column("evidence_reference_id", String(36), nullable=False),
+        Column(
+            "evidence_reference_id",
+            String(36),
+            ForeignKey(f"{schema}.issue_evidence.evidence_id"),
+            nullable=False,
+        ),
         Column("completed_at", DateTime(timezone=True), nullable=False),
         Column("protection_policy_version", String(80), nullable=False),
         Column("created_by", String(128), nullable=False),
@@ -240,7 +322,14 @@ def issue_tables(schema: str = DEFAULT_SCHEMA_NAME) -> IssueTables:
         unique=True,
         postgresql_where=history.c.source_event_id.isnot(None),
     )
-    return IssueTables(issues, history, resolutions, verifications, relationships)
+    Index(
+        "ix_issue_evidence_issue",
+        evidence.c.issue_id,
+        evidence.c.captured_at.desc(),
+    )
+    return IssueTables(
+        issues, history, resolutions, verifications, relationships, evidence, evidence_files
+    )
 
 
 def issue_table(schema: str = DEFAULT_SCHEMA_NAME) -> Table:
@@ -641,6 +730,144 @@ class PostgreSQLIssueRepository:
             raise IssueNotFoundError("Issue resolution not found.")
         return _row_to_resolution(row)
 
+    def list_evidence(self, issue_id: str) -> list[IssueEvidenceRecord]:
+        table = self._tables.evidence
+        with self._session_factory() as session:
+            rows = (
+                session.execute(
+                    select(table)
+                    .where(table.c.issue_id == issue_id)
+                    .order_by(table.c.sequence_no)
+                )
+                .mappings()
+                .all()
+            )
+        return [_row_to_evidence(row) for row in rows]
+
+    def get_evidence(self, evidence_id: str) -> IssueEvidenceRecord | None:
+        table = self._tables.evidence
+        with self._session_factory() as session:
+            row = (
+                session.execute(select(table).where(table.c.evidence_id == evidence_id))
+                .mappings()
+                .one_or_none()
+            )
+        return None if row is None else _row_to_evidence(row)
+
+    def add_evidence(self, record: IssueEvidenceRecord) -> IssueEvidenceRecord:
+        table = self._tables.evidence
+        with transactional_session(self._session_factory) as session:
+            session.execute(
+                select(
+                    func.pg_advisory_xact_lock(
+                        func.hashtext("dq_issue_evidence"),
+                        func.hashtext(f"{record.issue_id}:{record.source_digest}"),
+                    )
+                )
+            )
+            existing = (
+                session.execute(
+                    select(table).where(
+                        table.c.issue_id == record.issue_id,
+                        table.c.source_digest == record.source_digest,
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if existing is not None:
+                return _row_to_evidence(existing)
+            session.execute(
+                insert(table).values(
+                    evidence_id=record.evidence_id,
+                    issue_id=record.issue_id,
+                    kind=record.kind.value,
+                    label=record.label,
+                    execution_id=record.execution_id,
+                    rule_version_id=record.rule_version_id,
+                    evaluated_count=record.evaluated_count,
+                    failed_count=record.failed_count,
+                    measurement_status=record.measurement_status,
+                    fingerprint=record.fingerprint,
+                    query_reference=record.query_reference,
+                    plan_reference=record.plan_reference,
+                    content_digest=record.content_digest,
+                    source_digest=record.source_digest,
+                    observed_at=record.observed_at,
+                    captured_at=record.captured_at,
+                    captured_by=record.captured_by,
+                )
+            )
+        return record
+
+    def add_uploaded_evidence(
+        self, evidence: IssueEvidenceRecord, file: IssueEvidenceFileRecord
+    ) -> tuple[IssueEvidenceRecord, IssueEvidenceFileRecord]:
+        with transactional_session(self._session_factory) as session:
+            existing = (
+                session.execute(
+                    select(self._tables.evidence_files).where(
+                        self._tables.evidence_files.c.idempotency_digest == file.idempotency_digest,
+                        self._tables.evidence.c.issue_id == evidence.issue_id,
+                    ).select_from(
+                        self._tables.evidence_files.join(
+                            self._tables.evidence,
+                            self._tables.evidence_files.c.evidence_id
+                            == self._tables.evidence.c.evidence_id,
+                        )
+                    )
+                ).mappings().one_or_none()
+            )
+            if existing is not None:
+                stored_file = _row_to_evidence_file(existing)
+                stored_evidence = session.execute(
+                    select(self._tables.evidence).where(
+                        self._tables.evidence.c.evidence_id == stored_file.evidence_id
+                    )
+                ).mappings().one()
+                return _row_to_evidence(stored_evidence), stored_file
+            session.execute(insert(self._tables.evidence).values(
+                evidence_id=evidence.evidence_id, issue_id=evidence.issue_id,
+                kind=evidence.kind.value, label=evidence.label,
+                execution_id=evidence.execution_id, rule_version_id=evidence.rule_version_id,
+                evaluated_count=evidence.evaluated_count, failed_count=evidence.failed_count,
+                measurement_status=evidence.measurement_status, fingerprint=evidence.fingerprint,
+                query_reference=evidence.query_reference, plan_reference=evidence.plan_reference,
+                content_digest=evidence.content_digest, source_digest=evidence.source_digest,
+                observed_at=evidence.observed_at, captured_at=evidence.captured_at,
+                captured_by=evidence.captured_by,
+            ))
+            session.execute(insert(self._tables.evidence_files).values(**_file_values(file)))
+        return evidence, file
+
+    def get_evidence_file(self, evidence_id: str) -> IssueEvidenceFileRecord | None:
+        with self._session_factory() as session:
+            row = session.execute(select(self._tables.evidence_files).where(
+                self._tables.evidence_files.c.evidence_id == evidence_id
+            )).mappings().one_or_none()
+        return None if row is None else _row_to_evidence_file(row)
+
+    def list_evidence_files(self, issue_id: str) -> list[IssueEvidenceFileRecord]:
+        with self._session_factory() as session:
+            rows = session.execute(
+                select(self._tables.evidence_files).select_from(
+                    self._tables.evidence_files.join(self._tables.evidence)
+                ).where(self._tables.evidence.c.issue_id == issue_id)
+            ).mappings().all()
+        return [_row_to_evidence_file(row) for row in rows]
+
+    def update_evidence_file(self, file: IssueEvidenceFileRecord) -> None:
+        with transactional_session(self._session_factory) as session:
+            session.execute(update(self._tables.evidence_files).where(
+                self._tables.evidence_files.c.file_id == file.file_id
+            ).values(**_file_values(file)))
+
+    def evidence_is_referenced(self, evidence_id: str) -> bool:
+        with self._session_factory() as session:
+            return session.execute(select(self._tables.resolutions.c.sequence_no).where(
+                self._tables.resolutions.c.evidence_reference_id == evidence_id
+            ).limit(1)).first() is not None
+
     def get_latest_verification(self, issue_id: str) -> IssueVerificationRecord:
         row = self._latest(self._tables.verifications, issue_id)
         if row is None:
@@ -869,6 +1096,50 @@ def _row_to_resolution(values: RowMapping) -> IssueResolutionRecord:
         protection_policy_version=values["protection_policy_version"],
         created_by=values["created_by"],
         created_at=_require_datetime(values["created_at"]),
+    )
+
+
+def _row_to_evidence(values: RowMapping) -> IssueEvidenceRecord:
+    return IssueEvidenceRecord(
+        evidence_id=values["evidence_id"],
+        issue_id=values["issue_id"],
+        kind=IssueEvidenceKind(values["kind"]),
+        label=values["label"],
+        execution_id=values["execution_id"],
+        rule_version_id=values["rule_version_id"],
+        evaluated_count=values["evaluated_count"],
+        failed_count=values["failed_count"],
+        measurement_status=values["measurement_status"],
+        fingerprint=values["fingerprint"],
+        query_reference=values["query_reference"],
+        plan_reference=values["plan_reference"],
+        content_digest=values["content_digest"],
+        source_digest=values["source_digest"],
+        observed_at=_require_datetime(values["observed_at"]),
+        captured_at=_require_datetime(values["captured_at"]),
+        captured_by=values["captured_by"],
+    )
+
+
+def _file_values(file: IssueEvidenceFileRecord) -> dict[str, object]:
+    return dict(file.__dict__)
+
+
+def _row_to_evidence_file(values: RowMapping) -> IssueEvidenceFileRecord:
+    return IssueEvidenceFileRecord(
+        file_id=values["file_id"], evidence_id=values["evidence_id"],
+        original_filename=values["original_filename"], safe_filename=values["safe_filename"],
+        declared_media_type=values["declared_media_type"],
+        detected_media_type=values["detected_media_type"], byte_size=values["byte_size"],
+        object_key=values["object_key"], sha256_digest=values["sha256_digest"],
+        scan_status=EvidenceScanStatus(values["scan_status"]),
+        scan_reason_code=values["scan_reason_code"],
+        scan_completed_at=values["scan_completed_at"],
+        classification=EvidenceClassification(values["classification"]),
+        uploaded_by=values["uploaded_by"], uploaded_at=values["uploaded_at"],
+        retention_until=values["retention_until"], legal_hold=values["legal_hold"],
+        deleted_at=values["deleted_at"], deleted_by=values["deleted_by"],
+        idempotency_digest=values["idempotency_digest"],
     )
 
 

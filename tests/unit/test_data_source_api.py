@@ -17,7 +17,7 @@ from veri_kalitesi.api.data_source_commands import (
     DataSourceCommandError,
     DataSourceCommandResult,
 )
-from veri_kalitesi.api.development import create_development_app
+from veri_kalitesi.api.development import create_synthetic_development_app
 from veri_kalitesi.audit.models import (
     AuditFailureMode,
     AuditFailurePolicy,
@@ -105,7 +105,7 @@ def test_fr_007_repository_failure_returns_safe_technical_error() -> None:
 
 
 def test_development_api_exposes_only_synthetic_data_source_projection() -> None:
-    response = TestClient(create_development_app()).get("/api/v1/data-sources")
+    response = TestClient(create_synthetic_development_app()).get("/api/v1/data-sources")
 
     assert response.status_code == 200
     assert len(response.json()["items"]) == 4

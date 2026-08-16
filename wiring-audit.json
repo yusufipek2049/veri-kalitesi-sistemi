@@ -1,0 +1,842 @@
+{
+  "schema_version": "4",
+  "document_type": "backend-frontend-postgresql-wiring-map",
+  "generated_at": "2026-08-14",
+  "language_of_codebase": "Turkce yorum/docstring, Ingilizce teknik terim",
+  "purpose": "Backend fonksiyonlarinin frontend ve PostgreSQL ile gercek baglanti durumunu kanita dayali olarak haritalar. Uc kategori ayirt edilir: (a) ilişkisiz - backend'de var frontend'de karsiligi yok, (b) eksik iliskili - implementasyon var ama bilesim kokune baglanmamis, (c) override edilmis - endpoint calisiyor ama arkasindaki karar bir development stub'indan geliyor. Hedef: bu haritayi tuketen agent'in duzeltmeleri dogru sirada yapmasi.",
+
+  "supersedes": {
+    "document": "integration-audit.json",
+    "generated_at": "2026-08-12",
+    "status": "kismen bayat",
+    "still_valid": ["RC-1 (CSRF sozlesme uyumsuzlugu)", "RC-4 (e2e testlerin agi mock'lamasi)"],
+    "already_fixed_since": [
+      "RC-2: phase_b_providers artik development'ta otomatik kuruluyor (composition.py:394-409). Ancak kurulan seyler stub oldugu icin sorun sekil degistirdi - bu belgede F-2..F-7 olarak yeniden siniflandirildi.",
+      "RC-3: job_queue_repository ve issue_investigation_evidence_service artik geciliyor; app.py imzasi service_groups dataclass'larina tasindi (app.py:120-132)."
+    ],
+    "instruction_for_agent": "integration-audit.json'daki app.py imza atiflari gecersiz. Cakisma halinde bu belge esas alinir."
+  },
+
+  "repository": {
+    "root": "/home/yusuf/veri-kalitesi-sistemi",
+    "git_branch": "main",
+    "git_head": "38c65ea",
+    "backend_source_root": "src/veri_kalitesi",
+    "frontend_source_root": "frontend/src",
+    "e2e_root": "frontend/e2e",
+    "test_root": "tests"
+  },
+
+  "analysis_method": {
+    "static": [
+      "Tum @app.<method> dekoratorleri AST ile cikarildi (71 route)",
+      "Her route handler'in govdesinde 'if <servis> is None: raise' guard'lari AST ile tespit edildi",
+      "Frontend'deki tum '/api/v1' string'leri, ic ice template literal'lari dengeli parantez tarayicisiyla normalize edilerek eslendi",
+      "Her export edilen frontend api fonksiyonunun cagri noktalari .test./.stories. haric izlendi",
+      "Tum repository/store sinif tanimlari cikarilip bilesim koklerindeki kullanimlariyla eslestirildi",
+      "Modul bazinda composition.py import sayisi ve satir sayisi olculdu"
+    ],
+    "runtime": [
+      "Calisan docker compose stack'i uzerinde dogrulama yapildi (development-api-1, development-worker-1, development-postgres-1)",
+      "GET /api/v1/openapi.json canli PostgreSQL uygulamasindan cekildi (69 route)",
+      "Bellek ici development_composition.create_development_app() ayri kurulup OpenAPI yuzeyi karsilastirildi (57 route)",
+      "20 GET endpoint'i gercek dev kullanicisiyla prob edildi",
+      "POST /api/v1/rules/{id}/test tam CSRF zinciriyle (Origin + Referer + Sec-Fetch-Site + X-CSRF-Token) calistirildi",
+      "GET /api/v1/issues/{id}/assignment-options 500 dondu; traceback konteyner logundan dogrulandi"
+    ],
+    "not_done": [
+      "Tarayici uzerinde manuel UI dogrulamasi",
+      "Production BFF oturum yolu (create_production_app hic cagrilmadigi icin calistirilamaz)",
+      "Worker job handler'larinin uctan uca calistirilmasi",
+      "PATCH/PUT mutasyonlarinin canli denenmesi (sadece rule test denendi)"
+    ]
+  },
+
+  "runtime_topology": {
+    "critical_context_for_agent": "Calisan sistem production bilesimi DEGIL, development bilesimidir. Bulgu ve duzeltmelerin cogu bu tek gercege bagli.",
+    "api_container": {
+      "name": "development-api-1",
+      "entrypoint": "infra/application/Dockerfile:20 -> uvicorn scripts.run_dev:app",
+      "chain": "scripts/run_dev.py -> development_runtime.create_development_app() -> composition.create_application() -> app.create_dashboard_api()",
+      "phase_b_providers": "None geciliyor (development_runtime.py:46); composition.py:394-409 development stub'lariyla otomatik dolduruyor",
+      "data_origin_header": "postgresql-runtime",
+      "route_count": 69
+    },
+    "worker_container": {
+      "name": "development-worker-1",
+      "entrypoint": "pyproject.toml [project.scripts] dq-worker -> veri_kalitesi.jobs.entrypoint:main",
+      "chain": "jobs/entrypoint.py:23 -> jobs/production.create_production_worker()",
+      "ports": "Gercek PostgreSQL adaptorleri kurulur (assignee directory, notification publisher, score repository)",
+      "job_handlers": ["EXECUTION", "METADATA_DISCOVERY", "NOTIFICATION_DELIVERY"]
+    },
+    "asymmetry": "Ayni kavramsal portlar (issue atama profili, bildirim yayimi, kanit saglayici) API tarafinda sentetik, worker tarafinda PostgreSQL kaynakli cozuluyor. Iki farkli dogruluk kaynagi mevcut.",
+    "dead_path": {
+      "symbol": "create_production_app",
+      "file": "src/veri_kalitesi/api/production.py",
+      "line": 11,
+      "callers": 0,
+      "note": "Test dahil hicbir cagirani yok. Gercek PhaseBProviders'i enjekte edebilecek tek yol budur; calistirilmadigi icin stub'lar kalici davranis haline gelmistir."
+    }
+  },
+
+  "inventory": {
+    "backend_routes_total": 71,
+    "backend_routes_in_openapi": 69,
+    "health_routes": 2,
+    "fully_connected_to_ui": 58,
+    "no_frontend_caller": 8,
+    "dead_frontend_client": 3,
+    "live_stub_overrides": 7,
+    "modules_without_http_surface": 8,
+    "modules_without_http_surface_loc": 17420,
+    "postgresql_repositories_wired_to_api": 10,
+    "postgresql_repositories_wired_to_worker_only": 3,
+    "postgresql_repositories_never_wired": 1,
+    "sqlite_repositories_without_pg_counterpart": 8,
+    "reconciliation": "58 bagli + 8 cagrilmayan + 3 olu istemci + 2 health = 71"
+  },
+
+  "root_causes": [
+    {
+      "id": "RC-A",
+      "title": "Production bilesim kokunun hic cagrilmamasi stub'lari kalici davraniса cevirdi",
+      "description": "create_production_app (production.py:11) sifir cagirana sahip. API konteyneri development_runtime uzerinden ayaga kalkiyor ve phase_b_providers=None geciyor. composition.py:394-409 bu durumda build_development_phase_b_providers() cagirarak yedi sentetik implementasyonu devreye aliyor. Bu implementasyonlar 'gecici' olarak yazilmis ama uretim davranisi haline gelmis.",
+      "affected_finding_ids": ["F-1", "F-2", "F-3", "F-4", "F-5", "F-6", "F-7"],
+      "recommended_strategy": "Iki secenek: (1) create_production_app'e gercek bir ASGI giris noktasi verip Dockerfile'i ona cevirin; (2) development_runtime'a gercek PhaseBProviders gecirin. Her iki durumda da RuleTestExecutor ve IssueEvidenceProvider gercek implementasyon ister."
+    },
+    {
+      "id": "RC-B",
+      "title": "Ayni isimde iki create_development_app - paket re-export yanlis olani seciyor",
+      "description": "development_runtime.create_development_app (PostgreSQL, 69 route) ve development_composition.create_development_app (bellek ici + SQLite, 57 route) ayni ada sahip. veri_kalitesi.api.development paketi (development.py:12) bellek ici olani re-export ediyor. Import yoluna gore tamamen farkli bir uygulama elde ediliyor; testler bunu isimden ayirt edemiyor.",
+      "affected_finding_ids": ["F-8", "F-9"],
+      "recommended_strategy": "Bellek ici fabrikayi create_synthetic_development_app olarak yeniden adlandirin ve development.py re-export'unu buna gore guncelleyin. Testlerin hangi uygulamayi kurdugu isimden okunabilir olsun."
+    },
+    {
+      "id": "RC-C",
+      "title": "Router'lar eksik bagimliligi iki farkli sozlesmeyle temsil ediyor",
+      "description": "notifications_router.py:206-207 ve reporting_router.py:76-77 servis None ise erken return ediyor; route hic kaydedilmiyor -> istemci 404 aliyor. Diger tum router'lar route'u kaydedip <Domain>TechnicalError firlatiyor -> 503. Ayni ariza iki farkli HTTP koduyla gorunuyor.",
+      "affected_finding_ids": ["F-9", "F-11"],
+      "recommended_strategy": "Tek sozlesme secin. Onerilen: her router route'u daima kaydetsin, bagimlilik yoksa 503 donsun. Boylece OpenAPI yuzeyi bilesimden bagimsiz sabit kalir."
+    },
+    {
+      "id": "RC-D",
+      "title": "Yazilmis PostgreSQL implementasyonlari bilesim kokune baglanmamis",
+      "description": "PostgreSQLLineageEvidenceRepository tam implementasyon ve entegrasyon testine sahip ama hicbir bilesim koku onu kurmuyor. Ayni anda issue kanit endpoint'i _PassthroughEvidenceProvider stub'ina bagli. Boşluk ile onu dolduracak kod ayni depoda yan yana duruyor.",
+      "affected_finding_ids": ["F-3", "F-13"],
+      "recommended_strategy": "composition.py:519-529 icindeki _PassthroughEvidenceProvider yerine PostgreSQLLineageEvidenceRepository'yi IssueEvidenceProvider protokolune uyarlayip baglayin. Yeni kalicilik kodu gerekmiyor."
+    }
+  ],
+
+  "findings": [
+    {
+      "id": "F-1",
+      "severity": "critical",
+      "confidence": "high",
+      "category": "override",
+      "root_cause": "RC-A",
+      "title": "GET /issues/{id}/assignment-options her istekte HTTP 500 donuyor",
+      "impact": "Issue atama akisi UI'da tamamen kirik. Kullanici atama diyalogunu acamiyor.",
+      "evidence": [
+        {
+          "file": "src/veri_kalitesi/api/development_providers.py",
+          "lines": "134-146",
+          "proves": "list_assignment_options icinde user_id=UUID(user.user_id) cagriliyor; development kullanici id'leri 'dev-data-steward' gibi UUID olmayan string'ler."
+        },
+        {
+          "file": "src/veri_kalitesi/api/development_providers.py",
+          "line": 143,
+          "proves": "UUID(user.user_id) - ValueError kaynagi."
+        },
+        {
+          "runtime": "GET /api/v1/issues/d415968e-7806-4bca-84fe-4f0e5cc025bd/assignment-options -> HTTP 500; konteyner logu: {\"level\":\"ERROR\",\"logger\":\"uvicorn.error\",\"exception_class\":\"ValueError\"}"
+        }
+      ],
+      "affected_endpoints": ["GET /api/v1/issues/{issue_id}/assignment-options"],
+      "frontend_caller": {
+        "file": "frontend/src/issues/api.ts",
+        "line": 117,
+        "function": "fetchAssignmentOptions",
+        "used_in_ui": true
+      },
+      "fix_locations": ["src/veri_kalitesi/api/development_providers.py"],
+      "suggested_fix": "IssueAssigneeOptionResponse.user_id alanini str'ye cevirin ya da development kullanici id'lerini gercek UUID yapin. En dar duzeltme: models.py'deki IssueAssigneeOptionResponse.user_id tipini UUID -> str olarak gevsetin; ancak bu sozlesme degisikligi oldugu icin frontend model.ts ile birlikte kontrol edilmeli.",
+      "effort": "kucuk"
+    },
+    {
+      "id": "F-2",
+      "severity": "high",
+      "confidence": "high",
+      "category": "override",
+      "root_cause": "RC-A",
+      "title": "POST /rules/{id}/test her zaman sabit basari donuyor, veri kaynagina hic baglanmiyor",
+      "impact": "Kural testi UI'da calisiyor gorunuyor ama sonuc sentetik. Kullanici gercek veri kalitesi hakkinda yanlis bilgi aliyor - bu bir banka veri kalitesi sisteminde yaniltici sonuc uretir.",
+      "evidence": [
+        {
+          "file": "src/veri_kalitesi/api/development_providers.py",
+          "lines": "52-66",
+          "proves": "DevelopmentRuleTestExecutor.execute() daima checked=min(record_limit,100), passed=ayni deger, failed=0 doner. Rule/version parametreleri hic kullanilmaz."
+        },
+        {
+          "file": "src/veri_kalitesi/api/composition.py",
+          "lines": "458-473",
+          "proves": "RuleService phase_b_providers.rule_test_executor ile kuruluyor; development'ta bu DevelopmentRuleTestExecutor."
+        },
+        {
+          "runtime": "POST /api/v1/rules/89699156-c123-42a5-bafb-24039944751e/test -> {\"checked_count\":100,\"passed_count\":100,\"failed_count\":0,\"success_rate\":100.0}"
+        }
+      ],
+      "affected_endpoints": ["POST /api/v1/rules/{quality_rule_id}/test"],
+      "frontend_caller": {
+        "file": "frontend/src/rules/api.ts",
+        "line": 113,
+        "function": "testRule",
+        "used_in_ui": true
+      },
+      "fix_locations": ["src/veri_kalitesi/api/development_providers.py", "src/veri_kalitesi/api/composition.py"],
+      "suggested_fix": "Gercek RuleTestExecutor implementasyonu gerekiyor: veri kaynagina baglanip kural ifadesini sinirli kayit uzerinde calistirmali. executions/postgresql_executor.py icindeki yurutucu mantigi baslangic noktasi olabilir. Kisa vadede en azindan UI'da 'sentetik sonuc' uyarisi gosterilmeli.",
+      "effort": "buyuk"
+    },
+    {
+      "id": "F-3",
+      "severity": "high",
+      "confidence": "high",
+      "category": "override",
+      "root_cause": "RC-A",
+      "title": "Issue kanit endpoint'i passthrough stub yuzunden daima bos donuyor",
+      "impact": "Inceleme kaniti hicbir zaman gosterilemiyor; alti kanit alaninin tamami 'Unknown'.",
+      "evidence": [
+        {
+          "file": "src/veri_kalitesi/api/composition.py",
+          "lines": "519-529",
+          "proves": "_PassthroughEvidenceProvider.get_evidence_for_issue daima None doner ve IssueInvestigationEvidenceService'e evidence_provider olarak verilir."
+        },
+        {
+          "file": "src/veri_kalitesi/issues/investigation.py",
+          "line": 161,
+          "proves": "Servis payload'i evidence_provider.get_evidence_for_issue'dan alir; None gelince tum bilesenler Unknown olur."
+        },
+        {
+          "runtime": "GET /api/v1/issues/{id}/investigation/evidence -> rule_description/expected_summary/actual_summary/masked_samples/similar_history/recommendation alanlarinin hepsi {source: 'Unknown', value: null}"
+        }
+      ],
+      "affected_endpoints": ["GET /api/v1/issues/{issue_id}/investigation/evidence"],
+      "frontend_caller": {
+        "file": "frontend/src/issues/api.ts",
+        "line": 286,
+        "function": "fetchInvestigationEvidence",
+        "used_in_ui": false,
+        "note": "Istemci yazilmis ama hicbir bilesen cagirmiyor - bkz F-12"
+      },
+      "fix_locations": ["src/veri_kalitesi/api/composition.py"],
+      "suggested_fix": "PostgreSQLLineageEvidenceRepository (lineage/postgresql_lineage.py:60) IssueEvidenceProvider protokolune uyarlanip baglanmali. Bkz RC-D ve F-13.",
+      "effort": "orta"
+    },
+    {
+      "id": "F-4",
+      "severity": "medium",
+      "confidence": "high",
+      "category": "override",
+      "root_cause": "RC-A",
+      "title": "Issue dogrulama cozucusu her zaman QUALITY_PASSED ve sabit scope donuyor",
+      "impact": "Dogrulama adimi hicbir zaman basarisiz olamiyor; scope_id sabit 'dataset-customer' oldugu icin farkli dataset'lerdeki issue'lar yanlis kapsamla dogrulaniyor.",
+      "evidence": [
+        {
+          "file": "src/veri_kalitesi/api/development_providers.py",
+          "lines": "173-190",
+          "proves": "DevelopmentIssueVerificationResolver.resolve_verification daima outcome=QUALITY_PASSED, scope_id='dataset-customer', execution_id=f'dev-exec-{...}' doner."
+        }
+      ],
+      "affected_endpoints": ["POST /api/v1/issues/{issue_id}/verification"],
+      "frontend_caller": {
+        "file": "frontend/src/issues/api.ts",
+        "line": 205,
+        "function": "verifyIssue",
+        "used_in_ui": true
+      },
+      "fix_locations": ["src/veri_kalitesi/api/development_providers.py"],
+      "suggested_fix": "Gercek cozucu, verification_reference_id'yi rule_executions/quality_scores tablolarindan cozmeli. Worker tarafindaki score publication akisi referans alinabilir.",
+      "effort": "orta"
+    },
+    {
+      "id": "F-5",
+      "severity": "medium",
+      "confidence": "high",
+      "category": "override",
+      "root_cause": "RC-A",
+      "title": "Cozum koruyucusu taslagi dogrulamadan geciriyor",
+      "impact": "IssueResolutionDraft uzerinde hicbir koruma/dogrulama uygulanmiyor; protection_policy_version 'DEVELOPMENT_PASSTHROUGH_V1' olarak kaliciya yaziliyor.",
+      "evidence": [
+        {
+          "file": "src/veri_kalitesi/api/development_providers.py",
+          "lines": "153-170",
+          "proves": "DevelopmentIssueResolutionProtector.protect_resolution taslak alanlarini birebir kopyalar, policy_version='DEVELOPMENT_PASSTHROUGH_V1'."
+        }
+      ],
+      "affected_endpoints": ["POST /api/v1/issues/{issue_id}/resolution"],
+      "frontend_caller": {
+        "file": "frontend/src/issues/api.ts",
+        "line": 173,
+        "function": "resolveIssue",
+        "used_in_ui": true
+      },
+      "fix_locations": ["src/veri_kalitesi/api/development_providers.py"],
+      "suggested_fix": "Gercek koruma politikasi tanimlanmali. Kisa vadede: veritabaninda DEVELOPMENT_PASSTHROUGH_V1 policy_version'i ile yazilmis kayitlari tespit edip isaretleyin - bunlar denetim acisindan gecerli sayilmamali.",
+      "effort": "orta"
+    },
+    {
+      "id": "F-6",
+      "severity": "medium",
+      "confidence": "high",
+      "category": "wrong-source",
+      "root_cause": "RC-A",
+      "title": "Issue atama profili PostgreSQL yerine bellek ici sentetik registry'den cozuluyor",
+      "impact": "API ve worker ayni portu farkli kaynaklardan cozuyor: API sekiz sentetik dev kullanicisi, worker PostgreSQLDataSourceRepository. Atama yetki kapsamlari tutarsiz olabilir.",
+      "evidence": [
+        {
+          "file": "src/veri_kalitesi/api/development_providers.py",
+          "lines": "72-88",
+          "proves": "DevelopmentIssueAssigneeDirectory.get_assignee_profile DevelopmentUserRegistry'den okur."
+        },
+        {
+          "file": "src/veri_kalitesi/jobs/production.py",
+          "lines": "132-140",
+          "proves": "Worker ayni protokolu PostgreSQLDataSourceRepository uzerinden cozer."
+        },
+        {
+          "file": "src/veri_kalitesi/api/development_providers.py",
+          "lines": "91-122",
+          "proves": "DevelopmentIssueAssignmentResolver otomatik trigger'da sabit 'dev-data-steward' kullanicisina atar."
+        }
+      ],
+      "affected_endpoints": [
+        "POST /api/v1/issues/{issue_id}/assignment",
+        "POST /api/v1/issues"
+      ],
+      "fix_locations": ["src/veri_kalitesi/api/composition.py", "src/veri_kalitesi/jobs/production.py"],
+      "suggested_fix": "Worker'daki PostgreSQL tabanli assignee directory implementasyonunu paylasilan bir module tasiyip her iki bilesim kokunun da onu kullanmasini saglayin.",
+      "effort": "orta"
+    },
+    {
+      "id": "F-7",
+      "severity": "low",
+      "confidence": "high",
+      "category": "dead-code",
+      "root_cause": "RC-A",
+      "title": "DevelopmentIssueEvidenceProvider tanimli ama hicbir yerden referans verilmiyor",
+      "impact": "Kafa karistirici olu kod; _PassthroughEvidenceProvider ile birebir ayni davranisi tekrarliyor.",
+      "evidence": [
+        {
+          "file": "src/veri_kalitesi/api/development_providers.py",
+          "lines": "286-295",
+          "proves": "Sinif tanimli; build_development_phase_b_providers factory'si (satir 301) bile kullanmiyor. Depo genelinde 0 referans."
+        }
+      ],
+      "affected_endpoints": [],
+      "fix_locations": ["src/veri_kalitesi/api/development_providers.py"],
+      "suggested_fix": "Silin. F-3 duzeltilirken zaten gereksiz kalacak.",
+      "effort": "kucuk"
+    },
+    {
+      "id": "F-8",
+      "severity": "high",
+      "confidence": "high",
+      "category": "shadowing",
+      "root_cause": "RC-B",
+      "title": "Iki create_development_app; paket re-export'u bellek ici olani seciyor",
+      "impact": "Testler PostgreSQL uygulamasini test ettiklerini saniyor olabilir. veri_kalitesi.api.development'tan import eden her sey 57 route'luk sentetik uygulamayi alir.",
+      "evidence": [
+        {
+          "file": "src/veri_kalitesi/api/development_runtime.py",
+          "line": 15,
+          "proves": "create_development_app -> create_application() -> PostgreSQL. scripts/run_dev.py bunu import eder."
+        },
+        {
+          "file": "src/veri_kalitesi/api/development_composition.py",
+          "line": 302,
+          "proves": "Ayni isimde ikinci fabrika -> create_dashboard_api() + bellek ici store'lar + SQLiteScoreRepository/SQLiteAuditRepository."
+        },
+        {
+          "file": "src/veri_kalitesi/api/development.py",
+          "lines": "10-13",
+          "proves": "Paket development_composition'daki olani re-export ediyor."
+        },
+        {
+          "runtime": "Iki uygulama da kuruldu: PostgreSQL 69 route, bellek ici 57 route."
+        }
+      ],
+      "consumers_of_wrong_one": [
+        "tests/integration/test_audit_custom_period_api.py:7",
+        "tests/unit/test_audit_api.py:9"
+      ],
+      "fix_locations": [
+        "src/veri_kalitesi/api/development_composition.py",
+        "src/veri_kalitesi/api/development.py"
+      ],
+      "suggested_fix": "Bellek ici fabrikayi create_synthetic_development_app olarak yeniden adlandirin; development.py __all__ ve re-export'unu guncelleyin; iki test dosyasinin importunu duzeltin.",
+      "effort": "kucuk"
+    },
+    {
+      "id": "F-9",
+      "severity": "medium",
+      "confidence": "high",
+      "category": "contract-inconsistency",
+      "root_cause": "RC-C",
+      "title": "notifications ve reporting router'lari eksik bagimlilikta route'u hic kaydetmiyor (404), digerleri 503 donuyor",
+      "impact": "Ayni ariza iki farkli HTTP koduyla temsil ediliyor. Bellek ici uygulamada 12 endpoint OpenAPI yuzeyinde hic yok; istemci 503 yerine 404 alir ve bunu 'yanlis URL' sanir.",
+      "evidence": [
+        {
+          "file": "src/veri_kalitesi/api/notifications_router.py",
+          "lines": "206-207",
+          "proves": "if notification_query_service is None: return - hicbir route kaydedilmez."
+        },
+        {
+          "file": "src/veri_kalitesi/api/reporting_router.py",
+          "lines": "76-77",
+          "proves": "Ayni desen."
+        },
+        {
+          "file": "src/veri_kalitesi/api/rules_router.py",
+          "lines": "148-152",
+          "proves": "Karsit desen: route kaydedilir, servis None ise RuleQueryTechnicalError -> 503."
+        },
+        {
+          "runtime": "Bellek ici uygulama 57 route; PostgreSQL uygulamasi 69. Fark tam olarak 10 notifications + 2 reports."
+        }
+      ],
+      "affected_endpoints": [
+        "GET /api/v1/notifications/inbox",
+        "GET /api/v1/notifications/inbox/unread-count",
+        "GET /api/v1/notifications/deliveries/{delivery_id}",
+        "POST /api/v1/notifications/deliveries/{delivery_id}/read",
+        "POST /api/v1/notifications/inbox/mark-all-read",
+        "POST /api/v1/notifications/deliveries/bulk-read",
+        "GET /api/v1/notifications/events/{event_id}",
+        "GET /api/v1/notifications/subscriptions",
+        "GET /api/v1/notifications/channels",
+        "GET /api/v1/notifications/stream",
+        "GET /api/v1/reports",
+        "GET /api/v1/reports/{report_id}"
+      ],
+      "fix_locations": [
+        "src/veri_kalitesi/api/notifications_router.py",
+        "src/veri_kalitesi/api/reporting_router.py"
+      ],
+      "suggested_fix": "Erken return'u kaldirip diger router'lardaki guard desenine gecirin. Not: bu router'lardaki bircok handler servisi guard'siz kullaniyor, o yuzden guard eklenmesi ayrica gerekli - aksi halde None uzerinde AttributeError -> 500 olur.",
+      "effort": "orta"
+    },
+    {
+      "id": "F-10",
+      "severity": "medium",
+      "confidence": "high",
+      "category": "orphan-endpoint",
+      "root_cause": null,
+      "title": "Sekiz backend endpoint'i frontend'den hic cagrilmiyor",
+      "impact": "Yazilmis, test edilmis ve kaydedilmis backend yuzeyi kullanilamaz durumda. Raporlama alaninin UI karsiligi hic yok.",
+      "evidence": [
+        {
+          "static": "frontend/src altindaki tum '/api/v1' literal'leri normalize edilip 71 backend route'uyla eslendi; bu sekizi hicbir dosyada gecmiyor."
+        }
+      ],
+      "orphans": [
+        {
+          "endpoint": "GET /api/v1/reports",
+          "backend": "src/veri_kalitesi/api/reporting_router.py:80",
+          "note": "Frontend'de reports/ dizini hic yok. Backend'de PostgreSQLReportRepository ve worker'da zamanlayici mevcut.",
+          "verdict": "eksik ozellik"
+        },
+        {
+          "endpoint": "GET /api/v1/reports/{report_id}",
+          "backend": "src/veri_kalitesi/api/reporting_router.py:103",
+          "note": "Ayni alan.",
+          "verdict": "eksik ozellik"
+        },
+        {
+          "endpoint": "PUT /api/v1/data-sources/{data_source_id}/discovery-scope",
+          "backend": "src/veri_kalitesi/api/catalog_router.py:180",
+          "note": "Kesif kapsami duzenleme; katalog UI'inda karsiligi yok.",
+          "verdict": "eksik ozellik"
+        },
+        {
+          "endpoint": "GET /api/v1/data-sources/{data_source_id}/discovery-scope",
+          "backend": "src/veri_kalitesi/api/catalog_router.py:226",
+          "note": "Yukaridakinin okuma tarafi.",
+          "verdict": "eksik ozellik"
+        },
+        {
+          "endpoint": "GET /api/v1/notifications/deliveries/{delivery_id}",
+          "backend": "src/veri_kalitesi/api/notifications_router.py:278",
+          "note": "Teslimat detayi. UI liste gorunumunde kaliyor.",
+          "verdict": "eksik ozellik"
+        },
+        {
+          "endpoint": "GET /api/v1/notifications/events/{event_id}",
+          "backend": "src/veri_kalitesi/api/notifications_router.py:366",
+          "note": "Olay detayi.",
+          "verdict": "eksik ozellik"
+        },
+        {
+          "endpoint": "GET /api/v1/scores/rules/{rule_version_id}",
+          "backend": "src/veri_kalitesi/api/scores_router.py:249",
+          "note": "Surum bazli skor listesi. UI kural bazli varyanti tercih ediyor, o da olu (F-12).",
+          "verdict": "muhtemel fazlalik - iki varyanttan biri silinebilir"
+        },
+        {
+          "endpoint": "GET /api/v1/audit/actions",
+          "backend": "src/veri_kalitesi/api/audit_router.py:54",
+          "note": "Statik aksiyon sozlugu. Denetim filtre etiketleri frontend'de sabit kodlanmis.",
+          "verdict": "muhtemel bilincli tercih - dogrulanmali"
+        }
+      ],
+      "fix_locations": ["frontend/src"],
+      "suggested_fix": "Her biri icin karar verin: UI yazilacak mi, yoksa endpoint kaldirilacak mi. audit/actions ve scores/rules varyanti icin once bilincli tercih olup olmadigini dogrulayin.",
+      "effort": "degisken"
+    },
+    {
+      "id": "F-11",
+      "severity": "low",
+      "confidence": "high",
+      "category": "unguarded-dependency",
+      "root_cause": "RC-C",
+      "title": "notifications ve reporting handler'lari servisi guard'siz kullaniyor",
+      "impact": "Erken return kaldirilirsa (F-9 duzeltmesi) bu handler'lar None uzerinde AttributeError atar ve 503 yerine 500 doner. F-9 ile birlikte duzeltilmeli.",
+      "evidence": [
+        {
+          "static": "AST taramasi: notifications_router'da 7 handler, reporting_router'da 2 handler servisi kullaniyor ama 'is None' guard'i yok. Karsilastirma: rules/issues/executions router'larinin tum handler'larinda guard var.",
+          "unguarded_handlers": [
+            "get_notification_inbox", "get_unread_count", "get_delivery_detail",
+            "mark_all_read", "get_event_detail", "list_subscriptions", "list_channels",
+            "list_reports", "get_report"
+          ]
+        }
+      ],
+      "fix_locations": [
+        "src/veri_kalitesi/api/notifications_router.py",
+        "src/veri_kalitesi/api/reporting_router.py"
+      ],
+      "suggested_fix": "F-9 ile birlikte: erken return kaldirilirken her handler'a guard eklenmeli.",
+      "effort": "kucuk"
+    },
+    {
+      "id": "F-12",
+      "severity": "low",
+      "confidence": "high",
+      "category": "dead-frontend-client",
+      "root_cause": null,
+      "title": "Uc frontend api fonksiyonu yazilmis ama hicbir bilesen kullanmiyor",
+      "impact": "Olu istemci kodu. Ikisi yalnizca kendi testinden cagriliyor, bu da yanlis bir kapsam guveni yaratiyor.",
+      "evidence": [
+        {
+          "static": "Her export edilen fonksiyonun referanslari .test./.stories. haric tarandi."
+        }
+      ],
+      "dead_clients": [
+        {
+          "function": "fetchInvestigationEvidence",
+          "file": "frontend/src/issues/api.ts",
+          "line": 286,
+          "endpoint": "GET /api/v1/issues/{issue_id}/investigation/evidence",
+          "referenced_only_by": ["frontend/src/issues/api.test.ts:330", "frontend/src/issues/api.test.ts:343"],
+          "note": "Uc katmanli kopukluk: backend stub (F-3) + istemci var + UI cagirmiyor."
+        },
+        {
+          "function": "fetchGroupedAuditEvents",
+          "file": "frontend/src/audit/api.ts",
+          "line": 54,
+          "endpoint": "GET /api/v1/audit/events/grouped",
+          "referenced_only_by": ["frontend/src/audit/api.test.ts:93"],
+          "note": "AuditPage gruplu gorunumu sunmuyor."
+        },
+        {
+          "function": "fetchRuleScores",
+          "file": "frontend/src/scores/api.ts",
+          "line": 163,
+          "endpoint": "GET /api/v1/rules/{quality_rule_id}/scores",
+          "referenced_only_by": [],
+          "note": "Hicbir referansi yok - testi bile yazilmamis."
+        }
+      ],
+      "fix_locations": ["frontend/src/issues", "frontend/src/audit", "frontend/src/scores"],
+      "suggested_fix": "fetchInvestigationEvidence: F-3 duzeltildikten sonra IssuesPage'e kanit paneli baglanmali (ScoreContributionPanel.tsx benzeri bir bilesen). Digerleri icin UI yazilacak mi karari verilmeli, yoksa silinmeli.",
+      "effort": "degisken"
+    },
+    {
+      "id": "F-13",
+      "severity": "medium",
+      "confidence": "high",
+      "category": "unwired-implementation",
+      "root_cause": "RC-D",
+      "title": "PostgreSQLLineageEvidenceRepository hicbir bilesim kokune baglanmamis",
+      "impact": "Tam implementasyon ve entegrasyon testi var ama uretimde hic calismiyor. Ayni anda F-3'teki kanit bosluğu stub ile dolduruluyor.",
+      "evidence": [
+        {
+          "file": "src/veri_kalitesi/lineage/postgresql_lineage.py",
+          "line": 60,
+          "proves": "Sinif tanimli; snapshot ve audit outbox kaydini ayni transaction'da yazar."
+        },
+        {
+          "static": "Depo genelinde tuketicileri: lineage/__init__.py (re-export) ve tests/integration/test_postgresql_lineage_evidence.py (satir 88, 147). Hicbir bilesim koku kurmuyor."
+        }
+      ],
+      "fix_locations": ["src/veri_kalitesi/api/composition.py"],
+      "suggested_fix": "F-3 ile birlikte cozulur.",
+      "effort": "orta"
+    },
+    {
+      "id": "F-14",
+      "severity": "medium",
+      "confidence": "high",
+      "category": "postgresql-gap",
+      "root_cause": null,
+      "title": "Sekiz SQLite repository'sinin PostgreSQL karsiligi yok",
+      "impact": "PostgreSQL cutover'i eksik. Ozellikle SQLiteSessionRepository production BFF oturum yolu icin dogrudan engel.",
+      "evidence": [
+        {
+          "static": "Tum repository sinif tanimlari cikarildi; PostgreSQL* ve SQLite* esleri karsilastirildi."
+        }
+      ],
+      "gaps": [
+        {
+          "class": "SQLiteSessionRepository",
+          "file": "src/veri_kalitesi/identity/sessions.py:116",
+          "blocks": "Production BFF oturumu (BffSessionBoundary)",
+          "priority": "yuksek"
+        },
+        {
+          "class": "SQLiteAuthenticationThrottleRepository",
+          "file": "src/veri_kalitesi/identity/throttling.py:66",
+          "blocks": "Kimlik dogrulama kisitlamasinin kalici olmasi",
+          "priority": "yuksek"
+        },
+        {
+          "class": "SQLiteDatasetPartialScorePolicyRepository",
+          "file": "src/veri_kalitesi/scoring/partial_score_policies.py:115",
+          "blocks": "Kismi skor politikalarinin skorlama akisinda kalici olmasi",
+          "priority": "orta"
+        },
+        {
+          "class": "SQLiteLegalHoldRepository",
+          "file": "src/veri_kalitesi/retention/repository.py:26",
+          "blocks": "Saklama alani",
+          "priority": "orta"
+        },
+        {
+          "class": "SQLiteDisposalJobRepository",
+          "file": "src/veri_kalitesi/retention/disposal_repository.py:26",
+          "blocks": "Saklama alani",
+          "priority": "orta"
+        },
+        {
+          "class": "SQLiteArchiveRecallRepository",
+          "file": "src/veri_kalitesi/retention/archive_recall_repository.py:25",
+          "blocks": "Saklama alani",
+          "priority": "orta"
+        },
+        {
+          "class": "SQLiteServiceNowRepository",
+          "file": "src/veri_kalitesi/servicenow/repository.py:29",
+          "blocks": "Kenar alan - erisilemez modul (F-15)",
+          "priority": "dusuk"
+        },
+        {
+          "class": "SQLiteSyntheticDataRepository",
+          "file": "src/veri_kalitesi/synthetic_data/repository.py:33",
+          "blocks": "Tohumlama betikleri - SQLite kabul edilebilir",
+          "priority": "dusuk"
+        }
+      ],
+      "fix_locations": ["src/veri_kalitesi/identity", "src/veri_kalitesi/retention", "src/veri_kalitesi/scoring"],
+      "suggested_fix": "Oncelik sirasi: identity (sessions + throttling) -> scoring partial policies -> retention. Mevcut PostgreSQL* adaptorleri (ornegin PostgreSQLRuleRepository) sablon olarak kullanilabilir; alembic migration'i da gerekir.",
+      "effort": "buyuk"
+    },
+    {
+      "id": "F-15",
+      "severity": "low",
+      "confidence": "medium",
+      "category": "unreachable-module",
+      "root_cause": null,
+      "title": "Sekiz modul (17.420 satir) API bilesim kokune hic dokunmuyor",
+      "impact": "Bir kismi tasarim geregi, uc tanesi ise hicbir giris noktasindan erisilemez durumda.",
+      "evidence": [
+        {
+          "static": "composition.py'deki 'veri_kalitesi.<modul>' import sayisi + modul disi tuketici taramasi + cli.py/main() varligi."
+        }
+      ],
+      "modules": [
+        { "module": "servicenow", "files": 5, "loc": 1917, "entry": null, "verdict": "erisilemez", "note": "Ne API, ne CLI, ne worker. Yalnizca enterprise_lab/adapters.py referans veriyor - o da erisilemez." },
+        { "module": "enterprise_lab", "files": 4, "loc": 920, "entry": null, "verdict": "erisilemez", "note": "Disaridan hicbir tuketicisi yok." },
+        { "module": "data_protection", "files": 4, "loc": 644, "entry": null, "verdict": "erisilemez", "note": "Yalnizca data_sources modelleri icinden dolayli kullanim; kendi yuzeyi yok." },
+        { "module": "lineage", "files": 9, "loc": 1865, "entry": "cli.py (paketlenmemis)", "verdict": "yarim bagli", "note": "Yalnizca dashboard/service.py governance kismini kullaniyor. PostgreSQL kanit repository'si burada - bkz F-13." },
+        { "module": "retention", "files": 11, "loc": 2650, "entry": "cli.py (paketlenmemis)", "verdict": "yarim bagli", "note": "CLI [project.scripts]'te yok; yalnizca python -m ile cagrilabilir." },
+        { "module": "secure_sdlc", "files": 13, "loc": 3247, "entry": "cli.py + 5 main()", "verdict": "tasarim geregi", "note": "Derleme/CI kanit hatti; HTTP yuzeyi beklenmiyor." },
+        { "module": "synthetic_data", "files": 13, "loc": 5759, "entry": "scripts/generate_synthetic_test_data.py", "verdict": "tasarim geregi", "note": "Tohumlama betikleri uzerinden kullaniliyor." },
+        { "module": "environment_security", "files": 5, "loc": 418, "entry": null, "verdict": "tasarim geregi", "note": "Baslangic kapisi; enterprise_lab tuketiyor." }
+      ],
+      "fix_locations": [],
+      "suggested_fix": "servicenow, enterprise_lab ve data_protection icin karar: canlandirilacak mi yoksa archive/ altina tasinacak mi. lineage ve retention CLI'lari pyproject.toml [project.scripts]'e eklenmeli.",
+      "effort": "degisken"
+    },
+    {
+      "id": "F-16",
+      "severity": "low",
+      "confidence": "high",
+      "category": "hygiene",
+      "root_cause": null,
+      "title": "Kucuk tutarsizliklar",
+      "impact": "Dusuk; ama ReportingServices eksikligi tip kontrolu ve kesif acisindan yanlis sinyal veriyor.",
+      "evidence": [
+        {
+          "file": "src/veri_kalitesi/api/__init__.py",
+          "proves": "Diger sekiz servis grubu __all__'da dısa aktarilirken ReportingServices atlanmis."
+        },
+        {
+          "file": "src/veri_kalitesi/sistemi/src/veri_kalitesi/synthetic_data/",
+          "proves": "Bos dizin agaci; hicbir dosya icermiyor. Hatali kopyalama artigi."
+        },
+        {
+          "file": "integration-audit.json",
+          "proves": "12 Agustos tarihli; app.py'nin eski imzasina atif yapiyor. RC-2 ve RC-3 sonradan duzeltilmis."
+        }
+      ],
+      "fix_locations": ["src/veri_kalitesi/api/__init__.py", "src/veri_kalitesi/sistemi"],
+      "suggested_fix": "ReportingServices'i __init__.py import ve __all__ listesine ekleyin; bos dizin agacini silin; integration-audit.json'i bu belgeyle degistirin veya supersedes notu ekleyin.",
+      "effort": "kucuk"
+    }
+  ],
+
+  "endpoint_matrix": {
+    "note": "Tam 71 satirlik matris uretilebilir; burada yalnizca sorunlu olanlar listelendi. Saglikli 58 endpoint icin verification_recipes.regenerate_matrix kullanilabilir.",
+    "healthy_count": 58,
+    "problematic": [
+      { "endpoint": "GET /api/v1/issues/{issue_id}/assignment-options", "status": "500", "finding": "F-1" },
+      { "endpoint": "POST /api/v1/rules/{quality_rule_id}/test", "status": "200-fake", "finding": "F-2" },
+      { "endpoint": "GET /api/v1/issues/{issue_id}/investigation/evidence", "status": "200-empty", "finding": "F-3,F-12" },
+      { "endpoint": "POST /api/v1/issues/{issue_id}/verification", "status": "200-fake", "finding": "F-4" },
+      { "endpoint": "POST /api/v1/issues/{issue_id}/resolution", "status": "200-passthrough", "finding": "F-5" },
+      { "endpoint": "POST /api/v1/issues/{issue_id}/assignment", "status": "200-wrong-source", "finding": "F-6" },
+      { "endpoint": "POST /api/v1/issues", "status": "200-wrong-source", "finding": "F-6" },
+      { "endpoint": "GET /api/v1/reports", "status": "orphan", "finding": "F-10" },
+      { "endpoint": "GET /api/v1/reports/{report_id}", "status": "orphan", "finding": "F-10" },
+      { "endpoint": "PUT /api/v1/data-sources/{data_source_id}/discovery-scope", "status": "orphan", "finding": "F-10" },
+      { "endpoint": "GET /api/v1/data-sources/{data_source_id}/discovery-scope", "status": "orphan", "finding": "F-10" },
+      { "endpoint": "GET /api/v1/notifications/deliveries/{delivery_id}", "status": "orphan", "finding": "F-10" },
+      { "endpoint": "GET /api/v1/notifications/events/{event_id}", "status": "orphan", "finding": "F-10" },
+      { "endpoint": "GET /api/v1/scores/rules/{rule_version_id}", "status": "orphan", "finding": "F-10" },
+      { "endpoint": "GET /api/v1/audit/actions", "status": "orphan-likely-intentional", "finding": "F-10" },
+      { "endpoint": "GET /api/v1/audit/events/grouped", "status": "dead-client", "finding": "F-12" },
+      { "endpoint": "GET /api/v1/rules/{quality_rule_id}/scores", "status": "dead-client", "finding": "F-12" }
+    ]
+  },
+
+  "fix_plan": {
+    "ordering_rationale": "F-1 kullaniciya dogrudan yansiyan tek satirlik hata, once kapatilir. RC-A cozulmeden F-2..F-6 kalici olarak duzeltilemez, o yuzden ikinci sirada. F-3 ve F-13 ayni degisiklikle cozulur. Yapisal temizlik (F-8, F-9) sonra; kapsam kararlari (F-10, F-12, F-15) en sonda cunku urun karari gerektirir.",
+    "steps": [
+      {
+        "order": 1,
+        "finding_ids": ["F-1"],
+        "action": "assignment-options 500'unu kapat",
+        "blocking": false,
+        "effort": "kucuk",
+        "verification": "verification_recipes.probe_assignment_options"
+      },
+      {
+        "order": 2,
+        "finding_ids": ["F-3", "F-13"],
+        "action": "PostgreSQLLineageEvidenceRepository'yi IssueEvidenceProvider olarak bagla, _PassthroughEvidenceProvider'i kaldir",
+        "blocking": false,
+        "effort": "orta",
+        "verification": "verification_recipes.probe_evidence"
+      },
+      {
+        "order": 3,
+        "finding_ids": ["F-8", "F-16"],
+        "action": "Isim cakismasini coz + hijyen temizligi",
+        "blocking": false,
+        "effort": "kucuk",
+        "verification": "pytest tests/unit/test_audit_api.py tests/integration/test_audit_custom_period_api.py"
+      },
+      {
+        "order": 4,
+        "finding_ids": ["F-9", "F-11"],
+        "action": "Router sozlesmesini tekleştir: erken return -> guard + 503",
+        "blocking": false,
+        "effort": "orta",
+        "verification": "verification_recipes.compare_openapi_surfaces"
+      },
+      {
+        "order": 5,
+        "finding_ids": ["F-2", "F-4", "F-5", "F-6", "F-7"],
+        "action": "RC-A'yi coz: gercek PhaseBProviders yolu ac ve stub'lari gercek implementasyonlarla degistir",
+        "blocking": true,
+        "blocking_reason": "Gercek RuleTestExecutor yeni is mantigi gerektiriyor; urun karari ve muhtemel yeni migration gerekebilir.",
+        "effort": "buyuk",
+        "verification": "verification_recipes.probe_rule_test"
+      },
+      {
+        "order": 6,
+        "finding_ids": ["F-14"],
+        "action": "SQLite -> PostgreSQL bosluklarini kapat (identity once)",
+        "blocking": false,
+        "effort": "buyuk",
+        "verification": "pytest tests/integration -k postgresql"
+      },
+      {
+        "order": 7,
+        "finding_ids": ["F-10", "F-12", "F-15"],
+        "action": "Kapsam kararlari: orphan endpoint'ler, olu istemciler ve erisilemez moduller icin yaz-veya-sil karari",
+        "blocking": true,
+        "blocking_reason": "Urun karari gerektirir; agent tek basina karar vermemeli.",
+        "effort": "degisken",
+        "verification": "verification_recipes.regenerate_matrix"
+      }
+    ]
+  },
+
+  "verification_recipes": {
+    "stack_prerequisite": "docker compose -f infra/development/compose.yaml up -d (api :8000, postgres :15432, frontend :5173)",
+    "probe_assignment_options": {
+      "command": "ISSUE=$(curl -s -H 'X-Development-User-Id: dev-data-steward-owner' http://localhost:8000/api/v1/issues | python3 -c \"import sys,json;print(json.load(sys.stdin)['items'][0]['issue_id'])\"); curl -s -o /dev/null -w '%{http_code}\\n' -H 'X-Development-User-Id: dev-data-steward-owner' \"http://localhost:8000/api/v1/issues/$ISSUE/assignment-options\"",
+      "before": "500",
+      "after_fix": "200"
+    },
+    "probe_evidence": {
+      "command": "curl -s -H 'X-Development-User-Id: dev-data-steward-owner' \"http://localhost:8000/api/v1/issues/$ISSUE/investigation/evidence\" | python3 -m json.tool",
+      "before": "tum kanit bilesenleri {source: 'Unknown', value: null}",
+      "after_fix": "en az bir bilesende gercek kaynak ve deger"
+    },
+    "probe_rule_test": {
+      "note": "CSRF zinciri gerekiyor: Origin + Referer + Sec-Fetch-Site + X-CSRF-Token (proof herhangi bir GET yanitinin X-CSRF-Token header'indan alinir).",
+      "command": "U=dev-data-steward; O=http://localhost:5173; PROOF=$(curl -s -D- -o /dev/null -H \"X-Development-User-Id: $U\" http://localhost:8000/api/v1/rules | grep -i '^x-csrf-token:' | tr -d '\\r' | awk '{print $2}'); curl -s -X POST -H \"X-Development-User-Id: $U\" -H \"X-CSRF-Token: $PROOF\" -H 'Content-Type: application/json' -H \"Origin: $O\" -H \"Referer: $O/rules\" -H 'Sec-Fetch-Site: same-origin' -d '{\"rule_version_id\":\"<VER>\",\"record_limit\":50}' \"http://localhost:8000/api/v1/rules/<RULE>/test\"",
+      "before": "checked_count=100, passed_count=100, failed_count=0 (record_limit'ten bagimsiz)",
+      "after_fix": "gercek veri kaynagindan gelen degisken sayilar"
+    },
+    "compare_openapi_surfaces": {
+      "command": "curl -s http://localhost:8000/api/v1/openapi.json | python3 -c \"import sys,json;d=json.load(sys.stdin);print(sum(len(v) for v in d['paths'].values()))\"; python3 -c \"from veri_kalitesi.api.development import create_development_app; a=create_development_app(); print(sum(len(v) for v in a.openapi()['paths'].values()))\"",
+      "before": "69 ve 57",
+      "after_fix": "iki sayi esit olmali (route kaydi bilesimden bagimsiz)"
+    },
+    "regenerate_matrix": {
+      "description": "Backend route'lari AST ile cikarip frontend '/api/v1' literal'leriyle esleyen tarama. Template literal'lar dengeli parantez tarayicisiyla normalize edilmeli; aksi halde ${query ? ...} kaliplari yanlis eslesir.",
+      "backend": "src/veri_kalitesi/api/*.py icindeki @app.<method> dekoratorleri",
+      "frontend": "frontend/src/**/*.{ts,tsx} icindeki '/api/v1' literal'leri, .test./.stories. haric"
+    }
+  },
+
+  "constraints_for_fixer": [
+    "Calisan sistem development bilesimidir; 'production' varsayimiyla degisiklik yapmayin. Once runtime_topology bolumunu okuyun.",
+    "create_dashboard_api'deki tum servis gruplari fail-closed varsayilanla None'dir. Bir servisi kaldirmak sessizce 503 uretir, hata vermez.",
+    "development_providers.py'deki siniflar 'gecici' etiketli olsa da su an uretim davranisidir. Silmeden once yerine gececek implementasyonu baglayin.",
+    "notifications_router ve reporting_router'da erken return kaldirilirsa handler'lara guard eklenmeden 500 uretilir (F-11).",
+    "integration-audit.json bayat; app.py imza atiflari gecersiz. Cakismada bu belge esas alinir.",
+    "F-10, F-12 ve F-15'teki kapsam kararlari urun karari gerektirir; agent tek basina endpoint veya modul silmemeli.",
+    "Frontend'deki 8 e2e spec'ten 8'i agi page.route ile mock'luyor (integration-audit.json RC-4); bu bulgular CI'da yakalanmaz, dogrulama canli stack uzerinde yapilmali."
+  ],
+
+  "unverified_or_uncertain": [
+    "GET /api/v1/audit/actions'in frontend'de sabit kodlanmis olmasi bilincli bir tercih mi, yoksa unutulmus mu - dogrulanmadi.",
+    "GET /api/v1/scores/rules/{rule_version_id} ile GET /api/v1/rules/{quality_rule_id}/scores arasinda hangisinin kalmasi gerektigi urun karari.",
+    "F-4, F-5, F-6 yalnizca statik okumayla tespit edildi; canli POST ile dogrulanmadi (CSRF zinciri ve durum on kosullari nedeniyle).",
+    "secure_sdlc, synthetic_data ve environment_security'nin 'tasarim geregi yuzeysiz' siniflandirmasi modul docstring'lerine dayaniyor; sahiple teyit edilmedi.",
+    "PATCH /datasets/{id} ve PATCH /fields/{id} mutasyonlari canli denenmedi; guard analizine gore saglikli gorunuyor.",
+    "Worker job handler'larinin uctan uca calistigi dogrulanmadi; yalnizca bilesim kodu okundu."
+  ]
+}

@@ -824,6 +824,23 @@ class SQLiteDataSourceRepository:
         ).fetchall()
         return [_row_to_activation_request(row) for row in rows]
 
+    def list_activation_requests_for_sources(
+        self, source_ids: frozenset[str]
+    ) -> list[DataSourceActivationRequest]:
+        if not source_ids:
+            return []
+        placeholders = ", ".join("?" for _ in source_ids)
+        rows = self.connection.execute(
+            f"""
+            SELECT * FROM data_source_activation_requests
+            WHERE data_source_id IN ({placeholders})
+            ORDER BY requested_at DESC, activation_request_id DESC
+            LIMIT 500
+            """,
+            tuple(sorted(source_ids)),
+        ).fetchall()
+        return [_row_to_activation_request(row) for row in rows]
+
     def decide_activation_request(
         self,
         request: DataSourceActivationRequest,

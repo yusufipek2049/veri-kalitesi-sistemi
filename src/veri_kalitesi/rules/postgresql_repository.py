@@ -299,6 +299,51 @@ class PostgreSQLRuleRepository:
             )
         return [_row_to_approval_request(row) for row in rows]
 
+    def list_pending_approval_requests(
+        self, rule_version_ids: frozenset[str]
+    ) -> dict[str, RuleApprovalRequest]:
+        if not rule_version_ids:
+            return {}
+        a = self._tables.approval_requests
+        with self._session_factory() as session:
+            rows = (
+                session.execute(
+                    select(a).where(
+                        a.c.status == RuleApprovalStatus.PENDING.value,
+                        a.c.rule_version_id.in_(sorted(rule_version_ids)),
+                    )
+                )
+                .mappings()
+                .all()
+            )
+        return {row["rule_version_id"]: _row_to_approval_request(row) for row in rows}
+
+    def list_approval_requests_for_datasets(
+        self, dataset_ids: frozenset[str]
+    ) -> list[RuleApprovalRequest]:
+        if not dataset_ids:
+            return []
+        a = self._tables.approval_requests
+        v = self._tables.versions
+        r = self._tables.rules
+        with self._session_factory() as session:
+            rows = (
+                session.execute(
+                    select(a)
+                    .select_from(
+                        a.join(v, v.c.rule_version_id == a.c.rule_version_id).join(
+                            r, r.c.quality_rule_id == v.c.quality_rule_id
+                        )
+                    )
+                    .where(r.c.dataset_id.in_(sorted(dataset_ids)))
+                    .order_by(a.c.requested_at.desc(), a.c.approval_request_id.desc())
+                    .limit(500)
+                )
+                .mappings()
+                .all()
+            )
+        return [_row_to_approval_request(row) for row in rows]
+
     # ------------------------------------------------------------------
     # Public write methods
     # ------------------------------------------------------------------

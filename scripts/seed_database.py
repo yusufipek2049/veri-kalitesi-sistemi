@@ -16,7 +16,6 @@ import hashlib
 import os
 import sys
 from datetime import datetime, time, timedelta, timezone
-from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
 
@@ -55,7 +54,10 @@ from veri_kalitesi.data_sources.models import (
     ProfileStatus,
     SourceType,
 )
+from veri_kalitesi.data_sources.postgresql import PostgreSQLConnector
+from veri_kalitesi.data_sources.postgresql_driver import SQLAlchemyPostgreSQLDriver
 from veri_kalitesi.data_sources.postgresql_repository import PostgreSQLDataSourceRepository
+from veri_kalitesi.data_sources.secrets import MountedFileSecretResolver
 from veri_kalitesi.executions.models import (
     ExecutionMode,
     ExecutionStatus,
@@ -66,12 +68,15 @@ from veri_kalitesi.executions.models import (
     WorkloadClass,
 )
 from veri_kalitesi.executions.postgresql_repository import PostgreSQLExecutionRepository
+from veri_kalitesi.executions.postgresql_executor import PostgreSQLRuleExecutionExecutor
+from veri_kalitesi.executions.service import ExecutionService
 from veri_kalitesi.executions.postgresql_source_usage import (
     PostgreSQLSourceUsagePolicyRepository,
 )
 from veri_kalitesi.executions.source_usage_policies import (
     SourceUsagePolicy,
     SourceUsagePolicyStatus,
+    SourceUsageWindow,
 )
 from veri_kalitesi.issues.models import (
     DataQualityIssue,
@@ -89,6 +94,7 @@ from veri_kalitesi.persistence import (
     DEFAULT_SCHEMA_NAME,
     DatabaseSettings,
     create_session_factory,
+    transactional_session,
 )
 from veri_kalitesi.reporting.models import ReportFormat, ReportRequest, ReportType
 from veri_kalitesi.reporting.repository import (
@@ -106,10 +112,13 @@ from veri_kalitesi.rules.models import (
     RuleVersion,
 )
 from veri_kalitesi.rules.postgresql_repository import PostgreSQLRuleRepository
-from veri_kalitesi.scoring.models import ScoreLevel, ScoreScopeType, ScoreStatus
-from veri_kalitesi.scoring.postgresql_repository import score_tables
+from veri_kalitesi.scoring.postgresql_repository import PostgreSQLScoreRepository
+from veri_kalitesi.scoring.publication import ScorePublicationCommand, ScorePublicationService
+from veri_kalitesi.scoring.service import ScoringService
 
 ALEMBIC_INI = ROOT / "alembic.ini"
+DATA_STEWARD_USER_ID = "11111111-1111-4111-8111-111111111111"
+DATA_OWNER_USER_ID = "22222222-2222-4222-8222-222222222222"
 
 # ---------------------------------------------------------------------------
 # Yardimcilar
@@ -244,51 +253,51 @@ def seed_data_sources(
             name="Core Banking PostgreSQL",
             source_type=SourceType.POSTGRESQL,
             connection_config={
-                "host": "core-bank-pg.internal",
+                "host": "postgres",
                 "port": 5432,
-                "database": "core_banking",
-                "ssl_mode": "verify-full",
+                "database": "data_quality",
+                "ssl_mode": "require",
                 "connect_timeout_seconds": 5,
                 "statement_timeout_ms": 5000,
             },
-            secret_reference="secret://datasources/core-banking-pg",
-            owner_user_id="user-data-steward-01",
+            secret_reference="secret://local/e2e-source",
+            owner_user_id=DATA_STEWARD_USER_ID,
             status=DataSourceStatus.ACTIVE,
             revision=1,
             last_test_at=_days_ago(1),
             created_at=_days_ago(30),
         ),
         "mssql_risk": DataSource(
-            name="Risk Analiz MSSQL",
-            source_type=SourceType.MSSQL,
+            name="Risk Analiz PostgreSQL",
+            source_type=SourceType.POSTGRESQL,
             connection_config={
-                "host": "risk-mssql.internal",
-                "port": 1433,
-                "database": "risk_analytics",
-                "ssl_mode": "verify-full",
+                "host": "postgres",
+                "port": 5432,
+                "database": "data_quality",
+                "ssl_mode": "require",
                 "connect_timeout_seconds": 5,
                 "statement_timeout_ms": 10000,
             },
-            secret_reference="secret://datasources/risk-mssql",
-            owner_user_id="user-data-owner-01",
-            status=DataSourceStatus.TEST_SUCCEEDED,
+            secret_reference="secret://local/e2e-source",
+            owner_user_id=DATA_OWNER_USER_ID,
+            status=DataSourceStatus.ACTIVE,
             revision=1,
             last_test_at=_days_ago(2),
             created_at=_days_ago(20),
         ),
         "csv_kyc_export": DataSource(
-            name="KYC Export CSV",
-            source_type=SourceType.CSV,
+            name="KYC Staging PostgreSQL",
+            source_type=SourceType.POSTGRESQL,
             connection_config={
-                "host": "s3.internal",
-                "port": 9000,
-                "database": "kyc-exports",
-                "ssl_mode": "verify-full",
+                "host": "postgres",
+                "port": 5432,
+                "database": "data_quality",
+                "ssl_mode": "require",
                 "connect_timeout_seconds": 5,
                 "statement_timeout_ms": 3000,
             },
-            secret_reference="secret://datasources/kyc-csv",
-            owner_user_id="user-data-steward-01",
+            secret_reference="secret://local/e2e-source",
+            owner_user_id=DATA_STEWARD_USER_ID,
             status=DataSourceStatus.ACTIVE,
             revision=1,
             last_test_at=_hours_ago(6),
@@ -328,7 +337,7 @@ def seed_metadata(
         name="accounts",
         dataset_type=DatasetType.TABLE,
         criticality=Criticality.CRITICAL,
-        owner_user_id="user-data-steward-01",
+        owner_user_id=DATA_STEWARD_USER_ID,
         estimated_row_count=2_500_000,
     )
     ds_transactions = Dataset(
@@ -337,7 +346,7 @@ def seed_metadata(
         name="transactions",
         dataset_type=DatasetType.TABLE,
         criticality=Criticality.HIGH,
-        owner_user_id="user-data-steward-01",
+        owner_user_id=DATA_STEWARD_USER_ID,
         estimated_row_count=45_000_000,
     )
     ds_customers = Dataset(
@@ -346,7 +355,7 @@ def seed_metadata(
         name="customers",
         dataset_type=DatasetType.TABLE,
         criticality=Criticality.CRITICAL,
-        owner_user_id="user-data-owner-01",
+        owner_user_id=DATA_OWNER_USER_ID,
         estimated_row_count=800_000,
     )
 
@@ -498,14 +507,14 @@ def seed_metadata(
         name="risk_scores",
         dataset_type=DatasetType.TABLE,
         criticality=Criticality.HIGH,
-        owner_user_id="user-data-owner-01",
+        owner_user_id=DATA_OWNER_USER_ID,
         estimated_row_count=800_000,
     )
     fields_risk = [
         DataField(
             dataset_id=ds_risk_scores.dataset_id,
             name="customer_id",
-            native_data_type="UNIQUEIDENTIFIER",
+            native_data_type="UUID",
             is_nullable=False,
             classification=ClassificationCode.BANK_SECRET,
         ),
@@ -538,9 +547,9 @@ def seed_metadata(
         data_source_id=kyc_src.data_source_id,
         namespace=schema,
         name="kyc_records",
-        dataset_type=DatasetType.FILE_SHEET,
+        dataset_type=DatasetType.TABLE,
         criticality=Criticality.HIGH,
-        owner_user_id="user-data-steward-01",
+        owner_user_id=DATA_STEWARD_USER_ID,
         estimated_row_count=120_000,
     )
     fields_kyc = [
@@ -720,7 +729,7 @@ def seed_rules(
     audit_outbox: PostgreSQLTransactionalAudit,
     datasets: dict[str, Dataset],
 ) -> dict[str, tuple[QualityRule, RuleVersion]]:
-    """6 farkli kalite kurali ekler."""
+    """Tum demo datasetlerini kapsayan kalite kurallarini ekler."""
     print("[4/10] Kalite kurallari ekleniyor ...")
     rules: dict[str, tuple[QualityRule, RuleVersion]] = {}
 
@@ -733,14 +742,14 @@ def seed_rules(
                 dataset_id=datasets["accounts"].dataset_id,
                 field_ids=(),
                 primary_dimension=QualityDimension.COMPLETENESS,
-                owner_user_id="user-data-steward-01",
+                owner_user_id=DATA_STEWARD_USER_ID,
                 status=RuleStatus.ACTIVE,
             ),
             "version": RuleVersion(
                 quality_rule_id="",  # altta doldurulacak
                 version_no=1,
                 rule_type=RuleType.REQUIRED,
-                definition={"field": "iban", "operator": "IS_NOT_NULL"},
+                definition={"field_id": "iban", "operator": "IS_NOT_NULL"},
                 threshold=0.999,
                 weight=1.0,
                 criticality=RuleCriticality.CRITICAL,
@@ -756,14 +765,14 @@ def seed_rules(
                 dataset_id=datasets["accounts"].dataset_id,
                 field_ids=(),
                 primary_dimension=QualityDimension.UNIQUENESS,
-                owner_user_id="user-data-steward-01",
+                owner_user_id=DATA_STEWARD_USER_ID,
                 status=RuleStatus.ACTIVE,
             ),
             "version": RuleVersion(
                 quality_rule_id="",
                 version_no=1,
                 rule_type=RuleType.UNIQUE,
-                definition={"field": "account_id", "operator": "IS_UNIQUE"},
+                definition={"field_id": "account_id", "operator": "IS_UNIQUE"},
                 threshold=1.0,
                 weight=1.0,
                 criticality=RuleCriticality.CRITICAL,
@@ -779,14 +788,18 @@ def seed_rules(
                 dataset_id=datasets["accounts"].dataset_id,
                 field_ids=(),
                 primary_dimension=QualityDimension.VALIDITY,
-                owner_user_id="user-data-steward-01",
+                owner_user_id=DATA_STEWARD_USER_ID,
                 status=RuleStatus.ACTIVE,
             ),
             "version": RuleVersion(
                 quality_rule_id="",
                 version_no=1,
                 rule_type=RuleType.RANGE,
-                definition={"field": "balance", "min": 0, "max": 999_999_999_999},
+                definition={
+                    "field_id": "balance",
+                    "minimum": 0,
+                    "maximum": 999_999_999_999,
+                },
                 threshold=0.995,
                 weight=0.8,
                 criticality=RuleCriticality.HIGH,
@@ -802,14 +815,14 @@ def seed_rules(
                 dataset_id=datasets["transactions"].dataset_id,
                 field_ids=(),
                 primary_dimension=QualityDimension.TIMELINESS,
-                owner_user_id="user-data-steward-01",
+                owner_user_id=DATA_STEWARD_USER_ID,
                 status=RuleStatus.ACTIVE,
             ),
             "version": RuleVersion(
                 quality_rule_id="",
                 version_no=1,
                 rule_type=RuleType.FRESHNESS,
-                definition={"field": "executed_at", "max_age_seconds": 86400},
+                definition={"field_id": "executed_at", "max_age_minutes": 1440},
                 threshold=0.99,
                 weight=0.9,
                 criticality=RuleCriticality.HIGH,
@@ -825,14 +838,14 @@ def seed_rules(
                 dataset_id=datasets["customers"].dataset_id,
                 field_ids=(),
                 primary_dimension=QualityDimension.VALIDITY,
-                owner_user_id="user-data-owner-01",
+                owner_user_id=DATA_OWNER_USER_ID,
                 status=RuleStatus.ACTIVE,
             ),
             "version": RuleVersion(
                 quality_rule_id="",
                 version_no=1,
                 rule_type=RuleType.REGEX,
-                definition={"field": "tax_number", "pattern": "^\\d{10,11}$"},
+                definition={"field_id": "tax_number", "pattern": "^\\d{10,11}$"},
                 threshold=0.998,
                 weight=0.7,
                 criticality=RuleCriticality.HIGH,
@@ -848,17 +861,40 @@ def seed_rules(
                 dataset_id=datasets["risk_scores"].dataset_id,
                 field_ids=(),
                 primary_dimension=QualityDimension.ACCURACY,
-                owner_user_id="user-data-owner-01",
+                owner_user_id=DATA_OWNER_USER_ID,
                 status=RuleStatus.ACTIVE,
             ),
             "version": RuleVersion(
                 quality_rule_id="",
                 version_no=1,
                 rule_type=RuleType.RANGE,
-                definition={"field": "score_value", "min": 0, "max": 100},
+                definition={"field_id": "score_value", "minimum": 0, "maximum": 100},
                 threshold=0.999,
                 weight=1.0,
                 criticality=RuleCriticality.CRITICAL,
+                prepared_by_actor_id="SEED_SYSTEM",
+                scope_type=RuleScopeType.COLUMN,
+            ),
+        },
+        {
+            "key": "required_kyc_customer_id",
+            "rule": QualityRule(
+                code="DQ-KYC-001",
+                name="KYC müşteri numarası boş olamaz",
+                dataset_id=datasets["kyc_records"].dataset_id,
+                field_ids=(),
+                primary_dimension=QualityDimension.COMPLETENESS,
+                owner_user_id=DATA_OWNER_USER_ID,
+                status=RuleStatus.ACTIVE,
+            ),
+            "version": RuleVersion(
+                quality_rule_id="",
+                version_no=1,
+                rule_type=RuleType.REQUIRED,
+                definition={"field_id": "customer_id", "operator": "IS_NOT_NULL"},
+                threshold=0.995,
+                weight=0.8,
+                criticality=RuleCriticality.HIGH,
                 prepared_by_actor_id="SEED_SYSTEM",
                 scope_type=RuleScopeType.COLUMN,
             ),
@@ -1072,7 +1108,7 @@ def seed_issues(
                 scope_id=datasets["accounts"].dataset_id,
                 status=IssueStatus.NEW,
                 priority=IssuePriority.CRITICAL,
-                assignee_user_id="user-data-steward-01",
+                assignee_user_id=DATA_STEWARD_USER_ID,
                 deduplication_key_digest=hashlib.sha256(b"seed-issue-iban-null").hexdigest(),
                 occurrence_count=200,
                 created_at=_hours_ago(12),
@@ -1091,7 +1127,7 @@ def seed_issues(
                 scope_id=datasets["transactions"].dataset_id,
                 status=IssueStatus.INVESTIGATING,
                 priority=IssuePriority.HIGH,
-                assignee_user_id="user-data-owner-01",
+                assignee_user_id=DATA_OWNER_USER_ID,
                 deduplication_key_digest=hashlib.sha256(b"seed-issue-txn-freshness").hexdigest(),
                 occurrence_count=500_000,
                 created_at=_days_ago(2),
@@ -1110,7 +1146,7 @@ def seed_issues(
                 scope_id=datasets["risk_scores"].dataset_id,
                 status=IssueStatus.RESOLVED,
                 priority=IssuePriority.MEDIUM,
-                assignee_user_id="user-data-steward-01",
+                assignee_user_id=DATA_STEWARD_USER_ID,
                 deduplication_key_digest=hashlib.sha256(b"seed-issue-risk-timeout").hexdigest(),
                 occurrence_count=15,
                 created_at=_days_ago(7),
@@ -1296,7 +1332,7 @@ def seed_reports(
             format=ReportFormat.PDF,
             parameters={"scope": "all"},
             sensitivity_level="INTERNAL",
-            recipients=("user-data-steward-01", "user-data-owner-01"),
+            recipients=(DATA_STEWARD_USER_ID, DATA_OWNER_USER_ID),
             schedule_type=ScheduleType.WEEKLY,
             timezone_name="Europe/Istanbul",
             local_time=time(8, 0),
@@ -1312,7 +1348,7 @@ def seed_reports(
             format=ReportFormat.XLSX,
             parameters={"include_scores": True},
             sensitivity_level="CONFIDENTIAL",
-            recipients=("user-data-owner-01",),
+            recipients=(DATA_OWNER_USER_ID,),
             schedule_type=ScheduleType.MONTHLY,
             timezone_name="Europe/Istanbul",
             local_time=time(9, 0),
@@ -1346,7 +1382,17 @@ def seed_source_usage_policy(
         retry_count=2,
         retry_delay_seconds=5.0,
         rate_limit={"requests_per_minute": 100},
-        allowed_windows=(),
+        # Boş allowed_windows fail-closed davranır ve bütün execution'ları
+        # SOURCE_POLICY_DENIED ile bloklar. Demo kaynağı haftanın her günü
+        # çalışabilsin; üretimde bu pencere yönetişim politikasıyla daraltılır.
+        allowed_windows=(
+            SourceUsageWindow(
+                timezone="UTC",
+                weekdays=(1, 2, 3, 4, 5, 6, 7),
+                starts_at=time(0, 0),
+                ends_at=time.max,
+            ),
+        ),
         blocked_windows=(),
         cpu_limit_percent=80.0,
         io_limit_percent=70.0,
@@ -1360,189 +1406,231 @@ def seed_source_usage_policy(
     return policy
 
 
+def seed_raw_quality_data(session_factory, schema: str) -> None:
+    """Kuralların gerçekten sorgulayacağı 30 günlük ham kaynak tablolarını doldurur."""
+    from sqlalchemy import text
+
+    print("[5/10] Ham kalite kaynak tabloları ve satırları ekleniyor ...")
+    table_definitions = (
+        """CREATE TABLE accounts (
+            observed_on DATE NOT NULL, account_id UUID NOT NULL, customer_id UUID NOT NULL,
+            iban VARCHAR(34), balance NUMERIC(18,2), currency VARCHAR(3) NOT NULL,
+            status VARCHAR(20) NOT NULL, opened_at TIMESTAMPTZ NOT NULL
+        )""",
+        """CREATE TABLE transactions (
+            observed_on DATE NOT NULL, transaction_id UUID NOT NULL, account_id UUID NOT NULL,
+            amount NUMERIC(18,2) NOT NULL, transaction_type VARCHAR(30) NOT NULL,
+            executed_at TIMESTAMPTZ NOT NULL, reference VARCHAR(200)
+        )""",
+        """CREATE TABLE customers (
+            observed_on DATE NOT NULL, customer_id UUID NOT NULL, full_name VARCHAR(200) NOT NULL,
+            tax_number VARCHAR(20), email VARCHAR(254), segment VARCHAR(30) NOT NULL,
+            kyc_status VARCHAR(20) NOT NULL
+        )""",
+        """CREATE TABLE risk_scores (
+            observed_on DATE NOT NULL, customer_id UUID NOT NULL,
+            score_value NUMERIC(8,2) NOT NULL, score_date TIMESTAMPTZ NOT NULL,
+            model_version VARCHAR(20) NOT NULL
+        )""",
+        """CREATE TABLE kyc_records (
+            observed_on DATE NOT NULL, record_id TEXT NOT NULL, customer_id UUID,
+            kyc_level TEXT NOT NULL, last_review TIMESTAMPTZ
+        )""",
+    )
+    curve_cte = """
+        WITH generated AS (
+            SELECT
+                (CURRENT_DATE - (31 - day_index)::int) AS observed_on,
+                day_index,
+                row_no,
+                floor(
+                    (:start + (:target - :start) * ln(1 + day_index) / ln(31)) * 10
+                )::int AS valid_limit
+            FROM generate_series(1, 30) AS day_index
+            CROSS JOIN generate_series(1, 1000) AS row_no
+        )
+    """
+    inserts = (
+        (
+            "accounts",
+            58.0,
+            94.0,
+            """INSERT INTO accounts
+                (observed_on, account_id, customer_id, iban, balance, currency, status, opened_at)
+                SELECT observed_on,
+                       md5('account-' || day_index || '-' || least(row_no, valid_limit))::uuid,
+                       md5('customer-' || day_index || '-' || row_no)::uuid,
+                       CASE WHEN row_no <= valid_limit THEN 'TR' || lpad(row_no::text, 24, '0') END,
+                       CASE WHEN row_no <= valid_limit
+                            THEN row_no::numeric ELSE -row_no::numeric END,
+                       'TRY', 'ACTIVE', NOW() - INTERVAL '30 days'
+                FROM generated""",
+        ),
+        (
+            "transactions",
+            62.0,
+            92.0,
+            """INSERT INTO transactions
+                (observed_on, transaction_id, account_id, amount, transaction_type,
+                 executed_at, reference)
+                SELECT observed_on,
+                       md5('transaction-' || day_index || '-' || row_no)::uuid,
+                       md5('account-' || day_index || '-' || row_no)::uuid,
+                       row_no::numeric, 'TRANSFER',
+                       CASE WHEN row_no <= valid_limit
+                            THEN NOW() ELSE NOW() - INTERVAL '2 days' END,
+                       'REF-' || row_no
+                FROM generated""",
+        ),
+        (
+            "customers",
+            55.0,
+            95.0,
+            """INSERT INTO customers
+                (observed_on, customer_id, full_name, tax_number, email, segment, kyc_status)
+                SELECT observed_on,
+                       md5('customer-' || day_index || '-' || row_no)::uuid,
+                       'Müşteri ' || row_no,
+                       CASE WHEN row_no <= valid_limit
+                            THEN lpad(row_no::text, 10, '0') ELSE 'INVALID-' || row_no END,
+                       'customer-' || row_no || '@example.invalid', 'RETAIL', 'VERIFIED'
+                FROM generated""",
+        ),
+        (
+            "risk_scores",
+            66.0,
+            90.0,
+            """INSERT INTO risk_scores
+                (observed_on, customer_id, score_value, score_date, model_version)
+                SELECT observed_on,
+                       md5('risk-customer-' || day_index || '-' || row_no)::uuid,
+                       CASE WHEN row_no <= valid_limit THEN 50 ELSE 150 END,
+                       NOW(), 'SEED_MODEL_V1'
+                FROM generated""",
+        ),
+        (
+            "kyc_records",
+            70.0,
+            93.0,
+            """INSERT INTO kyc_records
+                (observed_on, record_id, customer_id, kyc_level, last_review)
+                SELECT observed_on, 'KYC-' || day_index || '-' || row_no,
+                       CASE WHEN row_no <= valid_limit
+                            THEN md5('kyc-customer-' || day_index || '-' || row_no)::uuid END,
+                       'STANDARD', NOW()
+                FROM generated""",
+        ),
+    )
+    with transactional_session(session_factory) as session:
+        session.execute(text(f'SET LOCAL search_path TO "{schema}"'))
+        for definition in table_definitions:
+            session.execute(text(definition))
+        for _table_name, start, target, statement in inserts:
+            session.execute(text(curve_cte + statement), {"start": start, "target": target})
+        reader_exists = session.scalar(
+            text("SELECT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'dq_e2e_reader')")
+        )
+        if reader_exists:
+            session.execute(text(f'GRANT USAGE ON SCHEMA "{schema}" TO dq_e2e_reader'))
+            session.execute(
+                text(
+                    'GRANT SELECT ON accounts, transactions, customers, risk_scores, '
+                    'kyc_records TO dq_e2e_reader'
+                )
+            )
+    print("      + 5 ham kaynak tablosuna 150.000 gerçek satır eklendi.")
+
+
 def seed_quality_scores(
     session_factory,
     schema: str,
-    sources: dict[str, DataSource],
+    rules: dict[str, tuple[QualityRule, RuleVersion]],
+    execution_repo: PostgreSQLExecutionRepository,
+    rule_repo: PostgreSQLRuleRepository,
+    source_repo: PostgreSQLDataSourceRepository,
+    audit_outbox: PostgreSQLTransactionalAudit,
 ) -> None:
-    """Dashboard trend icin son 20 gunun kalite skorlarini ekler."""
-    print("[10/10] Kalite skorlari ekleniyor ...")
-    from veri_kalitesi.persistence import transactional_session
-    from sqlalchemy import Column, DateTime, Integer, MetaData, String, Table
-    from sqlalchemy.dialects.postgresql import JSON as SA_JSON
+    """Aktif kuralları ham tablolarda çalıştırır ve sonuçlardan skor yayımlar."""
+    print("[10/10] Aktif kurallar ham kaynak tablolarında çalıştırılıyor ...")
 
-    # rule_executions tablosu (FK gereksinimi icin minimal tanim)
-    exec_meta = MetaData(schema=schema)
-    exec_table = Table(
-        "rule_executions",
-        exec_meta,
-        Column("execution_id", String(36), primary_key=True),
-        Column("execution_type", String(20), nullable=False),
-        Column("status", String(30), nullable=False),
-        Column("idempotency_key_hash", String(64), nullable=False, unique=True),
-        Column("payload_hash", String(64), nullable=False),
-        Column("rule_version_ids", SA_JSON, nullable=False),
-        Column("scope", SA_JSON, nullable=False),
-        Column("triggered_by", String(128), nullable=False),
-        Column("correlation_id", String(36), nullable=False),
-        Column("source_ids", SA_JSON, nullable=False),
-        Column("workload_class", String(20), nullable=False),
-        Column("execution_mode", String(20), nullable=False),
-        Column("attempt_count", Integer, nullable=False),
-        Column("created_at", DateTime(timezone=True), nullable=False),
-        extend_existing=True,
+    score_repository = PostgreSQLScoreRepository(session_factory, schema=schema)
+    now = _utc_now()
+    configuration = score_repository.get_active_configuration()
+    rule_items = tuple(rules.values())
+    rule_version_ids = tuple(version.rule_version_id for _, version in rule_items)
+    window_days = 30
+    published_score_count = 0
+    secret_dir = os.environ.get("DATA_QUALITY_LOCAL_SECRET_DIR")
+    if not secret_dir:
+        raise RuntimeError("DATA_QUALITY_LOCAL_SECRET_DIR is required for real rule execution.")
+    executor = PostgreSQLRuleExecutionExecutor(
+        rule_repository=rule_repo,
+        source_repository=source_repo,
+        secret_resolver=MountedFileSecretResolver(secret_dir),
+        connector=PostgreSQLConnector(SQLAlchemyPostgreSQLDriver()),
     )
 
-    tables = score_tables(schema)
-    t = tables.quality_scores
-
-    source_configs = [
-        {"key": "pg_core_banking", "base": Decimal("88")},
-        {"key": "mssql_risk", "base": Decimal("76")},
-        {"key": "csv_kyc_export", "base": Decimal("82")},
-    ]
-
-    score_rows: list[dict] = []
-    exec_rows: list[dict] = []
-    now = _utc_now()
-
-    def _level_for(value: Decimal) -> str:
-        if value >= Decimal("90"):
-            return ScoreLevel.GOOD.value
-        if value >= Decimal("75"):
-            return ScoreLevel.ACCEPTABLE.value
-        if value >= Decimal("50"):
-            return ScoreLevel.RISKY.value
-        return ScoreLevel.CRITICAL.value
-
-    # Kaynak skorlari
-    for cfg in source_configs:
-        source_id = sources[cfg["key"]].data_source_id
-        base = cfg["base"]
-        for day_offset in range(20, 0, -1):
-            exec_id = str(uuid4())
-            calculated_at = (now - timedelta(days=day_offset)).replace(
-                hour=6, minute=0, second=0, microsecond=0
-            )
-            variation = (day_offset % 5 - 2) * Decimal("1.5")
-            score_value = base + variation
-            exec_rows.append(
-                {
-                    "execution_id": exec_id,
-                    "execution_type": "SCHEDULED",
-                    "status": "SUCCESS",
-                    "idempotency_key_hash": hashlib.sha256(
-                        f"seed-score-{exec_id}".encode()
-                    ).hexdigest(),
-                    "payload_hash": hashlib.sha256(b"seed-score-payload").hexdigest(),
-                    "rule_version_ids": [],
-                    "scope": {"source_id": source_id},
-                    "triggered_by": "SEED_DASHBOARD",
-                    "correlation_id": str(uuid4()),
-                    "source_ids": [source_id],
-                    "workload_class": "LIGHT",
-                    "execution_mode": "OFFICIAL",
-                    "attempt_count": 0,
-                    "created_at": calculated_at,
-                }
-            )
-            score_rows.append(
-                {
-                    "quality_score_id": str(uuid4()),
-                    "execution_id": exec_id,
-                    "scope_type": ScoreScopeType.SOURCE.value,
-                    "scope_id": source_id,
-                    "score_value": score_value,
-                    "score_status": ScoreStatus.CALCULATED.value,
-                    "measurement_status": "Passed",
-                    "level": _level_for(score_value),
-                    "policy_version": "SEED_SCORING_V1",
-                    "calculation_details": {
-                        "included_in_official_aggregation": True,
-                        "component_count": 5,
-                        "seed": True,
-                    },
-                    "calculated_at": calculated_at,
-                }
-            )
-
-    # Enterprise skorlari (kaynak ortalamalari)
-    for day_offset in range(20, 0, -1):
-        exec_id = str(uuid4())
-        calculated_at = (now - timedelta(days=day_offset)).replace(
-            hour=7, minute=0, second=0, microsecond=0
+    for day_index in range(1, window_days + 1):
+        day_offset = window_days - day_index + 1
+        observed_at = (now - timedelta(days=day_offset)).replace(
+            hour=8, minute=0, second=0, microsecond=0
         )
-        day_source_values = []
-        for cfg in source_configs:
-            variation = (day_offset % 5 - 2) * Decimal("1.5")
-            day_source_values.append(cfg["base"] + variation)
-        enterprise_value = sum(day_source_values) / len(day_source_values)
-        all_source_ids = [sources[c["key"]].data_source_id for c in source_configs]
-        exec_rows.append(
-            {
-                "execution_id": exec_id,
-                "execution_type": "SCHEDULED",
-                "status": "SUCCESS",
-                "idempotency_key_hash": hashlib.sha256(f"seed-ent-{exec_id}".encode()).hexdigest(),
-                "payload_hash": hashlib.sha256(b"seed-ent-payload").hexdigest(),
-                "rule_version_ids": [],
-                "scope": {"scope": "enterprise"},
-                "triggered_by": "SEED_DASHBOARD",
-                "correlation_id": str(uuid4()),
-                "source_ids": all_source_ids,
-                "workload_class": "LIGHT",
-                "execution_mode": "OFFICIAL",
-                "attempt_count": 0,
-                "created_at": calculated_at,
-            }
+        def daily_clock(observed_at: datetime = observed_at) -> datetime:
+            return observed_at
+
+        execution_service = ExecutionService(
+            repository=execution_repo,
+            rule_catalog=rule_repo,
+            source_catalog=source_repo,
+            executor=executor,
+            clock=daily_clock,
+            sleeper=lambda _seconds: None,
         )
-        score_rows.append(
-            {
-                "quality_score_id": str(uuid4()),
-                "execution_id": exec_id,
-                "scope_type": ScoreScopeType.ENTERPRISE.value,
-                "scope_id": None,
-                "score_value": enterprise_value,
-                "score_status": ScoreStatus.CALCULATED.value,
-                "measurement_status": "Passed",
-                "level": _level_for(enterprise_value),
-                "policy_version": "SEED_SCORING_V1",
-                "calculation_details": {
-                    "included_in_official_aggregation": True,
-                    "component_count": 15,
-                    "seed": True,
-                },
-                "calculated_at": calculated_at,
-            }
+        execution = execution_service.start_scheduled(
+            idempotency_key=f"seed-score-chain-{day_index:02d}",
+            rule_version_ids=rule_version_ids,
+            scope={
+                "scope": "enterprise",
+                "observation_date": observed_at.date().isoformat(),
+            },
+            correlation_id=str(uuid4()),
+            execution_mode=ExecutionMode.OFFICIAL,
         )
+        completed = execution_service.run_for_execution_id(execution.execution_id)
+        if completed is None or completed.status is not ExecutionStatus.SUCCESS:
+            status = completed.status.value if completed is not None else "UNKNOWN"
+            raise RuntimeError(f"Real seed rule execution failed with status {status}.")
 
-    # Seed skorlari icin bir publication kaydi olustur
-    publication_id = str(uuid4())
-    publication_rows = [
-        {
-            "publication_id": publication_id,
-            "execution_id": exec_rows[0]["execution_id"] if exec_rows else str(uuid4()),
-            "period": "SEED_PERIOD",
-            "input_digest": "sha256:" + hashlib.sha256(b"seed-publication").hexdigest(),
-            "status": "PUBLISHED",
-            "policy_version": "SEED_SCORING_V1",
-            "published_at": now - timedelta(days=1),
-            "superseded_at": None,
-        }
-    ]
+        scoring_service = ScoringService(
+            score_repository,
+            execution_repo,
+            rule_repo,
+            source_catalog=source_repo,
+            clock=daily_clock,
+        )
+        publication_service = ScorePublicationService(
+            scoring_service,
+            score_repository,
+            execution_repo,
+            rule_repo,
+            source_catalog=source_repo,
+            transactional_audit=audit_outbox,
+            clock=daily_clock,
+        )
+        publication_result = publication_service.publish_execution(
+            ScorePublicationCommand(
+                execution_id=execution.execution_id,
+                period=observed_at.date().isoformat(),
+                configuration_version=configuration.version,
+                idempotency_key=f"seed-publication-{day_index:02d}",
+            )
+        )
+        published_score_count += len(publication_result.scores)
 
-    with transactional_session(session_factory) as session:
-        for row in exec_rows:
-            session.execute(exec_table.insert().values(**row))
-        pub_table = tables.score_publications
-        for row in publication_rows:
-            session.execute(pub_table.insert().values(**row))
-        for row in score_rows:
-            row["publication_id"] = publication_id
-            session.execute(t.insert().values(**row))
-
-    source_count = len(score_rows) - 20
-    print(f"      + {source_count} kaynak skoru + 20 enterprise skoru ({len(score_rows)} toplam)")
+    print(
+        f"      + {window_days} gerçek execution, {window_days * len(rule_items)} sorgu sonucu"
+        f" ve bu sonuçlardan {published_score_count} skor"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1608,12 +1696,20 @@ def main() -> int:
     sources = seed_data_sources(ds_repo, audit_outbox, schema)
     datasets = seed_metadata(ds_repo, audit_outbox, sources, schema)
     rules = seed_rules(rule_repo, audit_outbox, datasets)
-    seed_executions(exec_repo, audit_outbox, rules, sources)
+    seed_raw_quality_data(session_factory, schema)
     seed_issues(issue_repo, audit_outbox, datasets)
     seed_jobs(job_repo, audit_outbox)
     seed_reports(report_repo, report_sched_repo)
     seed_source_usage_policy(source_usage_policy_repo)
-    seed_quality_scores(session_factory, schema, sources)
+    seed_quality_scores(
+        session_factory,
+        schema,
+        rules,
+        exec_repo,
+        rule_repo,
+        ds_repo,
+        audit_outbox,
+    )
 
     # 7. Publish pending audit events
     outbox_status = audit_outbox.publish_pending()

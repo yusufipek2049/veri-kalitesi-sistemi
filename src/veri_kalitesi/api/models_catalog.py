@@ -113,6 +113,7 @@ class CatalogDatasetResponse(BaseModel):
     estimated_row_count: int | None = None
     field_count: int = 0
     version: int = 1
+    owner_user_id: str | None = None
 
 
 class CatalogDatasetListResponse(BaseModel):

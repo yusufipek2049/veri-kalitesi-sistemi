@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from veri_kalitesi.audit.models import AuditEvent, AuditQueryPage, AuditSummary
 from veri_kalitesi.executions.models import RuleExecution
+from veri_kalitesi.governance.models import GovernanceApprovalItem
 from veri_kalitesi.issues.models import DataQualityIssue, IssuePriority
 from veri_kalitesi.rules.models import QualityRule, RuleTestResult, RuleVersion
 
@@ -416,7 +417,7 @@ class IssueReassignmentRequest(BaseModel):
 class IssueAssigneeOptionResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
-    user_id: UUID
+    user_id: str = Field(min_length=1, max_length=160)
     display_name: str = Field(min_length=1, max_length=160)
 
 
@@ -663,6 +664,136 @@ class InvestigationEvidenceResponse(BaseModel):
         )
 
 
+class IssueEvidenceItemResponse(BaseModel):
+    """Kayitli kanit. ``evidence_id`` cozum formunun referans hedefidir."""
+
+    model_config = ConfigDict(frozen=True)
+
+    evidence_id: str
+    issue_id: str
+    kind: str
+    label: str
+    execution_id: str
+    rule_version_id: str | None = None
+    evaluated_count: int | None = None
+    failed_count: int | None = None
+    measurement_status: str | None = None
+    fingerprint: str | None = None
+    query_reference: str | None = None
+    plan_reference: str | None = None
+    content_digest: str
+    observed_at: datetime
+    captured_at: datetime
+    captured_by: str
+    original_filename: str | None = None
+    safe_filename: str | None = None
+    detected_media_type: str | None = None
+    byte_size: int | None = None
+    sha256_digest: str | None = None
+    scan_status: str | None = None
+    scan_reason_code: str | None = None
+    scan_completed_at: datetime | None = None
+    classification: str | None = None
+    uploaded_by: str | None = None
+    uploaded_at: datetime | None = None
+
+    @classmethod
+    def from_domain(cls, record: object, file: object = None) -> "IssueEvidenceItemResponse":
+        from veri_kalitesi.issues.evidence import IssueEvidenceRecord
+        from veri_kalitesi.issues.evidence_files import IssueEvidenceFileRecord
+
+        assert isinstance(record, IssueEvidenceRecord)
+        upload = file if isinstance(file, IssueEvidenceFileRecord) else None
+        return cls(
+            evidence_id=record.evidence_id,
+            issue_id=record.issue_id,
+            kind=record.kind.value,
+            label=record.label,
+            execution_id=record.execution_id,
+            rule_version_id=record.rule_version_id,
+            evaluated_count=record.evaluated_count,
+            failed_count=record.failed_count,
+            measurement_status=record.measurement_status,
+            fingerprint=record.fingerprint,
+            query_reference=record.query_reference,
+            plan_reference=record.plan_reference,
+            content_digest=record.content_digest,
+            observed_at=record.observed_at,
+            captured_at=record.captured_at,
+            captured_by=record.captured_by,
+            original_filename=upload.original_filename if upload else None,
+            safe_filename=upload.safe_filename if upload else None,
+            detected_media_type=upload.detected_media_type if upload else None,
+            byte_size=upload.byte_size if upload else None,
+            sha256_digest=upload.sha256_digest if upload else None,
+            scan_status=upload.scan_status.value if upload else None,
+            scan_reason_code=upload.scan_reason_code if upload else None,
+            scan_completed_at=upload.scan_completed_at if upload else None,
+            classification=upload.classification.value if upload else None,
+            uploaded_by=upload.uploaded_by if upload else None,
+            uploaded_at=upload.uploaded_at if upload else None,
+        )
+
+
+class IssueEvidenceCandidateResponse(BaseModel):
+    """Henuz kaydedilmemis kanit adayi (calistirma sonucu veya logu)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    candidate_key: str
+    kind: str
+    label: str
+    execution_id: str
+    rule_version_id: str | None = None
+    evaluated_count: int | None = None
+    failed_count: int | None = None
+    measurement_status: str | None = None
+    observed_at: datetime
+
+    @classmethod
+    def from_domain(cls, candidate: object) -> "IssueEvidenceCandidateResponse":
+        from veri_kalitesi.issues.evidence import IssueEvidenceCandidate
+
+        assert isinstance(candidate, IssueEvidenceCandidate)
+        return cls(
+            candidate_key=candidate.candidate_key,
+            kind=candidate.kind.value,
+            label=candidate.label,
+            execution_id=candidate.execution_id,
+            rule_version_id=candidate.rule_version_id,
+            evaluated_count=candidate.evaluated_count,
+            failed_count=candidate.failed_count,
+            measurement_status=candidate.measurement_status,
+            observed_at=candidate.observed_at,
+        )
+
+
+class IssueEvidenceListResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    issue_id: str
+    items: tuple[IssueEvidenceItemResponse, ...] = ()
+    candidates: tuple[IssueEvidenceCandidateResponse, ...] = ()
+
+
+class IssueEvidenceCaptureRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    candidate_key: str = Field(min_length=1, max_length=200)
+
+
+class IssueEvidenceCaptureResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    item: IssueEvidenceItemResponse
+
+
 class IssueCreateRequest(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -878,3 +1009,91 @@ class ScoreComparisonResponse(BaseModel):
     comparison_status: str
     reason_codes: tuple[str, ...]
     delta_value: float | None = None
+
+
+class GovernanceApprovalItemResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    approval_request_id: str
+    domain: str
+    request_type: str
+    status: str
+    object_type: str
+    object_id: str
+    object_name: str
+    scope_type: str
+    scope_id: str
+    maker_actor_id: str
+    checker_actor_id: str | None
+    reason_code: str | None
+    requested_at: datetime
+    decided_at: datetime | None
+    expires_at: datetime | None
+    policy_version: str
+    available_actions: tuple[str, ...] = ()
+    change_summary: dict[str, Any] = Field(default_factory=dict)
+
+    @classmethod
+    def from_domain(cls, item: GovernanceApprovalItem) -> "GovernanceApprovalItemResponse":
+        return cls(
+            approval_request_id=item.approval_request_id,
+            domain=item.domain.value,
+            request_type=item.request_type.value,
+            status=item.status.value,
+            object_type=item.object_type,
+            object_id=item.object_id,
+            object_name=item.object_name,
+            scope_type=item.scope_type,
+            scope_id=item.scope_id,
+            maker_actor_id=item.maker_actor_id,
+            checker_actor_id=item.checker_actor_id,
+            reason_code=item.reason_code,
+            requested_at=item.requested_at,
+            decided_at=item.decided_at,
+            expires_at=item.expires_at,
+            policy_version=item.policy_version,
+            available_actions=item.available_actions,
+            change_summary=dict(item.change_summary),
+        )
+
+
+class GovernanceApprovalListResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    view: str
+    items: tuple[GovernanceApprovalItemResponse, ...]
+
+
+class GovernanceApprovalDetailResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    item: GovernanceApprovalItemResponse
+
+
+class GovernanceApprovalCreateRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    request_type: str
+    object_id: str
+    reason_code: str
+    new_owner_user_id: str | None = None
+    proposed_changes: dict[str, Any] = Field(default_factory=dict)
+
+
+class GovernanceApprovalDecisionRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    decision: str
+    reason_code: str
+
+
+class GovernanceApprovalWithdrawRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    reason_code: str

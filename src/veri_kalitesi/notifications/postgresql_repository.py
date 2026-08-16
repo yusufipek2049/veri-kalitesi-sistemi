@@ -441,9 +441,7 @@ class PostgreSQLNotificationRepository:
                 .one_or_none()
             )
         if row is None:
-            raise NotificationNotFoundError(
-                f"No active {channel_type} notification channel found."
-            )
+            raise NotificationNotFoundError(f"No active {channel_type} notification channel found.")
         return _row_to_channel(row)
 
     def list_channels(

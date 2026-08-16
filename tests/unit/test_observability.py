@@ -77,9 +77,7 @@ def test_request_logs_are_json_and_share_response_correlation_id() -> None:
         api_logger.setLevel(previous_level)
 
     documents = [json.loads(line) for line in stream.getvalue().splitlines()]
-    request_documents = [
-        item for item in documents if item.get("event", "").startswith("request_")
-    ]
+    request_documents = [item for item in documents if item.get("event", "").startswith("request_")]
     assert [item["event"] for item in request_documents] == [
         "request_started",
         "request_completed",

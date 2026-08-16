@@ -102,14 +102,10 @@ class SMTPClient(Protocol):
 
 
 class SMTPClientFactory(Protocol):
-    def __call__(
-        self, host: str, port: int, *, timeout: float, use_ssl: bool
-    ) -> SMTPClient: ...
+    def __call__(self, host: str, port: int, *, timeout: float, use_ssl: bool) -> SMTPClient: ...
 
 
-def _default_smtp_factory(
-    host: str, port: int, *, timeout: float, use_ssl: bool
-) -> SMTPClient:
+def _default_smtp_factory(host: str, port: int, *, timeout: float, use_ssl: bool) -> SMTPClient:
     client_type = smtplib.SMTP_SSL if use_ssl else smtplib.SMTP
     return client_type(host=host, port=port, timeout=timeout)
 
@@ -270,8 +266,7 @@ AddressResolver = Callable[[str, int], Sequence[str]]
 
 def _resolve_addresses(host: str, port: int) -> tuple[str, ...]:
     return tuple(
-        str(item[4][0])
-        for item in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+        str(item[4][0]) for item in socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
     )
 
 

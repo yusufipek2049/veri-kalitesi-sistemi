@@ -135,8 +135,9 @@ class _StubScoringService:
     reproduced: QualityScore | None = None
 
     def calculate_full_score_set(
-        self, execution_id: str, *, configuration: Any = None
+        self, execution_id: str, *, configuration: Any = None, _persist: bool = True
     ) -> tuple[QualityScore, ...]:
+        assert _persist is False
         return tuple(self.scores)
 
     def reproduce_rule_score(self, **kwargs: Any) -> QualityScore:

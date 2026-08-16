@@ -1,5 +1,7 @@
 """Phantom capability routes must stay out of the executable API schema."""
 
+from fastapi.testclient import TestClient
+
 from veri_kalitesi.api import create_dashboard_api
 
 
@@ -9,7 +11,11 @@ EXPECTED_ROUTE_METHODS = {
     ("GET", "/api/v1/audit/events/export"),
     ("GET", "/api/v1/audit/events/grouped"),
     ("GET", "/api/v1/audit/summary"),
+    ("GET", "/api/v1/dashboard/issue-performance"),
+    ("GET", "/api/v1/dashboard/metadata-health"),
     ("GET", "/api/v1/dashboard/overview"),
+    ("GET", "/api/v1/dashboard/rule-health"),
+    ("GET", "/api/v1/dashboard/scoring-policy-impact"),
     ("GET", "/api/v1/data-sources"),
     ("GET", "/api/v1/data-sources/{data_source_id}/discovery-scope"),
     ("GET", "/api/v1/datasets"),
@@ -20,12 +26,25 @@ EXPECTED_ROUTE_METHODS = {
     ("GET", "/api/v1/executions"),
     ("GET", "/api/v1/executions/{execution_id}"),
     ("GET", "/api/v1/fields/{data_field_id}"),
+    ("GET", "/api/v1/governance/approval-requests"),
+    ("GET", "/api/v1/governance/approval-requests/{approval_request_id}"),
     ("GET", "/api/v1/issues"),
     ("GET", "/api/v1/issues/{issue_id}/assignment-options"),
     ("GET", "/api/v1/issues/{issue_id}/investigation/evidence"),
+    ("GET", "/api/v1/issues/{issue_id}/evidence"),
+    ("POST", "/api/v1/issues/{issue_id}/evidence"),
     ("GET", "/api/v1/metadata-discoveries/{discovery_id}"),
     ("GET", "/api/v1/metadata-discoveries/{discovery_id}/diff"),
+    ("GET", "/api/v1/notifications/channels"),
+    ("GET", "/api/v1/notifications/deliveries/{delivery_id}"),
+    ("GET", "/api/v1/notifications/events/{event_id}"),
+    ("GET", "/api/v1/notifications/inbox"),
+    ("GET", "/api/v1/notifications/inbox/unread-count"),
+    ("GET", "/api/v1/notifications/stream"),
+    ("GET", "/api/v1/notifications/subscriptions"),
     ("GET", "/api/v1/openapi.json"),
+    ("GET", "/api/v1/reports"),
+    ("GET", "/api/v1/reports/{report_id}"),
     ("HEAD", "/api/v1/openapi.json"),
     ("GET", "/api/v1/rules"),
     ("GET", "/api/v1/rules/{quality_rule_id}/scores"),
@@ -49,6 +68,10 @@ EXPECTED_ROUTE_METHODS = {
     ("POST", "/api/v1/data-sources/{data_source_id}/test"),
     ("POST", "/api/v1/executions"),
     ("POST", "/api/v1/executions/{execution_id}/cancel"),
+    ("POST", "/api/v1/governance/approval-requests"),
+    ("POST", "/api/v1/governance/approval-requests/{approval_request_id}/apply"),
+    ("POST", "/api/v1/governance/approval-requests/{approval_request_id}/decision"),
+    ("POST", "/api/v1/governance/approval-requests/{approval_request_id}/withdraw"),
     ("POST", "/api/v1/issues"),
     ("POST", "/api/v1/issues/{issue_id}/assignment"),
     ("POST", "/api/v1/issues/{issue_id}/closure"),
@@ -56,6 +79,9 @@ EXPECTED_ROUTE_METHODS = {
     ("POST", "/api/v1/issues/{issue_id}/resolution"),
     ("POST", "/api/v1/issues/{issue_id}/verification"),
     ("POST", "/api/v1/metadata-diffs/{metadata_diff_id}/application"),
+    ("POST", "/api/v1/notifications/deliveries/bulk-read"),
+    ("POST", "/api/v1/notifications/deliveries/{delivery_id}/read"),
+    ("POST", "/api/v1/notifications/inbox/mark-all-read"),
     ("POST", "/api/v1/rules"),
     ("POST", "/api/v1/rules/approval/{approval_request_id}/decide"),
     ("POST", "/api/v1/rules/approval/{approval_request_id}/withdraw"),
@@ -80,7 +106,6 @@ def test_unreachable_capability_routes_are_absent_from_openapi() -> None:
         "/api/v1/scores/{quality_score_id}/reproduction",
         "/api/v1/reports/summary",
         "/api/v1/reports/",
-        "/api/v1/reports/{report_id}",
         "/api/v1/reports/{report_id}/download",
         "/api/v1/report-schedules",
         "/api/v1/report-schedules/{schedule_id}",
@@ -96,11 +121,27 @@ def test_unreachable_capability_routes_are_absent_from_openapi() -> None:
 def test_dashboard_api_route_table_matches_snapshot() -> None:
     app = create_dashboard_api()
     actual = {
-        (method, route.path)
+        (method, getattr(route, "path", ""))
         for route in app.routes
         for method in getattr(route, "methods", set())
     }
 
     assert actual == EXPECTED_ROUTE_METHODS
-    assert len(app.routes) == 60
-    assert len([route for route in app.routes if route.path not in {"/health", "/ready"}]) == 58
+    assert len(app.routes) == 84
+    assert (
+        len(
+            [
+                route
+                for route in app.routes
+                if getattr(route, "path", "") not in {"/health", "/ready"}
+            ]
+        )
+        == 82
+    )
+
+
+def test_registered_optional_routes_return_503_when_services_are_unavailable() -> None:
+    client = TestClient(create_dashboard_api())
+
+    assert client.get("/api/v1/notifications/inbox").status_code == 503
+    assert client.get("/api/v1/reports").status_code == 503

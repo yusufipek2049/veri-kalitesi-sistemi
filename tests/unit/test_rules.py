@@ -929,6 +929,33 @@ def test_fr_035_bfr_sod_001_002_separate_checker_activates_critical_rule() -> No
     assert approval_audits[-1].session_id_digest is not None
 
 
+def test_pending_approval_requests_are_listed_until_decided() -> None:
+    repository = SQLiteRuleRepository()
+    service = _approval_rule_service(repository)
+    rule, version = _create_required_rule(service, criticality="CRITICAL")
+    service.test_rule(actor_id="user-1", rule_version_id=version.rule_version_id)
+
+    request = service.request_rule_approval(
+        actor_context=_actor_context("maker-1", {"RULE_MAKER"}),
+        quality_rule_id=rule.quality_rule_id,
+    )
+
+    pending = repository.list_pending_approval_requests(frozenset({version.rule_version_id}))
+    assert set(pending) == {version.rule_version_id}
+    assert pending[version.rule_version_id].approval_request_id == request.approval_request_id
+    assert pending[version.rule_version_id].maker_actor_id == "maker-1"
+    assert repository.list_pending_approval_requests(frozenset()) == {}
+
+    service.decide_rule_approval(
+        actor_context=_actor_context("checker-1", {"RULE_CHECKER"}),
+        approval_request_id=request.approval_request_id,
+        decision="APPROVE",
+        reason_code="RULE.TEST.PASSED",
+    )
+
+    assert repository.list_pending_approval_requests(frozenset({version.rule_version_id})) == {}
+
+
 def test_fr_035_bfr_sod_002_maker_cannot_decide_same_change() -> None:
     repository = SQLiteRuleRepository()
     service = _approval_rule_service(repository)

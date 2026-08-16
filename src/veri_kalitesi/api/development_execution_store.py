@@ -7,16 +7,22 @@ from datetime import datetime, timezone
 from threading import RLock
 from uuid import uuid4
 
-from veri_kalitesi.api.development_fixtures import DEVELOPMENT_EXECUTIONS
+from veri_kalitesi.api.development_fixtures import (
+    DEVELOPMENT_EXECUTION_ATTEMPTS,
+    DEVELOPMENT_EXECUTION_RESULTS,
+    DEVELOPMENT_EXECUTIONS,
+)
 from veri_kalitesi.executions.errors import (
     ExecutionConflictError,
     ExecutionNotFoundError,
 )
 from veri_kalitesi.executions.models import (
+    ExecutionAttempt,
     ExecutionMode,
     ExecutionStatus,
     ExecutionType,
     RuleExecution,
+    RuleExecutionResult,
     WorkloadClass,
 )
 from veri_kalitesi.identity import ActorContext
@@ -45,8 +51,19 @@ class DevelopmentExecutionReader:
                 return execution
         raise ExecutionNotFoundError(f"Execution {execution_id} not found.")
 
-    def list_results(self, execution_id: str) -> list:
-        return []
+    def list_results(self, execution_id: str) -> list[RuleExecutionResult]:
+        return [
+            result
+            for result in DEVELOPMENT_EXECUTION_RESULTS
+            if result.execution_id == execution_id
+        ]
+
+    def list_attempts(self, execution_id: str) -> list[ExecutionAttempt]:
+        return [
+            attempt
+            for attempt in DEVELOPMENT_EXECUTION_ATTEMPTS
+            if attempt.execution_id == execution_id
+        ]
 
 
 class DevelopmentExecutionStore:

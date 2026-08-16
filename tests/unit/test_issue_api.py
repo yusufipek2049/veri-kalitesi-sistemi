@@ -13,7 +13,7 @@ from veri_kalitesi.api import (
     DevelopmentActorContextResolver,
     create_dashboard_api,
 )
-from veri_kalitesi.api.development import create_development_app
+from veri_kalitesi.api.development import create_synthetic_development_app
 from veri_kalitesi.api.models import IssueAssigneeOptionResponse
 from veri_kalitesi.api.service_groups import (
     ActorResolverIdentity,
@@ -116,7 +116,7 @@ def test_nfr_usa_003_issue_repository_failure_returns_safe_technical_error() -> 
 
 
 def test_development_api_exposes_all_issue_lifecycle_states() -> None:
-    response = TestClient(create_development_app()).get("/api/v1/issues")
+    response = TestClient(create_synthetic_development_app()).get("/api/v1/issues")
 
     assert response.status_code == 200
     assert len(response.json()["items"]) == 8
@@ -139,7 +139,7 @@ def test_development_api_exposes_all_issue_lifecycle_states() -> None:
 
 def test_development_api_supports_same_origin_issue_investigation_demo() -> None:
     client = TestClient(
-        create_development_app(),
+        create_synthetic_development_app(),
         base_url="http://localhost:5173",
     )
     listed = client.get("/api/v1/issues")
@@ -168,7 +168,7 @@ def test_development_api_supports_same_origin_issue_investigation_demo() -> None
 
 def test_fr_065_uc_013_development_api_supports_reassignment_demo() -> None:
     client = TestClient(
-        create_development_app(),
+        create_synthetic_development_app(),
         base_url="http://localhost:5173",
     )
     listed = client.get("/api/v1/issues")
@@ -519,7 +519,7 @@ def test_fr_068_ui_write_002_stale_resolution_returns_conflict() -> None:
 
 def test_development_api_supports_resolution_demo() -> None:
     client = TestClient(
-        create_development_app(),
+        create_synthetic_development_app(),
         base_url="http://localhost:5173",
     )
     listed = client.get("/api/v1/issues")
@@ -527,6 +527,24 @@ def test_development_api_supports_resolution_demo() -> None:
     investigating = next(
         item for item in listed.json()["items"] if "RESOLVE" in item["available_actions"]
     )
+    mutation_headers = {
+        CSRF_HEADER_NAME: proof,
+        "Origin": "http://localhost:5173",
+        "Referer": "http://localhost:5173/issues",
+        "Sec-Fetch-Site": "same-origin",
+    }
+
+    # Kanıt referansı serbest metin değil: çalıştırma sonucundan seçilir ve kaydedilir.
+    evidence_list = client.get(f"/api/v1/issues/{investigating['issue_id']}/evidence")
+    assert evidence_list.status_code == 200
+    candidate = evidence_list.json()["candidates"][0]
+    captured = client.post(
+        f"/api/v1/issues/{investigating['issue_id']}/evidence",
+        json={"candidate_key": candidate["candidate_key"]},
+        headers=mutation_headers,
+    )
+    assert captured.status_code == 201
+    evidence_id = captured.json()["item"]["evidence_id"]
 
     changed = client.post(
         f"/api/v1/issues/{investigating['issue_id']}/resolution",
@@ -534,15 +552,10 @@ def test_development_api_supports_resolution_demo() -> None:
             "version": investigating["version"],
             "root_cause": "Sentetik kaynak eşlemesi",
             "corrective_action": "Sentetik eşleme düzeltildi",
-            "evidence_reference_id": "550e8400-e29b-41d4-a716-446655440000",
+            "evidence_reference_id": evidence_id,
             "completed_at": datetime.now(timezone.utc).isoformat(),
         },
-        headers={
-            CSRF_HEADER_NAME: proof,
-            "Origin": "http://localhost:5173",
-            "Referer": "http://localhost:5173/issues",
-            "Sec-Fetch-Site": "same-origin",
-        },
+        headers=mutation_headers,
     )
 
     assert changed.status_code == 200
@@ -1044,7 +1057,7 @@ def test_fr_070_verification_errors_are_classified_and_redacted() -> None:
 
 def test_development_api_supports_verification_demo() -> None:
     client = TestClient(
-        create_development_app(),
+        create_synthetic_development_app(),
         base_url="http://localhost:5173",
     )
     listed = client.get("/api/v1/issues")

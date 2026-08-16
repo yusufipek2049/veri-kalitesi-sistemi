@@ -4,6 +4,7 @@ import { executionDetailFromApi, executionsFromApi, type ExecutionDetail, type E
 import { ExecutionsPage, type ExecutionRuleOption, type ExecutionSourceOption } from "./ExecutionsPage";
 import { fetchRules, createRule } from "../rules/api";
 import { fetchDataSources } from "../dataSources/api";
+import { listCatalogDatasets } from "../catalog/api";
 
 const executionStates: ExecutionState[] = ["normal", "loading", "empty", "error", "unauthorized", "long-content"];
 
@@ -101,24 +102,45 @@ export function ExecutionsRoute() {
   useEffect(() => {
     if (fixtureState) return;
     const controller = new AbortController();
-    void Promise.all([
-      fetchRules(controller.signal).then((response) => {
+    const loadOptions = async () => {
+      const [rulesResponse, sourcesResponse, catalogResponse] = await Promise.all([
+        fetchRules(controller.signal).catch(() => null),
+        fetchDataSources(controller.signal).catch(() => null),
+        listCatalogDatasets(undefined, controller.signal).catch(() => null),
+      ]);
+      if (controller.signal.aborted) return;
+      // Dataset → source association map for rule-bound source filtering
+      const datasetLookup = new Map<string, { sourceId: string; label: string }>();
+      for (const ds of catalogResponse?.items ?? []) {
+        datasetLookup.set(ds.dataset_id, {
+          sourceId: ds.data_source_id,
+          label: `${ds.namespace}.${ds.name}`,
+        });
+      }
+      if (rulesResponse) {
         setRuleOptions(
-          response.items.map((item) => ({
-            ruleVersionId: item.rule_version_id,
-            label: `${item.name} (v${item.version_no})`,
-          })),
+          rulesResponse.items.map((item) => {
+            const dataset = datasetLookup.get(item.dataset_id);
+            return {
+              ruleVersionId: item.rule_version_id,
+              label: `${item.name} (v${item.version_no})`,
+              datasetId: item.dataset_id,
+              datasetLabel: dataset?.label,
+              sourceId: dataset?.sourceId,
+            };
+          }),
         );
-      }).catch(() => { /* non-blocking */ }),
-      fetchDataSources(controller.signal).then((response) => {
+      }
+      if (sourcesResponse) {
         setSourceOptions(
-          response.items.map((item) => ({
+          sourcesResponse.items.map((item) => ({
             sourceId: item.data_source_id,
             label: item.name,
           })),
         );
-      }).catch(() => { /* non-blocking */ }),
-    ]);
+      }
+    };
+    void loadOptions();
     return () => controller.abort();
   }, [fixtureState]);
 

@@ -17,6 +17,7 @@ from veri_kalitesi.api.catalog_router import (
 from veri_kalitesi.api.data_sources_router import DataSourceMutationService
 from veri_kalitesi.api.executions_router import (
     ExecutionCancelService,
+    ExecutionGovernanceGuard,
     ExecutionStartService,
 )
 from veri_kalitesi.api.health import ReadinessCheck
@@ -40,11 +41,23 @@ from veri_kalitesi.dashboard.service import DashboardQueryService
 from veri_kalitesi.data_sources.models import DataSource, Dataset
 from veri_kalitesi.data_sources.query import DataSourceQueryService
 from veri_kalitesi.executions.query import ExecutionQueryService
+from veri_kalitesi.governance import (
+    GovernanceApprovalCommandService,
+    GovernanceApprovalQueryService,
+)
 from veri_kalitesi.identity import ActorContext
-from veri_kalitesi.issues import IssueInvestigationEvidenceService, IssueQueryService
+from veri_kalitesi.issues import (
+    IssueEvidenceService,
+    IssueInvestigationEvidenceService,
+    IssueQueryService,
+)
 from veri_kalitesi.jobs.models import BackgroundJob
 from veri_kalitesi.rules import RuleQueryService
 from veri_kalitesi.scoring.query import ScoreQueryService
+from veri_kalitesi.dashboard.rule_health import RuleHealthQueryService
+from veri_kalitesi.dashboard.metadata_health import MetadataHealthQueryService
+from veri_kalitesi.dashboard.issue_performance import IssuePerformanceQueryService
+from veri_kalitesi.dashboard.scoring_policy_impact import ScoringPolicyImpactQueryService
 from veri_kalitesi.reporting.service import ReportQueryService
 
 
@@ -114,6 +127,7 @@ class ExecutionServices:
     start: ExecutionStartService | None
     cancel: ExecutionCancelService | None
     job_queue: JobQueueReader | None
+    governance_guard: ExecutionGovernanceGuard | None = None
 
 
 @dataclass(frozen=True)
@@ -138,6 +152,8 @@ class IssueServices:
     verification: IssueVerificationService | None
     closure: IssueClosureService | None
     creation: IssueCreationService | None
+    evidence_catalog: IssueEvidenceService | None = None
+    evidence_upload: object | None = None
 
 
 @dataclass(frozen=True)
@@ -170,3 +186,21 @@ class ReportingServices:
     """Rapor rotalarının salt-okunur bağımlılık sözleşmesi."""
 
     query: ReportQueryService | None
+
+
+@dataclass(frozen=True)
+class GovernanceServices:
+    """Yönetişim görev merkezi rotalarının bağımlılık sözleşmesi."""
+
+    query: GovernanceApprovalQueryService | None
+    command: GovernanceApprovalCommandService | None = None
+
+
+@dataclass(frozen=True)
+class AnalyticsServices:
+    """Analytics dashboard rotalarının bağımlılık sözleşmesi."""
+
+    rule_health: RuleHealthQueryService | None = None
+    metadata_health: MetadataHealthQueryService | None = None
+    issue_performance: IssuePerformanceQueryService | None = None
+    scoring_policy_impact: ScoringPolicyImpactQueryService | None = None

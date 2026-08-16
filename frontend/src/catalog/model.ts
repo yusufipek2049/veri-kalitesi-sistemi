@@ -23,6 +23,7 @@ export interface CatalogDataset {
   estimatedRowCount: number | null;
   fieldCount: number;
   version: number;
+  ownerId: string | null;
 }
 
 export interface CatalogField {
@@ -89,6 +90,7 @@ export interface CatalogDatasetListApiResponse extends ApiEnvelope {
     estimated_row_count: number | null;
     field_count: number;
     version: number;
+    owner_user_id?: string | null;
   }[];
 }
 
@@ -176,6 +178,7 @@ export function mapCatalogDataset(api: CatalogDatasetListApiResponse["items"][nu
     estimatedRowCount: api.estimated_row_count,
     fieldCount: api.field_count,
     version: api.version,
+    ownerId: api.owner_user_id ?? null,
   };
 }
 

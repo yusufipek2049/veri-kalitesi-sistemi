@@ -16,7 +16,7 @@ describe("Çalıştırmalar ekranı", () => {
     expect(screen.getAllByTestId("execution-icon-slot")).toHaveLength(8);
     expect(screen.getByLabelText("Durum: Teknik hata")).toBeVisible();
     expect(screen.getByLabelText("Durum: Kısmi")).toBeVisible();
-    expect(screen.getByLabelText("Durum: Tamamlandı")).toBeVisible();
+    expect(screen.getByLabelText("Durum: Teknik olarak tamamlandı")).toBeVisible();
   });
 
   it("metin ve durum filtrelerini uygular", () => {
@@ -55,7 +55,27 @@ describe("Çalıştırmalar ekranı", () => {
     }];
     render(<ThemeModeProvider><MemoryRouter><ExecutionsPage items={items} /></MemoryRouter></ThemeModeProvider>);
     expect(screen.getByLabelText("Durum: SHADOW")).toBeVisible();
-    expect(screen.getByLabelText("Durum: Tamamlandı")).toBeVisible();
+    expect(screen.getByLabelText("Durum: Teknik olarak tamamlandı")).toBeVisible();
+  });
+
+  it("eski tamamlanmış kaydı başlamadı diye göstermez", () => {
+    const items: ExecutionListItem[] = [{
+      id: "execution-legacy-success",
+      executionType: "MANUAL",
+      status: "SUCCESS",
+      workloadClass: "LIGHT",
+      ruleCount: 1,
+      sourceCount: 1,
+      attemptCount: 1,
+      progressPercent: 100,
+      availableActions: [],
+      datasets: [],
+      createdAt: "2026-07-23T09:00:00Z",
+      finishedAt: "2026-07-23T09:01:00Z",
+    }];
+    render(<ThemeModeProvider><MemoryRouter><ExecutionsPage items={items} /></MemoryRouter></ThemeModeProvider>);
+    expect(screen.getByText("Başlangıç kaydı yok")).toBeVisible();
+    expect(screen.queryByText("Henüz başlamadı")).not.toBeInTheDocument();
   });
 
   it("engellenmiş yürütmeyi kilit ikonu ve nedeni ile gösterir", () => {
@@ -145,6 +165,69 @@ describe("Çalıştırmalar ekranı", () => {
     );
   });
 
+  it("kural seçilince yalnızca ilişkili kaynak seçilebilir ve otomatik seçilir", () => {
+    const onStart = vi.fn();
+    const ruleOptions = [{
+      ruleVersionId: "rv-1",
+      label: "IBAN boş olamaz (v1)",
+      datasetId: "ds-1",
+      datasetLabel: "public.accounts",
+      sourceId: "src-1",
+    }];
+    const sourceOptions = [
+      { sourceId: "src-1", label: "Core DB" },
+      { sourceId: "src-2", label: "Risk DB" },
+    ];
+    render(
+      <ThemeModeProvider>
+        <MemoryRouter>
+          <ExecutionsPage
+            onStart={onStart}
+            ruleOptions={ruleOptions}
+            sourceOptions={sourceOptions}
+          />
+        </MemoryRouter>
+      </ThemeModeProvider>,
+    );
+    fireEvent.click(screen.getByText("Çalıştırma başlat"));
+
+    // Kuralı seç
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: /kural/i }));
+    fireEvent.click(screen.getByRole("option", { name: "IBAN boş olamaz (v1)" }));
+
+    // İlişkili dataset chip'i görünür ve ilişkili kaynak otomatik seçilir
+    expect(screen.getByText("public.accounts")).toBeVisible();
+    const sourceInput = screen.getByRole("combobox", { name: /kaynak/i });
+    expect(sourceInput).toHaveValue("Core DB");
+
+    // İlişkisiz kaynak seçeneklerde yer almaz
+    fireEvent.mouseDown(sourceInput);
+    expect(screen.queryByRole("option", { name: "Risk DB" })).not.toBeInTheDocument();
+    fireEvent.keyDown(sourceInput, { key: "Escape" });
+
+    // Başlatma ilişkili kaynakla yapılır
+    fireEvent.click(screen.getByRole("button", { name: "Başlat" }));
+    expect(onStart).toHaveBeenCalledWith(["rv-1"], ["src-1"], expect.any(String));
+  });
+
+  it("kural seçilmeden kaynak alanı kapalıdır ve başlatma yapılamaz", () => {
+    const onStart = vi.fn();
+    const sourceOptions = [{ sourceId: "src-1", label: "Core DB" }];
+    render(
+      <ThemeModeProvider>
+        <MemoryRouter>
+          <ExecutionsPage onStart={onStart} sourceOptions={sourceOptions} />
+        </MemoryRouter>
+      </ThemeModeProvider>,
+    );
+    fireEvent.click(screen.getByText("Çalıştırma başlat"));
+
+    expect(screen.getByRole("combobox", { name: /kaynak/i })).toBeDisabled();
+    const idempotencyField = screen.getByLabelText(/idempotency anahtarı/i);
+    expect(screen.getByRole("button", { name: "Başlat" })).toBeDisabled();
+    expect(idempotencyField).toBeVisible();
+  });
+
   it("detay dialog'unda job bilgilerini gosterir", () => {
     const detail: ExecutionDetail = {
       item: {
@@ -185,6 +268,45 @@ describe("Çalıştırmalar ekranı", () => {
     expect(screen.getByText("Job Bilgileri")).toBeVisible();
     expect(screen.getAllByText("execution-job-detail").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("worker-a")).toBeVisible();
+  });
+
+  it("teknik olarak tamamlanan çalıştırmadaki kalite başarısızlığını açıklar", () => {
+    const detail: ExecutionDetail = {
+      item: {
+        id: "execution-quality-failed",
+        executionType: "MANUAL",
+        status: "SUCCESS",
+        workloadClass: "LIGHT",
+        ruleCount: 1,
+        sourceCount: 1,
+        attemptCount: 1,
+        progressPercent: 100,
+        availableActions: [],
+        datasets: [],
+        createdAt: "2026-07-23T09:00:00Z",
+        startedAt: "2026-07-23T09:00:01Z",
+        finishedAt: "2026-07-23T09:00:02Z",
+      },
+      results: [{
+        ruleVersionId: "rv-failed",
+        populationCount: 30_000,
+        passedCount: 25_408,
+        failedCount: 4_592,
+        evaluatedCount: 30_000,
+        measurementStatus: "Failed",
+      }],
+      ruleDefinitions: [],
+      jobInfo: null,
+    };
+    render(
+      <ThemeModeProvider>
+        <MemoryRouter>
+          <ExecutionsPage detailOpen executionDetail={detail} onCloseDetail={() => {}} />
+        </MemoryRouter>
+      </ThemeModeProvider>,
+    );
+    expect(screen.getByText(/en az bir kalite kuralı başarısız oldu/i)).toBeVisible();
+    expect(screen.getByLabelText("Durum: Başarısız")).toBeVisible();
   });
 
   it("onAdhocSql verildiginde 'Ozel SQL' butonu gosterir", () => {

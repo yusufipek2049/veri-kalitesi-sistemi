@@ -42,6 +42,13 @@ class DevelopmentUser:
     permitted_dataset_ids: frozenset[str]
     can_view_enterprise: bool = False
     privileged: bool = False
+    actor_id: str | None = None
+
+    @property
+    def effective_actor_id(self) -> str:
+        """Domain kayıtlarında kullanılan kanonik kullanıcı kimliği."""
+
+        return self.actor_id or self.user_id
 
 
 class DevelopmentUserRegistry:
@@ -52,19 +59,22 @@ class DevelopmentUserRegistry:
 
     def __init__(self, users: list[DevelopmentUser] | None = None) -> None:
         self._users: dict[str, DevelopmentUser] = {}
+        self._users_by_actor_id: dict[str, DevelopmentUser] = {}
         self._active_user_id: str | None = None
         if users:
             for user in users:
                 self._users[user.user_id] = user
+                self._users_by_actor_id[user.effective_actor_id] = user
 
     def register(self, user: DevelopmentUser) -> None:
         self._users[user.user_id] = user
+        self._users_by_actor_id[user.effective_actor_id] = user
 
     def list_users(self) -> list[DevelopmentUser]:
         return list(self._users.values())
 
     def get_user(self, user_id: str) -> DevelopmentUser | None:
-        return self._users.get(user_id)
+        return self._users.get(user_id) or self._users_by_actor_id.get(user_id)
 
     def set_active_user(self, user_id: str) -> DevelopmentUser | None:
         if user_id in self._users:
@@ -121,6 +131,7 @@ def build_default_development_users() -> list[DevelopmentUser]:
             permitted_source_ids=all_source_ids,
             permitted_dataset_ids=all_dataset_ids,
             can_view_enterprise=True,
+            actor_id="33333333-3333-4333-8333-333333333333",
         ),
         DevelopmentUser(
             user_id="dev-data-steward",
@@ -129,6 +140,7 @@ def build_default_development_users() -> list[DevelopmentUser]:
             permitted_source_ids=all_source_ids,
             permitted_dataset_ids=all_dataset_ids,
             can_view_enterprise=True,
+            actor_id="11111111-1111-4111-8111-111111111111",
         ),
         DevelopmentUser(
             user_id="dev-data-owner",
@@ -137,6 +149,7 @@ def build_default_development_users() -> list[DevelopmentUser]:
             permitted_source_ids=all_source_ids,
             permitted_dataset_ids=all_dataset_ids,
             can_view_enterprise=True,
+            actor_id="22222222-2222-4222-8222-222222222222",
         ),
         DevelopmentUser(
             user_id="dev-data-steward-owner",
@@ -145,6 +158,7 @@ def build_default_development_users() -> list[DevelopmentUser]:
             permitted_source_ids=all_source_ids,
             permitted_dataset_ids=all_dataset_ids,
             can_view_enterprise=True,
+            actor_id="66666666-6666-4666-8666-666666666666",
         ),
         DevelopmentUser(
             user_id="dev-data-governance",
@@ -153,6 +167,7 @@ def build_default_development_users() -> list[DevelopmentUser]:
             permitted_source_ids=all_source_ids,
             permitted_dataset_ids=all_dataset_ids,
             can_view_enterprise=True,
+            actor_id="44444444-4444-4444-8444-444444444444",
         ),
         DevelopmentUser(
             user_id="dev-data-engineer",
@@ -161,6 +176,7 @@ def build_default_development_users() -> list[DevelopmentUser]:
             permitted_source_ids=all_source_ids,
             permitted_dataset_ids=all_dataset_ids,
             can_view_enterprise=True,
+            actor_id="55555555-5555-4555-8555-555555555555",
         ),
         DevelopmentUser(
             user_id="dev-audit-viewer",
@@ -168,7 +184,10 @@ def build_default_development_users() -> list[DevelopmentUser]:
             roles=frozenset({"DATA_VIEWER", "AUDIT_VIEWER"}),
             permitted_source_ids=all_source_ids,
             permitted_dataset_ids=all_dataset_ids,
-            can_view_enterprise=False,
+            # Denetçi salt okunur görünüm için kurumsal kapsama sahiptir;
+            # karar/uygulama rolleri verilmez.
+            can_view_enterprise=True,
+            actor_id="77777777-7777-4777-8777-777777777777",
         ),
         DevelopmentUser(
             user_id="dev-limited-steward",
@@ -177,6 +196,7 @@ def build_default_development_users() -> list[DevelopmentUser]:
             permitted_source_ids=limited_sources,
             permitted_dataset_ids=limited_datasets,
             can_view_enterprise=False,
+            actor_id="88888888-8888-4888-8888-888888888888",
         ),
         DevelopmentUser(
             user_id="dev-privileged-user",
@@ -186,6 +206,7 @@ def build_default_development_users() -> list[DevelopmentUser]:
             permitted_dataset_ids=all_dataset_ids,
             can_view_enterprise=True,
             privileged=True,
+            actor_id="99999999-9999-4999-8999-999999999999",
         ),
     ]
 
@@ -286,7 +307,7 @@ class DevelopmentActorContextResolver:
                 if user.can_view_enterprise and self._enterprise_dataset_scope_provider:
                     dataset_ids = dataset_ids | self._enterprise_dataset_scope_provider()
                 return (
-                    user.user_id,
+                    user.effective_actor_id,
                     user.roles,
                     source_ids,
                     dataset_ids,

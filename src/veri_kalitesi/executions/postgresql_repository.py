@@ -420,6 +420,32 @@ class PostgreSQLExecutionRepository:
 
         return self.get(execution.execution_id)
 
+    def claim_by_id(
+        self,
+        execution_id: str,
+        started_at: datetime,
+    ) -> RuleExecution | None:
+        """Atomically move the queue-selected execution into RUNNING."""
+
+        with transactional_session(self._session_factory) as session:
+            t = self._tables.executions
+            result = session.execute(
+                update(t)
+                .where(
+                    and_(
+                        t.c.execution_id == execution_id,
+                        t.c.status == ExecutionStatus.QUEUED.value,
+                    )
+                )
+                .values(
+                    status=ExecutionStatus.RUNNING.value,
+                    started_at=started_at,
+                )
+            )
+            if result.rowcount == 0:  # type: ignore[attr-defined]
+                return None
+        return self.get(execution_id)
+
     def add_attempt(
         self,
         attempt: ExecutionAttempt,

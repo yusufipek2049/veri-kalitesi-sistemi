@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 
 from veri_kalitesi.api.models import ScoreItemResponse, ScoreListResponse
 from veri_kalitesi.api.models_catalog import (
@@ -421,6 +421,7 @@ def register_catalog_routes(
                     estimated_row_count=v.dataset.estimated_row_count,
                     field_count=v.field_count,
                     version=v.dataset.version,
+                    owner_user_id=v.dataset.owner_user_id,
                 )
                 for v in views
             ),
@@ -461,6 +462,7 @@ def register_catalog_routes(
                 estimated_row_count=view.dataset.estimated_row_count,
                 field_count=view.field_count,
                 version=view.dataset.version,
+                owner_user_id=view.dataset.owner_user_id,
             ),
             data_source_name=view.data_source.name,
         )
@@ -604,14 +606,18 @@ def register_catalog_routes(
         )
         # Verify access
         view = catalog_query_service.get_dataset_view(dataset_id, permitted_source_ids=permitted)
+        # Kritik dataset alanları (status) doğrudan düzenlenemez; yönetişim onayı gerekir.
+        if payload.status is not None:
+            raise HTTPException(
+                status_code=409,
+                detail="Critical dataset metadata changes require a governance approval request.",
+            )
         # Build update dict from non-None fields
         updates: dict[str, Any] = {}
         if payload.name is not None:
             updates["name"] = payload.name
         if payload.namespace is not None:
             updates["namespace"] = payload.namespace
-        if payload.status is not None:
-            updates["status"] = payload.status
         if not updates:
             # No fields to update, return current state
             response.headers["Cache-Control"] = "no-store"
@@ -628,6 +634,7 @@ def register_catalog_routes(
                     estimated_row_count=view.dataset.estimated_row_count,
                     field_count=view.field_count,
                     version=view.dataset.version,
+                    owner_user_id=view.dataset.owner_user_id,
                 ),
                 data_source_name=view.data_source.name,
             )
@@ -653,6 +660,7 @@ def register_catalog_routes(
                 estimated_row_count=updated_dataset.estimated_row_count,
                 field_count=view.field_count,
                 version=updated_dataset.version,
+                owner_user_id=updated_dataset.owner_user_id,
             ),
             data_source_name=view.data_source.name,
         )
@@ -681,6 +689,15 @@ def register_catalog_routes(
         )
         # Verify access
         view = catalog_query_service.get_field_view(field_id, permitted_source_ids=permitted)
+        # Hassasiyet ve sınıflandırma doğrudan düzenlenemez; yönetişim onayı gerekir.
+        if payload.is_sensitive is not None or payload.classification is not None:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Field sensitivity and classification changes require a governance "
+                    "approval request."
+                ),
+            )
         # Build update dict from non-None fields
         updates: dict[str, Any] = {}
         if payload.native_data_type is not None:

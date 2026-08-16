@@ -4,6 +4,7 @@
 //   eslint                        ^9.39.5
 //   @babel/eslint-parser          ^7.29.7
 //   @babel/preset-typescript      ^7.29.7
+//   eslint-plugin-react           ^7.37.5
 //   eslint-plugin-react-hooks     ^5.2.0
 //
 // LIMITATIONS (TypeScript 7.0 compatibility):
@@ -19,6 +20,7 @@
 // legacy findings do not block CI.
 
 import babelParser from "@babel/eslint-parser";
+import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 
 export default [
@@ -49,9 +51,18 @@ export default [
       },
     },
     plugins: {
+      react,
       "react-hooks": reactHooks,
     },
+    settings: {
+      react: { version: "detect" },
+    },
     rules: {
+      // ── React JSX ──
+      // Mark variables referenced in JSX as used (prevents false-positive
+      // no-unused-vars for every component import / local variable).
+      "react/jsx-uses-vars": "error",
+
       // ── React hooks ──
       "react-hooks/rules-of-hooks": "error", // always blocking
       "react-hooks/exhaustive-deps": "warn",

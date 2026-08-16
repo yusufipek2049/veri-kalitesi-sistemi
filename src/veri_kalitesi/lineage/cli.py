@@ -64,15 +64,11 @@ def _component(value: object) -> ImpactComponent:
         unit=str(payload["unit"]) if payload.get("unit") is not None else None,
         source_ref=(str(payload["source_ref"]) if payload.get("source_ref") is not None else None),
         formula_ref=(
-            str(payload["formula_ref"])
-            if payload.get("formula_ref") is not None
-            else None
+            str(payload["formula_ref"]) if payload.get("formula_ref") is not None else None
         ),
         data_time=datetime.fromisoformat(str(raw_time)) if raw_time is not None else None,
         confidence_ref=(
-            str(payload["confidence_ref"])
-            if payload.get("confidence_ref") is not None
-            else None
+            str(payload["confidence_ref"]) if payload.get("confidence_ref") is not None else None
         ),
     )
 

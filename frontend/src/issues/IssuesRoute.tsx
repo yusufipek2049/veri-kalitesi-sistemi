@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  captureIssueEvidence,
+  downloadIssueEvidence,
   fetchIssueAssignmentOptions,
+  fetchIssueEvidence,
   fetchIssues,
+  uploadIssueEvidence,
   IssueApiError,
   reassignIssue,
   resolveIssue,
@@ -12,10 +16,14 @@ import {
 } from "./api";
 import {
   assigneeOptionsFromApi,
+  issueEvidenceCandidateFromApi,
+  issueEvidenceRecordFromApi,
   issueFromApiItem,
   issuesFromApi,
   type IssueAssigneeOption,
   type IssueCreateInput,
+  type IssueEvidenceCandidate,
+  type IssueEvidenceRecord,
   type IssueListItem,
   type IssuePriority,
   type IssueState,
@@ -102,6 +110,38 @@ export function IssuesRoute() {
     )));
     setCorrelationId(response.correlation_id);
   }, []);
+  const loadEvidence = useCallback(
+    async (item: IssueListItem): Promise<{
+      records: IssueEvidenceRecord[];
+      candidates: IssueEvidenceCandidate[];
+    }> => {
+      const response = await fetchIssueEvidence(item.id);
+      setCorrelationId(response.correlation_id);
+      return {
+        records: response.items.map(issueEvidenceRecordFromApi),
+        candidates: response.candidates.map(issueEvidenceCandidateFromApi),
+      };
+    },
+    [],
+  );
+  const captureEvidence = useCallback(
+    async (item: IssueListItem, candidateKey: string): Promise<IssueEvidenceRecord> => {
+      const response = await captureIssueEvidence(item.id, candidateKey);
+      setCorrelationId(response.correlation_id);
+      return issueEvidenceRecordFromApi(response.item);
+    },
+    [],
+  );
+  const uploadEvidence = useCallback(async (item: IssueListItem, file: File, label: string,
+    classification: string, onProgress: (percentage: number) => void,
+  ): Promise<IssueEvidenceRecord> => {
+    const response = await uploadIssueEvidence(item.id, file, label, classification, onProgress);
+    setCorrelationId(response.correlation_id);
+    return issueEvidenceRecordFromApi(response.item);
+  }, []);
+  const downloadEvidence = useCallback(async (item: IssueListItem, evidenceId: string) => {
+    await downloadIssueEvidence(item.id, evidenceId);
+  }, []);
   const resolve = useCallback(async (
     item: IssueListItem,
     rootCause: string,
@@ -153,6 +193,10 @@ export function IssuesRoute() {
       pageActions={pageActions}
       onRefresh={() => void load()}
       onReassign={reassign}
+      onLoadEvidence={loadEvidence}
+      onCaptureEvidence={captureEvidence}
+      onUploadEvidence={uploadEvidence}
+      onDownloadEvidence={downloadEvidence}
       onResolve={resolve}
       onClose={close}
       onStartInvestigation={startInvestigation}

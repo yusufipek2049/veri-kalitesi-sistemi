@@ -28,13 +28,16 @@ from veri_kalitesi.api.issues_router import register_issues_routes
 from veri_kalitesi.api.executions_router import register_executions_routes
 from veri_kalitesi.api.scores_router import register_scores_routes
 from veri_kalitesi.api.dashboard_router import register_dashboard_routes
+from veri_kalitesi.api.dashboard_insights_router import register_dashboard_insights_routes
 from veri_kalitesi.api.audit_router import register_audit_routes
 from veri_kalitesi.api.notifications_router import register_notifications_routes
 from veri_kalitesi.api.health import register_health_routes
 from veri_kalitesi.api.reporting_router import register_reporting_routes
+from veri_kalitesi.api.governance_router import register_governance_routes
 from veri_kalitesi.operational_logging import bind_correlation_id, reset_correlation_id
 from veri_kalitesi.api.service_groups import (
     ActorResolverIdentity,
+    AnalyticsServices,
     ApiIdentity,
     ApiOptions,
     AuditServices,
@@ -43,6 +46,7 @@ from veri_kalitesi.api.service_groups import (
     CatalogServices,
     DataSourceServices,
     ExecutionServices,
+    GovernanceServices,
     IssueServices,
     JobQueueReader,
     NotificationServices,
@@ -51,7 +55,7 @@ from veri_kalitesi.api.service_groups import (
     StateChangeBoundary,
 )
 
-CORS_ALLOWED_METHODS = ("GET", "POST", "PATCH", "PUT")
+CORS_ALLOWED_METHODS = ("GET", "POST", "PATCH", "PUT", "DELETE")
 logger = logging.getLogger(__name__)
 
 
@@ -129,6 +133,8 @@ def create_dashboard_api(
     audit: AuditServices | None = None,
     notifications: NotificationServices | None = None,
     reporting: ReportingServices | None = None,
+    governance: GovernanceServices | None = None,
+    analytics: AnalyticsServices | None = None,
 ) -> FastAPI:
     """Bağımlılıkları dışarıdan verilen, varsayılanı fail-closed API üretir."""
 
@@ -265,6 +271,8 @@ def create_dashboard_api(
         issue_creation_service=issues.creation if issues is not None else None,
         resolver=resolver,
         data_origin=options.data_origin,
+        issue_evidence_service=issues.evidence_catalog if issues is not None else None,
+        issue_evidence_upload_service=issues.evidence_upload if issues is not None else None,
         catalog_reader=_catalog_reader,
     )
     register_executions_routes(
@@ -281,6 +289,9 @@ def create_dashboard_api(
             if executions is not None and executions.job_queue is not None
             else None
         ),
+        execution_governance_guard=(
+            executions.governance_guard if executions is not None else None
+        ),
         resolver=resolver,
         data_origin=options.data_origin,
     )
@@ -295,6 +306,17 @@ def create_dashboard_api(
     register_dashboard_routes(
         app,
         dashboard_query_service=catalog.dashboard_query if catalog is not None else None,
+        resolver=resolver,
+        data_origin=options.data_origin,
+    )
+    register_dashboard_insights_routes(
+        app,
+        rule_health_service=analytics.rule_health if analytics is not None else None,
+        metadata_health_service=analytics.metadata_health if analytics is not None else None,
+        issue_performance_service=analytics.issue_performance if analytics is not None else None,
+        scoring_policy_impact_service=(
+            analytics.scoring_policy_impact if analytics is not None else None
+        ),
         resolver=resolver,
         data_origin=options.data_origin,
     )
@@ -324,6 +346,13 @@ def create_dashboard_api(
     register_reporting_routes(
         app,
         report_query_service=reporting.query if reporting is not None else None,
+        resolver=resolver,
+        data_origin=options.data_origin,
+    )
+    register_governance_routes(
+        app,
+        governance_query_service=governance.query if governance is not None else None,
+        governance_command_service=governance.command if governance is not None else None,
         resolver=resolver,
         data_origin=options.data_origin,
     )

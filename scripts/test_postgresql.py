@@ -53,10 +53,7 @@ def main() -> int:
         }
     )
     pytest_args = sys.argv[1:]
-    if not any(
-        argument.startswith("tests/") or "::" in argument
-        for argument in pytest_args
-    ):
+    if not any(argument.startswith("tests/") or "::" in argument for argument in pytest_args):
         pytest_args.append("tests/integration")
     return _run([sys.executable, "-m", "pytest", *pytest_args], environment=environment)
 

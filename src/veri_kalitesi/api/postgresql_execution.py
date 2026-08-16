@@ -220,9 +220,7 @@ class PostgreSQLExecutionStartService:
         # Check actor has execution role
         execution_roles = {"DATA_STEWARD", "DATA_OWNER", "DATA_VIEWER", "PLATFORM_ADMIN"}
         if not actor_context.roles.intersection(execution_roles):
-            raise ExecutionValidationError(
-                "Actor lacks the required role to start an execution."
-            )
+            raise ExecutionValidationError("Actor lacks the required role to start an execution.")
 
         # Check source scope
         if actor_context.permitted_source_ids:
@@ -239,13 +237,9 @@ class PostgreSQLExecutionStartService:
                 try:
                     version = self._rule_catalog.get_version(vid)
                 except Exception as exc:
-                    raise ExecutionValidationError(
-                        f"Rule version '{vid}' not found."
-                    ) from exc
+                    raise ExecutionValidationError(f"Rule version '{vid}' not found.") from exc
                 if version is None:
-                    raise ExecutionValidationError(
-                        f"Rule version '{vid}' not found."
-                    )
+                    raise ExecutionValidationError(f"Rule version '{vid}' not found.")
                 try:
                     rule = self._rule_catalog.get_rule(version.quality_rule_id)
                 except Exception as exc:
@@ -267,23 +261,32 @@ class PostgreSQLExecutionStartService:
                         raise ExecutionValidationError(
                             f"Rule version '{vid}' is not the latest active version."
                         )
-                # Resolve the data source for this rule
+                # Resolve the data source for this rule (fail-closed)
                 try:
                     dataset = self._source_catalog.get_dataset(rule.dataset_id)
-                    if dataset is not None:
-                        resolved_source_ids.add(dataset.data_source_id)
-                except Exception:
-                    pass
-
-            # Verify client source_ids match the rules' actual sources
-            if resolved_source_ids:
-                requested = set(source_ids)
-                if not resolved_source_ids.issubset(requested):
-                    extra = resolved_source_ids - requested
+                except Exception as exc:
                     raise ExecutionValidationError(
-                        f"Rule definitions require sources {sorted(extra)} which are not"
-                        f" included in the request."
+                        f"Dataset '{rule.dataset_id}' could not be resolved."
+                    ) from exc
+                if dataset is None:
+                    raise ExecutionValidationError(
+                        f"Dataset '{rule.dataset_id}' could not be resolved."
                     )
+                resolved_source_ids.add(dataset.data_source_id)
+
+            # Verify client source_ids exactly match the rules' actual sources
+            requested = set(source_ids)
+            unrelated = requested - resolved_source_ids
+            if unrelated:
+                raise ExecutionValidationError(
+                    f"Sources {sorted(unrelated)} are not associated with the selected rules."
+                )
+            missing = resolved_source_ids - requested
+            if missing:
+                raise ExecutionValidationError(
+                    f"Rule definitions require sources {sorted(missing)} which are not"
+                    f" included in the request."
+                )
 
 
 class PostgreSQLExecutionCancelService:
@@ -408,3 +411,108 @@ class PostgreSQLExecutionCancelService:
                     session=session,
                 )
         return cancelled
+
+
+class PostgreSQLExecutionGovernanceWriter:
+    """Onaylanan çalıştırma kararlarını uygulayan yönetişim adaptörü."""
+
+    def __init__(
+        self,
+        start_service: PostgreSQLExecutionStartService,
+        cancel_service: PostgreSQLExecutionCancelService,
+        job_queue: PostgreSQLJobQueueRepository,
+        transactional_audit: PostgreSQLTransactionalAudit,
+        clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
+    ) -> None:
+        self._start_service = start_service
+        self._cancel_service = cancel_service
+        self._job_queue = job_queue
+        self._transactional_audit = transactional_audit
+        self._clock = clock
+
+    def apply_manual_start(
+        self,
+        *,
+        request: "GovernanceApprovalRequest",
+        actor_context: ActorContext,
+    ) -> RuleExecution:
+        from veri_kalitesi.governance.models import (
+            GovernanceApprovalRequest as _Req,
+        )
+
+        after = dict(request.change_summary.get("after", {}))
+        rule_version_ids = tuple(after.get("rule_version_ids", []))
+        execution_mode = ExecutionMode(after.get("execution_mode", "OFFICIAL"))
+        idempotency_key = f"governance:{request.approval_request_id}"
+        dataset_ids = self._resolve_source_ids(rule_version_ids)
+        return self._start_service.start_manual(
+            rule_version_ids=rule_version_ids,
+            source_ids=dataset_ids,
+            idempotency_key=idempotency_key,
+            actor_context=actor_context,
+            execution_mode=execution_mode,
+        )
+
+    def apply_cancel(
+        self,
+        *,
+        request: "GovernanceApprovalRequest",
+        actor_context: ActorContext,
+    ) -> RuleExecution:
+        after = dict(request.change_summary.get("after", {}))
+        reason = str(after.get("reason", "Governance approved cancellation"))
+        return self._cancel_service.cancel(
+            request.object_id,
+            reason=reason,
+            actor_context=actor_context,
+        )
+
+    def apply_dead_letter_reprocess(
+        self,
+        *,
+        request: "GovernanceApprovalRequest",
+        actor_context: ActorContext,
+    ) -> BackgroundJob:
+        now = self._clock()
+        audit_event = self._transactional_audit.prepare(
+            AuditEventInput(
+                actor_id=actor_context.actor_id,
+                actor_type="USER",
+                correlation_id=request.correlation_id,
+                action="GOVERNANCE_DEAD_LETTER_REPROCESSED",
+                object_type="BackgroundJob",
+                object_id=request.object_id,
+                result=AuditResult.SUCCESS,
+                reason_code="GOVERNANCE_APPROVED_REPROCESS",
+                old_values={},
+                new_values={
+                    "approval_request_id": request.approval_request_id,
+                },
+                occurred_at=now,
+            )
+        )
+        return self._job_queue.reprocess_dead_letter(
+            request.object_id,
+            actor_id=actor_context.actor_id,
+            now=now,
+            audit_event=audit_event,
+            audit_outbox=self._transactional_audit,
+        )
+
+    def _resolve_source_ids(
+        self, rule_version_ids: tuple[str, ...]
+    ) -> tuple[str, ...]:
+        source_ids: set[str] = set()
+        catalog = getattr(self._start_service, "_rule_catalog", None)
+        source_catalog = getattr(self._start_service, "_source_catalog", None)
+        if catalog is None or source_catalog is None:
+            return ()
+        for vid in rule_version_ids:
+            try:
+                version = catalog.get_version(vid)
+                rule = catalog.get_rule(version.quality_rule_id)
+                dataset = source_catalog.get_dataset(rule.dataset_id)
+                source_ids.add(dataset.data_source_id)
+            except Exception:
+                continue
+        return tuple(sorted(source_ids))

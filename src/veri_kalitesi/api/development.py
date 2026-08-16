@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from veri_kalitesi.api.development_composition import (
     DEVELOPMENT_USER_REGISTRY,
-    create_development_app,
+    create_synthetic_development_app,
 )
 from veri_kalitesi.api.development_data_source_store import (
     DevelopmentDataSourceReader,
@@ -50,5 +50,5 @@ __all__ = [
     "DevelopmentIssueStore",
     "DevelopmentRuleReader",
     "DevelopmentRuleStore",
-    "create_development_app",
+    "create_synthetic_development_app",
 ]

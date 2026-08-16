@@ -3,6 +3,9 @@ import {
   assigneeOptionsFromApi,
   evidenceComponentValueText,
   investigationEvidenceFromApi,
+  issueEvidenceCandidateFromApi,
+  issueEvidenceOptions,
+  issueEvidenceRecordFromApi,
   issuesFromApi,
 } from "./model";
 
@@ -209,5 +212,55 @@ describe("evidenceComponentValueText", () => {
 
   it("null değerde boş string döndürür", () => {
     expect(evidenceComponentValueText({ source: "Unknown", value: null, references: [] })).toBe("");
+  });
+});
+
+describe("çözüm kanıtı modeli", () => {
+  const apiCandidate = {
+    candidate_key: "RESULT:execution-1:rule-version-1",
+    kind: "EXECUTION_RESULT",
+    label: "Kural sonucu — test",
+    execution_id: "execution-1",
+    rule_version_id: "rule-version-1",
+    evaluated_count: 100,
+    failed_count: 3,
+    measurement_status: "Failed",
+    observed_at: "2026-07-22T06:19:00Z",
+  };
+  const apiRecord = {
+    ...apiCandidate,
+    evidence_id: "550e8400-e29b-41d4-a716-446655440000",
+    issue_id: "issue-a",
+    fingerprint: null,
+    query_reference: null,
+    plan_reference: null,
+    content_digest: "a",
+    captured_at: "2026-07-23T09:00:00Z",
+    captured_by: "user-1",
+  };
+
+  it("kanıt kaydını istemci modeline dönüştürür", () => {
+    expect(issueEvidenceRecordFromApi(apiRecord)).toMatchObject({
+      evidenceId: "550e8400-e29b-41d4-a716-446655440000",
+      kind: "EXECUTION_RESULT",
+      failedCount: 3,
+    });
+  });
+
+  it("tanınmayan kanıt türünü LEGACY_REFERENCE olarak normalize eder", () => {
+    expect(issueEvidenceRecordFromApi({ ...apiRecord, kind: "SOMETHING" }).kind)
+      .toBe("LEGACY_REFERENCE");
+  });
+
+  it("kayıtları ve adayları tek seçenek listesinde birleştirir", () => {
+    const options = issueEvidenceOptions(
+      [issueEvidenceRecordFromApi(apiRecord)],
+      [issueEvidenceCandidateFromApi(apiCandidate)],
+    );
+
+    expect(options.map((option) => option.value)).toEqual([
+      "record:550e8400-e29b-41d4-a716-446655440000",
+      "candidate:RESULT:execution-1:rule-version-1",
+    ]);
   });
 });

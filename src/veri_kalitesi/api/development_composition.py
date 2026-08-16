@@ -31,7 +31,16 @@ from veri_kalitesi.api.development_fixtures import (
     POLICY_VERSION,
 )
 from veri_kalitesi.api.development_issue_store import DevelopmentIssueStore
+from veri_kalitesi.issues.evidence import IssueEvidenceService
+from veri_kalitesi.issues.evidence_files import (
+    AllowAllDevelopmentScanner,
+    EvidenceFilePolicy,
+    IssueEvidenceFileService,
+    LocalEvidenceStorage,
+)
+from veri_kalitesi.issues.evidence_candidates import ExecutionIssueEvidenceCandidateProvider
 from veri_kalitesi.api.development_rule_store import DevelopmentRuleReader, DevelopmentRuleStore
+from veri_kalitesi.governance import GovernanceApprovalQueryService
 from veri_kalitesi.api.identity import (
     DevelopmentActorContextResolver,
     DevelopmentUserRegistry,
@@ -49,6 +58,7 @@ from veri_kalitesi.api.service_groups import (
     CatalogServices,
     DataSourceServices,
     ExecutionServices,
+    GovernanceServices,
     IssueServices,
     RuleServices,
 )
@@ -299,7 +309,7 @@ def _seed_development_audit_events(audit_service: AuditService, now: datetime) -
         )
 
 
-def create_development_app(  # type: ignore[no-untyped-def]
+def create_synthetic_development_app(  # type: ignore[no-untyped-def]
     user_registry: DevelopmentUserRegistry | None = None,
     session_factory: SessionFactory | None = None,
     transactional_audit: PostgreSQLTransactionalAudit | None = None,
@@ -344,6 +354,26 @@ def create_development_app(  # type: ignore[no-untyped-def]
         user_registry=effective_registry,
     )
     issue_store = DevelopmentIssueStore()
+    issue_evidence_service = IssueEvidenceService(
+        issue_reader=issue_store,
+        evidence_store=issue_store,
+        candidate_provider=ExecutionIssueEvidenceCandidateProvider(
+            DevelopmentExecutionReader(),
+            DevelopmentRuleReader(),
+        ),
+        authorization_service=authorization,
+        clock=lambda: datetime.now(timezone.utc),
+    )
+    issue_evidence_upload_service = IssueEvidenceFileService(
+        issue_reader=issue_store,
+        repository=issue_store,
+        authorization_service=authorization,
+        storage=LocalEvidenceStorage(".local/development-issue-evidence"),
+        scanner=AllowAllDevelopmentScanner(),
+        policy=EvidenceFilePolicy(version="EVIDENCE_FILE_POLICY_V1"),
+        audit_sink=audit_service,
+        clock=lambda: datetime.now(timezone.utc),
+    )
     rule_store = DevelopmentRuleStore()
     data_source_store = DevelopmentDataSourceStore()
     if session_factory is not None:
@@ -399,6 +429,8 @@ def create_development_app(  # type: ignore[no-untyped-def]
             verification=issue_store,
             closure=issue_store,
             creation=issue_store,
+            evidence_catalog=issue_evidence_service,
+            evidence_upload=issue_evidence_upload_service,
         ),
         audit=AuditServices(
             query=AuditQueryService(
@@ -420,6 +452,13 @@ def create_development_app(  # type: ignore[no-untyped-def]
                 authorization_service=authorization,
                 clock=lambda: datetime.now(timezone.utc),
                 trend_policy=DEVELOPMENT_TREND_POLICY,
+            ),
+        ),
+        governance=GovernanceServices(
+            query=GovernanceApprovalQueryService(
+                DevelopmentRuleReader(),
+                DevelopmentDataSourceReader(),
+                authorization,
             ),
         ),
     )

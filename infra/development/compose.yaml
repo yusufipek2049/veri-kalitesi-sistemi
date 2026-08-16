@@ -45,6 +45,9 @@ services:
         condition: service_completed_successfully
     environment:
       <<: *api-environment
+    volumes:
+      - ./runtime-secrets/data-sources:/run/secrets/data-sources:ro
+      - dq-postgres-tls:/run/postgres-tls:ro
 
   api:
     build:
@@ -106,9 +109,9 @@ services:
 
   frontend:
     profiles: ["demo"]
-    image: node:22.17-alpine
-    working_dir: /workspace/frontend
-    command: ["sh", "-c", "npm ci && npm run dev -- --host 0.0.0.0"]
+    build:
+      context: ../..
+      dockerfile: infra/development/frontend/Dockerfile
     depends_on:
       api:
         condition: service_healthy
@@ -116,11 +119,7 @@ services:
       VITE_API_PROXY_TARGET: http://api:8000
     ports:
       - "5173:5173"
-    volumes:
-      - ../..:/workspace
-      - frontend-node-modules:/workspace/frontend/node_modules
 
 volumes:
   dq-postgres:
   dq-postgres-tls:
-  frontend-node-modules:

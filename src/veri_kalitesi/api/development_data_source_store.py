@@ -10,6 +10,7 @@ from uuid import uuid4
 from veri_kalitesi.api.development_fixtures import DEVELOPMENT_SOURCES
 from veri_kalitesi.data_sources.models import (
     DataSource,
+    DataSourceActivationRequest,
     DataSourceStatus,
     SourceType,
 )
@@ -39,6 +40,11 @@ class DevelopmentDataSourceReader:
 
     def latest_pending_deactivation_request(self, data_source_id: str):  # type: ignore[no-untyped-def]
         return None
+
+    def list_activation_requests_for_sources(
+        self, source_ids: frozenset[str]
+    ) -> list[DataSourceActivationRequest]:
+        return []
 
 
 class DevelopmentDataSourceStore:

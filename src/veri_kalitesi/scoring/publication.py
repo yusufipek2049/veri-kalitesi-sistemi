@@ -145,6 +145,7 @@ class ScorePublicationService:
         all_scores = self.scoring_service.calculate_full_score_set(
             command.execution_id,
             configuration=configuration,
+            _persist=False,
         )
         official_scores = tuple(s for s in all_scores if is_official_score(s))
         if not official_scores:
@@ -253,11 +254,7 @@ class ScorePublicationService:
         scores: tuple[QualityScore, ...],
         audit_events: list[AuditEventInput],
     ) -> None:
-        tables = score_tables(
-            self.transactional_audit._schema
-            if hasattr(self.transactional_audit, "_schema")
-            else "dq"
-        )
+        tables = score_tables(self._schema())
         prepared_events = [self.transactional_audit.prepare(event) for event in audit_events]
         with transactional_session(self._session_factory()) as session:
             existing_pub = (
@@ -323,9 +320,7 @@ class ScorePublicationService:
                         policy_version=score.policy_version or "",
                         included_component_count=score.included_component_count,
                         excluded_component_count=score.excluded_component_count,
-                        calculation_details=json.dumps(
-                            _thaw_dict(score.calculation_details), sort_keys=True
-                        ),
+                        calculation_details=_thaw_dict(score.calculation_details),
                         calculated_at=score.calculated_at,
                     )
                 )
@@ -338,7 +333,7 @@ class ScorePublicationService:
                         scope_type=score.scope_type.value,
                         scope_id=score.scope_id,
                         graph=dict(graph),
-                        calculated_at=score.calculated_at,
+                        created_at=score.calculated_at,
                     )
                 )
             for prepared_event in prepared_events:

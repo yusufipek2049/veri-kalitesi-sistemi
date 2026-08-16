@@ -5,7 +5,10 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 import re
-from typing import Any, Mapping, Protocol
+from typing import TYPE_CHECKING, Any, Mapping, Protocol
+
+if TYPE_CHECKING:
+    from veri_kalitesi.scoring.postgresql_repository import PostgreSQLScoreRepository
 
 from veri_kalitesi.audit.models import (
     AuditEventInput,
@@ -265,7 +268,7 @@ class ScoringConfigurationService:
 class ScoringService:
     def __init__(
         self,
-        repository: SQLiteScoreRepository,
+        repository: SQLiteScoreRepository | PostgreSQLScoreRepository,
         execution_history: ExecutionHistory,
         rule_catalog: RuleCatalog,
         *,
@@ -365,6 +368,7 @@ class ScoringService:
         dataset_id: str,
         *,
         _candidates: list[tuple[QualityScore, RuleVersion]] | None = None,
+        _persist: bool = True,
     ) -> QualityScore:
         if not dataset_id.strip():
             raise ScoringValidationError("dataset_id is required.")
@@ -399,6 +403,7 @@ class ScoringService:
             candidates=candidates,
             formula_version=DATASET_FORMULA_VERSION,
             configuration=configuration,
+            persist=_persist,
         )
 
     def calculate_dimension_score(
@@ -407,6 +412,7 @@ class ScoringService:
         dimension: QualityDimension,
         *,
         _candidates: list[tuple[QualityScore, RuleVersion]] | None = None,
+        _persist: bool = True,
     ) -> QualityScore:
         if not isinstance(dimension, QualityDimension):
             raise ScoringValidationError("dimension is invalid.")
@@ -442,6 +448,7 @@ class ScoringService:
             extra_details={
                 "configured_dimension_weight": str(configuration.dimension_weights[dimension])
             },
+            persist=_persist,
         )
 
     def calculate_source_score(
@@ -451,6 +458,7 @@ class ScoringService:
         *,
         _candidates: list[tuple[QualityScore, Dataset]] | None = None,
         _dataset_criticality: dict[str, Criticality] | None = None,
+        _persist: bool = True,
     ) -> QualityScore:
         if not data_source_id.strip():
             raise ScoringValidationError("data_source_id is required.")
@@ -492,6 +500,7 @@ class ScoringService:
             data_source_id=data_source_id,
             candidates=candidates,
             configuration=configuration,
+            persist=_persist,
         )
 
     def calculate_enterprise_score(
@@ -499,6 +508,7 @@ class ScoringService:
         execution_id: str,
         *,
         _candidates: list[tuple[QualityScore, str]] | None = None,
+        _persist: bool = True,
     ) -> QualityScore:
         execution = self.execution_history.get(execution_id)
         configuration = self._configuration()
@@ -535,6 +545,7 @@ class ScoringService:
             execution=execution,
             candidates=candidates,
             configuration=configuration,
+            persist=_persist,
         )
 
     def _aggregate_enterprise_score(
@@ -543,6 +554,7 @@ class ScoringService:
         execution: RuleExecution,
         candidates: list[tuple[QualityScore, str]],
         configuration: ScoringConfiguration,
+        persist: bool = True,
     ) -> QualityScore:
         included = [
             (score, data_source_id)
@@ -602,7 +614,7 @@ class ScoringService:
             calculation_details=details,
             calculated_at=self.clock(),
         )
-        return self.repository.add_or_get(score)[0]
+        return self.repository.add_or_get(score)[0] if persist else score
 
     def _aggregate_source_score(
         self,
@@ -611,6 +623,7 @@ class ScoringService:
         data_source_id: str,
         candidates: list[tuple[QualityScore, Dataset]],
         configuration: ScoringConfiguration,
+        persist: bool = True,
     ) -> QualityScore:
         included = [(score, dataset) for score, dataset in candidates if is_official_score(score)]
         details: dict[str, Any] = {
@@ -671,7 +684,7 @@ class ScoringService:
             calculation_details=details,
             calculated_at=self.clock(),
         )
-        return self.repository.add_or_get(score)[0]
+        return self.repository.add_or_get(score)[0] if persist else score
 
     def _aggregate_score(
         self,
@@ -683,6 +696,7 @@ class ScoringService:
         formula_version: str,
         configuration: ScoringConfiguration,
         extra_details: Mapping[str, Any] | None = None,
+        persist: bool = True,
     ) -> QualityScore:
         invalid_weights = [
             version.rule_version_id for _, version in candidates if _weight(version.weight) <= 0
@@ -747,7 +761,7 @@ class ScoringService:
             calculation_details=details,
             calculated_at=self.clock(),
         )
-        return self.repository.add_or_get(score)[0]
+        return self.repository.add_or_get(score)[0] if persist else score
 
     def _score_rule(
         self,
@@ -838,6 +852,7 @@ class ScoringService:
         execution_id: str,
         *,
         configuration: ScoringConfiguration | None = None,
+        _persist: bool = True,
     ) -> tuple[QualityScore, ...]:
         """Compute all score levels in memory without persistence.
 
@@ -889,7 +904,9 @@ class ScoringService:
         dataset_scores: list[QualityScore] = []
         for dataset_id, candidates in datasets_by_id.items():
             dataset_scores.append(
-                self.calculate_dataset_score(execution_id, dataset_id, _candidates=candidates)
+                self.calculate_dataset_score(
+                    execution_id, dataset_id, _candidates=candidates, _persist=_persist
+                )
             )
         all_scores.extend(dataset_scores)
 
@@ -907,7 +924,7 @@ class ScoringService:
             if dim_candidates:
                 all_scores.append(
                     self.calculate_dimension_score(
-                        execution_id, dimension, _candidates=dim_candidates
+                        execution_id, dimension, _candidates=dim_candidates, _persist=_persist
                     )
                 )
 
@@ -929,6 +946,7 @@ class ScoringService:
                         source_id,
                         _candidates=source_candidates,
                         _dataset_criticality=dataset_criticality,
+                        _persist=_persist,
                     )
                 )
 
@@ -950,7 +968,9 @@ class ScoringService:
                     enterprise_candidates.append((scores_by_source[source_id], source_id))
             if enterprise_candidates:
                 all_scores.append(
-                    self.calculate_enterprise_score(execution_id, _candidates=enterprise_candidates)
+                    self.calculate_enterprise_score(
+                        execution_id, _candidates=enterprise_candidates, _persist=_persist
+                    )
                 )
 
         return tuple(all_scores)

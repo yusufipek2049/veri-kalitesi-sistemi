@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 
 from veri_kalitesi.api.bff import CSRF_HEADER_NAME
 from veri_kalitesi.api.identity import DevelopmentActorContextResolver
@@ -161,6 +161,16 @@ class JobInfoResolver(Protocol):
     def get_job_info(self, job_id: str) -> dict | None: ...
 
 
+class ExecutionGovernanceGuard(Protocol):
+    """Kritik çalıştırma/iptal için yönetişim onay gerekliliğini denetler."""
+
+    def requires_approval_for_start(
+        self, rule_version_ids: tuple[str, ...]
+    ) -> bool: ...
+
+    def requires_approval_for_cancel(self, execution_id: str) -> bool: ...
+
+
 def _resolve_datasets(
     execution: RuleExecution,
     dataset_resolver: DatasetResolver | None,
@@ -249,6 +259,7 @@ def register_executions_routes(
     rule_version_catalog: RuleVersionCatalog | None = None,
     dataset_resolver: DatasetResolver | None = None,
     job_info_resolver: JobInfoResolver | None = None,
+    execution_governance_guard: ExecutionGovernanceGuard | None = None,
     resolver: _Resolver,
     data_origin: str,
 ) -> None:
@@ -379,6 +390,18 @@ def register_executions_routes(
         if actor_context is None:
             actor_context = resolver.resolve(request)
         assert actor_context is not None  # narrowed after resolver
+        if (
+            execution_governance_guard is not None
+            and execution_governance_guard.requires_approval_for_start(
+                payload.rule_version_ids
+            )
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Critical manual execution requires a governance approval request."
+                ),
+            )
         execution = execution_start_service.start_manual(
             rule_version_ids=payload.rule_version_ids,
             source_ids=payload.source_ids,
@@ -416,6 +439,16 @@ def register_executions_routes(
         if actor_context is None:
             actor_context = resolver.resolve(request)
         assert actor_context is not None  # narrowed after resolver
+        if (
+            execution_governance_guard is not None
+            and execution_governance_guard.requires_approval_for_cancel(execution_id)
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Critical execution cancellation requires a governance approval request."
+                ),
+            )
         execution = execution_cancel_service.cancel(
             execution_id,
             reason=payload.reason,

@@ -10,7 +10,6 @@ import {
   applyMetadataDiff,
   getCatalogDataset,
   getCatalogField,
-  getDiscoveryStatus,
   getDiscoveryDiff,
   listCatalogDatasets,
   listCatalogFields,
@@ -36,6 +35,11 @@ import {
 } from "./catalog/model";
 import { DataSourcesRoute } from "./dataSources/DataSourcesRoute";
 import { ExecutionsRoute } from "./executions/ExecutionsRoute";
+import { GovernanceTasksRoute } from "./governance/GovernanceTasksRoute";
+import { RuleHealthPage } from "./analytics/RuleHealthPage";
+import { MetadataHealthPage } from "./analytics/MetadataHealthPage";
+import { IssuePerformancePage } from "./analytics/IssuePerformancePage";
+import { ScoringPolicyImpactPage } from "./analytics/ScoringPolicyImpactPage";
 import { IssuesRoute } from "./issues/IssuesRoute";
 import { fetchChannels, fetchInbox, fetchSubscriptions, fetchUnreadCount, markAllRead, bulkMarkRead, markDeliveryRead } from "./notifications/api";
 import type { NotificationChannel, NotificationDelivery, NotificationSubscription } from "./notifications/model";
@@ -499,6 +503,11 @@ export function ApplicationRoutes() {
   return (
     <Routes>
       <Route element={<Navigate replace to="/dashboard" />} path="/" />
+      <Route element={<Navigate replace to="/analytics/rule-health" />} path="/analytics" />
+      <Route element={<RuleHealthPage />} path="/analytics/rule-health" />
+      <Route element={<MetadataHealthPage />} path="/analytics/metadata-health" />
+      <Route element={<IssuePerformancePage />} path="/analytics/issues" />
+      <Route element={<ScoringPolicyImpactPage />} path="/analytics/scoring-policy" />
       <Route element={<DashboardPage />} path="/dashboard" />
       <Route element={<DataSourcesRoute />} path="/data-sources" />
       <Route element={<CatalogRoute />} path="/catalog" />
@@ -511,6 +520,7 @@ export function ApplicationRoutes() {
       <Route element={<ScoreComparisonPage />} path="/scores/comparison" />
       <Route element={<DatasetTrendPage />} path="/catalog/datasets/:datasetId/trend" />
       <Route element={<IssuesRoute />} path="/issues" />
+      <Route element={<GovernanceTasksRoute />} path="/governance" />
       <Route element={<RouteBoundary unauthorized />} path="/unauthorized" />
       <Route element={<AuditRoute />} path="/audit" />
       <Route element={<NotificationsRoute />} path="/notifications" />

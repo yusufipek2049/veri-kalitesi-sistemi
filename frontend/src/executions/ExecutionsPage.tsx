@@ -57,6 +57,9 @@ import {
 export interface ExecutionRuleOption {
   ruleVersionId: string;
   label: string;
+  datasetId?: string;
+  datasetLabel?: string;
+  sourceId?: string;
 }
 
 export interface ExecutionSourceOption {
@@ -94,7 +97,7 @@ const statusLabels: Record<string, string> = {
   RUNNING: "Çalışıyor",
   BLOCKED: "Engellenmiş",
   CANCEL_REQUESTED: "İptal bekliyor",
-  SUCCESS: "Tamamlandı",
+  SUCCESS: "Teknik olarak tamamlandı",
   PARTIAL: "Kısmi",
   TECHNICAL_ERROR: "Teknik hata",
   TIMEOUT: "Zaman aşımı",
@@ -132,7 +135,9 @@ function formatDate(value: string): string {
 }
 
 function durationLabel(item: ExecutionListItem): string {
-  if (!item.startedAt) return "Henüz başlamadı";
+  if (!item.startedAt) {
+    return item.finishedAt ? "Başlangıç kaydı yok" : "Henüz başlamadı";
+  }
   if (!item.finishedAt) return "Devam ediyor";
   const seconds = Math.max(
     0,
@@ -141,6 +146,24 @@ function durationLabel(item: ExecutionListItem): string {
   if (seconds >= 3600) return `${Math.floor(seconds / 3600)} sa ${Math.round((seconds % 3600) / 60)} dk`;
   if (seconds >= 60) return `${Math.floor(seconds / 60)} dk`;
   return `${seconds} sn`;
+}
+
+function normalizedMeasurementStatus(value: string | null): string {
+  return value?.toUpperCase() ?? "";
+}
+
+function measurementStatusLabel(value: string | null): string {
+  const normalized = normalizedMeasurementStatus(value);
+  if (normalized === "PASSED") return "Başarılı";
+  if (normalized === "FAILED") return "Başarısız";
+  return value ?? "—";
+}
+
+function measurementStatusTone(value: string | null): StatusTone {
+  const normalized = normalizedMeasurementStatus(value);
+  if (normalized === "PASSED") return "success";
+  if (normalized === "FAILED") return "critical";
+  return "unknown";
 }
 
 function datasetLabel(ds: ExecutionDatasetRef): string {
@@ -263,7 +286,7 @@ function ExecutionRow({
       </Box>
       <Box sx={{ display: { xs: "none", lg: "block" }, minWidth: 0 }}>
         <Typography noWrap variant="body2">
-          {item.errorClass ? errorLabels[item.errorClass] ?? item.errorClass : "Teknik hata yok"}
+          {item.errorClass ? errorLabels[item.errorClass] ?? item.errorClass : "Çalıştırma hatası yok"}
         </Typography>
         <Typography color="text.secondary" variant="caption">
           {item.finishedAt ? `Bitiş: ${formatDate(item.finishedAt)}` : "Henüz kapanmadı"}
@@ -628,19 +651,43 @@ export function ExecutionsPage({
             getOptionLabel={(option) => option.label}
             isOptionEqualToValue={(option, value) => option.ruleVersionId === value.ruleVersionId}
             noOptionsText={ruleOptions.length === 0 ? "Kural bulunamadı" : undefined}
-            onChange={(_, value) => setSelectedRule(value)}
+            onChange={(_, value) => {
+              setSelectedRule(value);
+              // Kuralın ilişkili kaynağını otomatik seç; ilişkisiz kaynak seçilemez
+              setSelectedSource(
+                value?.sourceId
+                  ? sourceOptions.find((option) => option.sourceId === value.sourceId) ?? null
+                  : null,
+              );
+            }}
             options={ruleOptions}
             renderInput={(params) => <TextField {...params} label="Kural" required />}
             value={selectedRule}
           />
+          {selectedRule?.datasetLabel ? (
+            <Box sx={{ alignItems: "center", display: "flex", flexWrap: "wrap", gap: 1 }}>
+              <Typography color="text.secondary" variant="body2">İlişkili hedef:</Typography>
+              <Chip color="info" label={selectedRule.datasetLabel} size="small" variant="outlined" />
+            </Box>
+          ) : null}
           <Autocomplete
+            disabled={!selectedRule}
             fullWidth
             getOptionLabel={(option) => option.label}
             isOptionEqualToValue={(option, value) => option.sourceId === value.sourceId}
-            noOptionsText={sourceOptions.length === 0 ? "Kaynak bulunamadı" : undefined}
+            noOptionsText={selectedRule ? "Bu kural için ilişkili kaynak yok" : "Önce kural seçin"}
             onChange={(_, value) => setSelectedSource(value)}
-            options={sourceOptions}
-            renderInput={(params) => <TextField {...params} label="Kaynak (isteğe bağlı)" />}
+            options={selectedRule?.sourceId
+              ? sourceOptions.filter((option) => option.sourceId === selectedRule.sourceId)
+              : []}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                helperText="Yalnızca seçili kuralın ilişkili kaynağı seçilebilir."
+                label="Kaynak"
+                required
+              />
+            )}
             value={selectedSource}
           />
           <TextField
@@ -653,7 +700,7 @@ export function ExecutionsPage({
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setStartDialogOpen(false)}>Vazgeç</Button>
-          <Button disabled={starting || !selectedRule || !startIdempotencyKey} onClick={handleStartSubmit} variant="contained">
+          <Button disabled={starting || !selectedRule || !selectedSource || !startIdempotencyKey} onClick={handleStartSubmit} variant="contained">
             Başlat
           </Button>
         </DialogActions>
@@ -792,6 +839,13 @@ export function ExecutionsPage({
                 <Typography sx={{ fontWeight: 700, mb: 1 }} variant="subtitle1">
                   Sonuçlar
                 </Typography>
+                {executionDetail.results.some((result) => (
+                  normalizedMeasurementStatus(result.measurementStatus) === "FAILED"
+                )) ? (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    Çalıştırma teknik olarak tamamlandı ancak en az bir kalite kuralı başarısız oldu.
+                  </Alert>
+                ) : null}
                 {executionDetail.results.length > 0 ? (
                   <Table size="small">
                     <TableHead>
@@ -816,8 +870,8 @@ export function ExecutionsPage({
                           <TableCell align="right">{r.evaluatedCount ?? "—"}</TableCell>
                           <TableCell>
                             <StatusBadge
-                              label={r.measurementStatus ?? "—"}
-                              tone={r.measurementStatus === "PASSED" ? "success" : r.measurementStatus === "FAILED" ? "critical" : "unknown"}
+                              label={measurementStatusLabel(r.measurementStatus)}
+                              tone={measurementStatusTone(r.measurementStatus)}
                             />
                           </TableCell>
                         </TableRow>

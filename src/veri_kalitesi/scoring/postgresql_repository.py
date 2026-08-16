@@ -8,6 +8,7 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
+    Boolean,
     Column,
     DateTime,
     Integer,
@@ -105,7 +106,7 @@ def score_tables(schema: str = DEFAULT_SCHEMA_NAME) -> ScoreTables:
         Column("criticality_weights", JSONB, nullable=False),
         Column("created_by", String(128), nullable=False),
         Column("created_at", DateTime(timezone=True), nullable=False),
-        Column("is_active", Integer, nullable=False),
+        Column("is_active", Boolean, nullable=False),
         Column("activated_at", DateTime(timezone=True)),
     )
     scoring_configuration_approvals = Table(
@@ -132,7 +133,7 @@ def score_tables(schema: str = DEFAULT_SCHEMA_NAME) -> ScoreTables:
         Column("policy_id", String(36), primary_key=True),
         Column("dataset_id", String(36), nullable=False),
         Column("policy_version", String(80), nullable=False),
-        Column("allow_official_partial_score", Integer, nullable=False),
+        Column("allow_official_partial_score", Boolean, nullable=False),
         Column("minimum_coverage_ratio", Numeric(7, 6), nullable=False),
         Column("required_critical_rule_ids", JSONB, nullable=False),
         Column("required_partitions", JSONB, nullable=False),
@@ -239,6 +240,57 @@ class PostgreSQLScoreRepository:
         return [score for row in rows if is_official_observation(score := _row_to_score(row))]
 
     # ── Score query ──
+
+    def add_or_get(self, score: QualityScore) -> tuple[QualityScore, bool]:
+        """Yeni skoru ekler veya aynı kapsamdaki mevcut skoru döndürür (idempotent)."""
+        with transactional_session(self._session_factory) as session:
+            t = self._tables.quality_scores
+            scope_clause = (
+                t.c.scope_id == score.scope_id
+                if score.scope_id is not None
+                else t.c.scope_id.is_(None)
+            )
+            row = (
+                session.execute(
+                    select(t).where(
+                        and_(
+                            t.c.execution_id == score.execution_id,
+                            t.c.scope_type == score.scope_type.value,
+                            scope_clause,
+                        )
+                    )
+                )
+                .mappings()
+                .one_or_none()
+            )
+            if row is not None:
+                return _row_to_score(row), False
+            session.execute(
+                t.insert().values(
+                    quality_score_id=score.quality_score_id,
+                    publication_id=score.publication_id,
+                    execution_id=score.execution_id,
+                    rule_result_id=score.rule_result_id,
+                    rule_version_id=score.rule_version_id,
+                    scope_type=score.scope_type.value,
+                    scope_id=score.scope_id,
+                    score_value=score.score_value,
+                    score_status=score.score_status.value,
+                    measurement_status=(
+                        score.measurement_status.value
+                        if score.measurement_status is not None
+                        else None
+                    ),
+                    level=score.level.value if score.level is not None else None,
+                    rule_version_digest=score.rule_version_digest,
+                    policy_version=score.policy_version or "UNSPECIFIED",
+                    included_component_count=score.included_component_count,
+                    excluded_component_count=score.excluded_component_count,
+                    calculation_details=dict(score.calculation_details),
+                    calculated_at=score.calculated_at,
+                )
+            )
+        return score, True
 
     def get(self, quality_score_id: str) -> QualityScore:
         with transactional_session(self._session_factory) as session:
@@ -355,7 +407,7 @@ class PostgreSQLScoreRepository:
     def get_active_configuration(self) -> ScoringConfiguration:
         with transactional_session(self._session_factory) as session:
             t = self._tables.scoring_configurations
-            row = session.execute(select(t).where(t.c.is_active == 1)).mappings().one_or_none()
+            row = session.execute(select(t).where(t.c.is_active.is_(True))).mappings().one_or_none()
         if row is None:
             raise ScoreNotFoundError("Active ScoringConfiguration not found.")
         return _row_to_configuration(row)

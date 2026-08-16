@@ -15,7 +15,7 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 let csrfProof: string | undefined;
 
-function getDevelopmentHeaders(): Record<string, string> {
+export function getDevelopmentHeaders(): Record<string, string> {
   try {
     const userId = localStorage.getItem("development-user-id");
     if (userId) {
@@ -25,6 +25,16 @@ function getDevelopmentHeaders(): Record<string, string> {
     // localStorage not available
   }
   return {};
+}
+
+export function stateChangingHeaders(): Record<string, string> {
+  const headers = getDevelopmentHeaders();
+  if (csrfProof) headers[CSRF_HEADER] = csrfProof;
+  return headers;
+}
+
+export function recordCsrfProof(value: string | null): void {
+  if (value) csrfProof = value;
 }
 
 export function developmentFetch(
@@ -45,8 +55,7 @@ export function developmentFetch(
     headers[CSRF_HEADER] = csrfProof;
   }
   return fetch(input, { ...init, headers }).then(async (response) => {
-    const receivedProof = response.headers.get(CSRF_HEADER);
-    if (receivedProof) csrfProof = receivedProof;
+    recordCsrfProof(response.headers.get(CSRF_HEADER));
     return response;
   });
 }

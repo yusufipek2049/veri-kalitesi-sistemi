@@ -49,6 +49,7 @@ def _settings(secret_dir: Path) -> PersistentJobSettings:
             "postgresql+psycopg://worker:secret@localhost/data_quality"
         ),
         local_secret_dir=str(secret_dir),
+        actor_policy_version="WORKER_ACTOR_POLICY_V1",
     )
 
 
@@ -109,13 +110,23 @@ def test_production_factory_directly_composes_notification_delivery(
         NotificationDeliveryJobHandler,
     )
     assert captured["metadata_discovery_command"] is not None
+    execution_command = captured["execution_command"]
+    assert execution_command.issue_actor_context_provider().policy_version == (
+        settings.actor_policy_version
+    )
+    assert execution_command.score_actor_context_provider().policy_version == (
+        settings.actor_policy_version
+    )
+    metadata_command = captured["metadata_discovery_command"]
+    assert metadata_command.actor_context_provider(
+        "source-1", "correlation-1"
+    ).policy_version == settings.actor_policy_version
     schedule_triggers = captured["schedule_triggers"]
     assert isinstance(schedule_triggers, tuple)
     assert any(isinstance(item, SchedulingService) for item in schedule_triggers)
     assert any(isinstance(item, ReportScheduleService) for item in schedule_triggers)
     assert (
-        captured["schedule_trigger_interval_seconds"]
-        == settings.schedule_trigger_interval_seconds
+        captured["schedule_trigger_interval_seconds"] == settings.schedule_trigger_interval_seconds
     )
 
 

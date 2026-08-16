@@ -108,6 +108,16 @@ class RuleRepository(Protocol[AuditRepoT]):
         as_of: datetime,
     ) -> list[RuleApprovalRequest]: ...
 
+    def list_pending_approval_requests(
+        self,
+        rule_version_ids: frozenset[str],
+    ) -> dict[str, RuleApprovalRequest]: ...
+
+    def list_approval_requests_for_datasets(
+        self,
+        dataset_ids: frozenset[str],
+    ) -> list[RuleApprovalRequest]: ...
+
     def decide_approval_request(
         self,
         request: RuleApprovalRequest,

@@ -37,9 +37,10 @@ def test_legacy_issue_rows_are_read_only_selective_and_idempotent(tmp_path: Path
         first = migrator.migrate(legacy_database)
         second = migrator.migrate(legacy_database)
 
-        assert first.source_count == 8
-        assert first.inserted_count == 8
-        assert second.source_count == 8
+        # 8 legacy satır + çözüm referansından türetilen 1 taşıma kanıdı.
+        assert first.source_count == 9
+        assert first.inserted_count == 9
+        assert second.source_count == 9
         assert second.inserted_count == 0
         assert first.foreign_key_violations == 0
         assert first.source_sha256_before == first.source_sha256_after
@@ -56,6 +57,16 @@ def test_legacy_issue_rows_are_read_only_selective_and_idempotent(tmp_path: Path
             )
             assert (
                 connection.scalar(text(f'SELECT COUNT(*) FROM "{fixture.schema}".audit_outbox'))
+                == 1
+            )
+            # Çözüm kaydı artık kanıt defterine FK ile bağlı.
+            assert (
+                connection.scalar(
+                    text(
+                        f'SELECT COUNT(*) FROM "{fixture.schema}".issue_evidence'
+                        " WHERE kind = 'LEGACY_REFERENCE'"
+                    )
+                )
                 == 1
             )
 

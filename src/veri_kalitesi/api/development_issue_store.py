@@ -18,17 +18,85 @@ from veri_kalitesi.issues import (
     IssueAssignment,
     IssueAuthorizationError,
     IssueConflictError,
+    IssueEvidenceRecord,
+    IssueNotFoundError,
     IssueResolutionDraft,
     IssueScopeType,
     IssueStatus,
     IssueValidationError,
 )
+from veri_kalitesi.issues.evidence_files import IssueEvidenceFileRecord
 
 
 class DevelopmentIssueStore:
     def __init__(self) -> None:
         self._issues = {issue.issue_id: issue for issue in DEVELOPMENT_ISSUES}
+        self._evidence: dict[str, IssueEvidenceRecord] = {}
+        self._evidence_files: dict[str, IssueEvidenceFileRecord] = {}
+        self._resolution_evidence_ids: set[str] = set()
         self._lock = RLock()
+
+    def get(self, issue_id: str) -> DataQualityIssue:
+        with self._lock:
+            issue = self._issues.get(issue_id)
+        if issue is None:
+            raise IssueNotFoundError("Development issue was not found.")
+        return issue
+
+    # ── Kanıt defteri (geliştirme içi, üretimdeki issue_evidence tablosunun karşılığı) ──
+
+    def list_evidence(self, issue_id: str) -> list[IssueEvidenceRecord]:
+        with self._lock:
+            return [record for record in self._evidence.values() if record.issue_id == issue_id]
+
+    def get_evidence(self, evidence_id: str) -> IssueEvidenceRecord | None:
+        with self._lock:
+            return self._evidence.get(evidence_id)
+
+    def add_evidence(self, record: IssueEvidenceRecord) -> IssueEvidenceRecord:
+        with self._lock:
+            existing = next(
+                (
+                    item
+                    for item in self._evidence.values()
+                    if item.issue_id == record.issue_id
+                    and item.source_digest == record.source_digest
+                ),
+                None,
+            )
+            if existing is not None:
+                return existing
+            self._evidence[record.evidence_id] = record
+            return record
+
+    def add_uploaded_evidence(self, evidence: IssueEvidenceRecord,
+                              file: IssueEvidenceFileRecord
+                              ) -> tuple[IssueEvidenceRecord, IssueEvidenceFileRecord]:
+        with self._lock:
+            existing = next((item for item in self._evidence_files.values()
+                             if item.idempotency_digest == file.idempotency_digest
+                             and self._evidence[item.evidence_id].issue_id == evidence.issue_id), None)
+            if existing:
+                return self._evidence[existing.evidence_id], existing
+            self._evidence[evidence.evidence_id] = evidence
+            self._evidence_files[evidence.evidence_id] = file
+            return evidence, file
+
+    def get_evidence_file(self, evidence_id: str) -> IssueEvidenceFileRecord | None:
+        with self._lock:
+            return self._evidence_files.get(evidence_id)
+
+    def list_evidence_files(self, issue_id: str) -> list[IssueEvidenceFileRecord]:
+        with self._lock:
+            return [file for evidence_id, file in self._evidence_files.items()
+                    if self._evidence[evidence_id].issue_id == issue_id]
+
+    def update_evidence_file(self, file: IssueEvidenceFileRecord) -> None:
+        with self._lock:
+            self._evidence_files[file.evidence_id] = file
+
+    def evidence_is_referenced(self, evidence_id: str) -> bool:
+        return evidence_id in self._resolution_evidence_ids
 
     def list_issues_for_scopes(
         self,
@@ -161,6 +229,17 @@ class DevelopmentIssueStore:
                 raise IssueValidationError("Development issue is not in a resolvable state.")
             if draft.completed_at > datetime.now(timezone.utc):
                 raise IssueValidationError("Development resolution completed_at is in the future.")
+            evidence = self._evidence.get(draft.evidence_reference_id)
+            if evidence is None:
+                raise IssueValidationError(
+                    "evidence_reference_id does not match a stored evidence."
+                )
+            if evidence.issue_id != issue_id:
+                raise IssueValidationError("evidence_reference_id belongs to another issue.")
+            file = self._evidence_files.get(draft.evidence_reference_id)
+            if file is not None and file.scan_status.value != "AVAILABLE":
+                raise IssueValidationError("Uploaded evidence is not available.")
+            self._resolution_evidence_ids.add(draft.evidence_reference_id)
             updated = replace(
                 issue,
                 status=IssueStatus.RESOLVED,

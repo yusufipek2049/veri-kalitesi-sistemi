@@ -92,9 +92,7 @@ class NotificationQuery(Protocol):
 
     def count_unread(self, *, recipient_user_id: str, actor_user_id: str) -> int: ...
 
-    def get_delivery(
-        self, delivery_id: str, *, actor_user_id: str
-    ) -> NotificationDelivery: ...
+    def get_delivery(self, delivery_id: str, *, actor_user_id: str) -> NotificationDelivery: ...
 
     def get_event(self, event_id: str, *, actor_user_id: str) -> NotificationEvent: ...
 
@@ -121,9 +119,7 @@ class NotificationQuery(Protocol):
 class NotificationDeliveryCommand(Protocol):
     """Bildirim HTTP route'larının okundu işaretleme sözleşmesi."""
 
-    def mark_read(
-        self, delivery_id: str, *, actor_user_id: str
-    ) -> NotificationDelivery: ...
+    def mark_read(self, delivery_id: str, *, actor_user_id: str) -> NotificationDelivery: ...
 
 
 def _resolve_actor(request: Request, resolver: _Resolver) -> ActorContext:
@@ -131,6 +127,12 @@ def _resolve_actor(request: Request, resolver: _Resolver) -> ActorContext:
     if actor_context is None:
         raise HTTPException(status_code=401, detail="Authentication is required.")
     return actor_context
+
+
+def _require_notification_query(service: NotificationQuery | None) -> NotificationQuery:
+    if service is None:
+        raise HTTPException(status_code=503, detail="Notification service unavailable.")
+    return service
 
 
 def _parse_delivery_status(status: str | None) -> NotificationDeliveryStatus | None:
@@ -207,9 +209,6 @@ def register_notifications_routes(
 ) -> None:
     """Notification alanının route'larını FastAPI uygulamasına kaydeder."""
 
-    if notification_query_service is None:
-        return
-
     @app.get(
         "/api/v1/notifications/inbox",
         tags=["notifications"],
@@ -222,8 +221,9 @@ def register_notifications_routes(
         limit: int = FastApiQuery(ge=1, le=200, default=50),
         cursor: str | None = None,
     ) -> dict:
+        query_service = _require_notification_query(notification_query_service)
         actor_context = _resolve_actor(request, resolver)
-        page = notification_query_service.get_inbox(
+        page = query_service.get_inbox(
             recipient_user_id=actor_context.actor_id,
             actor_user_id=actor_context.actor_id,
             status=_parse_delivery_status(status),
@@ -235,7 +235,7 @@ def register_notifications_routes(
         event_ids = [d.event_id for d in page.deliveries]
         events_map: dict[str, NotificationEvent] = {}
         try:
-            events_map = notification_query_service.get_events_by_ids(event_ids)
+            events_map = query_service.get_events_by_ids(event_ids)
         except Exception:
             pass
         return {
@@ -258,8 +258,9 @@ def register_notifications_routes(
         response_model=dict,
     )
     def get_unread_count(request: Request) -> dict:
+        query_service = _require_notification_query(notification_query_service)
         actor_context = _resolve_actor(request, resolver)
-        count = notification_query_service.count_unread(
+        count = query_service.count_unread(
             recipient_user_id=actor_context.actor_id,
             actor_user_id=actor_context.actor_id,
         )
@@ -276,10 +277,9 @@ def register_notifications_routes(
         response_model=dict,
     )
     def get_delivery_detail(delivery_id: str, request: Request) -> dict:
+        query_service = _require_notification_query(notification_query_service)
         actor_context = _resolve_actor(request, resolver)
-        delivery = notification_query_service.get_delivery(
-            delivery_id, actor_user_id=actor_context.actor_id
-        )
+        delivery = query_service.get_delivery(delivery_id, actor_user_id=actor_context.actor_id)
         return {
             "api_version": "v1",
             "data_origin": data_origin,
@@ -312,8 +312,9 @@ def register_notifications_routes(
         response_model=dict,
     )
     def mark_all_read(request: Request) -> dict:
+        query_service = _require_notification_query(notification_query_service)
         actor_context = _resolve_actor(request, resolver)
-        marked = notification_query_service.mark_all_read(
+        marked = query_service.mark_all_read(
             recipient_user_id=actor_context.actor_id,
             actor_user_id=actor_context.actor_id,
         )
@@ -364,8 +365,9 @@ def register_notifications_routes(
         response_model=dict,
     )
     def get_event_detail(event_id: str, request: Request) -> dict:
+        query_service = _require_notification_query(notification_query_service)
         actor_context = _resolve_actor(request, resolver)
-        event = notification_query_service.get_event(event_id, actor_user_id=actor_context.actor_id)
+        event = query_service.get_event(event_id, actor_user_id=actor_context.actor_id)
         return {
             "api_version": "v1",
             "data_origin": data_origin,
@@ -393,8 +395,9 @@ def register_notifications_routes(
         request: Request,
         event_type: str | None = None,
     ) -> dict:
+        query_service = _require_notification_query(notification_query_service)
         actor_context = _resolve_actor(request, resolver)
-        subs = notification_query_service.list_subscriptions(
+        subs = query_service.list_subscriptions(
             user_id=actor_context.actor_id,
             actor_user_id=actor_context.actor_id,
             event_type=event_type,
@@ -422,7 +425,8 @@ def register_notifications_routes(
         response_model=dict,
     )
     def list_channels(request: Request) -> dict:
-        channels = notification_query_service.list_channels()
+        query_service = _require_notification_query(notification_query_service)
+        channels = query_service.list_channels()
         return {
             "api_version": "v1",
             "data_origin": data_origin,

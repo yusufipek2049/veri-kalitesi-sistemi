@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 from veri_kalitesi.api import DevelopmentActorContextResolver, create_dashboard_api
 from veri_kalitesi.api.service_groups import ActorResolverIdentity, ApiOptions, AuditServices
-from veri_kalitesi.api.development import create_development_app
+from veri_kalitesi.api.development import create_synthetic_development_app
 from veri_kalitesi.audit.models import (
     AuditAccessPolicy,
     AuditEventInput,
@@ -171,7 +171,7 @@ def test_uc_016_closed_audit_repository_returns_safe_technical_error() -> None:
 
 
 def test_development_api_exposes_integrity_checked_synthetic_audit_events() -> None:
-    response = TestClient(create_development_app()).get("/api/v1/audit/events")
+    response = TestClient(create_synthetic_development_app()).get("/api/v1/audit/events")
 
     assert response.status_code == 200
     payload = response.json()

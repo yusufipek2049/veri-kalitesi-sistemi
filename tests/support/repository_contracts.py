@@ -63,6 +63,7 @@ REPOSITORY_CONTRACTS = (
         required_methods=frozenset(
             {
                 "add_attempt",
+                "claim_by_id",
                 "claim_next",
                 "complete_cancelled",
                 "complete_success",
@@ -112,8 +113,6 @@ REPOSITORY_CONTRACTS = (
                 "list_for_execution",
             }
         ),
-        observe_empty_state=lambda repository: repository.list_for_execution(
-            "contract-execution"
-        ),
+        observe_empty_state=lambda repository: repository.list_for_execution("contract-execution"),
     ),
 )

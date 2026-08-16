@@ -69,6 +69,23 @@ class SQLiteIssueMigrator:
     ) -> None:
         tables = issue_tables(schema)
         self._session_factory = session_factory
+        self._evidence_plan = _TablePlan(
+            "issue_evidence",
+            tables.evidence,
+            "evidence_id",
+            (
+                "evidence_id",
+                "issue_id",
+                "kind",
+                "label",
+                "execution_id",
+                "content_digest",
+                "source_digest",
+                "observed_at",
+                "captured_at",
+                "captured_by",
+            ),
+        )
         self._plans = (
             _TablePlan(
                 "data_quality_issues",
@@ -184,10 +201,19 @@ class SQLiteIssueMigrator:
         source_hash_before = _file_sha256(source)
         rows_by_table = self._read_source(source)
 
+        # Legacy kaynakta kanıt defteri yoktur; çözüm kayıtlarının FK'si için
+        # her ayrık referanstan taşıma kanıdı üretilir (alembic göçüyle aynı kural).
+        legacy_evidence = _derive_legacy_evidence(rows_by_table["issue_resolutions"])
+
         with transactional_session(self._session_factory) as session:
-            reports = tuple(
-                self._migrate_table(session, plan, rows_by_table[plan.name]) for plan in self._plans
-            )
+            migrated: list[MigratedTable] = []
+            for plan in self._plans:
+                if plan.name == "issue_resolutions":
+                    migrated.append(
+                        self._migrate_table(session, self._evidence_plan, legacy_evidence)
+                    )
+                migrated.append(self._migrate_table(session, plan, rows_by_table[plan.name]))
+            reports = tuple(migrated)
             foreign_key_violations = self._foreign_key_violations(session)
             if foreign_key_violations:
                 raise IssueMigrationError("PostgreSQL issue foreign-key doğrulaması başarısız.")
@@ -384,6 +410,32 @@ def _canonical_value(value: object) -> object:
 def _chunks(values: Sequence[Any], size: int) -> Iterable[Sequence[Any]]:
     for index in range(0, len(values), size):
         yield values[index : index + size]
+
+
+def _derive_legacy_evidence(
+    resolution_rows: Sequence[Mapping[str, Any]],
+) -> list[dict[str, object]]:
+    """Legacy çözüm referanslarından taşıma kanıdı satırları üretir."""
+    derived: dict[str, dict[str, object]] = {}
+    for row in resolution_rows:
+        evidence_id = str(row["evidence_reference_id"])
+        if evidence_id in derived:
+            continue
+        derived[evidence_id] = {
+            "evidence_id": evidence_id,
+            "issue_id": row["issue_id"],
+            "kind": "LEGACY_REFERENCE",
+            "label": "Göç öncesi kanıt referansı",
+            "execution_id": "unknown",
+            "content_digest": hashlib.sha256(evidence_id.encode("utf-8")).hexdigest(),
+            "source_digest": hashlib.sha256(
+                f"legacy:{evidence_id}".encode("utf-8")
+            ).hexdigest(),
+            "observed_at": row["completed_at"],
+            "captured_at": row["created_at"],
+            "captured_by": row["created_by"],
+        }
+    return list(derived.values())
 
 
 def _file_sha256(path: Path) -> str:

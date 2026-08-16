@@ -9,11 +9,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControl,
-  InputLabel,
-  MenuItem,
   Paper,
-  Select,
   Skeleton,
   TextField,
   Typography,
@@ -151,7 +147,7 @@ export function DatasetDetailPage({
   const [discovering, setDiscovering] = useState(false);
   const [applying, setApplying] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editForm, setEditForm] = useState({ name: "", namespace: "", status: "ACTIVE" as CatalogItemStatus });
+  const [editForm, setEditForm] = useState({ name: "", namespace: "" });
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -187,7 +183,7 @@ export function DatasetDetailPage({
 
   const handleOpenEdit = () => {
     if (!dataset) return;
-    setEditForm({ name: dataset.name, namespace: dataset.namespace, status: dataset.status });
+    setEditForm({ name: dataset.name, namespace: dataset.namespace });
     setEditError(null);
     setEditDialogOpen(true);
   };
@@ -200,7 +196,6 @@ export function DatasetDetailPage({
       const payload: DatasetUpdatePayload = { expected_version: dataset.version };
       if (editForm.name !== dataset.name) payload.name = editForm.name;
       if (editForm.namespace !== dataset.namespace) payload.namespace = editForm.namespace;
-      if (editForm.status !== dataset.status) payload.status = editForm.status;
       await onUpdateDataset(payload);
       setEditDialogOpen(false);
     } catch {
@@ -623,17 +618,13 @@ export function DatasetDetailPage({
                 required
                 error={!editForm.namespace.trim()}
               />
-              <FormControl fullWidth>
-                <InputLabel>Durum</InputLabel>
-                <Select
-                  label="Durum"
-                  value={editForm.status}
-                  onChange={(e) => setEditForm((prev) => ({ ...prev, status: e.target.value as CatalogItemStatus }))}
-                >
-                  <MenuItem value="ACTIVE">Aktif</MenuItem>
-                  <MenuItem value="INACTIVE">Pasif</MenuItem>
-                </Select>
-              </FormControl>
+              <Alert severity="info">
+                Durum ve kritiklik değişiklikleri yönetişim onayı gerektirir. Yönetişim Görevleri
+                sayfasından "Kritik metadata" talebi oluşturun.
+              </Alert>
+              <Button component={Link} size="small" sx={{ alignSelf: "flex-start" }} to="/governance">
+                Yönetişim Görevlerine git
+              </Button>
             </Box>
           </DialogContent>
           <DialogActions>

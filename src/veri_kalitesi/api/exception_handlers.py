@@ -18,6 +18,7 @@ from veri_kalitesi.audit.errors import (
 )
 from veri_kalitesi.dashboard import (
     DashboardAuthorizationError,
+    DashboardNotFoundError,
     DashboardQueryError,
     DashboardValidationError,
 )
@@ -69,6 +70,14 @@ from veri_kalitesi.scoring.errors import (
 from veri_kalitesi.rules import (
     RuleQueryAuthorizationError,
     RuleQueryTechnicalError,
+)
+from veri_kalitesi.governance import (
+    GovernanceAuthorizationError,
+    GovernanceConflictError,
+    GovernanceNotFoundError,
+    GovernanceQueryAuthorizationError,
+    GovernanceQueryTechnicalError,
+    GovernanceValidationError,
 )
 from veri_kalitesi.reporting.errors import (
     ReportAuthorizationError,
@@ -182,6 +191,12 @@ _SIMPLE_HANDLERS: list[tuple[type[Exception], int, str, str | None]] = [
         "The dashboard request could not be validated.",
     ),
     (
+        DashboardNotFoundError,
+        404,
+        "Not found",
+        "The requested dashboard resource was not found.",
+    ),
+    (
         DashboardQueryError,
         503,
         "Dashboard temporarily unavailable",
@@ -251,6 +266,43 @@ _SIMPLE_HANDLERS: list[tuple[type[Exception], int, str, str | None]] = [
         503,
         "Rules temporarily unavailable",
         "The rule query could not be completed.",
+    ),
+    # Governance
+    (
+        GovernanceQueryAuthorizationError,
+        403,
+        "Access denied",
+        "The requested governance scope is not available.",
+    ),
+    (
+        GovernanceQueryTechnicalError,
+        503,
+        "Governance tasks temporarily unavailable",
+        "The governance query could not be completed.",
+    ),
+    (
+        GovernanceAuthorizationError,
+        403,
+        "Access denied",
+        "The governance request could not be authorized for this actor.",
+    ),
+    (
+        GovernanceNotFoundError,
+        404,
+        "Governance request not found",
+        "The requested governance approval is not available.",
+    ),
+    (
+        GovernanceConflictError,
+        409,
+        "Governance request conflict",
+        "The governance request conflicts with the current object state.",
+    ),
+    (
+        GovernanceValidationError,
+        422,
+        "Governance request rejected",
+        "The governance request failed domain validation.",
     ),
     # Executions
     (

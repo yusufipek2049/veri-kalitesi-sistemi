@@ -1,0 +1,12 @@
+.git
+.env
+.venv
+**/__pycache__
+*.pyc
+build
+frontend/node_modules
+frontend/dist
+infra/development/runtime-secrets
+infra/windows-launcher/_win_venv
+infra/windows-launcher/build
+infra/windows-launcher/dist

@@ -11,12 +11,23 @@ from veri_kalitesi.identity import ActorContext
 from veri_kalitesi.rules import (
     QualityDimension,
     QualityRule,
+    RuleApprovalRequest,
     RuleCriticality,
     RuleStatus,
     RuleType,
     RuleValidationError,
     RuleVersion,
 )
+
+
+_DEVELOPMENT_PENDING_APPROVALS: dict[str, RuleApprovalRequest] = {
+    "rule-version-risk-score-4": RuleApprovalRequest(
+        approval_request_id="apr-risk-score-1",
+        rule_version_id="rule-version-risk-score-4",
+        maker_actor_id="development-maker",
+        policy_version="DEVELOPMENT_RULE_APPROVAL_V1",
+    )
+}
 
 
 class DevelopmentRuleReader:
@@ -50,6 +61,27 @@ class DevelopmentRuleReader:
         if entry is None:
             return []
         return [entry[1]]
+
+    def list_pending_approval_requests(
+        self, rule_version_ids: frozenset[str]
+    ) -> dict[str, RuleApprovalRequest]:
+        return {
+            rule_version_id: request
+            for rule_version_id, request in _DEVELOPMENT_PENDING_APPROVALS.items()
+            if rule_version_id in rule_version_ids
+        }
+
+    def list_approval_requests_for_datasets(
+        self, dataset_ids: frozenset[str]
+    ) -> list[RuleApprovalRequest]:
+        result: list[RuleApprovalRequest] = []
+        for rule, version in self._rules.values():
+            if rule.dataset_id not in dataset_ids:
+                continue
+            request = _DEVELOPMENT_PENDING_APPROVALS.get(version.rule_version_id)
+            if request is not None:
+                result.append(request)
+        return result
 
 
 class DevelopmentRuleStore:

@@ -139,6 +139,7 @@ def _score(
     scope_id: str | None = "ds-1",
     score_value: Decimal | None = Decimal("90.00"),
     level: ScoreLevel | None = ScoreLevel.GOOD,
+    calculation_details: dict[str, Any] | None = None,
 ) -> QualityScore:
     return QualityScore(
         quality_score_id=quality_score_id,
@@ -150,7 +151,7 @@ def _score(
         score_value=score_value,
         score_status=ScoreStatus.CALCULATED,
         level=level,
-        calculation_details={},
+        calculation_details=calculation_details or {},
         calculated_at=NOW,
         publication_id="pub-1",
         rule_version_digest="rv-digest-1",
@@ -311,7 +312,13 @@ def test_comparison_404_when_score_not_found() -> None:
 
 
 def test_score_detail_returns_publication() -> None:
-    score = _score()
+    score = _score(
+        calculation_details={
+            "curve": "logarithmic_improvement",
+            "parameters": {"start": 58.0, "window_days": 30},
+            "reason_codes": ["SEED_SCORE"],
+        }
+    )
     pub = _publication()
     detail = ScoreDetail(
         score=score,
@@ -327,6 +334,11 @@ def test_score_detail_returns_publication() -> None:
     assert body["score"]["quality_score_id"] == "qs-1"
     assert body["publication"]["publication_id"] == "pub-1"
     assert body["available_actions"] == []
+    assert body["calculation_details"] == {
+        "curve": "logarithmic_improvement",
+        "parameters": {"start": 58.0, "window_days": 30},
+        "reason_codes": ["SEED_SCORE"],
+    }
 
 
 def test_score_detail_404() -> None:

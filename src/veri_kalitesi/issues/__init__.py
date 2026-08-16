@@ -38,6 +38,30 @@ from veri_kalitesi.issues.models import (
     digest_idempotency_key,
     validate_manual_issue_draft,
 )
+from veri_kalitesi.issues.evidence import (
+    IssueEvidenceCandidate,
+    IssueEvidenceCandidateProvider,
+    IssueEvidenceKind,
+    IssueEvidenceReader,
+    IssueEvidenceRecord,
+    IssueEvidenceService,
+    IssueEvidenceStore,
+    candidate_source_digest,
+    evidence_content_digest,
+    validate_evidence_record,
+)
+from veri_kalitesi.issues.evidence_candidates import (
+    ExecutionIssueEvidenceCandidateProvider,
+)
+from veri_kalitesi.issues.evidence_files import (
+    AllowAllDevelopmentScanner,
+    EvidenceClassification,
+    EvidenceFilePolicy,
+    EvidenceScanStatus,
+    IssueEvidenceFileRecord,
+    IssueEvidenceFileService,
+    LocalEvidenceStorage,
+)
 from veri_kalitesi.issues.migration import (
     IssueMigrationReport,
     MigratedTable,
@@ -47,6 +71,7 @@ from veri_kalitesi.issues.postgresql_repository import (
     PostgreSQLIssueRepository,
     issue_table,
 )
+from veri_kalitesi.issues.postgresql_evidence import PostgreSQLIssueEvidenceProvider
 from veri_kalitesi.issues.query import (
     IssueQueryAuthorizationError,
     IssueQueryError,
@@ -95,6 +120,24 @@ __all__ = [
     "IssueAuthorizationError",
     "IssueConflictError",
     "IssueError",
+    "ExecutionIssueEvidenceCandidateProvider",
+    "IssueEvidenceCandidate",
+    "IssueEvidenceCandidateProvider",
+    "IssueEvidenceKind",
+    "IssueEvidenceReader",
+    "IssueEvidenceRecord",
+    "IssueEvidenceService",
+    "IssueEvidenceFileService",
+    "IssueEvidenceFileRecord",
+    "EvidenceFilePolicy",
+    "EvidenceScanStatus",
+    "EvidenceClassification",
+    "LocalEvidenceStorage",
+    "AllowAllDevelopmentScanner",
+    "IssueEvidenceStore",
+    "candidate_source_digest",
+    "evidence_content_digest",
+    "validate_evidence_record",
     "IssueEvidencePayload",
     "IssueEvidenceProvider",
     "IssueHistoryEntry",
@@ -136,6 +179,7 @@ __all__ = [
     "MigratedTable",
     "OwnershipIssueAssignmentResolver",
     "PostgreSQLIssueRepository",
+    "PostgreSQLIssueEvidenceProvider",
     "ProtectedIssueResolution",
     "SQLiteIssueMigrator",
     "TrustedIssueVerificationResult",

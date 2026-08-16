@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict
 
 from veri_kalitesi.identity import ActorContext
 from veri_kalitesi.reporting.models import Report
+from veri_kalitesi.reporting.errors import ReportTechnicalError
 from veri_kalitesi.reporting.service import ReportQueryService
 
 
@@ -71,10 +72,7 @@ def register_reporting_routes(
     resolver: _Resolver,
     data_origin: str,
 ) -> None:
-    """Bağımlılığı varsa sahiplik kontrollü rapor rotalarını kaydeder."""
-
-    if report_query_service is None:
-        return
+    """Sahiplik kontrollü rapor rotalarını sabit bir HTTP yüzeyiyle kaydeder."""
 
     @app.get("/api/v1/reports", response_model=ReportListResponse, tags=["reports"])
     async def list_reports(
@@ -83,6 +81,8 @@ def register_reporting_routes(
         limit: int = FastApiQuery(default=50, ge=1, le=100),
         offset: int = FastApiQuery(default=0, ge=0),
     ) -> ReportListResponse:
+        if report_query_service is None:
+            raise ReportTechnicalError(request.state.correlation_id)
         reports = report_query_service.list_reports(
             resolver.resolve(request),
             limit=limit,
@@ -105,6 +105,8 @@ def register_reporting_routes(
         request: Request,
         response: Response,
     ) -> ReportDetailResponse:
+        if report_query_service is None:
+            raise ReportTechnicalError(request.state.correlation_id)
         report = report_query_service.get_report(report_id, resolver.resolve(request))
         response.headers["Cache-Control"] = "no-store"
         return ReportDetailResponse(

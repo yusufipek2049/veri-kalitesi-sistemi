@@ -26,6 +26,7 @@ const sampleDatasets: CatalogDataset[] = [
     estimatedRowCount: 1000,
     fieldCount: 5,
     version: 1,
+    ownerId: null,
   },
   {
     id: "ds-2",
@@ -37,6 +38,7 @@ const sampleDatasets: CatalogDataset[] = [
     estimatedRowCount: null,
     fieldCount: 12,
     version: 2,
+    ownerId: "user-owner",
   },
 ];
 

@@ -15,7 +15,15 @@ test.beforeEach(async ({ page }) => {
     status: 200,
   }));
   await page.route("**/api/v1/datasets**", (route) => route.fulfill({
-    body: JSON.stringify({ api_version: "v1", data_origin: "e2e", correlation_id: "catalog", items: [] }),
+    body: JSON.stringify({
+      api_version: "v1",
+      data_origin: "e2e",
+      correlation_id: "catalog",
+      items: [
+        dataset("dataset-a", "accounts", "source-a"),
+        dataset("dataset-b", "transactions", "source-a"),
+      ],
+    }),
     contentType: "application/json",
     status: 200,
   }));
@@ -32,88 +40,97 @@ test.beforeEach(async ({ page }) => {
     contentType: "application/json",
     status: 200,
   }));
-  await page.route("**/api/v1/scores**", (route) => route.fulfill({
-    body: JSON.stringify({ data_origin: "e2e", correlation_id: "scores", items: [] }),
+  await page.route("**/api/v1/scores/**", (route) => {
+    // Skor detay istekleri (Detaylı Bilgi modalı)
+    const scoreId = route.request().url().split("/scores/")[1]?.split("?")[0];
+    return route.fulfill({
+      body: JSON.stringify(scoreDetailFixture(scoreId ?? "score-unknown")),
+      contentType: "application/json",
+      status: 200,
+    });
+  });
+  await page.route("**/api/v1/scores?*", (route) => route.fulfill({
+    body: JSON.stringify({ data_origin: "e2e", correlation_id: "scores", items: datasetScoreFixture() }),
     contentType: "application/json",
     status: 200,
   }));
 });
 
-for (const viewport of [{ width: 1440, height: 900 }, { width: 1024, height: 768 }]) {
-  test(`dönem seçici ${viewport.width}x${viewport.height} görünümünde grafiği günceller`, async ({ page }) => {
-    await page.setViewportSize(viewport);
-    await page.goto("/dashboard");
-
-    const chart = page.getByRole("img", { name: "Kalite trend grafiği" });
-    await expect(chart).toHaveAttribute("data-period-count", "30");
-    await page.getByRole("button", { name: "Son 7 gün" }).click();
-    await expect(chart).toHaveAttribute("data-period-count", "7");
-    await expect(page.getByText("Aktif dönem: Son 7 gün")).toBeVisible();
-  });
-}
-
-test("tablo görünümü sütun içeriğini ve ARIA ilişkilerini korur", async ({ page }) => {
+test("arama boşken genel ortalama gösterilir ve dataset serileri eklenmez", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/dashboard");
 
+  await expect(page.getByText(/Genel ortalama sabit referans/)).toBeVisible();
+  const chart = page.getByRole("img", { name: "Kalite trend grafiği" });
+  await expect(chart).toHaveAttribute("data-has-average-series", "true");
+  await expect(chart).toHaveAttribute("data-dataset-series-count", "0");
+  await expect(chart.locator("canvas")).toBeVisible();
+  await expect(page.getByRole("table", { name: "Kalite trend tablosu" })).toHaveCount(0);
+});
+
+for (const viewport of [{ width: 1440, height: 900 }, { width: 1024, height: 768 }]) {
+  test(`arama girildiğinde dataset grafiği ${viewport.width}x${viewport.height} görünümünde render edilir`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await page.goto("/dashboard");
+
+    await page.getByLabel("Dataset ara").fill("accounts");
+    const chart = page.getByRole("img", { name: "Kalite trend grafiği" });
+    await expect(chart).toHaveAttribute("data-dataset-series-count", "1");
+    await expect(chart.locator("canvas")).toBeVisible();
+  });
+}
+
+test("dönem seçici dataset geçmiş penceresini günceller", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/dashboard");
+
+  await page.getByLabel("Dataset ara").fill("accounts");
+  const chart = page.getByRole("img", { name: "Kalite trend grafiği" });
+  await expect(chart).toHaveAttribute("data-day-count", "10");
+  await page.getByRole("button", { name: "Son 7 gün" }).click();
+  await expect(chart).toHaveAttribute("data-day-count", "7");
+  await expect(page.getByText("Aktif dönem: Son 7 gün")).toBeVisible();
+});
+
+test("tablo görünümü dataset satırlarını ve Detaylı Bilgi butonunu gösterir", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/dashboard");
+
+  await page.getByLabel("Dataset ara").fill("public");
   await page.getByRole("tab", { name: "Tablo" }).click();
   const panel = page.getByRole("tabpanel", { name: "Tablo" });
   await expect(panel).toBeVisible();
   await expect(page.getByRole("table", { name: "Kalite trend tablosu" })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "Kurumsal Skor" })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "Kaynak Sayısı" })).toBeVisible();
-  await expect(page.getByRole("cell", { name: "2" }).first()).toBeVisible();
-});
-
-test("hover tooltip skor, durum, değişim ve kaynak ayrıntılarını gösterir", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/dashboard");
-
-  const chart = page.getByRole("img", { name: "Kalite trend grafiği" });
-  const bounds = await chart.boundingBox();
-  if (!bounds) throw new Error("Trend grafiği sınırları bulunamadı.");
-  const tooltip = page.getByTestId("trend-tooltip");
-  for (const ratio of [0.25, 0.4, 0.55, 0.7, 0.85]) {
-    await page.mouse.move(bounds.x + bounds.width * ratio, bounds.y + bounds.height * 0.45);
-    if (await tooltip.isVisible().catch(() => false)) break;
+  for (const header of ["Dataset", "Kaynak", "Son Skor", "Seviye", "Durum", "Zaman", "Detay"]) {
+    await expect(page.getByRole("columnheader", { name: header })).toBeVisible();
   }
-  await expect(tooltip).toBeVisible();
-  await expect(tooltip).toContainText("Skor:");
-  await expect(tooltip).toContainText("Durum:");
-  await expect(tooltip).toContainText("Değişim:");
-  await expect(tooltip).toContainText(/Temel Bankacılık|Risk Veri Martı/);
+  await expect(page.getByRole("link", { name: "public.accounts" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "public.transactions" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Detaylı Bilgi/ }).first()).toBeVisible();
 });
 
-test("kaynak overlay serileri ve scroll legend birlikte render edilir", async ({ page }) => {
+test("Detaylı Bilgi butonu skorlama parametrelerini modal üzerinde gösterir", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/dashboard");
 
-  const chart = page.getByRole("img", { name: "Kalite trend grafiği" });
-  await expect(chart).toHaveAttribute("data-source-series-count", "2");
-  await expect(chart.locator("canvas")).toBeVisible();
-  const bounds = await chart.boundingBox();
-  if (!bounds) throw new Error("Trend grafiği sınırları bulunamadı.");
-  await page.mouse.click(bounds.x + bounds.width / 2, bounds.y + 14);
-  await expect(chart).toBeVisible();
+  await page.getByLabel("Dataset ara").fill("accounts");
+  await page.getByRole("tab", { name: "Tablo" }).click();
+  await page.getByRole("button", { name: /Detaylı Bilgi/ }).first().click();
+
+  await expect(page.getByText("Skorlama Detaylı Bilgi")).toBeVisible();
+  await expect(page.getByText("Skorlama Parametreleri")).toBeVisible();
+  await expect(page.getByText("logarithmic_improvement")).toBeVisible();
+  await page.getByRole("button", { name: "Kapat" }).click();
+  await expect(page.getByText("Skorlama Detaylı Bilgi")).toHaveCount(0);
 });
 
-test("teknik hata marker'ı mor teknik renk ile yapılandırılır", async ({ page }) => {
+test("hareketli ortalama seçeneği dashboard'da yer almaz", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/dashboard");
 
-  const chart = page.getByRole("img", { name: "Kalite trend grafiği" });
-  await expect(chart).toHaveAttribute("data-technical-error-count", "1");
-  await expect(chart).toHaveAttribute("data-technical-marker-color", /.+/);
-});
-
-test("sürüm sınırı dikey çizgi label bilgisini taşır", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/dashboard");
-
-  const chart = page.getByRole("img", { name: "Kalite trend grafiği" });
-  await expect(chart).toHaveAttribute("data-version-boundary-count", "1");
-  await expect(chart).toHaveAttribute("data-version-labels", "v2");
-  await expect(chart).toHaveAttribute("data-threshold-value", "64.5");
+  await page.getByLabel("Dataset ara").fill("public");
+  await expect(page.getByRole("img", { name: "Kalite trend grafiği" })).toBeVisible();
+  await expect(page.getByText(/Hareketli Ortalama/i)).toHaveCount(0);
 });
 
 test("kaynak ve tarih filtreleri query parametrelerine uygulanır ve temizlenir", async ({ page }) => {
@@ -161,35 +178,117 @@ function dataSource(id: string, name: string) {
   };
 }
 
+function dataset(datasetId: string, name: string, sourceId: string) {
+  return {
+    dataset_id: datasetId,
+    data_source_id: sourceId,
+    namespace: "public",
+    name,
+    dataset_type: "TABLE",
+    status: "ACTIVE",
+    estimated_row_count: null,
+    field_count: 5,
+    version: 1,
+  };
+}
+
+function daysAgoIso(dayOffset: number): string {
+  const date = new Date(Date.now() - dayOffset * 86_400_000);
+  date.setUTCHours(8, 0, 0, 0);
+  return date.toISOString();
+}
+
+// Logaritmik iyileşme eğrisi: value(t) = start + (asymptote - start) * ln(1+t) / ln(11)
+function datasetScoreFixture() {
+  const items: Array<Record<string, unknown>> = [];
+  const configs = [
+    { datasetId: "dataset-a", start: 58, asymptote: 94 },
+    { datasetId: "dataset-b", start: 66, asymptote: 90 },
+  ];
+  for (const config of configs) {
+    for (let dayOffset = 9; dayOffset >= 0; dayOffset--) {
+      const t = 10 - dayOffset;
+      const progress = Math.log(1 + t) / Math.log(11);
+      const value = Math.round((config.start + (config.asymptote - config.start) * progress) * 10) / 10;
+      items.push({
+        quality_score_id: `score-${config.datasetId}-${t}`,
+        execution_id: `exec-${config.datasetId}-${t}`,
+        scope_type: "DATASET",
+        scope_id: config.datasetId,
+        scope_display_name: null,
+        scope_parent_name: null,
+        score_value: value,
+        score_status: "CALCULATED",
+        measurement_status: "Passed",
+        level: value >= 90 ? "GOOD" : value >= 75 ? "ACCEPTABLE" : "RISKY",
+        policy_version: "SEED_SCORING_V1",
+        calculated_at: daysAgoIso(dayOffset),
+        publication_id: "publication-e2e",
+      });
+    }
+  }
+  return items;
+}
+
+function scoreDetailFixture(qualityScoreId: string) {
+  return {
+    data_origin: "e2e",
+    correlation_id: "score-detail",
+    score: {
+      quality_score_id: qualityScoreId,
+      execution_id: "exec-detail",
+      scope_type: "DATASET",
+      scope_id: "dataset-a",
+      scope_display_name: null,
+      scope_parent_name: null,
+      score_value: 91.5,
+      score_status: "CALCULATED",
+      measurement_status: "Passed",
+      level: "GOOD",
+      policy_version: "SEED_SCORING_V1",
+      calculated_at: daysAgoIso(1),
+      publication_id: "publication-e2e",
+    },
+    publication: {
+      publication_id: "publication-e2e",
+      execution_id: "exec-detail",
+      period: "E2E_PERIOD",
+      status: "PUBLISHED",
+      policy_version: "SEED_SCORING_V1",
+      published_at: daysAgoIso(1),
+      superseded_at: null,
+    },
+    available_actions: [],
+    has_contribution_graph: false,
+    calculation_details: {
+      curve: "logarithmic_improvement",
+      parameters: { start: 58, asymptote: 94, window_days: 30 },
+    },
+    contribution_graph: null,
+  };
+}
+
 function dashboardFixture() {
   const periods = Array.from({ length: 35 }, (_, index) => {
     const start = new Date(Date.UTC(2026, 6, 1 + index));
     const end = new Date(start.getTime() + 86_399_000);
-    const enterprise = observation(`enterprise-${index}`, "ENTERPRISE", null, 72 + (index % 18), end.toISOString());
-    if (index === 31) {
-      enterprise.score_value = null;
-      enterprise.score_status = "NOT_CALCULATED_TECHNICAL_ERROR";
-      enterprise.level = null;
-    }
-    if (index === 32) {
-      enterprise.version_boundary = true;
-      enterprise.policy_version = "v2";
-    }
-    enterprise.trend = {
-      moving_average: 78.4,
-      consecutive_deterioration_count: 1,
-      sudden_deterioration: false,
-      time_below_threshold_periods: 0,
-      improvement_persistence: 2,
-    };
     return {
       period_start: start.toISOString(),
       period_end: end.toISOString(),
-      observations: [
-        enterprise,
-        observation(`source-a-${index}`, "SOURCE", "source-a", 75 + (index % 10), end.toISOString()),
-        observation(`source-b-${index}`, "SOURCE", "source-b", 68 + (index % 12), end.toISOString()),
-      ],
+      observations: [{
+        quality_score_id: `enterprise-${index}`,
+        scope_type: "ENTERPRISE",
+        scope_id: null,
+        score_value: 72 + (index % 18),
+        score_status: "CALCULATED",
+        level: "GOOD",
+        calculated_at: end.toISOString(),
+        comparison_status: "COMPARABLE",
+        comparison_reason_codes: [],
+        change: 1.2,
+        version_boundary: false,
+        policy_version: null,
+      }],
     };
   });
   return {
@@ -199,27 +298,9 @@ function dashboardFixture() {
     trend: { as_of: "2026-08-11T12:00:00Z", has_data: true, threshold_value: 64.5, periods },
     operational_indicators: {
       measurement_qualification: { status: "NO_DATA", evaluated_scope_count: 3, reason_codes: [] },
-      technical_errors: { observation_count: 1, execution_count: 1, affected_source_count: 1, last_occurred_at: "2026-08-01T12:00:00Z" },
+      technical_errors: { observation_count: 0, execution_count: 0, affected_source_count: 0, last_occurred_at: null },
     },
     role_view: "EXECUTIVE",
     applied_filters: null,
-  };
-}
-
-function observation(id: string, scopeType: "ENTERPRISE" | "SOURCE", scopeId: string | null, score: number | null, calculatedAt: string) {
-  return {
-    quality_score_id: id,
-    scope_type: scopeType,
-    scope_id: scopeId,
-    score_value: score,
-    score_status: "CALCULATED",
-    level: "GOOD" as string | null,
-    calculated_at: calculatedAt,
-    comparison_status: "COMPARABLE",
-    comparison_reason_codes: [],
-    change: 1.2,
-    version_boundary: false,
-    policy_version: null as string | null,
-    trend: undefined as Record<string, unknown> | undefined,
   };
 }

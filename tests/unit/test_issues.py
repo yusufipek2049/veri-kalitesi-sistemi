@@ -35,6 +35,8 @@ from veri_kalitesi.issues import (
     IssueTechnicalError,
     IssueTrigger,
     IssueTriggerType,
+    IssueEvidenceKind,
+    IssueEvidenceRecord,
     IssueValidationError,
     IssueVerificationOutcome,
     ProtectedIssueResolution,
@@ -1828,6 +1830,7 @@ def _fixture(
     verification_resolver: StaticVerificationResolver | None = None,
     relationship_resolver: StaticRelationshipResolver | None = None,
     notification_publisher: CountingNotificationPublisher | None = None,
+    evidence_reader: object | None = None,
 ) -> IssueFixture:
     issue_repository = SQLiteIssueRepository()
     issue_audit_repository = SQLiteAuditRepository()
@@ -1913,6 +1916,7 @@ def _fixture(
         verification_resolver=actual_verification_resolver,
         relationship_resolver=actual_relationship_resolver,
         notification_actor_context_provider=_producer_context,
+        evidence_reader=evidence_reader,
         clock=lambda: NOW,
     )
     return IssueFixture(
@@ -2048,4 +2052,92 @@ def _user_context(
         expires_at=NOW + timedelta(hours=1),
         policy_version=ACTOR_POLICY_VERSION,
         correlation_id="correlation-issue-user",
+    )
+
+
+# ── Çözüm kanıtı fail-closed doğrulaması ─────────────────────────────────────
+# Kanıt defteri bağlıyken çözüm kaydı yalnızca gerçek ve aynı issue'ya ait bir
+# kanıt referansı kabul eder; rastgele üretilmiş UUID artık geçmez.
+
+
+class StaticEvidenceReader:
+    """Kanıt defteri okuyucusu (IssueEvidenceReader)."""
+
+    def __init__(self, records: tuple[IssueEvidenceRecord, ...] = ()) -> None:
+        self.records = records
+
+    def list_evidence(self, issue_id: str) -> list[IssueEvidenceRecord]:
+        return [record for record in self.records if record.issue_id == issue_id]
+
+    def get_evidence(self, evidence_id: str) -> IssueEvidenceRecord | None:
+        return next(
+            (record for record in self.records if record.evidence_id == evidence_id),
+            None,
+        )
+
+
+def _evidence_record(issue_id: str, evidence_id: str = EVIDENCE_ID) -> IssueEvidenceRecord:
+    return IssueEvidenceRecord(
+        evidence_id=evidence_id,
+        issue_id=issue_id,
+        kind=IssueEvidenceKind.EXECUTION_RESULT,
+        label="Kural sonucu — test",
+        execution_id="execution-not-a-uuid",
+        observed_at=NOW - timedelta(hours=1),
+        captured_at=NOW,
+        captured_by=ASSIGNEE_ID,
+        content_digest="a" * 64,
+        source_digest="b" * 64,
+    )
+
+
+def test_resolution_rejects_evidence_reference_without_a_stored_record() -> None:
+    fixture = _fixture(evidence_reader=StaticEvidenceReader())
+    issue = _investigating_issue(fixture)
+
+    with pytest.raises(IssueValidationError, match="stored evidence"):
+        fixture.service.resolve(
+            issue.issue_id,
+            _resolution_draft(),
+            issue.version,
+            _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
+        )
+
+    assert fixture.repository.get(issue.issue_id).status is IssueStatus.INVESTIGATING
+
+
+def test_resolution_rejects_evidence_that_belongs_to_another_issue() -> None:
+    fixture = _fixture(
+        evidence_reader=StaticEvidenceReader((_evidence_record("another-issue"),))
+    )
+    issue = _investigating_issue(fixture)
+
+    with pytest.raises(IssueValidationError, match="another issue"):
+        fixture.service.resolve(
+            issue.issue_id,
+            _resolution_draft(),
+            issue.version,
+            _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
+        )
+
+    assert fixture.repository.get(issue.issue_id).status is IssueStatus.INVESTIGATING
+
+
+def test_resolution_accepts_evidence_stored_for_the_same_issue() -> None:
+    reader = StaticEvidenceReader()
+    fixture = _fixture(evidence_reader=reader)
+    issue = _investigating_issue(fixture)
+    reader.records = (_evidence_record(issue.issue_id),)
+
+    resolved = fixture.service.resolve(
+        issue.issue_id,
+        _resolution_draft(),
+        issue.version,
+        _user_context(ASSIGNEE_ID, dataset_ids={DATASET_ID}),
+    )
+
+    assert resolved.status is IssueStatus.RESOLVED
+    assert (
+        fixture.repository.get_latest_resolution(issue.issue_id).evidence_reference_id
+        == EVIDENCE_ID
     )

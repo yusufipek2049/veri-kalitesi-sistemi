@@ -29,6 +29,7 @@ from veri_kalitesi.api.service_groups import (
     ExecutionServices,
     IssueServices,
     NotificationServices,
+    ReportingServices,
     RuleServices,
 )
 
@@ -55,6 +56,7 @@ __all__ = [
     "ExecutionServices",
     "IssueServices",
     "NotificationServices",
+    "ReportingServices",
     "RuleServices",
     "SESSION_COOKIE_NAME",
     "UnavailableActorContextResolver",

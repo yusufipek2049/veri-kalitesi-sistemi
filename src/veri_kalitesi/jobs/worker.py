@@ -127,9 +127,7 @@ class PersistentJobWorker:
         registration = self.register()
         worker_version = registration.version
         last_worker_heartbeat = self.monotonic_clock()
-        last_schedule_trigger = (
-            self.monotonic_clock() - self.schedule_trigger_interval_seconds
-        )
+        last_schedule_trigger = self.monotonic_clock() - self.schedule_trigger_interval_seconds
         worker_heartbeat_interval = max(1.0, self.lease_policy.duration.total_seconds() / 6)
         while not stop_event.is_set():
             released_count = self.repository.release_expired_claims(
@@ -651,6 +649,14 @@ def _invoke_handler(
     except PermanentJobError as exc:
         result_writer.send(("permanent", exc.error_class))
     except Exception:
+        logger.exception(
+            "Unhandled job handler error",
+            extra={
+                "event": "job_handler_unhandled_error",
+                "job_id": claimed.job_id,
+                "job_type": claimed.job_type,
+            },
+        )
         result_writer.send(("permanent", "UNEXPECTED"))
     finally:
         result_writer.close()

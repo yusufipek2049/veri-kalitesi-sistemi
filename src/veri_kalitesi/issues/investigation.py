@@ -158,11 +158,17 @@ class IssueInvestigationEvidenceService:
             raise IssueNotFoundError("The requested issue is not available.")
 
         # Kanit saglayicidan calistirma kanitini al
-        payload = self.evidence_provider.get_evidence_for_issue(
-            issue_id=issue.issue_id,
-            scope_type=issue.scope_type,
-            scope_id=issue.scope_id,
-        )
+        try:
+            payload = self.evidence_provider.get_evidence_for_issue(
+                issue_id=issue.issue_id,
+                scope_type=issue.scope_type,
+                scope_id=issue.scope_id,
+            )
+        except (sqlite3.Error, SQLAlchemyError, OSError) as exc:
+            raise IssueTechnicalError(
+                "Issue investigation evidence could not be read.",
+                correlation_id,
+            ) from exc
 
         return _assemble_evidence(
             issue=issue,

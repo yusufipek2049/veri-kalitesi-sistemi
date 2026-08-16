@@ -8,7 +8,7 @@ from typing import Protocol
 from sqlalchemy.exc import SQLAlchemyError
 
 from veri_kalitesi.identity import ActorContext, AuthorizationService, IdentityError
-from veri_kalitesi.rules.models import QualityRule, RuleVersion
+from veri_kalitesi.rules.models import QualityRule, RuleApprovalRequest, RuleVersion
 
 
 class RuleReader(Protocol):
@@ -18,6 +18,9 @@ class RuleReader(Protocol):
     def get_rule(self, quality_rule_id: str) -> QualityRule: ...
     def get_version(self, rule_version_id: str) -> RuleVersion: ...
     def list_versions(self, quality_rule_id: str) -> list[RuleVersion]: ...
+    def list_pending_approval_requests(
+        self, rule_version_ids: frozenset[str]
+    ) -> dict[str, RuleApprovalRequest]: ...
 
 
 class RuleQueryError(Exception):
@@ -56,6 +59,27 @@ class RuleQueryService:
         except (sqlite3.Error, SQLAlchemyError, OSError) as exc:
             raise RuleQueryTechnicalError(
                 "Rule query could not be completed.", correlation_id
+            ) from exc
+
+    def pending_approval_requests_for_versions(
+        self, rule_version_ids: frozenset[str]
+    ) -> dict[str, RuleApprovalRequest]:
+        """Yetkili kapsamdan alinan surum kimlikleri icin bekleyen talepleri dondurur.
+
+        Kapsam daraltmasi list_for_actor veya get_rule_with_latest_version
+        icinde yapilir; bu yontem yalnizca projeksiyonu tamamlar. Eski
+        okuyucular yontemi uygulamadiginda bos sozluk doner (fail-closed).
+        """
+        if not rule_version_ids:
+            return {}
+        reader_method = getattr(self.reader, "list_pending_approval_requests", None)
+        if reader_method is None:
+            return {}
+        try:
+            return dict(reader_method(rule_version_ids))
+        except (sqlite3.Error, SQLAlchemyError, OSError) as exc:
+            raise RuleQueryTechnicalError(
+                "Approval projection could not be completed.", "n/a"
             ) from exc
 
     def get_version(self, rule_version_id: str) -> RuleVersion:

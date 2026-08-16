@@ -127,7 +127,7 @@ def create_production_worker(
     notification_repository = PostgreSQLNotificationRepository(session_factory, schema=schema)
 
     class _ProductionIssueAssigneeDirectory:
-        """Production assignee directory — owner is always active if they exist."""
+        """Ownership kataloğundan worker issue kapsamlarını üretir."""
 
         def __init__(self, source_repo: PostgreSQLDataSourceRepository) -> None:
             self._source_repo = source_repo
@@ -135,11 +135,23 @@ def create_production_worker(
         def get_assignee_profile(self, user_id: str) -> "IssueAssigneeProfile | None":
             if not user_id:
                 return None
+            sources = self._source_repo.list_all_data_sources()
+            owned_source_ids = frozenset(
+                source.data_source_id for source in sources if source.owner_user_id == user_id
+            )
+            permitted_dataset_ids = frozenset(
+                dataset.dataset_id
+                for source in sources
+                for dataset in self._source_repo.list_datasets(source.data_source_id)
+                if dataset.owner_user_id == user_id or source.data_source_id in owned_source_ids
+            )
+            if not owned_source_ids and not permitted_dataset_ids:
+                return None
             return IssueAssigneeProfile(
                 user_id=user_id,
                 active=True,
-                permitted_source_ids=frozenset(),
-                permitted_dataset_ids=frozenset(),
+                permitted_source_ids=owned_source_ids,
+                permitted_dataset_ids=permitted_dataset_ids,
             )
 
     assignee_directory = _ProductionIssueAssigneeDirectory(source_repository)
@@ -170,9 +182,8 @@ def create_production_worker(
             from veri_kalitesi.notifications.models import (
                 NotificationDeliveryStatus,
             )
-            now = __import__("datetime").datetime.now(
-                __import__("datetime").timezone.utc
-            )
+
+            now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
             staged_event = _StagedEvent(
                 event_id=event.event_id,
                 event_type=event.event_type.value,
@@ -182,9 +193,7 @@ def create_production_worker(
                 deduplication_key_digest=hashlib.sha256(
                     event.deduplication_key.encode()
                 ).hexdigest()[:32],
-                payload_digest=hashlib.sha256(
-                    str(event.payload).encode()
-                ).hexdigest()[:16],
+                payload_digest=hashlib.sha256(str(event.payload).encode()).hexdigest()[:16],
                 payload=event.payload,
                 correlation_id=event.correlation_id,
                 policy_version=event.policy_version,
@@ -193,9 +202,7 @@ def create_production_worker(
             )
             delivery_id = str(_uuid4())
             recipient = (
-                actor_context.actor_id
-                if actor_context is not None
-                else "worker-notification-sink"
+                actor_context.actor_id if actor_context is not None else "worker-notification-sink"
             )
             staged_delivery = _StagedDelivery(
                 delivery_id=delivery_id,
@@ -218,6 +225,7 @@ def create_production_worker(
             actor_id="issue-creation-worker",
             correlation_id="issue-worker-correlation",
             roles=frozenset({"ISSUE_CREATION_WORKER"}),
+            policy_version=settings.actor_policy_version,
         )
 
     issue_service = IssueService(
@@ -264,6 +272,7 @@ def create_production_worker(
             actor_id="score-publication-worker",
             correlation_id="score-worker-correlation",
             roles=frozenset({"SCORE_PUBLICATION_WORKER"}),
+            policy_version=settings.actor_policy_version,
         )
 
     from veri_kalitesi.jobs.execution_command import PersistentExecutionCommandAdapter
@@ -300,6 +309,7 @@ def create_production_worker(
             correlation_id=correlation_id,
             roles=frozenset({"METADATA_DISCOVERY_WORKER"}),
             permitted_source_ids=frozenset({data_source_id}),
+            policy_version=settings.actor_policy_version,
         )
 
     metadata_command_adapter = PersistentMetadataDiscoveryCommandAdapter(

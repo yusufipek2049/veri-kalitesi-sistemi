@@ -427,6 +427,40 @@ class SQLiteRuleRepository:
         ).fetchall()
         return [_row_to_approval_request(row) for row in rows]
 
+    def list_pending_approval_requests(
+        self, rule_version_ids: frozenset[str]
+    ) -> dict[str, RuleApprovalRequest]:
+        if not rule_version_ids:
+            return {}
+        placeholders = ", ".join("?" for _ in rule_version_ids)
+        rows = self.connection.execute(
+            f"""
+            SELECT * FROM rule_approval_requests
+            WHERE status = ? AND rule_version_id IN ({placeholders})
+            """,
+            (RuleApprovalStatus.PENDING.value, *sorted(rule_version_ids)),
+        ).fetchall()
+        return {row["rule_version_id"]: _row_to_approval_request(row) for row in rows}
+
+    def list_approval_requests_for_datasets(
+        self, dataset_ids: frozenset[str]
+    ) -> list[RuleApprovalRequest]:
+        if not dataset_ids:
+            return []
+        placeholders = ", ".join("?" for _ in dataset_ids)
+        rows = self.connection.execute(
+            f"""
+            SELECT ra.* FROM rule_approval_requests AS ra
+            JOIN rule_versions AS rv ON rv.rule_version_id = ra.rule_version_id
+            JOIN quality_rules AS qr ON qr.quality_rule_id = rv.quality_rule_id
+            WHERE qr.dataset_id IN ({placeholders})
+            ORDER BY ra.requested_at DESC, ra.approval_request_id DESC
+            LIMIT 500
+            """,
+            tuple(sorted(dataset_ids)),
+        ).fetchall()
+        return [_row_to_approval_request(row) for row in rows]
+
     def decide_approval_request(
         self,
         request: RuleApprovalRequest,

@@ -500,17 +500,23 @@ def _distribution_from_deciles(
         return MeasureDistribution("uniform", low=p10, high=p90)
     if family == "lognormal":
         import math as _math
+
         mu = _math.log(max(p50, 1e-12))
         sigma = max((_math.log(max(p90, 1e-12)) - _math.log(max(p10, 1e-12))) / 2.568, 0.01)
         return MeasureDistribution(
-            "lognormal", mu=mu, sigma=sigma,
-            low=existing.low, high=existing.high,
+            "lognormal",
+            mu=mu,
+            sigma=sigma,
+            low=existing.low,
+            high=existing.high,
         )
     # bounded_normal
     return MeasureDistribution(
-        "bounded_normal", mu=p50,
+        "bounded_normal",
+        mu=p50,
         sigma=max((p90 - p10) / 2.568, 0.01),
-        low=existing.low, high=existing.high,
+        low=existing.low,
+        high=existing.high,
     )
 
 
@@ -1984,6 +1990,7 @@ def _connect(args: argparse.Namespace) -> psycopg.Connection[Any]:
 def _compute_profile_sha256(artifact: SyntheticProfileArtifact) -> str:
     """Profil artefaktının deterministik SHA-256 hash'ini hesaplar."""
     from veri_kalitesi.synthetic_data.profile_schema import artifact_to_dict
+
     payload = json.dumps(artifact_to_dict(artifact), sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 

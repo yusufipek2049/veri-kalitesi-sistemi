@@ -418,3 +418,52 @@ def test_get_missing_approval_request_raises_not_found(pg: PgFixture) -> None:
     repo = _repo(pg)
     with pytest.raises(RuleNotFoundError):
         repo.get_approval_request(str(uuid4()))
+
+
+def test_list_pending_approval_requests_projects_only_pending(pg: PgFixture) -> None:
+    """Bekleyen talep projeksiyonu yalniz PENDING talepleri surum bazinda dondurur."""
+    repo = _repo(pg)
+    audit = _audit(pg)
+    rule = _make_rule()
+    version = _make_version(rule.quality_rule_id)
+    repo.add_rule_with_version(rule, version, audit_event=_prepared(audit), audit_outbox=audit)
+
+    request = RuleApprovalRequest(
+        rule_version_id=version.rule_version_id,
+        maker_actor_id="test-maker",
+        policy_version="TEST_V1",
+        requested_at=_now(),
+    )
+    repo.add_approval_request(
+        request,
+        audit_event=_prepared(audit, object_id=rule.quality_rule_id),
+        audit_outbox=audit,
+    )
+
+    pending = repo.list_pending_approval_requests(frozenset({version.rule_version_id}))
+    assert set(pending) == {version.rule_version_id}
+    assert pending[version.rule_version_id].approval_request_id == request.approval_request_id
+    assert pending[version.rule_version_id].maker_actor_id == "test-maker"
+    assert repo.list_pending_approval_requests(frozenset()) == {}
+    assert repo.list_pending_approval_requests(frozenset({"missing-version"})) == {}
+
+    decided = RuleApprovalRequest(
+        approval_request_id=request.approval_request_id,
+        rule_version_id=version.rule_version_id,
+        maker_actor_id="test-maker",
+        checker_actor_id="test-checker",
+        policy_version="TEST_V1",
+        status=RuleApprovalStatus.APPROVED,
+        decision_reason_code="APPROVED",
+        requested_at=_now(),
+        decided_at=_now() + timedelta(hours=1),
+    )
+    repo.decide_approval_request(
+        decided,
+        quality_rule_id=rule.quality_rule_id,
+        activate_rule=True,
+        audit_event=_prepared(audit, object_id=rule.quality_rule_id),
+        audit_outbox=audit,
+    )
+
+    assert repo.list_pending_approval_requests(frozenset({version.rule_version_id})) == {}

@@ -153,6 +153,9 @@ def register_rules_routes(
         actor_context = resolver.resolve(request)
         assert actor_context is not None
         rules = rule_query_service.list_for_actor(actor_context)
+        pending_approvals = rule_query_service.pending_approval_requests_for_versions(
+            frozenset(version.rule_version_id for _rule, version in rules)
+        )
         response.headers["Cache-Control"] = "no-store"
         return RuleListResponse(
             data_origin=data_origin,
@@ -161,7 +164,17 @@ def register_rules_routes(
                 RuleListItemResponse.from_domain(
                     rule,
                     version,
-                    available_actions=_rule_actions(rule, version, actor_context),
+                    available_actions=_rule_actions(
+                        rule,
+                        version,
+                        actor_context,
+                        pending_approval=pending_approvals.get(version.rule_version_id),
+                    ),
+                    pending_approval_request_id=(
+                        pending_approvals[version.rule_version_id].approval_request_id
+                        if version.rule_version_id in pending_approvals
+                        else None
+                    ),
                 )
                 for rule, version in rules
             ),
@@ -191,10 +204,19 @@ def register_rules_routes(
                 raise HTTPException(status_code=404, detail="Rule not found.") from exc
             raise
         response.headers["Cache-Control"] = "no-store"
+        pending_approvals = rule_query_service.pending_approval_requests_for_versions(
+            frozenset({version.rule_version_id})
+        )
+        pending_approval = pending_approvals.get(version.rule_version_id)
         item = RuleListItemResponse.from_domain(
             rule,
             version,
-            available_actions=_rule_actions(rule, version, actor_context),
+            available_actions=_rule_actions(
+                rule, version, actor_context, pending_approval=pending_approval
+            ),
+            pending_approval_request_id=(
+                pending_approval.approval_request_id if pending_approval else None
+            ),
         )
         return RuleDetailResponse(
             data_origin=data_origin,
@@ -472,7 +494,7 @@ def _rule_actions(
     version: RuleVersion,
     actor_context: ActorContext,
     *,
-    pending_approval_request_id: str | None = None,
+    pending_approval: RuleApprovalRequest | None = None,
 ) -> tuple[str, ...]:
     """Kuralin mevcut durumu ve aktor yetkisine gore kullanilabilir eylemleri hesaplar."""
     has_dataset_scope = rule.dataset_id in actor_context.permitted_dataset_ids
@@ -498,6 +520,7 @@ def _rule_actions(
     if (
         status == "DRAFT"
         and criticality == "CRITICAL"
+        and pending_approval is None
         and is_steward_or_governance
         and has_dataset_scope
         and is_normal
@@ -505,14 +528,15 @@ def _rule_actions(
         actions.append("REQUEST_APPROVAL")
 
     if (
-        status == "REVIEW_REQUIRED"
-        and pending_approval_request_id is not None
-        and (is_steward_or_governance or is_owner)
+        status in {"DRAFT", "REVIEW_REQUIRED"}
+        and pending_approval is not None
         and has_dataset_scope
         and is_normal
     ):
-        actions.append("DECIDE_APPROVAL")
-        actions.append("WITHDRAW_APPROVAL")
+        if pending_approval.maker_actor_id == actor_context.actor_id:
+            actions.append("WITHDRAW_APPROVAL")
+        elif is_steward_or_governance or is_owner:
+            actions.append("DECIDE_APPROVAL")
 
     if (
         status == "ACTIVE"

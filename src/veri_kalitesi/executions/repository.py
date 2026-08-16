@@ -318,6 +318,31 @@ class SQLiteExecutionRepository:
             )
             return self.get(row["execution_id"])
 
+    def claim_by_id(
+        self,
+        execution_id: str,
+        started_at: datetime,
+    ) -> RuleExecution | None:
+        """Atomically move the queue-selected execution into RUNNING."""
+
+        with self._lock, self.connection:
+            result = self.connection.execute(
+                """
+                UPDATE rule_executions
+                SET status = ?, started_at = ?
+                WHERE execution_id = ? AND status = ?
+                """,
+                (
+                    ExecutionStatus.RUNNING.value,
+                    started_at.isoformat(),
+                    execution_id,
+                    ExecutionStatus.QUEUED.value,
+                ),
+            )
+            if result.rowcount == 0:
+                return None
+            return self.get(execution_id)
+
     def add_attempt(self, attempt: ExecutionAttempt) -> None:
         with self._lock, self.connection:
             self.connection.execute(

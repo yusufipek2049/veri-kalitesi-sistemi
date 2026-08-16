@@ -45,9 +45,13 @@ import { AppShell } from "../components/AppShell";
 import { StatusBadge } from "../components/StatusBadge";
 import { designTokens, type StatusTone } from "../theme/tokens";
 import {
+  issueEvidenceOptions,
   syntheticIssues,
   type IssueAssigneeOption,
   type IssueCreateInput,
+  type IssueEvidenceCandidate,
+  type IssueEvidenceOption,
+  type IssueEvidenceRecord,
   type IssueListItem,
   type IssuePriority,
   type IssueState,
@@ -67,6 +71,19 @@ interface IssuesPageProps {
     assigneeUserId: string,
     priority: IssuePriority,
   ) => Promise<void>;
+  onLoadEvidence?: (item: IssueListItem) => Promise<{
+    records: IssueEvidenceRecord[];
+    candidates: IssueEvidenceCandidate[];
+  }>;
+  onCaptureEvidence?: (
+    item: IssueListItem,
+    candidateKey: string,
+  ) => Promise<IssueEvidenceRecord>;
+  onUploadEvidence?: (
+    item: IssueListItem, file: File, label: string, classification: string,
+    onProgress: (percentage: number) => void,
+  ) => Promise<IssueEvidenceRecord>;
+  onDownloadEvidence?: (item: IssueListItem, evidenceId: string) => Promise<void>;
   onResolve?: (
     item: IssueListItem,
     rootCause: string,
@@ -106,7 +123,6 @@ const triggerLabels: Record<string, string> = {
   MANUAL: "Manuel",
 };
 
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function localDateTimeValue(): string {
   const now = new Date();
@@ -417,7 +433,11 @@ export function IssuesPage({
   correlationId,
   pageActions,
   onLoadAssignmentOptions,
+  onCaptureEvidence,
   onCreateIssue,
+  onLoadEvidence,
+  onUploadEvidence,
+  onDownloadEvidence,
   onRefresh,
   onReassign,
   onResolve,
@@ -441,7 +461,16 @@ export function IssuesPage({
   const [resolutionItem, setResolutionItem] = useState<IssueListItem>();
   const [resolutionRootCause, setResolutionRootCause] = useState("");
   const [resolutionCorrectiveAction, setResolutionCorrectiveAction] = useState("");
-  const [resolutionEvidenceRef, setResolutionEvidenceRef] = useState("");
+  const [resolutionEvidenceSelection, setResolutionEvidenceSelection] = useState("");
+  const [evidenceOptions, setEvidenceOptions] = useState<IssueEvidenceOption[]>([]);
+  const [evidenceState, setEvidenceState] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [uploadFile, setUploadFile] = useState<File>();
+  const [uploadLabel, setUploadLabel] = useState("");
+  const [uploadClassification, setUploadClassification] = useState("INTERNAL");
+  const [uploadProgress, setUploadProgress] = useState<number>();
+  const [uploadedEvidence, setUploadedEvidence] = useState<IssueEvidenceRecord[]>([]);
   const [resolutionCompletedAt, setResolutionCompletedAt] = useState(localDateTimeValue());
   const [resolutionInitialCompletedAt, setResolutionInitialCompletedAt] = useState(
     resolutionCompletedAt,
@@ -551,21 +580,65 @@ export function IssuesPage({
     }
     closeAssignment();
   };
+  const loadEvidence = async (item: IssueListItem) => {
+    if (!onLoadEvidence) {
+      setEvidenceOptions([]);
+      setEvidenceState("ready");
+      return;
+    }
+    setEvidenceState("loading");
+    try {
+      const { records, candidates } = await onLoadEvidence(item);
+      setUploadedEvidence(records.filter((record) => record.kind === "UPLOADED_FILE"));
+      setEvidenceOptions(issueEvidenceOptions(records, candidates));
+      setEvidenceState("ready");
+    } catch {
+      setEvidenceOptions([]);
+      setEvidenceState("error");
+    }
+  };
   const openResolution = (item: IssueListItem) => {
     const completedAt = localDateTimeValue();
     setResolutionItem(item);
     setResolutionRootCause("");
     setResolutionCorrectiveAction("");
-    setResolutionEvidenceRef("");
+    setResolutionEvidenceSelection("");
+    setEvidenceOptions([]);
+    setEvidenceState("idle");
+    setUploadFile(undefined);
+    setUploadLabel("");
+    setUploadProgress(undefined);
+    setUploadedEvidence([]);
     setResolutionCompletedAt(completedAt);
     setResolutionInitialCompletedAt(completedAt);
     setActionFeedback(undefined);
+    void loadEvidence(item);
+  };
+  const submitEvidenceUpload = async () => {
+    if (!resolutionItem || !uploadFile || !uploadLabel.trim() || !onUploadEvidence) return;
+    setUploadProgress(1);
+    try {
+      const record = await onUploadEvidence(
+        resolutionItem, uploadFile, uploadLabel.trim(), uploadClassification, setUploadProgress,
+      );
+      setUploadProgress(100);
+      setUploadedEvidence((current) => [...current, record]);
+      setUploadFile(undefined);
+      setUploadLabel("");
+      window.setTimeout(() => void loadEvidence(resolutionItem), 500);
+    } catch (error) {
+      setUploadProgress(undefined);
+      setActionFeedback({ severity: "error", message: error instanceof Error
+        ? error.message : "Kanıt dosyası yüklenemedi." });
+    }
   };
   const closeResolution = () => {
     setResolutionItem(undefined);
     setResolutionRootCause("");
     setResolutionCorrectiveAction("");
-    setResolutionEvidenceRef("");
+    setResolutionEvidenceSelection("");
+    setEvidenceOptions([]);
+    setEvidenceState("idle");
     setResolutionConfirmDiscard(false);
   };
   const requestResolutionClose = () => {
@@ -574,7 +647,7 @@ export function IssuesPage({
       && (
         resolutionRootCause
         || resolutionCorrectiveAction
-        || resolutionEvidenceRef
+        || resolutionEvidenceSelection
         || resolutionCompletedAt !== resolutionInitialCompletedAt
       )
     ) {
@@ -586,21 +659,37 @@ export function IssuesPage({
   const submitResolution = async () => {
     if (!resolutionItem || !onResolve || pendingIssueId) return;
     const completedAt = new Date(resolutionCompletedAt);
+    const selected = evidenceOptions.find(
+      (option) => option.value === resolutionEvidenceSelection,
+    );
     if (
       !resolutionRootCause.trim()
       || !resolutionCorrectiveAction.trim()
-      || !uuidPattern.test(resolutionEvidenceRef.trim())
+      || !selected
       || Number.isNaN(completedAt.getTime())
       || completedAt > new Date()
     ) return;
     setPendingIssueId(resolutionItem.id);
     setActionFeedback(undefined);
     try {
+      // Aday seçildiyse önce kalıcı kanıt kaydına dönüştürülür; çözüm ancak
+      // gerçek bir kanıt kaydının kimliğine bağlanabilir.
+      let evidenceId = selected.kind === "record" ? selected.record.evidenceId : "";
+      if (selected.kind === "candidate") {
+        if (!onCaptureEvidence) {
+          throw new Error("Kanıt kaydı oluşturulamıyor. Sayfayı yenileyip yeniden deneyin.");
+        }
+        const captured = await onCaptureEvidence(
+          resolutionItem,
+          selected.candidate.candidateKey,
+        );
+        evidenceId = captured.evidenceId;
+      }
       await onResolve(
         resolutionItem,
         resolutionRootCause.trim(),
         resolutionCorrectiveAction.trim(),
-        resolutionEvidenceRef.trim(),
+        evidenceId,
         completedAt.toISOString(),
       );
       setActionFeedback({
@@ -908,19 +997,122 @@ export function IssuesPage({
               slotProps={{ htmlInput: { maxLength: 4000 } }}
               value={resolutionCorrectiveAction}
             />
-            <TextField
-              error={Boolean(resolutionEvidenceRef) && !uuidPattern.test(resolutionEvidenceRef)}
-              helperText={
-                resolutionEvidenceRef && !uuidPattern.test(resolutionEvidenceRef)
-                  ? "Geçerli bir UUID girin."
-                  : "Ham kayıt veya hassas veri yerine güvenli kanıt referansı kullanın."
-              }
-              label="Kanıt referansı (UUID)"
-              onChange={(event) => setResolutionEvidenceRef(event.target.value)}
-              placeholder="00000000-0000-0000-0000-000000000000"
-              required
-              value={resolutionEvidenceRef}
-            />
+            <Paper
+              aria-label="Kanıt dosyası yükleme alanı"
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault();
+                const selected = event.dataTransfer.files[0];
+                if (selected) setUploadFile(selected);
+              }}
+              sx={{ border: "1px dashed", borderColor: "divider", display: "grid", gap: 2, p: 3 }}
+              variant="outlined"
+            >
+              <Typography sx={{ fontWeight: 600 }}>Kanıt yükle</Typography>
+              <Typography color="text.secondary" variant="caption">
+                PNG, JPEG, PDF, TXT veya LOG · En fazla 20 MB. Ham müşteri verisi yüklemeyin.
+              </Typography>
+              <Button component="label" variant="outlined">
+                Dosya seç
+                <input
+                  accept=".png,.jpg,.jpeg,.pdf,.txt,.log,image/png,image/jpeg,application/pdf,text/plain"
+                  hidden
+                  onChange={(event) => setUploadFile(event.target.files?.[0])}
+                  type="file"
+                />
+              </Button>
+              {uploadFile ? <Typography variant="body2">{uploadFile.name}</Typography> : null}
+              <TextField
+                label="Kanıt başlığı"
+                onChange={(event) => setUploadLabel(event.target.value)}
+                slotProps={{ htmlInput: { maxLength: 200 } }}
+                value={uploadLabel}
+              />
+              <FormControl>
+                <InputLabel id="evidence-classification-label">Sınıflandırma</InputLabel>
+                <Select
+                  label="Sınıflandırma"
+                  labelId="evidence-classification-label"
+                  onChange={(event) => setUploadClassification(event.target.value)}
+                  value={uploadClassification}
+                >
+                  <MenuItem value="INTERNAL">Kurum içi</MenuItem>
+                  <MenuItem value="CONFIDENTIAL">Gizli</MenuItem>
+                  <MenuItem value="RESTRICTED">Kısıtlı</MenuItem>
+                </Select>
+              </FormControl>
+              <Button
+                disabled={!uploadFile || !uploadLabel.trim() || uploadProgress === 1}
+                onClick={() => void submitEvidenceUpload()}
+                variant="contained"
+              >
+                {uploadProgress !== undefined && uploadProgress < 100
+                  ? `Yükleniyor %${uploadProgress}` : "Kanıtı yükle"}
+              </Button>
+              <Box aria-live="polite">
+                {uploadProgress === 100 ? "Yükleme tamamlandı, güvenlik taraması sürüyor." : null}
+              </Box>
+              {uploadedEvidence.map((record) => (
+                <Box key={record.evidenceId} sx={{ alignItems: "center", display: "flex", gap: 1 }}>
+                  <Typography sx={{ flex: 1 }} variant="body2">
+                    {record.originalFilename ?? record.label} · {record.scanStatus ?? "PENDING_SCAN"}
+                  </Typography>
+                  {record.scanStatus === "AVAILABLE" && onDownloadEvidence && resolutionItem ? (
+                    <Button onClick={() => void onDownloadEvidence(resolutionItem, record.evidenceId)}>
+                      İndir
+                    </Button>
+                  ) : null}
+                </Box>
+              ))}
+            </Paper>
+            {evidenceState === "loading" ? (
+              <Box aria-label="Kanıtlar yükleniyor" sx={{ display: "grid", gap: 2 }}>
+                <Skeleton height={56} />
+              </Box>
+            ) : null}
+            {evidenceState === "error" && resolutionItem ? (
+              <Alert
+                action={
+                  <Button
+                    color="inherit"
+                    onClick={() => void loadEvidence(resolutionItem)}
+                  >
+                    Yeniden dene
+                  </Button>
+                }
+                severity="error"
+              >
+                Kanıtlar yüklenemedi.
+              </Alert>
+            ) : null}
+            {evidenceState === "ready" ? (
+              evidenceOptions.length ? (
+                <FormControl>
+                  <InputLabel id="resolution-evidence-label">Kanıt</InputLabel>
+                  <Select
+                    label="Kanıt"
+                    labelId="resolution-evidence-label"
+                    onChange={(event) => setResolutionEvidenceSelection(event.target.value)}
+                    value={resolutionEvidenceSelection}
+                  >
+                    {evidenceOptions.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  <Typography color="text.secondary" sx={{ mt: 1 }} variant="caption">
+                    Kanıtlar kural çalıştırmasının sonuç ve loglarından gelir; seçim
+                    kaydedildiğinde çözüm o kanıda bağlanır.
+                  </Typography>
+                </FormControl>
+              ) : (
+                <Alert severity="warning">
+                  Bu sorun için kanıt bulunamadı. Kapsamdaki kuralı çalıştırıp
+                  yeniden deneyin; kanıt olmadan çözüm kaydedilemez.
+                </Alert>
+              )
+            ) : null}
             <TextField
               error={
                 !resolutionCompletedAt
@@ -945,7 +1137,8 @@ export function IssuesPage({
               disabled={
                 !resolutionRootCause.trim()
                 || !resolutionCorrectiveAction.trim()
-                || !uuidPattern.test(resolutionEvidenceRef.trim())
+                || evidenceState !== "ready"
+                || !resolutionEvidenceSelection
                 || !resolutionCompletedAt
                 || new Date(resolutionCompletedAt) > new Date()
                 || pendingIssueId === resolutionItem?.id

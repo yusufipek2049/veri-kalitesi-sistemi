@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import logging
+import hashlib
+import re
 from dataclasses import dataclass
+from datetime import date
 from time import perf_counter
 from typing import Any, Protocol
 
@@ -21,6 +24,7 @@ from veri_kalitesi.rules.models import QualityRule, RuleStatus, RuleType, RuleVe
 
 
 logger = logging.getLogger(__name__)
+_SQL_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,62}")
 
 
 class RuleExecutionCatalog(Protocol):
@@ -94,9 +98,7 @@ class PostgreSQLRuleExecutionExecutor:
                 "result_count": len(results),
                 "passed_count": sum(item.passed_count or 0 for item in results),
                 "failed_count": sum(item.failed_count or 0 for item in results),
-                "technical_error_count": sum(
-                    item.technical_error_count or 0 for item in results
-                ),
+                "technical_error_count": sum(item.technical_error_count or 0 for item in results),
             },
         )
         return tuple(results)
@@ -121,7 +123,7 @@ class PostgreSQLRuleExecutionExecutor:
             )
         secret = self.secret_resolver.resolve(source.secret_reference)
         definition = dict(version.definition)
-        table = dataset.name
+        table = self._scoped_relation(execution, dataset)
         custom_sql = definition.get("sql") or definition.get("count_query")
         try:
             if custom_sql is not None:
@@ -132,7 +134,7 @@ class PostgreSQLRuleExecutionExecutor:
                     connection_timeout_seconds=timeouts.connection_seconds,
                     query_timeout_seconds=timeouts.query_seconds,
                 )
-                population_sql = f'SELECT COUNT(*) FROM "{table}"'
+                population_sql = self._build_population_query(table)
                 population = self.connector.execute_count_query(
                     source,
                     secret,
@@ -179,7 +181,50 @@ class PostgreSQLRuleExecutionExecutor:
             unknown_count=0,
             measurement_status=status,
             completed_partitions=(),
-            evidence={},
+            evidence=(
+                {
+                    "fingerprint": "sha256:"
+                    + hashlib.sha256(
+                        f"{version.rule_version_id}:{population}:{failed_count}".encode()
+                    ).hexdigest(),
+                    "masked_samples": [],
+                    "expected_summary": {
+                        "population_count": population,
+                        "evaluated_count": population,
+                    },
+                    "actual_summary": {
+                        "passed_count": passed_count,
+                        "failed_count": failed_count,
+                    },
+                    "query_reference": (
+                        f"query-template://execution/{version.rule_version_id}"
+                    ),
+                    "plan_reference": f"plan://execution/{version.rule_version_id}",
+                }
+                if failed_count
+                else {}
+            ),
+        )
+
+    @staticmethod
+    def _scoped_relation(execution: RuleExecution, dataset: Dataset) -> str:
+        if not _SQL_IDENTIFIER.fullmatch(dataset.namespace) or not _SQL_IDENTIFIER.fullmatch(
+            dataset.name
+        ):
+            raise ExecutionTechnicalError("Dataset identifier is invalid.", retryable=False)
+        table = f'"{dataset.namespace}"."{dataset.name}"'
+        observation_date = execution.scope.get("observation_date")
+        if observation_date is None:
+            return table
+        if not isinstance(observation_date, str):
+            raise ExecutionTechnicalError("Observation date is invalid.", retryable=False)
+        try:
+            normalized_date = date.fromisoformat(observation_date).isoformat()
+        except ValueError as exc:
+            raise ExecutionTechnicalError("Observation date is invalid.", retryable=False) from exc
+        return (
+            f'(SELECT * FROM {table} WHERE "observed_on" = DATE \'{normalized_date}\') '
+            'AS "scoped_data"'
         )
 
     def _resolve_source_and_dataset(self, version: RuleVersion) -> tuple[str, Dataset]:
@@ -203,9 +248,7 @@ class PostgreSQLRuleExecutionExecutor:
         return dataset.data_source_id, dataset
 
     @staticmethod
-    def _build_violation_query(
-        version: RuleVersion, definition: dict[str, Any], table: str
-    ) -> str:
+    def _build_violation_query(version: RuleVersion, definition: dict[str, Any], table: str) -> str:
         field = definition.get("field_id", "")
         if not field:
             raise ExecutionTechnicalError(
@@ -214,11 +257,11 @@ class PostgreSQLRuleExecutionExecutor:
             )
         rule_type = version.rule_type
         if rule_type is RuleType.REQUIRED:
-            return f'SELECT COUNT(*) FROM "{table}" WHERE "{field}" IS NULL'
+            return f'SELECT COUNT(*) FROM {table} WHERE "{field}" IS NULL'
         if rule_type is RuleType.UNIQUE:
             return (
                 f'SELECT COUNT(*) - COUNT(DISTINCT "{field}") '
-                f'FROM "{table}" WHERE "{field}" IS NOT NULL'
+                f'FROM {table} WHERE "{field}" IS NOT NULL'
             )
         if rule_type is RuleType.RANGE:
             low = definition.get("minimum")
@@ -229,18 +272,18 @@ class PostgreSQLRuleExecutionExecutor:
             if high is not None:
                 conditions.append(f'"{field}" > {high}')
             where = " OR ".join(conditions) if conditions else "FALSE"
-            return f'SELECT COUNT(*) FROM "{table}" WHERE "{field}" IS NOT NULL AND ({where})'
+            return f'SELECT COUNT(*) FROM {table} WHERE "{field}" IS NOT NULL AND ({where})'
         if rule_type is RuleType.REGEX:
             pattern = definition.get("pattern", "")
             return (
-                f'SELECT COUNT(*) FROM "{table}" '
+                f'SELECT COUNT(*) FROM {table} '
                 f'WHERE "{field}" IS NOT NULL AND "{field}" !~ \'{pattern}\''
             )
         if rule_type is RuleType.FRESHNESS:
             max_age_minutes = definition.get("max_age_minutes", 1440)
             ts_field = definition.get("field_id", field)
             return (
-                f'SELECT COUNT(*) FROM "{table}" '
+                f'SELECT COUNT(*) FROM {table} '
                 f'WHERE "{ts_field}" IS NOT NULL '
                 f"AND \"{ts_field}\" < NOW() - INTERVAL '{max_age_minutes} minutes'"
             )
@@ -251,15 +294,17 @@ class PostgreSQLRuleExecutionExecutor:
 
     @staticmethod
     def _build_population_query(table: str) -> str:
-        return f'SELECT COUNT(*) FROM "{table}"'
+        return f"SELECT COUNT(*) FROM {table}"
 
 
 def _measurement_status(failed_count: int, population: int, threshold: float) -> MeasurementStatus:
     if population == 0:
         return MeasurementStatus.NO_DATA
-    fail_ratio = failed_count / population
     if failed_count == 0:
         return MeasurementStatus.PASSED
-    if threshold <= 0 or fail_ratio > threshold:
-        return MeasurementStatus.FAILED
-    return MeasurementStatus.WARNING
+    pass_ratio = (population - failed_count) / population
+    return (
+        MeasurementStatus.PASSED
+        if threshold > 0 and pass_ratio >= threshold
+        else MeasurementStatus.FAILED
+    )

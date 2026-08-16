@@ -74,6 +74,12 @@ class ExecutionRepository(Protocol[AuditRepoT]):
         policy: ConcurrencyPolicy | None = None,
     ) -> RuleExecution | None: ...
 
+    def claim_by_id(
+        self,
+        execution_id: str,
+        started_at: datetime,
+    ) -> RuleExecution | None: ...
+
     def add_attempt(
         self,
         attempt: ExecutionAttempt,

@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  captureIssueEvidence,
   EvidenceApiError,
   fetchInvestigationEvidence,
+  fetchIssueEvidence,
   fetchIssueAssignmentOptions,
   fetchIssues,
   createIssue,
@@ -342,6 +344,84 @@ describe("evidence API istemcisi", () => {
     })));
     await expect(fetchInvestigationEvidence("issue-1")).rejects.toEqual(
       new EvidenceApiError("unauthorized", "ev-forbidden"),
+    );
+  });
+});
+
+describe("çözüm kanıtı API istemcisi", () => {
+  it("kanıt listesini ve adayları döndürür", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({
+      api_version: "v1",
+      data_origin: "synthetic-test",
+      correlation_id: "evidence-list",
+      issue_id: "issue-a",
+      items: [],
+      candidates: [
+        {
+          candidate_key: "RESULT:execution-1:rule-version-1",
+          kind: "EXECUTION_RESULT",
+          label: "Kural sonucu — test",
+          execution_id: "execution-1",
+          rule_version_id: "rule-version-1",
+          evaluated_count: 100,
+          failed_count: 3,
+          measurement_status: "Failed",
+          observed_at: "2026-07-22T06:19:00Z",
+        },
+      ],
+    })));
+
+    const result = await fetchIssueEvidence("issue-a");
+
+    expect(result.candidates[0].candidate_key).toBe("RESULT:execution-1:rule-version-1");
+  });
+
+  it("aday anahtarını POST eder ve kanıt kaydını döndürür", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({
+      api_version: "v1",
+      data_origin: "synthetic-test",
+      correlation_id: "evidence-capture",
+      item: {
+        evidence_id: "550e8400-e29b-41d4-a716-446655440000",
+        issue_id: "issue-a",
+        kind: "EXECUTION_RESULT",
+        label: "Kural sonucu — test",
+        execution_id: "execution-1",
+        rule_version_id: "rule-version-1",
+        evaluated_count: 100,
+        failed_count: 3,
+        measurement_status: "Failed",
+        fingerprint: null,
+        query_reference: null,
+        plan_reference: null,
+        content_digest: "a",
+        observed_at: "2026-07-22T06:19:00Z",
+        captured_at: "2026-07-23T09:00:00Z",
+        captured_by: "user-1",
+      },
+    }, { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await captureIssueEvidence("issue-a", "RESULT:execution-1:rule-version-1");
+
+    expect(result.item.evidence_id).toBe("550e8400-e29b-41d4-a716-446655440000");
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/issues/issue-a/evidence",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ candidate_key: "RESULT:execution-1:rule-version-1" }),
+      }),
+    );
+  });
+
+  it("kanıt listesi 403 yanıtında yetkisiz hatası verir", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("", {
+      status: 403,
+      headers: { "X-Correlation-ID": "evidence-forbidden" },
+    })));
+
+    await expect(fetchIssueEvidence("issue-a")).rejects.toEqual(
+      new IssueApiError("unauthorized", "evidence-forbidden"),
     );
   });
 });

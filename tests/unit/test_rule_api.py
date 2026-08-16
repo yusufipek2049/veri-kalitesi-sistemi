@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 
 from veri_kalitesi.api import DevelopmentActorContextResolver, create_dashboard_api
 from veri_kalitesi.api.bff import CSRF_HEADER_NAME
-from veri_kalitesi.api.development import create_development_app
+from veri_kalitesi.api.development import create_synthetic_development_app
 from veri_kalitesi.api.errors import ApiCsrfError
 from veri_kalitesi.api.service_groups import ActorResolverIdentity, ApiOptions, RuleServices
 from veri_kalitesi.audit.models import (
@@ -100,7 +100,7 @@ def test_fr_023_repository_failure_returns_safe_technical_error() -> None:
 
 
 def test_development_api_exposes_only_synthetic_rule_projection() -> None:
-    response = TestClient(create_development_app()).get("/api/v1/rules")
+    response = TestClient(create_synthetic_development_app()).get("/api/v1/rules")
 
     assert response.status_code == 200
     assert len(response.json()["items"]) == 5
@@ -110,8 +110,13 @@ def test_development_api_exposes_only_synthetic_rule_projection() -> None:
 
 
 class FakeRuleReader:
-    def __init__(self, rules: tuple[tuple[QualityRule, RuleVersion], ...]) -> None:
+    def __init__(
+        self,
+        rules: tuple[tuple[QualityRule, RuleVersion], ...],
+        pending: dict[str, RuleApprovalRequest] | None = None,
+    ) -> None:
         self.rules = rules
+        self.pending = pending or {}
         self.last_allowed_ids: frozenset[str] | None = None
 
     def list_rules_with_latest_version(
@@ -120,11 +125,40 @@ class FakeRuleReader:
         self.last_allowed_ids = allowed_dataset_ids
         return [item for item in self.rules if item[0].dataset_id in allowed_dataset_ids]
 
+    def list_pending_approval_requests(
+        self, rule_version_ids: frozenset[str]
+    ) -> dict[str, RuleApprovalRequest]:
+        return {
+            rule_version_id: request
+            for rule_version_id, request in self.pending.items()
+            if rule_version_id in rule_version_ids
+        }
+
+    def get_rule(self, quality_rule_id: str) -> QualityRule:
+        for rule, _version in self.rules:
+            if rule.quality_rule_id == quality_rule_id:
+                return rule
+        raise KeyError(f"Rule not found: {quality_rule_id}")
+
+    def get_version(self, rule_version_id: str) -> RuleVersion:
+        for _rule, version in self.rules:
+            if version.rule_version_id == rule_version_id:
+                return version
+        raise KeyError(f"Rule version not found: {rule_version_id}")
+
+    def list_versions(self, quality_rule_id: str) -> list[RuleVersion]:
+        return [version for rule, version in self.rules if rule.quality_rule_id == quality_rule_id]
+
 
 class FailingRuleReader:
     def list_rules_with_latest_version(
         self, allowed_dataset_ids: frozenset[str]
     ) -> list[tuple[QualityRule, RuleVersion]]:
+        raise sqlite3.OperationalError("database contains secret")
+
+    def list_pending_approval_requests(
+        self, rule_version_ids: frozenset[str]
+    ) -> dict[str, RuleApprovalRequest]:
         raise sqlite3.OperationalError("database contains secret")
 
 
@@ -158,6 +192,8 @@ def _rule(rule_id: str, dataset_id: str) -> tuple[QualityRule, RuleVersion]:
 def _app(
     reader: FakeRuleReader | FailingRuleReader,
     dataset_ids: frozenset[str],
+    *,
+    roles: frozenset[str] = frozenset({"DATA_VIEWER"}),
 ):
     audit_service = AuditService(
         SQLiteAuditRepository(),
@@ -189,6 +225,7 @@ def _app(
         permitted_source_ids=frozenset(),
         permitted_dataset_ids=dataset_ids,
         can_view_enterprise=False,
+        roles=roles,
         clock=lambda: NOW,
     )
     DashboardQueryService(SQLiteScoreRepository(), authorization, clock=lambda: NOW)
@@ -377,9 +414,7 @@ def _mutation_app(
             identity=ActorResolverIdentity(resolver),
             options=ApiOptions(data_origin="synthetic-test"),
             rules=RuleServices(
-                query=RuleQueryService(
-                    reader or FakeRuleReader((rule,)), authorization
-                ),
+                query=RuleQueryService(reader or FakeRuleReader((rule,)), authorization),
                 creator=FakeRuleCreatorService(),
                 mutation=FakeRuleMutationService(rule_obj, version_obj),
             ),
@@ -609,3 +644,92 @@ def test_rule_mutation_without_services_returns_503() -> None:
     )
 
     assert response.status_code == 503
+
+
+def _pending_request(*, rule_version_id: str, maker_actor_id: str) -> RuleApprovalRequest:
+    return RuleApprovalRequest(
+        approval_request_id=f"apr-{rule_version_id}",
+        rule_version_id=rule_version_id,
+        maker_actor_id=maker_actor_id,
+        policy_version=POLICY_VERSION,
+    )
+
+
+def _draft_critical_rule(rule_id: str, dataset_id: str) -> tuple[QualityRule, RuleVersion]:
+    rule, version = _rule(rule_id, dataset_id)
+    object.__setattr__(rule, "status", RuleStatus.DRAFT)
+    object.__setattr__(version, "criticality", RuleCriticality.CRITICAL)
+    return rule, version
+
+
+def test_pending_approval_projected_for_checker_on_list_and_detail() -> None:
+    """Bekleyen talep liste ve detayda projekte edilir; checker DECIDE gorur."""
+    entry = _draft_critical_rule("rule-a", "dataset-a")
+    reader = FakeRuleReader(
+        (entry,),
+        pending={
+            "version-rule-a": _pending_request(
+                rule_version_id="version-rule-a", maker_actor_id="other-maker"
+            )
+        },
+    )
+    client = TestClient(_app(reader, frozenset({"dataset-a"}), roles=frozenset({"DATA_OWNER"})))
+
+    list_response = client.get("/api/v1/rules")
+    assert list_response.status_code == 200
+    item = list_response.json()["items"][0]
+    assert item["pending_approval_request_id"] == "apr-version-rule-a"
+    assert "DECIDE_APPROVAL" in item["available_actions"]
+    assert "WITHDRAW_APPROVAL" not in item["available_actions"]
+
+    detail_response = client.get("/api/v1/rules/rule-a")
+    assert detail_response.status_code == 200
+    detail_item = detail_response.json()["item"]
+    assert detail_item["pending_approval_request_id"] == "apr-version-rule-a"
+    assert "DECIDE_APPROVAL" in detail_item["available_actions"]
+
+
+def test_pending_approval_maker_sees_withdraw_but_not_decide() -> None:
+    """Maker kendi talebinde karar aksiyonu goremez, yalnizca geri cekebilir."""
+    entry = _draft_critical_rule("rule-a", "dataset-a")
+    reader = FakeRuleReader(
+        (entry,),
+        pending={
+            "version-rule-a": _pending_request(
+                rule_version_id="version-rule-a",
+                maker_actor_id="development-dashboard-user",
+            )
+        },
+    )
+    client = TestClient(_app(reader, frozenset({"dataset-a"}), roles=frozenset({"DATA_OWNER"})))
+
+    response = client.get("/api/v1/rules")
+
+    assert response.status_code == 200
+    item = response.json()["items"][0]
+    assert item["pending_approval_request_id"] == "apr-version-rule-a"
+    assert "WITHDRAW_APPROVAL" in item["available_actions"]
+    assert "DECIDE_APPROVAL" not in item["available_actions"]
+    assert "REQUEST_APPROVAL" not in item["available_actions"]
+
+
+def test_pending_approval_hidden_from_viewer_without_checker_role() -> None:
+    """Checker rolü olmayan aktor bekleyen talep icin karar aksiyonu gormez."""
+    entry = _draft_critical_rule("rule-a", "dataset-a")
+    reader = FakeRuleReader(
+        (entry,),
+        pending={
+            "version-rule-a": _pending_request(
+                rule_version_id="version-rule-a", maker_actor_id="other-maker"
+            )
+        },
+    )
+    client = TestClient(_app(reader, frozenset({"dataset-a"})))
+
+    response = client.get("/api/v1/rules")
+
+    assert response.status_code == 200
+    item = response.json()["items"][0]
+    assert item["pending_approval_request_id"] == "apr-version-rule-a"
+    assert "DECIDE_APPROVAL" not in item["available_actions"]
+    assert "WITHDRAW_APPROVAL" not in item["available_actions"]

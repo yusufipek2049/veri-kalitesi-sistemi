@@ -7,6 +7,7 @@ import re
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from functools import partial
 
 from sqlalchemy import URL, Engine, create_engine, make_url
 from sqlalchemy.orm import Session, sessionmaker
@@ -68,6 +69,11 @@ def create_session_factory(
     )
     if bound_engine.dialect.name != "postgresql":
         raise DatabaseConfigurationError("Only PostgreSQL engines are supported.")
+    # PersistentJobWorker handler'ları fork edilmiş çocuk süreçlerde çalışır.
+    # Fork öncesindeki pool bağlantıları iki süreç tarafından paylaşılırsa psycopg
+    # protokolü bozulur. Parent bağlantılarını kapatmadan child pool'unu yenile.
+    if hasattr(os, "register_at_fork"):
+        os.register_at_fork(after_in_child=partial(bound_engine.dispose, close=False))
     return sessionmaker(
         bind=bound_engine,
         class_=Session,

@@ -272,6 +272,30 @@ def build_default_redaction_policy() -> AuditRedactionPolicy:
                     "status",
                 }
             ),
+            "GOVERNANCE_APPROVAL_REQUESTED": frozenset(
+                {"approval_request_id", "request_type", "policy_version", "status"}
+            ),
+            "GOVERNANCE_APPROVAL_DECIDED": frozenset(
+                {"approval_request_id", "request_type", "policy_version", "status"}
+            ),
+            "GOVERNANCE_APPROVAL_WITHDRAWN": frozenset(
+                {"approval_request_id", "request_type", "policy_version", "status"}
+            ),
+            "GOVERNANCE_APPROVAL_EXPIRED": frozenset(
+                {"approval_request_id", "request_type", "policy_version", "status"}
+            ),
+            "GOVERNANCE_APPROVAL_INVALIDATED": frozenset(
+                {"approval_request_id", "request_type", "policy_version", "status"}
+            ),
+            "GOVERNANCE_APPROVAL_APPLIED": frozenset(
+                {"approval_request_id", "request_type", "policy_version", "status"}
+            ),
+            "GOVERNANCE_APPROVAL_APPLICATION_FAILED": frozenset(
+                {"approval_request_id", "request_type", "policy_version", "status"}
+            ),
+            "GOVERNANCE_MAKER_CHECKER_VIOLATION": frozenset(
+                {"approval_request_id", "request_type", "status"}
+            ),
             "SCHEDULE_CREATED": frozenset(
                 {
                     "schedule_type",

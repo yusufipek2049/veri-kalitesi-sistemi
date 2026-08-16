@@ -8,8 +8,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal
-from uuid import UUID
-
 from veri_kalitesi.api.models import IssueAssigneeOptionResponse
 from veri_kalitesi.data_sources.models import (
     DataSource,
@@ -17,9 +15,12 @@ from veri_kalitesi.data_sources.models import (
     SourceType,
 )
 from veri_kalitesi.executions.models import (
+    ExecutionAttempt,
     ExecutionStatus,
     ExecutionType,
+    MeasurementStatus,
     RuleExecution,
+    RuleExecutionResult,
     WorkloadClass,
 )
 from veri_kalitesi.issues import (
@@ -55,15 +56,15 @@ DEVELOPMENT_TREND_POLICY = TrendPolicy(
 
 DEVELOPMENT_ASSIGNEE_OPTIONS = (
     IssueAssigneeOptionResponse(
-        user_id=UUID("4ec96cb4-d150-45d2-9565-c1879d135f08"),
+        user_id="4ec96cb4-d150-45d2-9565-c1879d135f08",
         display_name="Veri Sorumlusu A",
     ),
     IssueAssigneeOptionResponse(
-        user_id=UUID("d6b099c7-0b6d-4ae5-8f58-6978050c434f"),
+        user_id="d6b099c7-0b6d-4ae5-8f58-6978050c434f",
         display_name="Veri Sorumlusu B",
     ),
     IssueAssigneeOptionResponse(
-        user_id=UUID("257c5792-b9ad-4678-aa8e-f44759d4752e"),
+        user_id="257c5792-b9ad-4678-aa8e-f44759d4752e",
         display_name="Teknik Sorumlu",
     ),
 )
@@ -339,6 +340,22 @@ DEVELOPMENT_EXECUTIONS = (
         cancel_reason="development-reason",
     ),
     RuleExecution(
+        execution_id="execution-account-quality",
+        idempotency_key_hash="synthetic-account-quality",
+        payload_hash="synthetic-account-quality-payload",
+        rule_version_ids=("rule-version-account-iban-2",),
+        scope={},
+        triggered_by="development-user",
+        correlation_id="development-account-quality",
+        source_ids=("source-core-banking",),
+        execution_type=ExecutionType.SCHEDULED,
+        status=ExecutionStatus.SUCCESS,
+        attempt_count=1,
+        created_at=datetime(2026, 7, 22, 6, 10, tzinfo=timezone.utc),
+        started_at=datetime(2026, 7, 22, 6, 12, tzinfo=timezone.utc),
+        finished_at=datetime(2026, 7, 22, 6, 19, tzinfo=timezone.utc),
+    ),
+    RuleExecution(
         execution_id="execution-cancelled",
         idempotency_key_hash="synthetic-cancelled",
         payload_hash="synthetic-cancelled-payload",
@@ -351,6 +368,69 @@ DEVELOPMENT_EXECUTIONS = (
         created_at=datetime(2026, 7, 19, 16, 0, tzinfo=timezone.utc),
         finished_at=datetime(2026, 7, 19, 16, 2, tzinfo=timezone.utc),
         cancelled_at=datetime(2026, 7, 19, 16, 2, tzinfo=timezone.utc),
+    ),
+)
+
+# Kanıt adayları bu sonuç ve deneme (log) kayıtlarından türetilir.
+DEVELOPMENT_EXECUTION_RESULTS = (
+    RuleExecutionResult(
+        execution_id="execution-account-quality",
+        rule_version_id="rule-version-account-iban-2",
+        population_count=182_400,
+        eligible_count=182_400,
+        evaluated_count=182_400,
+        passed_count=178_212,
+        failed_count=4_188,
+        excluded_count=0,
+        technical_error_count=0,
+        unknown_count=0,
+        measurement_status=MeasurementStatus.FAILED,
+        evidence={
+            "expected_summary": {"failed_count": 0},
+            "actual_summary": {"failed_count": 4_188},
+            "masked_samples": ["TR** **** **** **** **** 12", "TR** **** **** **** **** 47"],
+            "fingerprint": "dev-fingerprint-account-iban",
+            "query_reference": "dev-query-account-iban",
+            "plan_reference": "dev-plan-account-iban",
+        },
+    ),
+    RuleExecutionResult(
+        execution_id="execution-partial",
+        rule_version_id="rule-version-transaction-freshness-1",
+        population_count=1_204_880,
+        eligible_count=1_204_880,
+        evaluated_count=908_112,
+        passed_count=894_003,
+        failed_count=14_109,
+        excluded_count=0,
+        technical_error_count=296_768,
+        unknown_count=0,
+        measurement_status=MeasurementStatus.WARNING,
+        evidence={
+            "expected_summary": {"max_lag_minutes": 15},
+            "actual_summary": {"max_lag_minutes": 184},
+            "masked_samples": [],
+            "fingerprint": "dev-fingerprint-transaction-freshness",
+            "query_reference": "dev-query-transaction-freshness",
+            "plan_reference": "dev-plan-transaction-freshness",
+        },
+    ),
+)
+
+DEVELOPMENT_EXECUTION_ATTEMPTS = (
+    ExecutionAttempt(
+        execution_id="execution-account-quality",
+        attempt_no=1,
+        status=ExecutionStatus.SUCCESS,
+        created_at=datetime(2026, 7, 22, 6, 12, tzinfo=timezone.utc),
+    ),
+    ExecutionAttempt(
+        execution_id="execution-partial",
+        attempt_no=1,
+        status=ExecutionStatus.PARTIAL,
+        error_class="QUERY_TIMEOUT",
+        retryable=True,
+        created_at=datetime(2026, 7, 22, 18, 1, tzinfo=timezone.utc),
     ),
 )
 
@@ -405,6 +485,8 @@ DEVELOPMENT_ISSUES = (
         created_at=datetime(2026, 7, 21, 10, 30, tzinfo=timezone.utc),
         updated_at=datetime(2026, 7, 22, 16, 20, tzinfo=timezone.utc),
         last_seen_at=datetime(2026, 7, 22, 16, 20, tzinfo=timezone.utc),
+        source_execution_id="execution-account-quality",
+        source_rule_version_id="rule-version-account-iban-2",
     ),
     DataQualityIssue(
         issue_id="issue-transaction-waiting",
@@ -422,6 +504,8 @@ DEVELOPMENT_ISSUES = (
         created_at=datetime(2026, 7, 19, 9, 0, tzinfo=timezone.utc),
         updated_at=datetime(2026, 7, 22, 11, 45, tzinfo=timezone.utc),
         last_seen_at=datetime(2026, 7, 22, 11, 45, tzinfo=timezone.utc),
+        source_execution_id="execution-partial",
+        source_rule_version_id="rule-version-transaction-freshness-1",
     ),
     DataQualityIssue(
         issue_id="issue-risk-resolved",

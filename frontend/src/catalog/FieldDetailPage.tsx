@@ -24,7 +24,6 @@ import { Link } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
 import { StatusBadge } from "../components/StatusBadge";
 import type { CatalogField, CatalogItemStatus, FieldDetailState, FieldUpdatePayload } from "./model";
-import { CLASSIFICATION_OPTIONS } from "./model";
 
 interface FieldDetailPageProps {
   state?: FieldDetailState;
@@ -63,8 +62,6 @@ export function FieldDetailPage({
   const [editForm, setEditForm] = useState({
     nativeDataType: "",
     isNullable: false,
-    isSensitive: false,
-    classification: "UNCLASSIFIED",
     status: "ACTIVE" as CatalogItemStatus,
   });
   const [editSaving, setEditSaving] = useState(false);
@@ -75,8 +72,6 @@ export function FieldDetailPage({
     setEditForm({
       nativeDataType: field.nativeDataType,
       isNullable: field.isNullable,
-      isSensitive: field.isSensitive,
-      classification: field.classification,
       status: field.status,
     });
     setEditError(null);
@@ -91,8 +86,6 @@ export function FieldDetailPage({
       const payload: FieldUpdatePayload = { expected_version: field.version };
       if (editForm.nativeDataType !== field.nativeDataType) payload.native_data_type = editForm.nativeDataType;
       if (editForm.isNullable !== field.isNullable) payload.is_nullable = editForm.isNullable;
-      if (editForm.isSensitive !== field.isSensitive) payload.is_sensitive = editForm.isSensitive;
-      if (editForm.classification !== field.classification) payload.classification = editForm.classification;
       if (editForm.status !== field.status) payload.status = editForm.status;
       await onUpdateField(payload);
       setEditDialogOpen(false);
@@ -261,6 +254,10 @@ export function FieldDetailPage({
               </Alert>
             ) : null}
             <Box sx={{ display: "grid", gap: 2.5, mt: 1 }}>
+              <Alert severity="info">
+                Hassasiyet ve sınıflandırma değişiklikleri yönetişim onayı gerektirir. Yönetişim
+                Görevleri sayfasından "Alan hassasiyeti" talebi oluşturun.
+              </Alert>
               <TextField
                 label="Yerel Veri Tipi"
                 value={editForm.nativeDataType}
@@ -269,20 +266,6 @@ export function FieldDetailPage({
                 required
                 error={!editForm.nativeDataType.trim()}
               />
-              <FormControl fullWidth>
-                <InputLabel>Sınıflandırma</InputLabel>
-                <Select
-                  label="Sınıflandırma"
-                  value={editForm.classification}
-                  onChange={(e) => setEditForm((prev) => ({ ...prev, classification: e.target.value }))}
-                >
-                  {CLASSIFICATION_OPTIONS.map((code) => (
-                    <MenuItem key={code} value={code}>
-                      {code}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
               <FormControl fullWidth>
                 <InputLabel>Durum</InputLabel>
                 <Select
@@ -303,15 +286,9 @@ export function FieldDetailPage({
                 }
                 label="Null olabilir"
               />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={editForm.isSensitive}
-                    onChange={(e) => setEditForm((prev) => ({ ...prev, isSensitive: e.target.checked }))}
-                  />
-                }
-                label="Hassas veri"
-              />
+              <Button component={Link} size="small" sx={{ alignSelf: "flex-start" }} to="/governance">
+                Yönetişim Görevlerine git
+              </Button>
             </Box>
           </DialogContent>
           <DialogActions>

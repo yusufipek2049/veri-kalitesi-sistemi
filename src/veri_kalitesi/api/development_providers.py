@@ -82,7 +82,7 @@ class DevelopmentIssueAssigneeDirectory:
         if user is None:
             return None
         return IssueAssigneeProfile(
-            user_id=user.user_id,
+            user_id=user.effective_actor_id,
             active=True,
             permitted_source_ids=user.permitted_source_ids,
             permitted_dataset_ids=user.permitted_dataset_ids,
@@ -117,7 +117,7 @@ class DevelopmentIssueAssignmentResolver:
             raise IssueAssignmentError("No development users available for assignment.")
 
         return IssueAssignment(
-            assignee_user_id=default_assignee.user_id,
+            assignee_user_id=default_assignee.effective_actor_id,
             priority=IssuePriority.MEDIUM,
         )
 
@@ -136,11 +136,9 @@ class DevelopmentIssueAssigneeOptionProvider:
         issue_id: str,
         actor_context: ActorContext | None,
     ) -> tuple[IssueAssigneeOptionResponse, ...]:
-        from uuid import UUID
-
         return tuple(
             IssueAssigneeOptionResponse(
-                user_id=UUID(user.user_id),
+                user_id=user.effective_actor_id,
                 display_name=user.display_name,
             )
             for user in self._registry.list_users()

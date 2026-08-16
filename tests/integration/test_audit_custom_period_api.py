@@ -4,11 +4,11 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 
-from veri_kalitesi.api.development import create_development_app
+from veri_kalitesi.api.development import create_synthetic_development_app
 
 
 def test_audit_events_custom_period_is_applied_across_http_and_repository() -> None:
-    app = create_development_app()
+    app = create_synthetic_development_app()
     period_end = datetime.now(timezone.utc)
     period_start = period_end - timedelta(days=4)
 

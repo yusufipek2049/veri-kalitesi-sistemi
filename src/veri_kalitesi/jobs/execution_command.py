@@ -64,10 +64,20 @@ class PersistentExecutionCommandAdapter:
         cancellation_event: Event,
         progress_callback: Callable[[int], None] = lambda _percent: None,
     ) -> JobCompletionOutcome:
-        result = self.execution_service.run_for_execution_id(
-            execution_id,
-            progress_callback=progress_callback,
-        )
+        try:
+            result = self.execution_service.run_for_execution_id(
+                execution_id,
+                progress_callback=progress_callback,
+            )
+        except Exception:
+            try:
+                self.execution_service.fail_active_execution(execution_id, "UNEXPECTED")
+            except Exception:
+                logger.exception(
+                    "Active execution could not be reconciled after job failure: %s",
+                    execution_id,
+                )
+            raise
         if result is None:
             from veri_kalitesi.jobs.worker import PermanentJobError
 
@@ -80,10 +90,10 @@ class PersistentExecutionCommandAdapter:
         )
 
         # Skor yayımı — execution başarılıysa skor hesapla ve yayımla
-        if (
-            self.score_publication_service is not None
-            and result.status.value in {"SUCCESS", "PARTIAL"}
-        ):
+        if self.score_publication_service is not None and result.status.value in {
+            "SUCCESS",
+            "PARTIAL",
+        }:
             self._process_score_publication(execution_id)
 
         # Issue post-processing — başarısız/uyarı sonuçlarından issue üret
@@ -131,9 +141,7 @@ class PersistentExecutionCommandAdapter:
                 configuration_version="DEFAULT_SCORING_V1",
                 idempotency_key=execution_id,
             )
-            self.score_publication_service.publish_execution(
-                command, actor_context=actor_context
-            )
+            self.score_publication_service.publish_execution(command, actor_context=actor_context)
         except Exception:
             logger.exception(
                 "Score publication failed for execution %s",

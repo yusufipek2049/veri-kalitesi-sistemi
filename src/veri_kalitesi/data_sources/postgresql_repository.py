@@ -688,6 +688,29 @@ class PostgreSQLDataSourceRepository:
             )
         return [_row_to_activation_request(row) for row in rows]
 
+    def list_activation_requests_for_sources(
+        self,
+        source_ids: frozenset[str],
+    ) -> list[DataSourceActivationRequest]:
+        if not source_ids:
+            return []
+        with transactional_session(self.session_factory) as session:
+            t = self._s(session)
+            rows = (
+                session.execute(
+                    select(t.activation_requests)
+                    .where(t.activation_requests.c.data_source_id.in_(sorted(source_ids)))
+                    .order_by(
+                        t.activation_requests.c.requested_at.desc(),
+                        t.activation_requests.c.activation_request_id.desc(),
+                    )
+                    .limit(500)
+                )
+                .mappings()
+                .all()
+            )
+        return [_row_to_activation_request(row) for row in rows]
+
     def list_datasets(self, data_source_id: str) -> list[Dataset]:
         with transactional_session(self.session_factory) as session:
             t = self._s(session)

@@ -256,8 +256,7 @@ def test_nfr_sec_007_cors_methods_cover_registered_api_routes() -> None:
         },
     )
     allowed_methods = {
-        method.strip()
-        for method in response.headers["access-control-allow-methods"].split(",")
+        method.strip() for method in response.headers["access-control-allow-methods"].split(",")
     }
 
     assert registered_methods <= allowed_methods

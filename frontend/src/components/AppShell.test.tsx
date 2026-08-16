@@ -57,10 +57,12 @@ describe("AppShell", () => {
 
     expect(screen.getByRole("heading", { name: "ANALİZ" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "OPERASYON" })).toBeVisible();
-    expect(screen.getAllByTestId("navigation-icon-slot")).toHaveLength(9);
+    expect(screen.getAllByTestId("navigation-icon-slot")).toHaveLength(11);
     expect(screen.getByRole("link", { name: "Veri Kaynakları" })).toHaveAttribute("href", "/data-sources");
     expect(screen.getByRole("link", { name: "Katalog" })).toHaveAttribute("href", "/catalog");
     expect(screen.getByRole("link", { name: "Skorlar" })).toHaveAttribute("href", "/scores");
+    expect(screen.getByRole("link", { name: "Kalite Analizleri" })).toHaveAttribute("href", "/analytics");
+    expect(screen.getByRole("link", { name: "Yönetişim Görevleri" })).toHaveAttribute("href", "/governance");
     expect(screen.getByRole("link", { name: "Bildirimler" })).toHaveAttribute("href", "/notifications");
     expect(screen.getByRole("link", { name: "Denetim" })).toHaveAttribute("href", "/audit");
     expect(screen.getByRole("link", { name: "Genel Bakış" })).toHaveAttribute("href", "/dashboard");

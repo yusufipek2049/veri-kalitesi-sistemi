@@ -528,6 +528,7 @@ def test_calendar_weekend_volume_lower_than_weekday() -> None:
 def test_calendar_month_end_volume_clustering() -> None:
     """Ay sonu günlerinde (ayın son 3 günü) hacim yığılması var."""
     import calendar
+
     month_end_count = 0
     total_count = 5000
     for index in range(total_count):
@@ -552,9 +553,7 @@ def test_calendar_business_hours_higher_volume() -> None:
             business_hours_count += 1
     # %75 hedefleniyor, en az %60 olmalı
     business_ratio = business_hours_count / total_count
-    assert business_ratio > 0.60, (
-        f"Business hours ratio {business_ratio:.3f} should be > 60%"
-    )
+    assert business_ratio > 0.60, f"Business hours ratio {business_ratio:.3f} should be > 60%"
 
 
 def test_ingestion_delay_long_tailed_distribution() -> None:
@@ -571,7 +570,7 @@ def test_ingestion_delay_long_tailed_distribution() -> None:
     assert max_delay > 1440, f"Max delay {max_delay} should be > 1 day (1440 min)"
     # Kuyruk: p90 > median * 10
     p90 = delays_sorted[int(len(delays_sorted) * 0.9)]
-    assert p90 > median * 10, f"Long tail: p90 {p90} should be > median*10 {median*10}"
+    assert p90 > median * 10, f"Long tail: p90 {p90} should be > median*10 {median * 10}"
 
 
 def test_calendar_reference_time_and_stale_threshold_consistency() -> None:
@@ -602,6 +601,7 @@ def test_calendar_reference_time_and_stale_threshold_consistency() -> None:
             )
             # updated_at STALE_THRESHOLD'dan eski olmalı
             from veri_kalitesi.synthetic_data.postgresql_dataset import _source_columns
+
             columns = _source_columns(spec)
             row_dict = dict(zip(columns, row))
             updated_at = row_dict["updated_at"]
@@ -659,6 +659,7 @@ def test_calendar_ground_truth_zero_fp_fn_all_scenarios() -> None:
 def test_event_time_within_180_day_window() -> None:
     """Tüm event_time'lar 180 günlük pencere içinde."""
     from datetime import timedelta
+
     window_start = REFERENCE_TIME - timedelta(days=180)
     for index in range(1000):
         event_dt = _event_time(2026, "synthetic_transactions", index)
@@ -746,6 +747,7 @@ def test_extract_profile_overrides_from_minimal_profile() -> None:
 def test_extract_profile_overrides_calendar_from_volume_curve() -> None:
     """Volume curve'dan takvim override'ları çıkarılır."""
     from veri_kalitesi.synthetic_data.profile_schema import VolumePoint
+
     volume_curve = (
         VolumePoint("daily", "monday", 0.22),
         VolumePoint("daily", "tuesday", 0.21),
@@ -783,11 +785,17 @@ def test_profile_determinism_same_profile_same_seed_same_output() -> None:
     token = _PROFILE_OVERRIDES.set(overrides)
     try:
         first, first_truth = build_source_row(
-            spec, seed=2026, scenario="mixed-quality", index=42,
+            spec,
+            seed=2026,
+            scenario="mixed-quality",
+            index=42,
             row_count=DEFAULT_ROW_COUNT,
         )
         replay, replay_truth = build_source_row(
-            spec, seed=2026, scenario="mixed-quality", index=42,
+            spec,
+            seed=2026,
+            scenario="mixed-quality",
+            index=42,
             row_count=DEFAULT_ROW_COUNT,
         )
     finally:
@@ -802,7 +810,10 @@ def test_profile_different_from_no_profile() -> None:
     # clean-baseline senaryosu: kusur enjeksiyonu yok, saf dağılım farkı.
     # Profilsiz
     no_profile_row, _ = build_source_row(
-        spec, seed=2026, scenario="clean-baseline", index=42,
+        spec,
+        seed=2026,
+        scenario="clean-baseline",
+        index=42,
         row_count=DEFAULT_ROW_COUNT,
     )
     # Profil ile
@@ -814,7 +825,10 @@ def test_profile_different_from_no_profile() -> None:
     token = _PROFILE_OVERRIDES.set(overrides)
     try:
         with_profile_row, _ = build_source_row(
-            spec, seed=2026, scenario="clean-baseline", index=42,
+            spec,
+            seed=2026,
+            scenario="clean-baseline",
+            index=42,
             row_count=DEFAULT_ROW_COUNT,
         )
     finally:
@@ -838,7 +852,10 @@ def test_profile_ground_truth_zero_fp_fn_all_scenarios() -> None:
             spec = TABLE_SPECS[5]
             for index in range(50):
                 _, truths = build_source_row(
-                    spec, seed=2026, scenario=scenario, index=index,
+                    spec,
+                    seed=2026,
+                    scenario=scenario,
+                    index=index,
                     row_count=DEFAULT_ROW_COUNT,
                 )
                 for truth in truths:
@@ -852,6 +869,7 @@ def test_profile_ground_truth_zero_fp_fn_all_scenarios() -> None:
 def test_generation_summary_has_profile_fields() -> None:
     """GenerationSummary profil sürüm ve hash alanlarını içerir."""
     from veri_kalitesi.synthetic_data.postgresql_dataset import GenerationSummary
+
     summary = GenerationSummary(
         run_id="test",
         generator_version=GENERATOR_VERSION,
@@ -877,6 +895,7 @@ def test_generation_summary_has_profile_fields() -> None:
 def test_generation_summary_profile_fields_default_none() -> None:
     """Profil kullanılmazsa profile_version ve profile_sha256 None kalır."""
     from veri_kalitesi.synthetic_data.postgresql_dataset import GenerationSummary
+
     summary = GenerationSummary(
         run_id="test",
         generator_version=GENERATOR_VERSION,
@@ -909,11 +928,7 @@ def test_profile_sha256_is_deterministic() -> None:
 def test_cli_has_profile_argument() -> None:
     """CLI --profile PATH argümanı eklendi."""
     parser = build_argument_parser()
-    option_strings = {
-        option
-        for action in parser._actions
-        for option in action.option_strings
-    }
+    option_strings = {option for action in parser._actions for option in action.option_strings}
     assert "--profile" in option_strings
 
 

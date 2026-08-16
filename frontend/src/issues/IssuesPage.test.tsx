@@ -117,12 +117,50 @@ describe("Sorunlar ekranı", () => {
     expect(await screen.findByRole("combobox", { name: "Yeni sorumlu" })).toBeVisible();
   });
 
-  it("zorunlu kanıtla korumalı çözüm kaydını açıkça kaydeder", async () => {
+  it("çalıştırma kanıdını seçtirir, kanıt kaydı oluşturur ve çözümü ona bağlar", async () => {
     const onResolve = vi.fn().mockResolvedValue(undefined);
+    const onLoadEvidence = vi.fn().mockResolvedValue({
+      records: [],
+      candidates: [
+        {
+          candidateKey: "RESULT:execution-account-quality:rule-version-account-iban-2",
+          kind: "EXECUTION_RESULT" as const,
+          label: "Kural sonucu — IBAN biçimi (4188/182400 başarısız)",
+          executionId: "execution-account-quality",
+          ruleVersionId: "rule-version-account-iban-2",
+          evaluatedCount: 182_400,
+          failedCount: 4_188,
+          measurementStatus: "Failed",
+          observedAt: "2026-07-22T06:19:00Z",
+        },
+      ],
+    });
+    const onCaptureEvidence = vi.fn().mockResolvedValue({
+      evidenceId: "550e8400-e29b-41d4-a716-446655440000",
+      issueId: "issue-account-investigation",
+      kind: "EXECUTION_RESULT" as const,
+      label: "Kural sonucu — IBAN biçimi (4188/182400 başarısız)",
+      executionId: "execution-account-quality",
+      ruleVersionId: "rule-version-account-iban-2",
+      evaluatedCount: 182_400,
+      failedCount: 4_188,
+      measurementStatus: "Failed",
+      fingerprint: null,
+      queryReference: null,
+      planReference: null,
+      contentDigest: "a".repeat(64),
+      observedAt: "2026-07-22T06:19:00Z",
+      capturedAt: "2026-08-14T10:00:00Z",
+      capturedBy: "development-dashboard-user",
+    });
     render(
       <ThemeModeProvider>
         <MemoryRouter>
-          <IssuesPage onResolve={onResolve} />
+          <IssuesPage
+            onCaptureEvidence={onCaptureEvidence}
+            onLoadEvidence={onLoadEvidence}
+            onResolve={onResolve}
+          />
         </MemoryRouter>
       </ThemeModeProvider>,
     );
@@ -135,11 +173,14 @@ describe("Sorunlar ekranı", () => {
     fireEvent.change(screen.getByRole("textbox", { name: /Düzeltici faaliyet/ }), {
       target: { value: "Eşleme yapılandırması düzeltildi" },
     });
-    fireEvent.change(screen.getByRole("textbox", { name: /Kanıt referansı/ }), {
-      target: { value: "550e8400-e29b-41d4-a716-446655440000" },
-    });
+    fireEvent.mouseDown(await screen.findByRole("combobox", { name: /Kanıt/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /Kural sonucu/ }));
     fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
 
+    await waitFor(() => expect(onCaptureEvidence).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "issue-account-investigation" }),
+      "RESULT:execution-account-quality:rule-version-account-iban-2",
+    ));
     await waitFor(() => expect(onResolve).toHaveBeenCalledWith(
       expect.objectContaining({ id: "issue-account-investigation", version: 2 }),
       "Kaynak eşlemesi hatalı",
@@ -150,12 +191,15 @@ describe("Sorunlar ekranı", () => {
     expect(await screen.findByText("DQI-2026-0016 çözüm kaydı oluşturuldu.")).toBeVisible();
   });
 
-  it("geçersiz kanıtı reddeder ve kaydedilmemiş çözümü korur", () => {
+  it("kanıt yoksa çözüm kaydedilemez", async () => {
     const onResolve = vi.fn().mockResolvedValue(undefined);
     render(
       <ThemeModeProvider>
         <MemoryRouter>
-          <IssuesPage onResolve={onResolve} />
+          <IssuesPage
+            onLoadEvidence={vi.fn().mockResolvedValue({ records: [], candidates: [] })}
+            onResolve={onResolve}
+          />
         </MemoryRouter>
       </ThemeModeProvider>,
     );
@@ -168,14 +212,32 @@ describe("Sorunlar ekranı", () => {
     fireEvent.change(screen.getByRole("textbox", { name: /Düzeltici faaliyet/ }), {
       target: { value: "Eşleme yapılandırması düzeltildi" },
     });
-    fireEvent.change(screen.getByRole("textbox", { name: /Kanıt referansı/ }), {
-      target: { value: "ham-kayıt-değeri" },
-    });
 
-    expect(screen.getByText("Geçerli bir UUID girin.")).toBeVisible();
+    expect(await screen.findByText(/Bu sorun için kanıt bulunamadı/)).toBeVisible();
     expect(screen.getByRole("button", { name: "Kaydet" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Vazgeç" }));
     expect(screen.getByText("Değişiklikler kaydedilmedi")).toBeVisible();
+    expect(onResolve).not.toHaveBeenCalled();
+  });
+
+  it("kanıt yüklenemezse hata gösterir ve kaydetmeyi engeller", async () => {
+    const onResolve = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ThemeModeProvider>
+        <MemoryRouter>
+          <IssuesPage
+            onLoadEvidence={vi.fn().mockRejectedValue(new Error("boom"))}
+            onResolve={onResolve}
+          />
+        </MemoryRouter>
+      </ThemeModeProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "DQI-2026-0016 işlemleri" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Çözüm kaydet" }));
+
+    expect(await screen.findByText("Kanıtlar yüklenemedi.")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Kaydet" })).toBeDisabled();
     expect(onResolve).not.toHaveBeenCalled();
   });
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from collections.abc import Callable, Mapping
 from datetime import timedelta
 from time import sleep
@@ -40,6 +41,7 @@ from veri_kalitesi.executions.source_usage_policies import SourceUsagePolicyReso
 from veri_kalitesi.rules.models import RuleStatus, RuleVersion
 
 _RepoT = TypeVar("_RepoT", bound=ExecutionRepository[Any])
+logger = logging.getLogger(__name__)
 
 
 _FORBIDDEN_SCOPE_KEYS = {
@@ -251,13 +253,11 @@ class ExecutionService(Generic[_RepoT]):
     ) -> RuleExecution | None:
         """Queue tarafından seçilmiş belirli execution'ı çalıştır.
 
-        run_next'ten farkı: ikinci claim yapmaz, doğrudan execution_id ile çalışır.
-        Terminal durumdaki execution'lar için None döner.
+        Queue job'ının seçtiği execution_id'yi atomik olarak RUNNING'e alır;
+        terminal durumdaki execution'lar için None döner.
         """
 
         execution = self.repository.get(execution_id)
-        if execution is None:
-            return None
         if execution.status in {
             ExecutionStatus.SUCCESS,
             ExecutionStatus.TECHNICAL_ERROR,
@@ -265,7 +265,36 @@ class ExecutionService(Generic[_RepoT]):
             ExecutionStatus.CANCELLED,
         }:
             return None
+        if execution.status is ExecutionStatus.QUEUED:
+            execution = self.repository.claim_by_id(execution_id, self.clock())
+            if execution is None:
+                return None
+        elif execution.status not in {
+            ExecutionStatus.RUNNING,
+            ExecutionStatus.CANCEL_REQUESTED,
+        }:
+            return None
         return self._run_execution(execution, progress_callback=progress_callback)
+
+    def fail_active_execution(
+        self,
+        execution_id: str,
+        error_class: str,
+    ) -> RuleExecution | None:
+        """Keep execution and queue state aligned after an unhandled job failure."""
+
+        execution = self.repository.get(execution_id)
+        if execution.status not in {
+            ExecutionStatus.QUEUED,
+            ExecutionStatus.RUNNING,
+            ExecutionStatus.CANCEL_REQUESTED,
+        }:
+            return None
+        return self.repository.complete_technical_error(
+            execution_id,
+            error_class,
+            self.clock(),
+        )
 
     def run_next(self) -> RuleExecution | None:
         self.close_expired_cancellations()
@@ -447,6 +476,14 @@ class ExecutionService(Generic[_RepoT]):
                     break
                 self.sleeper(effective_retry_delay * (2 ** (attempt_no - 1)))
             except Exception:
+                logger.exception(
+                    "Execution persistence failed",
+                    extra={
+                        "event": "execution_persistence_failed",
+                        "execution_id": execution.execution_id,
+                        "attempt_no": attempt_no,
+                    },
+                )
                 last_error = ExecutionTechnicalError("UNEXPECTED", retryable=False)
                 self.repository.add_attempt(
                     ExecutionAttempt(

@@ -127,9 +127,7 @@ class FakeSMTPFactory:
         self.client = FakeSMTPClient()
         self.call: tuple[str, int, float, bool] | None = None
 
-    def __call__(
-        self, host: str, port: int, *, timeout: float, use_ssl: bool
-    ) -> FakeSMTPClient:
+    def __call__(self, host: str, port: int, *, timeout: float, use_ssl: bool) -> FakeSMTPClient:
         self.call = (host, port, timeout, use_ssl)
         return self.client
 
@@ -357,9 +355,7 @@ def test_plaintext_secret_in_channel_config_is_rejected() -> None:
     )
 
     with pytest.raises(PermanentNotificationTransportError) as error:
-        SMTPNotificationAdapter(FakeSecretResolver({})).deliver(
-            _event(), _delivery(), channel
-        )
+        SMTPNotificationAdapter(FakeSecretResolver({})).deliver(_event(), _delivery(), channel)
 
     assert error.value.error_class == "PLAINTEXT_SECRET_FORBIDDEN"
 

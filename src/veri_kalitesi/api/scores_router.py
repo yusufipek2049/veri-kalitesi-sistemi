@@ -20,7 +20,7 @@ from veri_kalitesi.api.models import (
 )
 from veri_kalitesi.dashboard import DashboardQueryError
 from veri_kalitesi.identity import ActorContext
-from veri_kalitesi.scoring.models import ScoreScopeType
+from veri_kalitesi.scoring.models import ScoreScopeType, thaw
 from veri_kalitesi.scoring.query import ScoreQueryService
 
 
@@ -325,7 +325,7 @@ def register_scores_routes(
             available_actions=detail.available_actions,
             has_contribution_graph=detail.contribution_graph is not None,
             calculation_details=(
-                dict(detail.score.calculation_details) if detail.score.calculation_details else None
+                thaw(detail.score.calculation_details) if detail.score.calculation_details else None
             ),
             contribution_graph=(
                 dict(detail.contribution_graph.graph)
