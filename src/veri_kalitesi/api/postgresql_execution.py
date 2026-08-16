@@ -9,7 +9,7 @@ import hashlib
 import json
 from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 from uuid import uuid4
 
 from veri_kalitesi.audit.models import (
@@ -38,6 +38,10 @@ from veri_kalitesi.identity import ActorContext
 from veri_kalitesi.jobs import BackgroundJob, PostgreSQLJobQueueRepository
 from veri_kalitesi.persistence import transactional_session
 from veri_kalitesi.rules.models import QualityRule, RuleVersion
+
+if TYPE_CHECKING:
+    # Yalniz tip icin; calisma zamaninda governance -> api dongusu olusmasin.
+    from veri_kalitesi.governance.models import GovernanceApprovalRequest
 
 
 class ExecutionRuleCatalog(Protocol):
@@ -436,10 +440,6 @@ class PostgreSQLExecutionGovernanceWriter:
         request: "GovernanceApprovalRequest",
         actor_context: ActorContext,
     ) -> RuleExecution:
-        from veri_kalitesi.governance.models import (
-            GovernanceApprovalRequest as _Req,
-        )
-
         after = dict(request.change_summary.get("after", {}))
         rule_version_ids = tuple(after.get("rule_version_ids", []))
         execution_mode = ExecutionMode(after.get("execution_mode", "OFFICIAL"))
@@ -499,9 +499,7 @@ class PostgreSQLExecutionGovernanceWriter:
             audit_outbox=self._transactional_audit,
         )
 
-    def _resolve_source_ids(
-        self, rule_version_ids: tuple[str, ...]
-    ) -> tuple[str, ...]:
+    def _resolve_source_ids(self, rule_version_ids: tuple[str, ...]) -> tuple[str, ...]:
         source_ids: set[str] = set()
         catalog = getattr(self._start_service, "_rule_catalog", None)
         source_catalog = getattr(self._start_service, "_source_catalog", None)

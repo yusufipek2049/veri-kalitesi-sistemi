@@ -1534,8 +1534,8 @@ def seed_raw_quality_data(session_factory, schema: str) -> None:
             session.execute(text(f'GRANT USAGE ON SCHEMA "{schema}" TO dq_e2e_reader'))
             session.execute(
                 text(
-                    'GRANT SELECT ON accounts, transactions, customers, risk_scores, '
-                    'kyc_records TO dq_e2e_reader'
+                    "GRANT SELECT ON accounts, transactions, customers, risk_scores, "
+                    "kyc_records TO dq_e2e_reader"
                 )
             )
     print("      + 5 ham kaynak tablosuna 150.000 gerçek satır eklendi.")
@@ -1575,6 +1575,7 @@ def seed_quality_scores(
         observed_at = (now - timedelta(days=day_offset)).replace(
             hour=8, minute=0, second=0, microsecond=0
         )
+
         def daily_clock(observed_at: datetime = observed_at) -> datetime:
             return observed_at
 

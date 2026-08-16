@@ -218,6 +218,7 @@ def test_repository_manifest_generates_expected_direct_inventory() -> None:
         "psycopg",
         "psycopg-binary",
         "pydantic",
+        "python-multipart",
         "sqlalchemy",
         "starlette",
         "tomli",

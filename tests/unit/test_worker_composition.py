@@ -118,9 +118,10 @@ def test_production_factory_directly_composes_notification_delivery(
         settings.actor_policy_version
     )
     metadata_command = captured["metadata_discovery_command"]
-    assert metadata_command.actor_context_provider(
-        "source-1", "correlation-1"
-    ).policy_version == settings.actor_policy_version
+    assert (
+        metadata_command.actor_context_provider("source-1", "correlation-1").policy_version
+        == settings.actor_policy_version
+    )
     schedule_triggers = captured["schedule_triggers"]
     assert isinstance(schedule_triggers, tuple)
     assert any(isinstance(item, SchedulingService) for item in schedule_triggers)

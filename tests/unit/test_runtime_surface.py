@@ -33,6 +33,11 @@ EXPECTED_ROUTE_METHODS = {
     ("GET", "/api/v1/issues/{issue_id}/investigation/evidence"),
     ("GET", "/api/v1/issues/{issue_id}/evidence"),
     ("POST", "/api/v1/issues/{issue_id}/evidence"),
+    # Yuklenen dosya kaniti yuzeyi (migration 26 ile gelen issue_evidence_files).
+    ("POST", "/api/v1/issues/{issue_id}/evidence/uploads"),
+    ("GET", "/api/v1/issues/{issue_id}/evidence/{evidence_id}"),
+    ("DELETE", "/api/v1/issues/{issue_id}/evidence/{evidence_id}"),
+    ("GET", "/api/v1/issues/{issue_id}/evidence/{evidence_id}/download"),
     ("GET", "/api/v1/metadata-discoveries/{discovery_id}"),
     ("GET", "/api/v1/metadata-discoveries/{discovery_id}/diff"),
     ("GET", "/api/v1/notifications/channels"),
@@ -127,7 +132,7 @@ def test_dashboard_api_route_table_matches_snapshot() -> None:
     }
 
     assert actual == EXPECTED_ROUTE_METHODS
-    assert len(app.routes) == 84
+    assert len(app.routes) == 88
     assert (
         len(
             [
@@ -136,7 +141,7 @@ def test_dashboard_api_route_table_matches_snapshot() -> None:
                 if getattr(route, "path", "") not in {"/health", "/ready"}
             ]
         )
-        == 82
+        == 86
     )
 
 

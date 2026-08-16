@@ -5,12 +5,11 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import MagicMock
 
 import pytest
 
 from veri_kalitesi.dashboard.analytics_models import AnalyticsFilterParams, MetricRatio
-from veri_kalitesi.dashboard.errors import DashboardAuthorizationError, DashboardValidationError
+from veri_kalitesi.dashboard.errors import DashboardValidationError
 from veri_kalitesi.dashboard.rule_health import RuleHealthQueryService
 from veri_kalitesi.identity import ActorContext, ActorContextIssuer
 from veri_kalitesi.identity.models import ActorType
@@ -108,22 +107,48 @@ def test_empty_datasets_returns_zero_coverage(service: RuleHealthQueryService) -
 
 def test_dataset_coverage_ratio(service: RuleHealthQueryService, reader: FakeReader) -> None:
     reader.datasets = [
-        SimpleNamespace(dataset_id="ds-1", data_source_id="src-1", name="D1",
-                       namespace="ns", criticality="MEDIUM", owner_user_id="u1",
-                       status="ACTIVE", updated_at=datetime.now(timezone.utc)),
-        SimpleNamespace(dataset_id="ds-2", data_source_id="src-1", name="D2",
-                       namespace="ns", criticality="HIGH", owner_user_id="u1",
-                       status="ACTIVE", updated_at=datetime.now(timezone.utc)),
+        SimpleNamespace(
+            dataset_id="ds-1",
+            data_source_id="src-1",
+            name="D1",
+            namespace="ns",
+            criticality="MEDIUM",
+            owner_user_id="u1",
+            status="ACTIVE",
+            updated_at=datetime.now(timezone.utc),
+        ),
+        SimpleNamespace(
+            dataset_id="ds-2",
+            data_source_id="src-1",
+            name="D2",
+            namespace="ns",
+            criticality="HIGH",
+            owner_user_id="u1",
+            status="ACTIVE",
+            updated_at=datetime.now(timezone.utc),
+        ),
     ]
     reader.rules = [
-        SimpleNamespace(quality_rule_id="r-1", code="R1", name="Rule 1",
-                       dataset_id="ds-1", field_ids=("f1",), primary_dimension="COMPLETENESS",
-                       status="ACTIVE"),
+        SimpleNamespace(
+            quality_rule_id="r-1",
+            code="R1",
+            name="Rule 1",
+            dataset_id="ds-1",
+            field_ids=("f1",),
+            primary_dimension="COMPLETENESS",
+            status="ACTIVE",
+        ),
     ]
     reader.versions = [
-        SimpleNamespace(rule_version_id="rv-1", quality_rule_id="r-1", version_no=1,
-                       rule_type="THRESHOLD", threshold=0.9, criticality="MEDIUM",
-                       created_at=datetime.now(timezone.utc)),
+        SimpleNamespace(
+            rule_version_id="rv-1",
+            quality_rule_id="r-1",
+            version_no=1,
+            rule_type="THRESHOLD",
+            threshold=0.9,
+            criticality="MEDIUM",
+            created_at=datetime.now(timezone.utc),
+        ),
     ]
     result = service.get_rule_health(_make_actor(), _make_params())
     coverage = result.summary["dataset_coverage"]
@@ -133,19 +158,38 @@ def test_dataset_coverage_ratio(service: RuleHealthQueryService, reader: FakeRea
 
 def test_never_executed_rules_counted(service: RuleHealthQueryService, reader: FakeReader) -> None:
     reader.datasets = [
-        SimpleNamespace(dataset_id="ds-1", data_source_id="src-1", name="D1",
-                       namespace="ns", criticality="MEDIUM", owner_user_id="u1",
-                       status="ACTIVE", updated_at=datetime.now(timezone.utc)),
+        SimpleNamespace(
+            dataset_id="ds-1",
+            data_source_id="src-1",
+            name="D1",
+            namespace="ns",
+            criticality="MEDIUM",
+            owner_user_id="u1",
+            status="ACTIVE",
+            updated_at=datetime.now(timezone.utc),
+        ),
     ]
     reader.rules = [
-        SimpleNamespace(quality_rule_id="r-1", code="R1", name="Rule 1",
-                       dataset_id="ds-1", field_ids=("f1",), primary_dimension="COMPLETENESS",
-                       status="ACTIVE"),
+        SimpleNamespace(
+            quality_rule_id="r-1",
+            code="R1",
+            name="Rule 1",
+            dataset_id="ds-1",
+            field_ids=("f1",),
+            primary_dimension="COMPLETENESS",
+            status="ACTIVE",
+        ),
     ]
     reader.versions = [
-        SimpleNamespace(rule_version_id="rv-1", quality_rule_id="r-1", version_no=1,
-                       rule_type="THRESHOLD", threshold=0.9, criticality="MEDIUM",
-                       created_at=datetime.now(timezone.utc)),
+        SimpleNamespace(
+            rule_version_id="rv-1",
+            quality_rule_id="r-1",
+            version_no=1,
+            rule_type="THRESHOLD",
+            threshold=0.9,
+            criticality="MEDIUM",
+            created_at=datetime.now(timezone.utc),
+        ),
     ]
     # No scores at all
     result = service.get_rule_health(_make_actor(), _make_params())

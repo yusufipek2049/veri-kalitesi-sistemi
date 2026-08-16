@@ -21,7 +21,8 @@ def upgrade() -> None:
     schema = _schema()
     op.drop_constraint("ck_issue_evidence_kind", "issue_evidence", schema=schema, type_="check")
     op.create_check_constraint(
-        "ck_issue_evidence_kind", "issue_evidence",
+        "ck_issue_evidence_kind",
+        "issue_evidence",
         "kind IN ('EXECUTION_RESULT','EXECUTION_LOG','LEGACY_REFERENCE','UPLOADED_FILE')",
         schema=schema,
     )
@@ -47,30 +48,44 @@ def upgrade() -> None:
         sa.Column("deleted_at", sa.DateTime(timezone=True)),
         sa.Column("deleted_by", sa.String(128)),
         sa.Column("idempotency_digest", sa.String(64), nullable=False),
-        sa.ForeignKeyConstraint(["evidence_id"], [f"{schema}.issue_evidence.evidence_id"],
-                                name="fk_issue_evidence_file_evidence"),
+        sa.ForeignKeyConstraint(
+            ["evidence_id"],
+            [f"{schema}.issue_evidence.evidence_id"],
+            name="fk_issue_evidence_file_evidence",
+        ),
         sa.CheckConstraint("byte_size > 0", name="ck_issue_evidence_file_size"),
-        sa.CheckConstraint("sha256_digest ~ '^[0-9a-f]{64}$'",
-                           name="ck_issue_evidence_file_sha256"),
+        sa.CheckConstraint(
+            "sha256_digest ~ '^[0-9a-f]{64}$'", name="ck_issue_evidence_file_sha256"
+        ),
         sa.CheckConstraint(
             "scan_status IN ('UPLOADING','PENDING_SCAN','AVAILABLE','REJECTED','SCAN_FAILED')",
-            name="ck_issue_evidence_file_scan_status"),
-        sa.CheckConstraint("scan_status <> 'AVAILABLE' OR scan_completed_at IS NOT NULL",
-                           name="ck_issue_evidence_file_available_at"),
+            name="ck_issue_evidence_file_scan_status",
+        ),
+        sa.CheckConstraint(
+            "scan_status <> 'AVAILABLE' OR scan_completed_at IS NOT NULL",
+            name="ck_issue_evidence_file_available_at",
+        ),
         sa.UniqueConstraint("evidence_id", name="uq_issue_evidence_file_evidence"),
         schema=schema,
     )
-    op.create_index("ix_issue_evidence_files_idempotency", "issue_evidence_files",
-                    ["idempotency_digest"], schema=schema)
+    op.create_index(
+        "ix_issue_evidence_files_idempotency",
+        "issue_evidence_files",
+        ["idempotency_digest"],
+        schema=schema,
+    )
 
 
 def downgrade() -> None:
     schema = _schema()
-    op.drop_index("ix_issue_evidence_files_idempotency", table_name="issue_evidence_files",
-                  schema=schema)
+    op.drop_index(
+        "ix_issue_evidence_files_idempotency", table_name="issue_evidence_files", schema=schema
+    )
     op.drop_table("issue_evidence_files", schema=schema)
     op.drop_constraint("ck_issue_evidence_kind", "issue_evidence", schema=schema, type_="check")
     op.create_check_constraint(
-        "ck_issue_evidence_kind", "issue_evidence",
-        "kind IN ('EXECUTION_RESULT','EXECUTION_LOG','LEGACY_REFERENCE')", schema=schema,
+        "ck_issue_evidence_kind",
+        "issue_evidence",
+        "kind IN ('EXECUTION_RESULT','EXECUTION_LOG','LEGACY_REFERENCE')",
+        schema=schema,
     )

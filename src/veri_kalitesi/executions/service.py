@@ -266,9 +266,10 @@ class ExecutionService(Generic[_RepoT]):
         }:
             return None
         if execution.status is ExecutionStatus.QUEUED:
-            execution = self.repository.claim_by_id(execution_id, self.clock())
-            if execution is None:
+            claimed = self.repository.claim_by_id(execution_id, self.clock())
+            if claimed is None:
                 return None
+            execution = claimed
         elif execution.status not in {
             ExecutionStatus.RUNNING,
             ExecutionStatus.CANCEL_REQUESTED,

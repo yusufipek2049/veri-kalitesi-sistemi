@@ -104,10 +104,31 @@ class IssueEvidenceUploadService(Protocol):
     repository: Any
     policy: Any
 
-    def upload(self, **kwargs: Any) -> tuple[Any, Any]: ...
+    def upload(
+        self,
+        *,
+        issue_id: str,
+        source: Any,
+        original_filename: str,
+        declared_media_type: str | None,
+        label: str,
+        classification: str,
+        idempotency_key: str,
+        actor_context: ActorContext | None,
+    ) -> tuple[Any, Any]: ...
+
     def scan(self, *, evidence_id: str) -> Any: ...
-    def authorize_read(self, **kwargs: Any) -> Any: ...
-    def delete(self, **kwargs: Any) -> None: ...
+
+    def authorize_read(
+        self, *, issue_id: str, evidence_id: str, actor_context: ActorContext | None
+    ) -> Any: ...
+
+    def delete(
+        self, *, issue_id: str, evidence_id: str, actor_context: ActorContext | None
+    ) -> None: ...
+
+    # F-11: Indirme rotasi bu metodu cagiriyordu ama sozlesmede yoktu.
+    def record_download(self, *, issue_id: str, evidence_id: str, actor_context: Any) -> None: ...
 
 
 class IssueVerificationService(Protocol):
@@ -385,17 +406,24 @@ def register_issues_routes(
         response.headers["Cache-Control"] = "no-store"
         if isinstance(resolver, DevelopmentActorContextResolver):
             response.headers[CSRF_HEADER_NAME] = resolver.request_proof
-        files = ({item.evidence_id: item for item in
-                  issue_evidence_upload_service.repository.list_evidence_files(issue_id)}
-                 if issue_evidence_upload_service is not None else {})
+        files = (
+            {
+                item.evidence_id: item
+                for item in issue_evidence_upload_service.repository.list_evidence_files(issue_id)
+            }
+            if issue_evidence_upload_service is not None
+            else {}
+        )
         return IssueEvidenceListResponse(
             data_origin=data_origin,
             correlation_id=request.state.correlation_id,
             issue_id=issue_id,
-            items=tuple(IssueEvidenceItemResponse.from_domain(record, files.get(record.evidence_id))
-                        for record in records
-                        if files.get(record.evidence_id) is None
-                        or files[record.evidence_id].deleted_at is None),
+            items=tuple(
+                IssueEvidenceItemResponse.from_domain(record, files.get(record.evidence_id))
+                for record in records
+                if files.get(record.evidence_id) is None
+                or files[record.evidence_id].deleted_at is None
+            ),
             candidates=tuple(
                 IssueEvidenceCandidateResponse.from_domain(candidate) for candidate in candidates
             ),
@@ -451,51 +479,69 @@ def register_issues_routes(
         idempotency_key: str = Form(..., min_length=1, max_length=200),
     ) -> IssueEvidenceCaptureResponse:
         if issue_evidence_upload_service is None:
-            raise IssueTechnicalError("Evidence upload service is unavailable.",
-                                      request.state.correlation_id)
+            raise IssueTechnicalError(
+                "Evidence upload service is unavailable.", request.state.correlation_id
+            )
         if evidence_type != "UPLOADED_FILE":
             raise IssueValidationError("evidence_type is invalid.")
         actor = getattr(request.state, "actor_context", None) or resolver.resolve(request)
         evidence, metadata = issue_evidence_upload_service.upload(
-            issue_id=issue_id, source=file.file, original_filename=file.filename or "evidence",
-            declared_media_type=file.content_type, label=label, classification=classification,
-            idempotency_key=idempotency_key, actor_context=actor,
+            issue_id=issue_id,
+            source=file.file,
+            original_filename=file.filename or "evidence",
+            declared_media_type=file.content_type,
+            label=label,
+            classification=classification,
+            idempotency_key=idempotency_key,
+            actor_context=actor,
         )
-        background_tasks.add_task(issue_evidence_upload_service.scan,
-                                  evidence_id=evidence.evidence_id)
+        background_tasks.add_task(
+            issue_evidence_upload_service.scan, evidence_id=evidence.evidence_id
+        )
         return IssueEvidenceCaptureResponse(
-            data_origin=data_origin, correlation_id=request.state.correlation_id,
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
             item=IssueEvidenceItemResponse.from_domain(evidence, metadata),
         )
 
-    @app.get("/api/v1/issues/{issue_id}/evidence/{evidence_id}",
-             response_model=IssueEvidenceCaptureResponse, tags=["issues"])
-    async def get_uploaded_evidence(issue_id: str, evidence_id: str, request: Request
-                                    ) -> IssueEvidenceCaptureResponse:
+    @app.get(
+        "/api/v1/issues/{issue_id}/evidence/{evidence_id}",
+        response_model=IssueEvidenceCaptureResponse,
+        tags=["issues"],
+    )
+    async def get_uploaded_evidence(
+        issue_id: str, evidence_id: str, request: Request
+    ) -> IssueEvidenceCaptureResponse:
         if issue_evidence_upload_service is None:
-            raise IssueTechnicalError("Evidence upload service is unavailable.",
-                                      request.state.correlation_id)
+            raise IssueTechnicalError(
+                "Evidence upload service is unavailable.", request.state.correlation_id
+            )
         actor = getattr(request.state, "actor_context", None) or resolver.resolve(request)
         metadata = issue_evidence_upload_service.authorize_read(
-            issue_id=issue_id, evidence_id=evidence_id, actor_context=actor)
+            issue_id=issue_id, evidence_id=evidence_id, actor_context=actor
+        )
         evidence = issue_evidence_upload_service.repository.get_evidence(evidence_id)
         return IssueEvidenceCaptureResponse(
-            data_origin=data_origin, correlation_id=request.state.correlation_id,
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
             item=IssueEvidenceItemResponse.from_domain(evidence, metadata),
         )
 
     @app.get("/api/v1/issues/{issue_id}/evidence/{evidence_id}/download", tags=["issues"])
     async def download_uploaded_evidence(issue_id: str, evidence_id: str, request: Request):
         if issue_evidence_upload_service is None:
-            raise IssueTechnicalError("Evidence upload service is unavailable.",
-                                      request.state.correlation_id)
+            raise IssueTechnicalError(
+                "Evidence upload service is unavailable.", request.state.correlation_id
+            )
         actor = getattr(request.state, "actor_context", None) or resolver.resolve(request)
         metadata = issue_evidence_upload_service.authorize_read(
-            issue_id=issue_id, evidence_id=evidence_id, actor_context=actor)
+            issue_id=issue_id, evidence_id=evidence_id, actor_context=actor
+        )
         if metadata.scan_status.value != "AVAILABLE":
             raise IssueConflictError("Evidence file has not passed scanning.")
         issue_evidence_upload_service.record_download(
-            issue_id=issue_id, evidence_id=evidence_id, actor_context=actor)
+            issue_id=issue_id, evidence_id=evidence_id, actor_context=actor
+        )
         handle = issue_evidence_upload_service.storage.open(metadata.object_key)
 
         def chunks():
@@ -507,20 +553,27 @@ def register_issues_routes(
 
         ascii_name = metadata.safe_filename.encode("ascii", "ignore").decode() or "evidence"
         return StreamingResponse(
-            chunks(), media_type=metadata.detected_media_type,
-            headers={"Content-Disposition": f'attachment; filename="{ascii_name}"',
-                     "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+            chunks(),
+            media_type=metadata.detected_media_type,
+            headers={
+                "Content-Disposition": f'attachment; filename="{ascii_name}"',
+                "Cache-Control": "no-store",
+                "X-Content-Type-Options": "nosniff",
+            },
         )
 
-    @app.delete("/api/v1/issues/{issue_id}/evidence/{evidence_id}", status_code=204,
-                tags=["issues"])
+    @app.delete(
+        "/api/v1/issues/{issue_id}/evidence/{evidence_id}", status_code=204, tags=["issues"]
+    )
     async def delete_uploaded_evidence(issue_id: str, evidence_id: str, request: Request):
         if issue_evidence_upload_service is None:
-            raise IssueTechnicalError("Evidence upload service is unavailable.",
-                                      request.state.correlation_id)
+            raise IssueTechnicalError(
+                "Evidence upload service is unavailable.", request.state.correlation_id
+            )
         actor = getattr(request.state, "actor_context", None) or resolver.resolve(request)
-        issue_evidence_upload_service.delete(issue_id=issue_id, evidence_id=evidence_id,
-                                             actor_context=actor)
+        issue_evidence_upload_service.delete(
+            issue_id=issue_id, evidence_id=evidence_id, actor_context=actor
+        )
         return Response(status_code=204)
 
     @app.get(

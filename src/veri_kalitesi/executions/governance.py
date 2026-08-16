@@ -57,9 +57,7 @@ class ExecutionCriticalityGuard:
         self._dataset_lookup = dataset_lookup
         self._execution_lookup = execution_lookup
 
-    def requires_approval_for_start(
-        self, rule_version_ids: tuple[str, ...]
-    ) -> bool:
+    def requires_approval_for_start(self, rule_version_ids: tuple[str, ...]) -> bool:
         """Manuel çalıştırma talebinin onay gerektirip gerektirmediğini döner."""
         return self._any_critical_dataset(rule_version_ids)
 

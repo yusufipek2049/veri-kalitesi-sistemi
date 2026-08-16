@@ -8,6 +8,8 @@ uygulanır.
 
 from __future__ import annotations
 
+from typing import Protocol
+
 from fastapi import FastAPI, HTTPException, Request, Response
 
 from veri_kalitesi.api.models import (
@@ -29,7 +31,9 @@ from veri_kalitesi.governance import (
 from veri_kalitesi.identity import ActorContext, is_trusted_actor_context
 
 
-class _Resolver:
+class _Resolver(Protocol):
+    """Aktor cozumleyici yuzeyi; ActorContextResolver bunu karsilar."""
+
     def resolve(self, request: Request) -> ActorContext | None: ...
 
 
@@ -90,9 +94,7 @@ def register_governance_routes(
     async def get_governance_approval_detail(
         approval_request_id: str, request: Request, response: Response
     ) -> GovernanceApprovalDetailResponse:
-        stored = _command(governance_command_service, request).repository.get(
-            approval_request_id
-        )
+        stored = _command(governance_command_service, request).repository.get(approval_request_id)
         actor_context = resolver.resolve(request)
         if not is_trusted_actor_context(actor_context):
             raise HTTPException(status_code=404, detail="Governance request not found.")

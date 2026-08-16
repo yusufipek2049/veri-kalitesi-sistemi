@@ -7,7 +7,7 @@ from typing import Annotated, Any, Protocol
 
 from fastapi import FastAPI, Query as FastApiQuery, Request, Response
 
-from veri_kalitesi.dashboard.analytics_models import AnalyticsFilterParams
+from veri_kalitesi.dashboard.analytics_models import AnalyticsEnvelope, AnalyticsFilterParams
 from veri_kalitesi.dashboard.errors import (
     DashboardQueryError,
 )
@@ -78,7 +78,7 @@ def register_dashboard_insights_routes(
             source_id=source_id,
             dataset_id=dataset_id,
         )
-        envelope = rule_health_service.get_rule_health(
+        envelope: AnalyticsEnvelope = rule_health_service.get_rule_health(
             actor_context,
             params,
             dimension=dimension,
@@ -127,7 +127,7 @@ def register_dashboard_insights_routes(
             source_id=source_id,
             dataset_id=dataset_id,
         )
-        envelope = metadata_health_service.get_metadata_health(
+        envelope: AnalyticsEnvelope = metadata_health_service.get_metadata_health(
             actor_context,
             params,
             classification=classification,
@@ -176,7 +176,7 @@ def register_dashboard_insights_routes(
             source_id=source_id,
             dataset_id=dataset_id,
         )
-        envelope = issue_performance_service.get_issue_performance(
+        envelope: AnalyticsEnvelope = issue_performance_service.get_issue_performance(
             actor_context,
             params,
             priority=priority,
@@ -224,7 +224,7 @@ def register_dashboard_insights_routes(
             source_id=source_id,
             dataset_id=dataset_id,
         )
-        envelope = scoring_policy_impact_service.get_scoring_policy_impact(
+        envelope: AnalyticsEnvelope = scoring_policy_impact_service.get_scoring_policy_impact(
             actor_context,
             params,
             baseline_version=baseline_version,

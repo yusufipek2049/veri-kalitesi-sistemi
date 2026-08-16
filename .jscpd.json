@@ -2,10 +2,7 @@
   "threshold": 6,
   "minLines": 5,
   "maxLines": 1000,
-  "languages": [
-    { "language": "python", "extensions": [".py"] },
-    { "language": "typescript", "extensions": [".ts", ".tsx"] }
-  ],
+  "format": ["python", "typescript", "tsx"],
   "ignore": [
     "node_modules/**",
     "dist/**",

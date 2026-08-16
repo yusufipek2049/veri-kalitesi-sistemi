@@ -338,7 +338,7 @@ def _validate_code(value: str, reason_code: str) -> None:
 
 def _normalize_project_name(value: str) -> str:
     try:
-        return canonicalize_name(value, validate=True)
+        return str(canonicalize_name(value, validate=True))
     except (InvalidName, TypeError) as exc:
         raise DependencyVulnerabilityGateValidationError(
             "DEPENDENCY_VULNERABILITY_PROJECT_NAME_INVALID"
@@ -347,7 +347,7 @@ def _normalize_project_name(value: str) -> str:
 
 def _normalize_dependency_name(value: str) -> str:
     try:
-        return canonicalize_name(value, validate=True)
+        return str(canonicalize_name(value, validate=True))
     except (InvalidName, TypeError) as exc:
         raise DependencyVulnerabilityGateValidationError(
             "DEPENDENCY_VULNERABILITY_DEPENDENCY_NAME_INVALID"

@@ -63,12 +63,6 @@ function formatScore(value: number | null): string {
   return value.toFixed(1);
 }
 
-function formatChange(value: number | null): string {
-  if (value === null) return "—";
-  const sign = value > 0 ? "+" : "";
-  return `${sign}${value.toFixed(1)}`;
-}
-
 // ── Trend Chart ──
 
 interface TrendChartProps {

@@ -49,9 +49,7 @@ class RuleHealthReader(Protocol):
 # ── Service ──
 
 OPEN_STATUSES = frozenset({"CALCULATED", "PARTIAL"})
-TECHNICAL_ERROR_STATUSES = frozenset(
-    {"NOT_CALCULATED_TECHNICAL_ERROR", "CONFIG_ERROR"}
-)
+TECHNICAL_ERROR_STATUSES = frozenset({"NOT_CALCULATED_TECHNICAL_ERROR", "CONFIG_ERROR"})
 FLAKY_TRANSITION_THRESHOLD = 2
 FLAKY_WINDOW = 10
 MAX_ITEMS = 100
@@ -125,7 +123,7 @@ class RuleHealthQueryService:
         high_crit_datasets = frozenset(
             d.dataset_id for d in datasets if d.criticality in ("HIGH", "CRITICAL")
         )
-        critical_covered = frozenset()
+        critical_covered: frozenset[str] = frozenset()
         if high_crit_datasets:
             high_crit_rules = [
                 r
@@ -154,9 +152,7 @@ class RuleHealthQueryService:
 
         # ── Reliability metrics ──
         never_executed_rules = self._compute_never_executed(rules, version_map, scores)
-        tech_error_scores = [
-            s for s in scores if s.score_status in TECHNICAL_ERROR_STATUSES
-        ]
+        tech_error_scores = [s for s in scores if s.score_status in TECHNICAL_ERROR_STATUSES]
         all_observations = len(scores)
         tech_error_ratio = MetricRatio(
             numerator=len(tech_error_scores),
@@ -187,30 +183,20 @@ class RuleHealthQueryService:
         )
 
         # Flaky rules: last N=10 official observations, >= 2 transitions
-        flaky_rule_ids = self._compute_flaky_rules(
-            official_scores, rv_threshold_map
-        )
+        flaky_rule_ids = self._compute_flaky_rules(official_scores, rv_threshold_map)
 
         # ── Items: top risky rules ──
-        items = self._build_items(
-            rules, version_map, scores, flaky_rule_ids, datasets
-        )
+        items = self._build_items(rules, version_map, scores, flaky_rule_ids, datasets)
 
         # ── Breakdowns ──
         dim_breakdown: dict[str, int] = {}
         status_breakdown: dict[str, int] = {}
         crit_breakdown: dict[str, int] = {}
         for rule in rules:
-            dim_breakdown[rule.primary_dimension] = (
-                dim_breakdown.get(rule.primary_dimension, 0) + 1
-            )
-            status_breakdown[rule.status] = (
-                status_breakdown.get(rule.status, 0) + 1
-            )
+            dim_breakdown[rule.primary_dimension] = dim_breakdown.get(rule.primary_dimension, 0) + 1
+            status_breakdown[rule.status] = status_breakdown.get(rule.status, 0) + 1
         for v in versions:
-            crit_breakdown[v.criticality] = (
-                crit_breakdown.get(v.criticality, 0) + 1
-            )
+            crit_breakdown[v.criticality] = crit_breakdown.get(v.criticality, 0) + 1
 
         summary = {
             "dataset_coverage": ratio_to_dict(dataset_coverage),
@@ -235,9 +221,7 @@ class RuleHealthQueryService:
 
     # ── Private helpers ──
 
-    def _authorize(
-        self, actor_context: ActorContext | None
-    ) -> tuple[DashboardAccessScope, str]:
+    def _authorize(self, actor_context: ActorContext | None) -> tuple[DashboardAccessScope, str]:
         try:
             decision = self._auth.authorize_dashboard(actor_context)
         except IdentityError as exc:
@@ -304,9 +288,7 @@ class RuleHealthQueryService:
                 continue
             transitions = 0
             first_val = last_n[0].score_value
-            prev_pass = (
-                first_val >= threshold if first_val is not None else None
-            )
+            prev_pass = first_val >= threshold if first_val is not None else None
             for s in last_n[1:]:
                 if s.score_value is None:
                     continue
@@ -359,9 +341,7 @@ class RuleHealthQueryService:
 
             rv_scores = scores_by_rv.get(version.rule_version_id, [])
             last_score = rv_scores[-1] if rv_scores else None
-            tech_errors = sum(
-                1 for s in rv_scores if s.score_status in TECHNICAL_ERROR_STATUSES
-            )
+            tech_errors = sum(1 for s in rv_scores if s.score_status in TECHNICAL_ERROR_STATUSES)
             is_flaky = version.rule_version_id in flaky_rule_ids
 
             # Determine reason codes
@@ -384,14 +364,8 @@ class RuleHealthQueryService:
                     "dataset_name": dataset_name_map.get(rule.dataset_id),
                     "dimension": rule.primary_dimension,
                     "criticality": version.criticality,
-                    "last_score_at": (
-                        last_score.calculated_at.isoformat()
-                        if last_score
-                        else None
-                    ),
-                    "last_score_value": (
-                        last_score.score_value if last_score else None
-                    ),
+                    "last_score_at": (last_score.calculated_at.isoformat() if last_score else None),
+                    "last_score_value": (last_score.score_value if last_score else None),
                     "success_rate": None,  # computed per-rule if needed
                     "technical_error_count": tech_errors,
                     "transition_count": FLAKY_TRANSITION_THRESHOLD if is_flaky else 0,

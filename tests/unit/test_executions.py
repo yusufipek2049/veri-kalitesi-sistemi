@@ -233,9 +233,7 @@ def test_queue_selected_execution_is_claimed_before_running() -> None:
 
 
 def test_unhandled_job_failure_moves_active_execution_out_of_queue() -> None:
-    service, repository, version = _service(
-        FakeExecutionExecutor([(_computation(1, 1, 0),)])
-    )
+    service, repository, version = _service(FakeExecutionExecutor([(_computation(1, 1, 0),)]))
     queued = _start(service, version)
 
     failed = service.fail_active_execution(queued.execution_id, "UNEXPECTED")

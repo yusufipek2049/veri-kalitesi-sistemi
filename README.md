@@ -32,7 +32,7 @@ Kaynak verisi değişmez; değişen, onun hakkında bilinen şeydir.
 | İstemci | Reaktif yüzey — uçlardan beslenen, durumu yansıtan |
 
 Yığın: **FastAPI** · **Python ≥ 3.10** · **PostgreSQL 16** · **SQLAlchemy 2.0** ·
-**Alembic** · **React 19** · **MUI 9** · **Vite 8** · **TypeScript 7**
+**Alembic** · **React 19** · **MUI 9** · **Vite 8** · **TypeScript 5.9**
 
 İşçi: saf Python kuyru tarama, fork yalıtımı, kira mekanizması.
 

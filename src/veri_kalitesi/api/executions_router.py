@@ -164,9 +164,7 @@ class JobInfoResolver(Protocol):
 class ExecutionGovernanceGuard(Protocol):
     """Kritik çalıştırma/iptal için yönetişim onay gerekliliğini denetler."""
 
-    def requires_approval_for_start(
-        self, rule_version_ids: tuple[str, ...]
-    ) -> bool: ...
+    def requires_approval_for_start(self, rule_version_ids: tuple[str, ...]) -> bool: ...
 
     def requires_approval_for_cancel(self, execution_id: str) -> bool: ...
 
@@ -392,15 +390,11 @@ def register_executions_routes(
         assert actor_context is not None  # narrowed after resolver
         if (
             execution_governance_guard is not None
-            and execution_governance_guard.requires_approval_for_start(
-                payload.rule_version_ids
-            )
+            and execution_governance_guard.requires_approval_for_start(payload.rule_version_ids)
         ):
             raise HTTPException(
                 status_code=409,
-                detail=(
-                    "Critical manual execution requires a governance approval request."
-                ),
+                detail=("Critical manual execution requires a governance approval request."),
             )
         execution = execution_start_service.start_manual(
             rule_version_ids=payload.rule_version_ids,
@@ -445,9 +439,7 @@ def register_executions_routes(
         ):
             raise HTTPException(
                 status_code=409,
-                detail=(
-                    "Critical execution cancellation requires a governance approval request."
-                ),
+                detail=("Critical execution cancellation requires a governance approval request."),
             )
         execution = execution_cancel_service.cancel(
             execution_id,

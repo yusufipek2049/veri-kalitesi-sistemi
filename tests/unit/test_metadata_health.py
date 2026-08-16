@@ -87,12 +87,26 @@ def service(reader: FakeReader) -> MetadataHealthQueryService:
 
 def test_ownership_completeness(service: MetadataHealthQueryService, reader: FakeReader) -> None:
     reader.datasets = [
-        SimpleNamespace(dataset_id="ds-1", data_source_id="src-1", name="D1",
-                       namespace="ns", criticality="MEDIUM", owner_user_id="user-1",
-                       status="ACTIVE", updated_at=datetime.now(timezone.utc)),
-        SimpleNamespace(dataset_id="ds-2", data_source_id="src-1", name="D2",
-                       namespace="ns", criticality="HIGH", owner_user_id=None,
-                       status="ACTIVE", updated_at=datetime.now(timezone.utc)),
+        SimpleNamespace(
+            dataset_id="ds-1",
+            data_source_id="src-1",
+            name="D1",
+            namespace="ns",
+            criticality="MEDIUM",
+            owner_user_id="user-1",
+            status="ACTIVE",
+            updated_at=datetime.now(timezone.utc),
+        ),
+        SimpleNamespace(
+            dataset_id="ds-2",
+            data_source_id="src-1",
+            name="D2",
+            namespace="ns",
+            criticality="HIGH",
+            owner_user_id=None,
+            status="ACTIVE",
+            updated_at=datetime.now(timezone.utc),
+        ),
     ]
     result = service.get_metadata_health(_make_actor(), _make_params())
     ownership = result.summary["ownership_completeness"]
@@ -100,21 +114,42 @@ def test_ownership_completeness(service: MetadataHealthQueryService, reader: Fak
     assert ownership["denominator"] == 2
 
 
-def test_unclassified_fields_counted(service: MetadataHealthQueryService, reader: FakeReader) -> None:
+def test_unclassified_fields_counted(
+    service: MetadataHealthQueryService, reader: FakeReader
+) -> None:
     reader.datasets = [
-        SimpleNamespace(dataset_id="ds-1", data_source_id="src-1", name="D1",
-                       namespace="ns", criticality="HIGH", owner_user_id="user-1",
-                       status="ACTIVE", updated_at=datetime.now(timezone.utc)),
+        SimpleNamespace(
+            dataset_id="ds-1",
+            data_source_id="src-1",
+            name="D1",
+            namespace="ns",
+            criticality="HIGH",
+            owner_user_id="user-1",
+            status="ACTIVE",
+            updated_at=datetime.now(timezone.utc),
+        ),
     ]
     reader.fields = [
-        SimpleNamespace(data_field_id="f1", dataset_id="ds-1", name="col1",
-                       is_sensitive=False, classification="UNCLASSIFIED",
-                       classification_policy_version="CLASSIFICATION_POLICY_V1",
-                       status="ACTIVE", updated_at=datetime.now(timezone.utc)),
-        SimpleNamespace(data_field_id="f2", dataset_id="ds-1", name="col2",
-                       is_sensitive=False, classification="PUBLIC",
-                       classification_policy_version="CLASSIFICATION_POLICY_V1",
-                       status="ACTIVE", updated_at=datetime.now(timezone.utc)),
+        SimpleNamespace(
+            data_field_id="f1",
+            dataset_id="ds-1",
+            name="col1",
+            is_sensitive=False,
+            classification="UNCLASSIFIED",
+            classification_policy_version="CLASSIFICATION_POLICY_V1",
+            status="ACTIVE",
+            updated_at=datetime.now(timezone.utc),
+        ),
+        SimpleNamespace(
+            data_field_id="f2",
+            dataset_id="ds-1",
+            name="col2",
+            is_sensitive=False,
+            classification="PUBLIC",
+            classification_policy_version="CLASSIFICATION_POLICY_V1",
+            status="ACTIVE",
+            updated_at=datetime.now(timezone.utc),
+        ),
     ]
     result = service.get_metadata_health(_make_actor(), _make_params())
     classification = result.summary["classification_completeness"]
@@ -122,17 +157,32 @@ def test_unclassified_fields_counted(service: MetadataHealthQueryService, reader
     assert classification["denominator"] == 2
 
 
-def test_classification_flag_mismatch_detected(service: MetadataHealthQueryService, reader: FakeReader) -> None:
+def test_classification_flag_mismatch_detected(
+    service: MetadataHealthQueryService, reader: FakeReader
+) -> None:
     reader.datasets = [
-        SimpleNamespace(dataset_id="ds-1", data_source_id="src-1", name="D1",
-                       namespace="ns", criticality="HIGH", owner_user_id="user-1",
-                       status="ACTIVE", updated_at=datetime.now(timezone.utc)),
+        SimpleNamespace(
+            dataset_id="ds-1",
+            data_source_id="src-1",
+            name="D1",
+            namespace="ns",
+            criticality="HIGH",
+            owner_user_id="user-1",
+            status="ACTIVE",
+            updated_at=datetime.now(timezone.utc),
+        ),
     ]
     reader.fields = [
-        SimpleNamespace(data_field_id="f1", dataset_id="ds-1", name="col1",
-                       is_sensitive=True, classification="PUBLIC",
-                       classification_policy_version="CLASSIFICATION_POLICY_V1",
-                       status="ACTIVE", updated_at=datetime.now(timezone.utc)),
+        SimpleNamespace(
+            data_field_id="f1",
+            dataset_id="ds-1",
+            name="col1",
+            is_sensitive=True,
+            classification="PUBLIC",
+            classification_policy_version="CLASSIFICATION_POLICY_V1",
+            status="ACTIVE",
+            updated_at=datetime.now(timezone.utc),
+        ),
     ]
     result = service.get_metadata_health(_make_actor(), _make_params())
     # Should find CLASSIFICATION_FLAG_MISMATCH
@@ -140,14 +190,22 @@ def test_classification_flag_mismatch_detected(service: MetadataHealthQueryServi
     assert len(mismatch_items) == 1
 
 
-def test_stale_threshold_from_config(service: MetadataHealthQueryService, reader: FakeReader) -> None:
+def test_stale_threshold_from_config(
+    service: MetadataHealthQueryService, reader: FakeReader
+) -> None:
     # end_at is July 31, stale_cutoff = July 31 - 30 = July 1
     # dataset updated_at must be before July 1 to be stale
     reader.datasets = [
-        SimpleNamespace(dataset_id="ds-1", data_source_id="src-1", name="D1",
-                       namespace="ns", criticality="MEDIUM", owner_user_id="user-1",
-                       status="ACTIVE",
-                       updated_at=datetime(2026, 6, 15, tzinfo=timezone.utc)),
+        SimpleNamespace(
+            dataset_id="ds-1",
+            data_source_id="src-1",
+            name="D1",
+            namespace="ns",
+            criticality="MEDIUM",
+            owner_user_id="user-1",
+            status="ACTIVE",
+            updated_at=datetime(2026, 6, 15, tzinfo=timezone.utc),
+        ),
     ]
     result = service.get_metadata_health(_make_actor(), _make_params())
     assert result.summary["stale_dataset_count"] == 1

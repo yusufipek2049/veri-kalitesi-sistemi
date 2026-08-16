@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -24,11 +24,8 @@ import {
 } from "@mui/material";
 import {
   Activity,
-  Ban,
   Braces,
   CheckCircle,
-  ChevronRight,
-  CircleCheck,
   Clock3,
   FilePen,
   KeyRound,
@@ -406,7 +403,6 @@ export function RulesPage({
   // Test result dialog
   const [testResultOpen, setTestResultOpen] = useState(false);
   const [testResult, setTestResult] = useState<RuleTestResult | null>(null);
-  const [testLoading, setTestLoading] = useState(false);
 
   // Activation dialog
   const [activateDialogOpen, setActivateDialogOpen] = useState(false);

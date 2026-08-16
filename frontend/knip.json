@@ -21,8 +21,7 @@
 
   "ignoreDependencies": [
     "@emotion/react",
-    "@emotion/styled",
-    "@babel/preset-typescript"
+    "@emotion/styled"
   ],
 
   "vitest": {

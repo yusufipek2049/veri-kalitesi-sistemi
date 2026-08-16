@@ -181,11 +181,18 @@ class AllowAllDevelopmentScanner:
 
 
 class IssueEvidenceFileService:
-    def __init__(self, *, issue_reader: object, repository: EvidenceFileRepository,
-                 authorization_service: object, storage: EvidenceObjectStorage,
-                 scanner: MalwareScanner | None, policy: EvidenceFilePolicy | None,
-                 audit_sink: EvidenceAuditSink | None = None,
-                 clock: object = None) -> None:
+    def __init__(
+        self,
+        *,
+        issue_reader: object,
+        repository: EvidenceFileRepository,
+        authorization_service: object,
+        storage: EvidenceObjectStorage,
+        scanner: MalwareScanner | None,
+        policy: EvidenceFilePolicy | None,
+        audit_sink: EvidenceAuditSink | None = None,
+        clock: object = None,
+    ) -> None:
         self.issue_reader = issue_reader
         self.repository = repository
         self.authorization_service = authorization_service
@@ -195,14 +202,28 @@ class IssueEvidenceFileService:
         self.audit_sink = audit_sink
         self.clock = clock
 
-    def upload(self, *, issue_id: str, source: BinaryIO, original_filename: str,
-               declared_media_type: str | None, label: str, classification: str,
-               idempotency_key: str, actor_context: ActorContext | None
-               ) -> tuple[IssueEvidenceRecord, IssueEvidenceFileRecord]:
+    def upload(
+        self,
+        *,
+        issue_id: str,
+        source: BinaryIO,
+        original_filename: str,
+        declared_media_type: str | None,
+        label: str,
+        classification: str,
+        idempotency_key: str,
+        actor_context: ActorContext | None,
+    ) -> tuple[IssueEvidenceRecord, IssueEvidenceFileRecord]:
         issue, actor = self._authorized_issue(issue_id, actor_context, mutate=True)
         policy = self._require_policy()
-        self._audit(actor, issue_id, None, "ISSUE_EVIDENCE_UPLOAD_STARTED",
-                    AuditResult.SUCCESS, "UPLOAD_ACCEPTED")
+        self._audit(
+            actor,
+            issue_id,
+            None,
+            "ISSUE_EVIDENCE_UPLOAD_STARTED",
+            AuditResult.SUCCESS,
+            "UPLOAD_ACCEPTED",
+        )
         if not idempotency_key.strip() or len(idempotency_key) > 200:
             raise IssueValidationError("idempotency_key is invalid.")
         if not label.strip() or len(label) > 200 or "<" in label or ">" in label:
@@ -217,8 +238,16 @@ class IssueEvidenceFileService:
                 evidence = self.repository.get_evidence(existing.evidence_id)  # type: ignore[attr-defined]
                 assert evidence is not None
                 return evidence, existing
-        if len([item for item in self.repository.list_evidence_files(issue_id)
-                if item.deleted_at is None]) >= policy.max_files_per_issue:
+        if (
+            len(
+                [
+                    item
+                    for item in self.repository.list_evidence_files(issue_id)
+                    if item.deleted_at is None
+                ]
+            )
+            >= policy.max_files_per_issue
+        ):
             raise IssueValidationError("Evidence file count limit has been reached.")
         safe_name, extension = sanitize_filename(original_filename)
         if extension not in policy.allowed_extensions:
@@ -236,21 +265,33 @@ class IssueEvidenceFileService:
                 raise IssueValidationError("File extension and content do not match.")
             now = self._now()
             evidence = IssueEvidenceRecord(
-                issue_id=issue_id, kind=IssueEvidenceKind.UPLOADED_FILE,
-                label=(label.strip() or safe_name)[:200], execution_id=f"upload:{uuid4()}",
-                observed_at=now, captured_at=now, captured_by=actor.actor_id,
+                issue_id=issue_id,
+                kind=IssueEvidenceKind.UPLOADED_FILE,
+                label=(label.strip() or safe_name)[:200],
+                execution_id=f"upload:{uuid4()}",
+                observed_at=now,
+                captured_at=now,
+                captured_by=actor.actor_id,
                 content_digest=stored.sha256_digest,
                 source_digest=hashlib.sha256(f"upload:{idempotency_digest}".encode()).hexdigest(),
             )
             file = IssueEvidenceFileRecord(
-                file_id=str(uuid4()), evidence_id=evidence.evidence_id,
-                original_filename=original_filename[:255], safe_filename=safe_name,
-                declared_media_type=normalized_declared or None, detected_media_type=detected,
-                byte_size=stored.byte_size, object_key=stored.object_key,
-                sha256_digest=stored.sha256_digest, scan_status=EvidenceScanStatus.PENDING_SCAN,
-                scan_reason_code=None, scan_completed_at=None,
-                classification=validated_classification, uploaded_by=actor.actor_id,
-                uploaded_at=now, idempotency_digest=idempotency_digest,
+                file_id=str(uuid4()),
+                evidence_id=evidence.evidence_id,
+                original_filename=original_filename[:255],
+                safe_filename=safe_name,
+                declared_media_type=normalized_declared or None,
+                detected_media_type=detected,
+                byte_size=stored.byte_size,
+                object_key=stored.object_key,
+                sha256_digest=stored.sha256_digest,
+                scan_status=EvidenceScanStatus.PENDING_SCAN,
+                scan_reason_code=None,
+                scan_completed_at=None,
+                classification=validated_classification,
+                uploaded_by=actor.actor_id,
+                uploaded_at=now,
+                idempotency_digest=idempotency_digest,
             )
             result = self.repository.add_uploaded_evidence(evidence, file)
             if result[1].object_key != stored.object_key:
@@ -258,9 +299,14 @@ class IssueEvidenceFileService:
         except Exception:
             self.storage.delete(stored.object_key)
             raise
-        self._audit(actor, issue_id, result[0].evidence_id,
-                    "ISSUE_EVIDENCE_UPLOAD_COMPLETED", AuditResult.SUCCESS,
-                    "PENDING_SCAN")
+        self._audit(
+            actor,
+            issue_id,
+            result[0].evidence_id,
+            "ISSUE_EVIDENCE_UPLOAD_COMPLETED",
+            AuditResult.SUCCESS,
+            "PENDING_SCAN",
+        )
         return result
 
     def scan(self, *, evidence_id: str) -> IssueEvidenceFileRecord:
@@ -271,36 +317,55 @@ class IssueEvidenceFileService:
             return file
         now = self._now()
         if self.scanner is None:
-            updated = _replace_file(file, scan_status=EvidenceScanStatus.SCAN_FAILED,
-                                    scan_reason_code="SCANNER_UNAVAILABLE", scan_completed_at=now)
+            updated = _replace_file(
+                file,
+                scan_status=EvidenceScanStatus.SCAN_FAILED,
+                scan_reason_code="SCANNER_UNAVAILABLE",
+                scan_completed_at=now,
+            )
         else:
             try:
                 with self.storage.open(file.object_key) as source:
                     clean, reason = self.scanner.scan(source)
                 if clean:
                     key = self.storage.promote(file.object_key)
-                    updated = _replace_file(file, object_key=key,
-                                            scan_status=EvidenceScanStatus.AVAILABLE,
-                                            scan_reason_code=None, scan_completed_at=now)
+                    updated = _replace_file(
+                        file,
+                        object_key=key,
+                        scan_status=EvidenceScanStatus.AVAILABLE,
+                        scan_reason_code=None,
+                        scan_completed_at=now,
+                    )
                 else:
                     self.storage.delete(file.object_key)
-                    updated = _replace_file(file, scan_status=EvidenceScanStatus.REJECTED,
-                                            scan_reason_code=reason or "MALWARE_DETECTED",
-                                            scan_completed_at=now)
+                    updated = _replace_file(
+                        file,
+                        scan_status=EvidenceScanStatus.REJECTED,
+                        scan_reason_code=reason or "MALWARE_DETECTED",
+                        scan_completed_at=now,
+                    )
             except OSError:
-                updated = _replace_file(file, scan_status=EvidenceScanStatus.SCAN_FAILED,
-                                        scan_reason_code="SCAN_TECHNICAL_ERROR",
-                                        scan_completed_at=now)
+                updated = _replace_file(
+                    file,
+                    scan_status=EvidenceScanStatus.SCAN_FAILED,
+                    scan_reason_code="SCAN_TECHNICAL_ERROR",
+                    scan_completed_at=now,
+                )
         self.repository.update_evidence_file(updated)
         evidence = self.repository.get_evidence(evidence_id)  # type: ignore[attr-defined]
         if evidence is not None:
-            self._audit_system(evidence.issue_id, evidence_id, "ISSUE_EVIDENCE_SCAN_COMPLETED",
-                               updated.scan_status.value,
-                               updated.scan_reason_code or updated.scan_status.value)
+            self._audit_system(
+                evidence.issue_id,
+                evidence_id,
+                "ISSUE_EVIDENCE_SCAN_COMPLETED",
+                updated.scan_status.value,
+                updated.scan_reason_code or updated.scan_status.value,
+            )
         return updated
 
-    def authorize_read(self, *, issue_id: str, evidence_id: str,
-                       actor_context: ActorContext | None) -> IssueEvidenceFileRecord:
+    def authorize_read(
+        self, *, issue_id: str, evidence_id: str, actor_context: ActorContext | None
+    ) -> IssueEvidenceFileRecord:
         self._authorized_issue(issue_id, actor_context, mutate=False)
         file = self.repository.get_evidence_file(evidence_id)
         evidence = self.repository.get_evidence(evidence_id)  # type: ignore[attr-defined]
@@ -308,25 +373,41 @@ class IssueEvidenceFileService:
             raise IssueNotFoundError("Evidence file is not available.")
         return file
 
-    def delete(self, *, issue_id: str, evidence_id: str,
-               actor_context: ActorContext | None) -> None:
+    def delete(
+        self, *, issue_id: str, evidence_id: str, actor_context: ActorContext | None
+    ) -> None:
         _, actor = self._authorized_issue(issue_id, actor_context, mutate=True)
-        file = self.authorize_read(issue_id=issue_id, evidence_id=evidence_id,
-                                   actor_context=actor_context)
+        file = self.authorize_read(
+            issue_id=issue_id, evidence_id=evidence_id, actor_context=actor_context
+        )
         if file.legal_hold or self.repository.evidence_is_referenced(evidence_id):
             raise IssueConflictError("Evidence used by a resolution cannot be deleted.")
         updated = _replace_file(file, deleted_at=self._now(), deleted_by=actor.actor_id)
         self.repository.update_evidence_file(updated)
-        self._audit(actor, issue_id, evidence_id, "ISSUE_EVIDENCE_DELETED",
-                    AuditResult.SUCCESS, "SOFT_DELETED")
+        self._audit(
+            actor,
+            issue_id,
+            evidence_id,
+            "ISSUE_EVIDENCE_DELETED",
+            AuditResult.SUCCESS,
+            "SOFT_DELETED",
+        )
 
-    def record_download(self, *, issue_id: str, evidence_id: str,
-                        actor_context: ActorContext) -> None:
-        self._audit(actor_context, issue_id, evidence_id, "ISSUE_EVIDENCE_DOWNLOADED",
-                    AuditResult.SUCCESS, "AUTHORIZED_DOWNLOAD")
+    def record_download(
+        self, *, issue_id: str, evidence_id: str, actor_context: ActorContext
+    ) -> None:
+        self._audit(
+            actor_context,
+            issue_id,
+            evidence_id,
+            "ISSUE_EVIDENCE_DOWNLOADED",
+            AuditResult.SUCCESS,
+            "AUTHORIZED_DOWNLOAD",
+        )
 
-    def _authorized_issue(self, issue_id: str, actor: ActorContext | None,
-                          *, mutate: bool) -> tuple[DataQualityIssue, ActorContext]:
+    def _authorized_issue(
+        self, issue_id: str, actor: ActorContext | None, *, mutate: bool
+    ) -> tuple[DataQualityIssue, ActorContext]:
         if actor is None:
             raise IssueAuthorizationError("Actor cannot access issue evidence.")
         decision = self.authorization_service.authorize_dashboard(actor)  # type: ignore[attr-defined]
@@ -334,12 +415,18 @@ class IssueEvidenceFileService:
         if not _scope_permitted(issue, decision):
             raise IssueNotFoundError("The requested issue is not available.")
         if mutate:
-            if actor.privileged or actor.actor_id != issue.assignee_user_id or not (
-                actor.roles & {"DATA_STEWARD", "DATA_ENGINEER", "EVIDENCE_MANAGER"}
+            if (
+                actor.privileged
+                or actor.actor_id != issue.assignee_user_id
+                or not (actor.roles & {"DATA_STEWARD", "DATA_ENGINEER", "EVIDENCE_MANAGER"})
             ):
                 raise IssueAuthorizationError("Actor cannot modify issue evidence.")
-            if issue.status in {IssueStatus.RESOLVED, IssueStatus.VERIFIED,
-                                IssueStatus.CLOSED, IssueStatus.CANCELLED}:
+            if issue.status in {
+                IssueStatus.RESOLVED,
+                IssueStatus.VERIFIED,
+                IssueStatus.CLOSED,
+                IssueStatus.CANCELLED,
+            }:
                 raise IssueConflictError("Evidence can only be uploaded to an open issue.")
         return issue, actor
 
@@ -351,31 +438,58 @@ class IssueEvidenceFileService:
     def _now(self) -> datetime:
         return self.clock() if callable(self.clock) else datetime.now(timezone.utc)
 
-    def _audit(self, actor: ActorContext, issue_id: str, evidence_id: str | None,
-               action: str, result: AuditResult, reason: str) -> None:
+    def _audit(
+        self,
+        actor: ActorContext,
+        issue_id: str,
+        evidence_id: str | None,
+        action: str,
+        result: AuditResult,
+        reason: str,
+    ) -> None:
         if self.audit_sink is None:
             raise IssueConflictError("Evidence audit service is unavailable.")
-        self.audit_sink.append(AuditEventInput(
-            actor_id=actor.actor_id, actor_type=actor.actor_type.value,
-            correlation_id=actor.correlation_id, action=action,
-            object_type="IssueEvidence", object_id=evidence_id, result=result,
-            reason_code=reason, old_values={},
-            new_values={"issue_id": issue_id, "evidence_id": evidence_id or ""},
-            occurred_at=self._now(), session_id=actor.session_id,
-        ))
+        self.audit_sink.append(
+            AuditEventInput(
+                actor_id=actor.actor_id,
+                actor_type=actor.actor_type.value,
+                correlation_id=actor.correlation_id,
+                action=action,
+                object_type="IssueEvidence",
+                object_id=evidence_id,
+                result=result,
+                reason_code=reason,
+                old_values={},
+                new_values={"issue_id": issue_id, "evidence_id": evidence_id or ""},
+                occurred_at=self._now(),
+                session_id=actor.session_id,
+            )
+        )
 
-    def _audit_system(self, issue_id: str, evidence_id: str, action: str,
-                      result: str, reason: str) -> None:
+    def _audit_system(
+        self, issue_id: str, evidence_id: str, action: str, result: str, reason: str
+    ) -> None:
         if self.audit_sink is None:
             raise IssueConflictError("Evidence audit service is unavailable.")
-        self.audit_sink.append(AuditEventInput(
-            actor_id="evidence-scanner", actor_type="SERVICE", correlation_id=evidence_id,
-            action=action, object_type="IssueEvidence", object_id=evidence_id,
-            result=AuditResult.SUCCESS if result == "AVAILABLE" else AuditResult.FAILURE,
-            reason_code=reason, old_values={"scan_status": "PENDING_SCAN"},
-            new_values={"issue_id": issue_id, "evidence_id": evidence_id,
-                        "scan_status": result}, occurred_at=self._now(),
-        ))
+        self.audit_sink.append(
+            AuditEventInput(
+                actor_id="evidence-scanner",
+                actor_type="SERVICE",
+                correlation_id=evidence_id,
+                action=action,
+                object_type="IssueEvidence",
+                object_id=evidence_id,
+                result=AuditResult.SUCCESS if result == "AVAILABLE" else AuditResult.FAILURE,
+                reason_code=reason,
+                old_values={"scan_status": "PENDING_SCAN"},
+                new_values={
+                    "issue_id": issue_id,
+                    "evidence_id": evidence_id,
+                    "scan_status": result,
+                },
+                occurred_at=self._now(),
+            )
+        )
 
 
 def sanitize_filename(filename: str) -> tuple[str, str]:
@@ -403,8 +517,10 @@ def detect_media_type(prefix: bytes) -> str:
 
 def extension_matches_media_type(extension: str, media_type: str) -> bool:
     return extension in {
-        "image/png": {".png"}, "image/jpeg": {".jpg", ".jpeg"},
-        "application/pdf": {".pdf"}, "text/plain": {".txt", ".log"},
+        "image/png": {".png"},
+        "image/jpeg": {".jpg", ".jpeg"},
+        "application/pdf": {".pdf"},
+        "text/plain": {".txt", ".log"},
     }.get(media_type, set())
 
 

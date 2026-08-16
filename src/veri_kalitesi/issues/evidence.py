@@ -22,8 +22,9 @@ import json
 import re
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
+from collections.abc import Callable
 from typing import Protocol, Sequence
 from uuid import uuid4
 
@@ -140,7 +141,7 @@ class IssueEvidenceService:
         evidence_store: IssueEvidenceStore,
         candidate_provider: IssueEvidenceCandidateProvider,
         authorization_service: AuthorizationService,
-        clock: object = None,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._issue_reader = issue_reader
         self._evidence_store = evidence_store
@@ -260,10 +261,8 @@ class IssueEvidenceService:
         return issue
 
     def _now(self) -> datetime:
-        if callable(self._clock):
+        if self._clock is not None:
             return self._clock()
-        from datetime import timezone
-
         return datetime.now(timezone.utc)
 
 

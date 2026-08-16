@@ -2,26 +2,30 @@
 //
 // Tool versions (verified):
 //   eslint                        ^9.39.5
-//   @babel/eslint-parser          ^7.29.7
-//   @babel/preset-typescript      ^7.29.7
+//   typescript-eslint             ^8.67.0
+//   typescript                    ^5.9.3
 //   eslint-plugin-react           ^7.37.5
 //   eslint-plugin-react-hooks     ^5.2.0
 //
-// LIMITATIONS (TypeScript 7.0 compatibility):
-//   @typescript-eslint/parser v8 throws at module load with TS 7.0.
-//   eslint-plugin-sonarjs v2/v3 depends on ts-api-utils which also fails.
-//   Both are blocked until upstream adds TS 7 support.
-//   See: https://github.com/typescript-eslint/typescript-eslint/issues/10940
-//
-//   We use @babel/eslint-parser + @babel/preset-typescript for TS syntax
-//   parsing.  Type-level checking is handled by `tsc` (npm run typecheck).
+// F-11: Bu dosya daha once TypeScript 7.0 varsayimiyla @typescript-eslint'i
+// devre disi birakip @babel/eslint-parser kullaniyordu. Kurulu surum 5.9.3
+// oldugu icin bu kisit gecerli degildi; cekirdek `no-unused-vars` kurali TS
+// tiplerini ve parametre ozelliklerini anlamadigi icin 113 yanlis pozitif
+// uretiyordu. Parser artik @typescript-eslint/parser, kullanilmayan degisken
+// kontrolu ise TS-farkindali @typescript-eslint/no-unused-vars.
+// Tip duzeyi kontrol yine `tsc` sorumlulugunda (npm run typecheck).
 //
 // All rules are "warn" (not "error") in this first iteration so that
 // legacy findings do not block CI.
+//
+// `npm run lint` bu nedenle sifir degil, mevcut baseline (59) uzerinden
+// gecer: yeni uyari eklenirse CI kirmizi olur, eski okunabilirlik borcu
+// (max-lines-per-function / complexity) gate'i kilitlemez. Borc azaldikca
+// package.json'daki --max-warnings degeri asagi cekilmelidir.
 
-import babelParser from "@babel/eslint-parser";
 import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
+import tseslint from "typescript-eslint";
 
 export default [
   // ── Global ignores ──
@@ -39,20 +43,16 @@ export default [
   {
     files: ["src/**/*.{ts,tsx}"],
     languageOptions: {
-      parser: babelParser,
+      parser: tseslint.parser,
       parserOptions: {
-        requireConfigFile: false,
-        babelOptions: {
-          presets: [
-            ["@babel/preset-typescript", { isTSX: true, allExtensions: true }],
-          ],
-        },
         ecmaFeatures: { jsx: true },
+        sourceType: "module",
       },
     },
     plugins: {
       react,
       "react-hooks": reactHooks,
+      "@typescript-eslint": tseslint.plugin,
     },
     settings: {
       react: { version: "detect" },
@@ -68,11 +68,16 @@ export default [
       "react-hooks/exhaustive-deps": "warn",
 
       // ── ESLint built-in ──
-      "no-unused-vars": [
+      // Cekirdek kural TS tiplerini goremedigi icin kapali; yerine
+      // TS-farkindali surumu kullanilir.
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": [
         "warn",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
-      "no-console": "warn",
+      // Birakilmis `console.log` hata ayiklama artigidir; catch blogundaki
+      // bilincli `console.warn`/`console.error` ise tek hata kanalimiz.
+      "no-console": ["warn", { allow: ["warn", "error"] }],
       "no-debugger": "error",
 
       // Human-readability limits. These are advisory while the legacy

@@ -29,8 +29,7 @@ def test_observation_date_scopes_real_source_relation() -> None:
     relation = PostgreSQLRuleExecutionExecutor._scoped_relation(_execution(), dataset)
 
     assert relation == (
-        '(SELECT * FROM "dq"."accounts" '
-        'WHERE "observed_on" = DATE \'2026-08-01\') AS "scoped_data"'
+        '(SELECT * FROM "dq"."accounts" WHERE "observed_on" = DATE \'2026-08-01\') AS "scoped_data"'
     )
     assert PostgreSQLRuleExecutionExecutor._build_population_query(relation).startswith(
         "SELECT COUNT(*) FROM (SELECT *"

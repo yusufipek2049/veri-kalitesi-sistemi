@@ -33,7 +33,7 @@ import {
 import { Link, useLocation } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
 import { StatusBadge } from "../components/StatusBadge";
-import { designTokens, type StatusTone } from "../theme/tokens";
+import { type StatusTone } from "../theme/tokens";
 import type {
   NotificationDelivery,
   NotificationDeliveryStatus,
@@ -148,25 +148,6 @@ function formatEventTitle(
     default:
       return eventTypeLabels[eventType] ?? eventType;
   }
-}
-
-function buildRuleLink(
-  eventType: NotificationEventType | string,
-  payload?: Record<string, unknown>,
-): string | null {
-  if (
-    eventType === "RULE_APPROVAL_REQUESTED" ||
-    eventType === "RULE_APPROVAL_DECIDED" ||
-    eventType === "RULE_APPROVAL_WITHDRAWN" ||
-    eventType === "RULE_APPROVAL_EXPIRED"
-  ) {
-    const ruleId = payload?.quality_rule_id ?? payload?.rule_id;
-    if (ruleId) {
-      return `/rules?selected=${encodeURIComponent(String(ruleId))}`;
-    }
-    return "/rules";
-  }
-  return null;
 }
 
 const scopeTypeLabels: Record<string, string> = {
@@ -530,7 +511,6 @@ export function NotificationsPage({
   totalUnread = 0,
   failedCount = 0,
   todayCount = 0,
-  cursor = null,
   hasMore = false,
   correlationId,
   onRefresh,

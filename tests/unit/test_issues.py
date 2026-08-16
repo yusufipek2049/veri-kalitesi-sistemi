@@ -2107,9 +2107,7 @@ def test_resolution_rejects_evidence_reference_without_a_stored_record() -> None
 
 
 def test_resolution_rejects_evidence_that_belongs_to_another_issue() -> None:
-    fixture = _fixture(
-        evidence_reader=StaticEvidenceReader((_evidence_record("another-issue"),))
-    )
+    fixture = _fixture(evidence_reader=StaticEvidenceReader((_evidence_record("another-issue"),)))
     issue = _investigating_issue(fixture)
 
     with pytest.raises(IssueValidationError, match="another issue"):

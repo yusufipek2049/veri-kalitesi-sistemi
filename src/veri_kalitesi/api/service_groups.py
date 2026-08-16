@@ -27,6 +27,7 @@ from veri_kalitesi.api.issues_router import (
     IssueAssigneeOptionProvider,
     IssueClosureService,
     IssueCreationService,
+    IssueEvidenceUploadService,
     IssueInvestigationService,
     IssueResolutionService,
     IssueVerificationService,
@@ -153,7 +154,7 @@ class IssueServices:
     closure: IssueClosureService | None
     creation: IssueCreationService | None
     evidence_catalog: IssueEvidenceService | None = None
-    evidence_upload: object | None = None
+    evidence_upload: IssueEvidenceUploadService | None = None
 
 
 @dataclass(frozen=True)

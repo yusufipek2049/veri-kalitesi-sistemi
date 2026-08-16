@@ -76,16 +76,18 @@ class FakeGovernanceRepository:
             raise GovernanceNotFoundError("missing")
         return self.requests[approval_request_id]
 
-    def transition(
-        self, request, *, expected_version, expected_status, audit_event, audit_outbox
-    ):
+    def transition(self, request, *, expected_version, expected_status, audit_event, audit_outbox):
         stored = self.requests[request.approval_request_id]
-        updated = replace(stored, status=request.status, version=expected_version + 1,
-                         checker_actor_id=request.checker_actor_id,
-                         checker_role=request.checker_role,
-                         reason_code=request.reason_code,
-                         decided_at=request.decided_at,
-                         applied_at=request.applied_at)
+        updated = replace(
+            stored,
+            status=request.status,
+            version=expected_version + 1,
+            checker_actor_id=request.checker_actor_id,
+            checker_role=request.checker_role,
+            reason_code=request.reason_code,
+            decided_at=request.decided_at,
+            applied_at=request.applied_at,
+        )
         self.requests[request.approval_request_id] = updated
         return updated
 
@@ -402,9 +404,7 @@ def test_detail_is_scope_filtered() -> None:
     )
     assert in_scope.status_code == 200
     assert in_scope.json()["item"]["approval_request_id"] == approval_id
-    assert in_scope.json()["item"]["change_summary"]["after"] == {
-        "owner_user_id": "new-owner"
-    }
+    assert in_scope.json()["item"]["change_summary"]["after"] == {"owner_user_id": "new-owner"}
 
     out_of_scope = client.get(
         f"/api/v1/governance/approval-requests/{approval_id}",

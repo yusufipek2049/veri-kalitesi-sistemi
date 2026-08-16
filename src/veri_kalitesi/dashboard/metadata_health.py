@@ -107,9 +107,7 @@ class MetadataHealthQueryService:
 
         # ── Sensitive marking completeness ──
         sensitive_candidates = [
-            f
-            for f in fields
-            if f.classification in SENSITIVE_CLASSES or f.is_sensitive
+            f for f in fields if f.classification in SENSITIVE_CLASSES or f.is_sensitive
         ]
         consistent_sensitive = sum(
             1
@@ -139,9 +137,7 @@ class MetadataHealthQueryService:
         stale_fields = [f for f in fields if f.updated_at < stale_cutoff]
 
         # ── Critical gaps ──
-        high_crit_datasets = [
-            d for d in datasets if d.criticality in ("HIGH", "CRITICAL")
-        ]
+        high_crit_datasets = [d for d in datasets if d.criticality in ("HIGH", "CRITICAL")]
         critical_gap_items: list[dict[str, Any]] = []
         critical_gap_count = 0
         for d in high_crit_datasets:
@@ -171,16 +167,16 @@ class MetadataHealthQueryService:
             ds_crit = dataset_crit_map.get(f.dataset_id)
             if ds_crit not in ("HIGH", "CRITICAL"):
                 continue
-            gaps: list[str] = []
+            field_gaps: list[str] = []
             if f.classification == "UNCLASSIFIED":
-                gaps.append("UNCLASSIFIED_FIELD")
+                field_gaps.append("UNCLASSIFIED_FIELD")
             if f.classification in NON_SENSITIVE_WITH_FLAG and f.is_sensitive:
-                gaps.append("CLASSIFICATION_FLAG_MISMATCH")
+                field_gaps.append("CLASSIFICATION_FLAG_MISMATCH")
             if f.classification_policy_version != self._policy_version:
-                gaps.append("CLASSIFICATION_POLICY_OUTDATED")
+                field_gaps.append("CLASSIFICATION_POLICY_OUTDATED")
             if f.updated_at < stale_cutoff:
-                gaps.append("STALE_FIELD_METADATA")
-            for reason in gaps:
+                field_gaps.append("STALE_FIELD_METADATA")
+            for reason in field_gaps:
                 critical_gap_items.append(
                     {
                         "object_type": "field",
@@ -208,14 +204,10 @@ class MetadataHealthQueryService:
         # ── Breakdowns ──
         class_breakdown: dict[str, int] = {}
         for f in fields:
-            class_breakdown[f.classification] = (
-                class_breakdown.get(f.classification, 0) + 1
-            )
+            class_breakdown[f.classification] = class_breakdown.get(f.classification, 0) + 1
         crit_ds_breakdown: dict[str, int] = {}
         for d in datasets:
-            crit_ds_breakdown[d.criticality] = (
-                crit_ds_breakdown.get(d.criticality, 0) + 1
-            )
+            crit_ds_breakdown[d.criticality] = crit_ds_breakdown.get(d.criticality, 0) + 1
         reason_breakdown: dict[str, int] = {}
         for item in critical_gap_items:
             rc = item["reason_code"]
@@ -244,9 +236,7 @@ class MetadataHealthQueryService:
 
     # ── Private helpers ──
 
-    def _authorize(
-        self, actor_context: ActorContext | None
-    ) -> tuple[DashboardAccessScope, str]:
+    def _authorize(self, actor_context: ActorContext | None) -> tuple[DashboardAccessScope, str]:
         try:
             decision = self._auth.authorize_dashboard(actor_context)
         except IdentityError as exc:

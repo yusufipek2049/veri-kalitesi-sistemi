@@ -428,9 +428,7 @@ def _derive_legacy_evidence(
             "label": "Göç öncesi kanıt referansı",
             "execution_id": "unknown",
             "content_digest": hashlib.sha256(evidence_id.encode("utf-8")).hexdigest(),
-            "source_digest": hashlib.sha256(
-                f"legacy:{evidence_id}".encode("utf-8")
-            ).hexdigest(),
+            "source_digest": hashlib.sha256(f"legacy:{evidence_id}".encode("utf-8")).hexdigest(),
             "observed_at": row["completed_at"],
             "captured_at": row["created_at"],
             "captured_by": row["created_by"],

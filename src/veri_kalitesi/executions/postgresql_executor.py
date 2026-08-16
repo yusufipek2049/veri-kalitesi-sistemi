@@ -196,9 +196,7 @@ class PostgreSQLRuleExecutionExecutor:
                         "passed_count": passed_count,
                         "failed_count": failed_count,
                     },
-                    "query_reference": (
-                        f"query-template://execution/{version.rule_version_id}"
-                    ),
+                    "query_reference": (f"query-template://execution/{version.rule_version_id}"),
                     "plan_reference": f"plan://execution/{version.rule_version_id}",
                 }
                 if failed_count
@@ -223,7 +221,7 @@ class PostgreSQLRuleExecutionExecutor:
         except ValueError as exc:
             raise ExecutionTechnicalError("Observation date is invalid.", retryable=False) from exc
         return (
-            f'(SELECT * FROM {table} WHERE "observed_on" = DATE \'{normalized_date}\') '
+            f"(SELECT * FROM {table} WHERE \"observed_on\" = DATE '{normalized_date}') "
             'AS "scoped_data"'
         )
 
@@ -276,14 +274,14 @@ class PostgreSQLRuleExecutionExecutor:
         if rule_type is RuleType.REGEX:
             pattern = definition.get("pattern", "")
             return (
-                f'SELECT COUNT(*) FROM {table} '
+                f"SELECT COUNT(*) FROM {table} "
                 f'WHERE "{field}" IS NOT NULL AND "{field}" !~ \'{pattern}\''
             )
         if rule_type is RuleType.FRESHNESS:
             max_age_minutes = definition.get("max_age_minutes", 1440)
             ts_field = definition.get("field_id", field)
             return (
-                f'SELECT COUNT(*) FROM {table} '
+                f"SELECT COUNT(*) FROM {table} "
                 f'WHERE "{ts_field}" IS NOT NULL '
                 f"AND \"{ts_field}\" < NOW() - INTERVAL '{max_age_minutes} minutes'"
             )

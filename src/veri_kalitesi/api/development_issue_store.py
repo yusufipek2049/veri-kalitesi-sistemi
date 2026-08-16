@@ -69,13 +69,19 @@ class DevelopmentIssueStore:
             self._evidence[record.evidence_id] = record
             return record
 
-    def add_uploaded_evidence(self, evidence: IssueEvidenceRecord,
-                              file: IssueEvidenceFileRecord
-                              ) -> tuple[IssueEvidenceRecord, IssueEvidenceFileRecord]:
+    def add_uploaded_evidence(
+        self, evidence: IssueEvidenceRecord, file: IssueEvidenceFileRecord
+    ) -> tuple[IssueEvidenceRecord, IssueEvidenceFileRecord]:
         with self._lock:
-            existing = next((item for item in self._evidence_files.values()
-                             if item.idempotency_digest == file.idempotency_digest
-                             and self._evidence[item.evidence_id].issue_id == evidence.issue_id), None)
+            existing = next(
+                (
+                    item
+                    for item in self._evidence_files.values()
+                    if item.idempotency_digest == file.idempotency_digest
+                    and self._evidence[item.evidence_id].issue_id == evidence.issue_id
+                ),
+                None,
+            )
             if existing:
                 return self._evidence[existing.evidence_id], existing
             self._evidence[evidence.evidence_id] = evidence
@@ -88,8 +94,11 @@ class DevelopmentIssueStore:
 
     def list_evidence_files(self, issue_id: str) -> list[IssueEvidenceFileRecord]:
         with self._lock:
-            return [file for evidence_id, file in self._evidence_files.items()
-                    if self._evidence[evidence_id].issue_id == issue_id]
+            return [
+                file
+                for evidence_id, file in self._evidence_files.items()
+                if self._evidence[evidence_id].issue_id == issue_id
+            ]
 
     def update_evidence_file(self, file: IssueEvidenceFileRecord) -> None:
         with self._lock:
