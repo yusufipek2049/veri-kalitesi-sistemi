@@ -138,7 +138,7 @@ from veri_kalitesi.sql_templates import (
     SqlTemplateService,
 )
 
-CURRENT_MIGRATION_HEAD = "20260817_33"
+CURRENT_MIGRATION_HEAD = "20260817_34"
 
 
 class ApiScheduleExecutionBridge:
