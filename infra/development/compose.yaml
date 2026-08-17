@@ -34,6 +34,7 @@ services:
       DATA_QUALITY_ALLOWED_ORIGINS: http://127.0.0.1:5173,http://localhost:5173
       DATA_QUALITY_ACTOR_POLICY_VERSION: DEVELOPMENT_DASHBOARD_POLICY_V1
       DATA_QUALITY_LOCAL_SECRET_DIR: /run/secrets/data-sources
+      DQ_EVIDENCE_STORAGE_ROOT: /tmp/issue-evidence
 
   seed:
     build:

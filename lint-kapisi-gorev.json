@@ -1,0 +1,345 @@
+{
+  "schema_version": "1.0",
+  "task": {
+    "title": "Frontend lint kapisini sifira cek",
+    "goal": "frontend/package.json icindeki `\"lint\": \"eslint src/ --max-warnings 59\"` komutunu `--max-warnings 0` haline getirmek; bunu uyari bastirarak degil, 59 okunabilirlik uyarisinin tamamini gercek refactor ile ortadan kaldirarak yapmak.",
+    "repository": "/home/yusuf/veri-kalitesi-sistemi",
+    "working_dir": "/home/yusuf/veri-kalitesi-sistemi/frontend",
+    "branch_base": "denetim/2026-08-16-bulgu-duzeltmeleri",
+    "origin": "2026-08-16 denetim raporu F-11; bu is denetim-devir.json icinde remaining_work[rank=4] olarak birakildi.",
+    "why_it_was_not_done": "Denetim kapsami runtime kusurlariydi; buyuk React bilesenlerini %40 test kapsamiyla bolmek regresyon riski tasidigi icin ayri bir calismaya birakildi."
+  },
+
+  "context": {
+    "current_state": {
+      "eslint_result": "0 error, 59 warning",
+      "lint_gate": "eslint src/ --max-warnings 59 (gecer)",
+      "rules_producing_warnings": {
+        "max-lines-per-function": {"count": 38, "config": "max 120, skipBlankLines: true, skipComments: true"},
+        "complexity": {"count": 21, "config": "max 15"}
+      },
+      "frontend_tests": "31 dosya, 232 test",
+      "frontend_coverage_total": "40.38% statement",
+      "typecheck": "temiz (tsc -b)",
+      "build": "gecer"
+    },
+    "recent_history": "eslint.config.js kisa sure once @babel/eslint-parser'dan typescript-eslint 8.67 parser'ina gecirildi; cekirdek no-unused-vars kapatilip @typescript-eslint/no-unused-vars acildi. Bu 113 yanlis pozitifi eledi (175 -> 59). Kalan 59 uyari gercektir, yanlis pozitif degildir.",
+    "config_intent": "eslint.config.js'in kendi yorumu: tum kurallar 'warn', legacy bulgular CI'yi bloklamasin. --max-warnings degeri bilincli bir ratchet'tir ve borc azaldikca DUSURULMELIDIR."
+  },
+
+  "agent_instructions": {
+    "language": "tr",
+    "execution_order": "targets dizisini `rank` sirasiyla isle. Her hedef bagimsizdir; birini bitirmeden digerine gecme.",
+    "per_target_loop": [
+      "1. Dosyayi bastan sona oku. Neyin ekrana ciktigini ve hangi state'in nereden geldigini anla.",
+      "2. Bu dosya icin mevcut test var mi kontrol et (context.files_with_existing_tests). YOKSA once davranis testi yaz ve calistirip GECTIGINI gor. Test yazmadan refactor etme.",
+      "3. Refactor et. Bolunen parcalar ayni dosyada kalabilir ya da uygunsa yeni dosyaya tasinabilir.",
+      "4. `npx vitest run <ilgili test dosyasi>` calistir; yesil olmali.",
+      "5. `npx eslint src/<dosya>` calistir; o dosyanin uyarisi sifir olmali.",
+      "6. `npm run typecheck` calistir.",
+      "7. frontend/package.json'daki --max-warnings degerini yeni toplam uyari sayisina dusur ve commit et."
+    ],
+    "refactor_playbook": {
+      "max-lines-per-function": [
+        "JSX bloklarini adlandirilmis alt bilesenlere cikar (ornegin tablo satiri, filtre cubugu, detay cekmecesi, bos/hata/yetkisiz durum panelleri).",
+        "Alt bilesenleri ayni dosyada modul duzeyinde tanimla; iceride tanimlarsan her render'da yeniden olusur ve reconciliation bozulur.",
+        "Tekrarlanan yukleme/hata/bos durum bloklari birden fazla sayfada ayni; ortak bir bilesene cikarmak hem satir sayisini hem jscpd kopyala-yapistir oranini dusurur."
+      ],
+      "complexity": [
+        "Uc uce binmis ternary ve if zincirlerini saf yardimci fonksiyonlara veya lookup tablolarina (Record<string, X>) cevir.",
+        "Filtreleme/siralama mantigini bilesenden cikarip saf fonksiyona al; bu fonksiyonlar ayrica kolay test edilir.",
+        "Cok sayida useState'i tek bir useReducer'a veya turetilmis useMemo degerlerine cevir.",
+        "Erken donus (guard clause) kullanarak ic ice dallanmayi duzlestir."
+      ]
+    },
+    "must_not": [
+      "eslint.config.js icindeki `complexity` veya `max-lines-per-function` esiklerini yukseltme.",
+      "Kurallari dosya bazinda kapatma; eslint-disable yorumu ekleme.",
+      "--max-warnings degerini yukseltme; yalnizca dusurulebilir.",
+      "Gorunur davranisi degistirme: ayni DOM, ayni metinler, ayni erisilebilirlik etiketleri, ayni ag cagrilari.",
+      "Testi gecirmek icin assertion gevsetme veya test silme.",
+      "Bu gorev disindaki dosyalara dokunma.",
+      "Kullanici onayi olmadan push yapma."
+    ],
+    "must_ask_user_when": [
+      "Bir bileseni bolmek prop sozlesmesini veya public export'u degistirmeyi gerektiriyorsa.",
+      "Refactor sirasinda gercek bir hata bulursan (denetimde ScoreContributionPanel'de eksik echarts.use() boyle bulunmustu) — duzeltmeden once bildir.",
+      "Bir hedef makul cabayla esigin altina inmiyorsa; esigi degistirmek yerine durumu raporla."
+    ],
+    "definition_of_done": [
+      "npx eslint src/ -> 0 error, 0 warning",
+      "frontend/package.json -> \"lint\": \"eslint src/ --max-warnings 0\"",
+      "eslint.config.js icindeki baseline aciklamasi guncellenmis (artik ratchet yok)",
+      "npm run typecheck temiz",
+      "npm test -> en az 232 test, hepsi gecer",
+      "npm run build gecer ve ilk yukleme yuku buyumemis",
+      "bash scripts/check_quality.sh -> tum bloklayici kontroller yesil"
+    ]
+  },
+
+  "verification_commands": {
+    "lint_all": "cd frontend && npx eslint src/",
+    "lint_one": "cd frontend && npx eslint src/<yol>",
+    "warning_breakdown": "cd frontend && npx eslint src/ -f json | ../.venv/bin/python -c \"import json,sys,collections; d=json.load(sys.stdin); c=collections.Counter(m['ruleId'] for f in d for m in f['messages']); print(c); print('TOPLAM', sum(c.values()))\"",
+    "test_one": "cd frontend && npx vitest run src/<yol>.test.tsx",
+    "test_all": "cd frontend && npm test",
+    "typecheck": "cd frontend && npm run typecheck",
+    "build": "cd frontend && npm run build",
+    "first_load_bytes": "cd frontend && npm run build >/dev/null 2>&1 && grep -oE 'assets/[^\\\"]*\\.js' dist/index.html | while read f; do stat -c%s \"dist/$f\"; done | paste -sd+ | bc",
+    "full_gate": "bash scripts/check_quality.sh"
+  },
+
+  "files_with_existing_tests": [
+    "src/analytics/IssuePerformancePage.tsx",
+    "src/audit/AuditPage.tsx",
+    "src/audit/AuditRoute.tsx",
+    "src/catalog/CatalogPage.tsx",
+    "src/components/AppShell.tsx",
+    "src/dashboard/DashboardPage.tsx",
+    "src/dataSources/DataSourcesPage.tsx",
+    "src/executions/ExecutionsPage.tsx",
+    "src/issues/IssuesPage.tsx",
+    "src/rules/RulesPage.tsx"
+  ],
+
+  "files_without_tests_write_first": [
+    "src/notifications/NotificationsPage.tsx",
+    "src/governance/GovernanceTasksPage.tsx",
+    "src/scores/ScoresPage.tsx",
+    "src/scores/ScoreDetailPage.tsx",
+    "src/scores/DatasetTrendPage.tsx",
+    "src/catalog/DatasetDetailPage.tsx",
+    "src/catalog/FieldDetailPage.tsx",
+    "src/analytics/ScoringPolicyImpactPage.tsx",
+    "src/analytics/MetadataHealthPage.tsx",
+    "src/analytics/RuleHealthPage.tsx",
+    "src/analytics/AnalyticsShell.tsx",
+    "src/components/NotificationBell.tsx",
+    "src/components/ScoreContributionPanel.tsx",
+    "src/notifications/NotificationChannelsPage.tsx",
+    "src/notifications/NotificationDeliveriesPage.tsx",
+    "src/notifications/NotificationPreferencesPage.tsx",
+    "src/dataSources/DataSourcesRoute.tsx",
+    "src/executions/ExecutionsRoute.tsx",
+    "src/governance/GovernanceTasksRoute.tsx",
+    "src/issues/IssuesRoute.tsx",
+    "src/rules/RulesRoute.tsx"
+  ],
+
+  "test_pattern_reference": {
+    "example_files": [
+      "src/analytics/IssuePerformancePage.test.tsx (api modulu vi.mock ile taklit edilir, async durumlar waitFor ile beklenir)",
+      "src/executions/ExecutionsPage.test.tsx (bilesen prop'lariyla dogrudan render edilir, durum bazli senaryolar)"
+    ],
+    "wrapper": "render(<ThemeModeProvider><MemoryRouter initialEntries={[path]}><Component /></MemoryRouter></ThemeModeProvider>)",
+    "what_to_assert": "Gorunur metinler, rol/etiket bazli sorgular (getByRole, getByLabelText), bos/hata/yetkisiz durumlarin dogru gosterilmesi, filtre ve etkilesim sonuclari. Ic implementasyona degil ciktiya bakan testler yaz — refactor sirasinda kirilmamalari gerekiyor."
+  },
+
+  "targets": [
+    {
+      "rank": 1,
+      "file": "src/issues/IssuesPage.tsx",
+      "warnings": 3,
+      "has_tests": true,
+      "findings": [
+        {"line": 430, "function": "IssuesPage", "rule": "complexity", "value": 71, "max": 15},
+        {"line": 430, "function": "IssuesPage", "rule": "max-lines-per-function", "value": 932, "max": 120},
+        {"line": 212, "function": "IssueRow", "rule": "max-lines-per-function", "value": 194, "max": 120}
+      ],
+      "note": "Repodaki en karmasik bilesen (complexity 71). Testi var, once oradan basla."
+    },
+    {
+      "rank": 2,
+      "file": "src/rules/RulesPage.tsx",
+      "warnings": 3,
+      "has_tests": true,
+      "findings": [
+        {"line": 350, "function": "RulesPage", "rule": "complexity", "value": 55, "max": 15},
+        {"line": 350, "function": "RulesPage", "rule": "max-lines-per-function", "value": 914, "max": 120},
+        {"line": 169, "function": "RuleRow", "rule": "max-lines-per-function", "value": 147, "max": 120}
+      ]
+    },
+    {
+      "rank": 3,
+      "file": "src/executions/ExecutionsPage.tsx",
+      "warnings": 4,
+      "has_tests": true,
+      "findings": [
+        {"line": 412, "function": "ExecutionsPage", "rule": "complexity", "value": 56, "max": 15},
+        {"line": 412, "function": "ExecutionsPage", "rule": "max-lines-per-function", "value": 519, "max": 120},
+        {"line": 175, "function": "ExecutionRow", "rule": "complexity", "value": 17, "max": 15},
+        {"line": 175, "function": "ExecutionRow", "rule": "max-lines-per-function", "value": 137, "max": 120}
+      ]
+    },
+    {
+      "rank": 4,
+      "file": "src/governance/GovernanceTasksPage.tsx",
+      "warnings": 3,
+      "has_tests": false,
+      "findings": [
+        {"line": 147, "function": "GovernanceTasksPage", "rule": "complexity", "value": 41, "max": 15},
+        {"line": 147, "function": "GovernanceTasksPage", "rule": "max-lines-per-function", "value": 590, "max": 120},
+        {"line": 351, "function": "(arrow)", "rule": "complexity", "value": 16, "max": 15}
+      ],
+      "note": "Maker-checker yuzeyi; test yok. Refactor oncesi test SART. Bu ekran gorevler ayriligi kurallarini gosterir, davranis kaymasi guvenlik anlami tasir."
+    },
+    {
+      "rank": 5,
+      "file": "src/catalog/DatasetDetailPage.tsx",
+      "warnings": 2,
+      "has_tests": false,
+      "findings": [
+        {"line": 131, "function": "DatasetDetailPage", "rule": "complexity", "value": 37, "max": 15},
+        {"line": 131, "function": "DatasetDetailPage", "rule": "max-lines-per-function", "value": 498, "max": 120}
+      ]
+    },
+    {
+      "rank": 6,
+      "file": "src/dataSources/DataSourcesPage.tsx",
+      "warnings": 3,
+      "has_tests": true,
+      "findings": [
+        {"line": 196, "function": "DataSourcesPage", "rule": "complexity", "value": 35, "max": 15},
+        {"line": 196, "function": "DataSourcesPage", "rule": "max-lines-per-function", "value": 189, "max": 120},
+        {"line": 260, "function": "(arrow)", "rule": "complexity", "value": 16, "max": 15}
+      ]
+    },
+    {
+      "rank": 7,
+      "file": "src/audit/AuditPage.tsx",
+      "warnings": 3,
+      "has_tests": true,
+      "findings": [
+        {"line": 484, "function": "AuditPage", "rule": "complexity", "value": 32, "max": 15},
+        {"line": 484, "function": "AuditPage", "rule": "max-lines-per-function", "value": 359, "max": 120},
+        {"line": 156, "function": "EventRow", "rule": "max-lines-per-function", "value": 132, "max": 120}
+      ]
+    },
+    {
+      "rank": 8,
+      "file": "src/notifications/NotificationsPage.tsx",
+      "warnings": 5,
+      "has_tests": false,
+      "findings": [
+        {"line": 508, "function": "NotificationsPage", "rule": "complexity", "value": 25, "max": 15},
+        {"line": 508, "function": "NotificationsPage", "rule": "max-lines-per-function", "value": 471, "max": 120},
+        {"line": 339, "function": "DetailDrawer", "rule": "max-lines-per-function", "value": 126, "max": 120},
+        {"line": 222, "function": "DeliveryRow", "rule": "complexity", "value": 19, "max": 15},
+        {"line": 135, "function": "formatEventTitle", "rule": "complexity", "value": 22, "max": 15}
+      ],
+      "note": "formatEventTitle saf bir fonksiyon; lookup tablosuna cevirmek hem complexity'yi dusurur hem birim testi kolaydir. En cok uyari tasiyan dosya."
+    },
+    {
+      "rank": 9,
+      "file": "src/dashboard/DashboardPage.tsx",
+      "warnings": 6,
+      "has_tests": true,
+      "findings": [
+        {"line": 681, "function": "DashboardPage", "rule": "max-lines-per-function", "value": 400, "max": 120},
+        {"line": 406, "function": "ScoreDetailDialog", "rule": "complexity", "value": 20, "max": 15},
+        {"line": 406, "function": "ScoreDetailDialog", "rule": "max-lines-per-function", "value": 152, "max": 120},
+        {"line": 696, "function": "(async arrow)", "rule": "complexity", "value": 22, "max": 15},
+        {"line": 885, "function": "(arrow)", "rule": "complexity", "value": 24, "max": 15},
+        {"line": 885, "function": "(arrow)", "rule": "max-lines-per-function", "value": 134, "max": 120}
+      ]
+    },
+    {
+      "rank": 10,
+      "file": "src/scores/ScoresPage.tsx",
+      "warnings": 3,
+      "has_tests": false,
+      "findings": [
+        {"line": 80, "function": "ScoresPage", "rule": "max-lines-per-function", "value": 395, "max": 120},
+        {"line": 236, "function": "(arrow)", "rule": "max-lines-per-function", "value": 148, "max": 120},
+        {"line": 275, "function": "(arrow)", "rule": "complexity", "value": 26, "max": 15}
+      ]
+    },
+    {
+      "rank": 11,
+      "file": "src/scores/ScoreDetailPage.tsx",
+      "warnings": 2,
+      "has_tests": false,
+      "findings": [
+        {"line": 24, "function": "ScoreDetailPage", "rule": "complexity", "value": 30, "max": 15},
+        {"line": 24, "function": "ScoreDetailPage", "rule": "max-lines-per-function", "value": 284, "max": 120}
+      ]
+    },
+    {
+      "rank": 12,
+      "file": "src/catalog/FieldDetailPage.tsx",
+      "warnings": 2,
+      "has_tests": false,
+      "findings": [
+        {"line": 52, "function": "FieldDetailPage", "rule": "complexity", "value": 20, "max": 15},
+        {"line": 52, "function": "FieldDetailPage", "rule": "max-lines-per-function", "value": 248, "max": 120}
+      ]
+    },
+    {
+      "rank": 13,
+      "file": "src/analytics/ScoringPolicyImpactPage.tsx",
+      "warnings": 2,
+      "has_tests": false,
+      "findings": [
+        {"line": 39, "function": "ScoringPolicyImpactPage", "rule": "max-lines-per-function", "value": 218, "max": 120},
+        {"line": 206, "function": "(arrow)", "rule": "complexity", "value": 17, "max": 15}
+      ]
+    },
+    {
+      "rank": 14,
+      "file": "src/audit/AuditRoute.tsx",
+      "warnings": 1,
+      "has_tests": true,
+      "findings": [
+        {"line": 50, "function": "(async arrow)", "rule": "complexity", "value": 21, "max": 15}
+      ]
+    },
+    {
+      "rank": 15,
+      "group": "Yalniz max-lines-per-function tasiyan, esige yakin dosyalar",
+      "warnings": 17,
+      "note": "Bunlarin hepsi tek uyari tasir ve cogu esige yakindir; ayni desenle (JSX'i alt bilesene cikarma) hizlica cozulur. AnalyticsShell ve dort analytics sayfasi ayni yukleme/hata/bos durum blogunu tekrarlar — ortak bir bilesene cikarmak bes uyariyi birden kapatabilir.",
+      "findings": [
+        {"file": "src/executions/ExecutionsRoute.tsx", "line": 11, "function": "ExecutionsRoute", "value": 223, "max": 120},
+        {"file": "src/notifications/NotificationDeliveriesPage.tsx", "line": 118, "function": "NotificationDeliveriesPage", "value": 245, "max": 120},
+        {"file": "src/components/AppShell.tsx", "line": 75, "function": "AppShell", "value": 248, "max": 120, "has_tests": true},
+        {"file": "src/components/NotificationBell.tsx", "line": 78, "function": "NotificationBell", "value": 203, "max": 120},
+        {"file": "src/issues/IssuesRoute.tsx", "line": 35, "function": "IssuesRoute", "value": 173, "max": 120},
+        {"file": "src/scores/DatasetTrendPage.tsx", "line": 153, "function": "DatasetTrendPage", "value": 194, "max": 120},
+        {"file": "src/catalog/CatalogPage.tsx", "line": 77, "function": "CatalogPage", "value": 192, "max": 120, "has_tests": true},
+        {"file": "src/analytics/MetadataHealthPage.tsx", "line": 43, "function": "MetadataHealthPage", "value": 162, "max": 120},
+        {"file": "src/analytics/RuleHealthPage.tsx", "line": 47, "function": "RuleHealthPage", "value": 159, "max": 120},
+        {"file": "src/analytics/IssuePerformancePage.tsx", "line": 44, "function": "IssuePerformancePage", "value": 160, "max": 120, "has_tests": true},
+        {"file": "src/components/ScoreContributionPanel.tsx", "line": 57, "function": "ScoreContributionPanel", "value": 158, "max": 120},
+        {"file": "src/governance/GovernanceTasksRoute.tsx", "line": 35, "function": "GovernanceTasksRoute", "value": 157, "max": 120},
+        {"file": "src/notifications/NotificationPreferencesPage.tsx", "line": 76, "function": "NotificationPreferencesPage", "value": 157, "max": 120},
+        {"file": "src/rules/RulesRoute.tsx", "line": 21, "function": "RulesRoute", "value": 149, "max": 120},
+        {"file": "src/notifications/NotificationChannelsPage.tsx", "line": 78, "function": "NotificationChannelsPage", "value": 139, "max": 120},
+        {"file": "src/analytics/AnalyticsShell.tsx", "line": 31, "function": "AnalyticsShell", "value": 137, "max": 120},
+        {"file": "src/dataSources/DataSourcesRoute.tsx", "line": 10, "function": "DataSourcesRoute", "value": 124, "max": 120}
+      ]
+    }
+  ],
+
+  "traps_and_gotchas": [
+    "Bash aracinin calisma dizini cagrilar arasinda korunur. `cd frontend` sonrasi tum goreli yollar frontend/ icinde cozulur.",
+    "frontend/package.json repo kokunde DEGIL, frontend/ altinda; node_modules da orada.",
+    "Bu makinede `python` komutu yok; `/home/yusuf/veri-kalitesi-sistemi/.venv/bin/python` kullan.",
+    "Alt bilesenleri ana bilesenin ICINDE tanimlama — her render'da yeni tip uretilir, React agaci yeniden kurar, state kaybolur ve testler sasirtici sekilde kirilir.",
+    "React.memo veya useCallback eklerken bagimlilik dizilerini dogru doldur; eslint react-hooks/exhaustive-deps kurali acik ve yeni uyari uretirse kapi kirmizi olur.",
+    "Route bilesenleri (`*Route.tsx`) veri yukleme mantigi tasir, sayfa bilesenleri sunum tasir. Bu ayrimi bozma; mantigi Route'tan Page'e tasima.",
+    "App.tsx route seviyesinde lazy yukleme kullaniyor. Yeni dosya olustururken import zincirini buyutup lazy chunk'lari ana pakete cekme — verification_commands.first_load_bytes ile 515471 baytin altinda kaldigini dogrula.",
+    "vitest yuk altinda nadiren timeout kaynakli flake verebilir; kirmizi gorursen once tek basina tekrar calistir."
+  ],
+
+  "reporting": {
+    "per_target_status": ["done", "partial", "blocked", "needs_user_decision"],
+    "require_on_done": "Degistirilen dosyalar, o dosya icin `npx eslint` ciktisi (0 uyari) ve ilgili test kosusunun sonucu.",
+    "final_report": [
+      "Baslangic 59 -> bitis uyari sayisi",
+      "Eklenen test dosyalari ve test sayisi",
+      "Ilk yukleme yuku (bayt) degisimi",
+      "Refactor sirasinda bulunan gercek hatalar (varsa)",
+      "Cozulemeyen hedefler ve gerekcesi"
+    ]
+  }
+}
