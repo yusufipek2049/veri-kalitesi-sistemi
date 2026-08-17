@@ -23,6 +23,7 @@ from sqlalchemy import (
     select,
     update,
 )
+from sqlalchemy.exc import IntegrityError as SqlaIntegrityError
 from sqlalchemy.engine import RowMapping
 
 from veri_kalitesi.audit.models import PreparedAuditEvent
@@ -89,26 +90,29 @@ class PostgreSQLScheduleRepository:
     ) -> Schedule:
         with transactional_session(self._session_factory) as session:
             t = self._tables.schedules
-            session.execute(
-                t.insert().values(
-                    schedule_id=schedule.schedule_id,
-                    name=schedule.name,
-                    schedule_type=schedule.schedule_type.value,
-                    timezone_name=schedule.timezone_name,
-                    rule_version_ids=list(schedule.rule_version_ids),
-                    created_by=schedule.created_by,
-                    local_time=schedule.local_time.isoformat() if schedule.local_time else None,
-                    once_at=schedule.once_at,
-                    day_of_week=schedule.day_of_week,
-                    day_of_month=schedule.day_of_month,
-                    interval_minutes=schedule.interval_minutes,
-                    is_active=1 if schedule.is_active else 0,
-                    next_run_at=schedule.next_run_at,
-                    created_at=schedule.created_at,
-                    last_triggered_at=schedule.last_triggered_at,
+            try:
+                session.execute(
+                    t.insert().values(
+                        schedule_id=schedule.schedule_id,
+                        name=schedule.name,
+                        schedule_type=schedule.schedule_type.value,
+                        timezone_name=schedule.timezone_name,
+                        rule_version_ids=list(schedule.rule_version_ids),
+                        created_by=schedule.created_by,
+                        local_time=schedule.local_time.isoformat() if schedule.local_time else None,
+                        once_at=schedule.once_at,
+                        day_of_week=schedule.day_of_week,
+                        day_of_month=schedule.day_of_month,
+                        interval_minutes=schedule.interval_minutes,
+                        is_active=1 if schedule.is_active else 0,
+                        next_run_at=schedule.next_run_at,
+                        created_at=schedule.created_at,
+                        last_triggered_at=schedule.last_triggered_at,
+                    )
                 )
-            )
-            audit_outbox.stage(audit_event, session=session)
+                audit_outbox.stage(audit_event, session=session)
+            except SqlaIntegrityError as exc:
+                raise ExecutionValidationError("Schedule name must be unique.") from exc
         return schedule
 
     def due(self, now: datetime) -> list[Schedule]:
