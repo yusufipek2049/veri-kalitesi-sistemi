@@ -336,6 +336,18 @@ def _build_governance_recipient_provider(
     return _provider
 
 
+def _build_governance_actor_id_resolver(
+    registry: DevelopmentUserRegistry,
+) -> Callable[[str], str | None]:
+    """Return a resolver that maps actor UUIDs to notification-compatible user IDs."""
+
+    def _resolver(actor_or_user_id: str) -> str | None:
+        user = registry.get_user(actor_or_user_id)
+        return user.user_id if user is not None else None
+
+    return _resolver
+
+
 class DefaultGovernanceApprovalNotificationSink:
     """Governance approval notification sink — builds NotificationEvent and publishes."""
 
@@ -593,6 +605,11 @@ def create_application(
         schedule_writer=PostgreSQLScheduleGovernanceWriter(scheduling_service),
         notification_recipient_provider=(
             _build_governance_recipient_provider(development_user_registry)
+            if development_user_registry is not None
+            else None
+        ),
+        notification_actor_id_resolver=(
+            _build_governance_actor_id_resolver(development_user_registry)
             if development_user_registry is not None
             else None
         ),

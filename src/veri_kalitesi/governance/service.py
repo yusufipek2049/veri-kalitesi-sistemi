@@ -268,6 +268,7 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
         notification_recipient_provider: (
             Callable[[GovernanceApprovalRequest, str], list[str]] | None
         ) = None,
+        notification_actor_id_resolver: Callable[[str], str | None] | None = None,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ) -> None:
         self.repository = repository
@@ -279,6 +280,7 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
         self.schedule_writer = schedule_writer
         self.notification_sink = notification_sink
         self.notification_recipient_provider = notification_recipient_provider
+        self.notification_actor_id_resolver = notification_actor_id_resolver
         self.audit_sink = audit_sink
         self.transactional_audit = transactional_audit
         self.policy = policy
@@ -1366,16 +1368,39 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
         """Resolve the notification recipient for a governance checker.
 
         For dataset-scoped requests, the dataset owner is the natural checker.
-        Falls back to the maker actor id when no better recipient is found.
+        When the stored ``owner_user_id`` is an actor UUID (the system
+        convention set by ``DataSourceService``), the optional
+        ``notification_actor_id_resolver`` maps it back to a notification-
+        compatible ``user_id``.  Falls back to the maker actor id when no
+        better recipient is found.
         """
         if request.scope_type == "DATASET" and request.scope_id:
             try:
                 dataset = self._get_dataset(request.scope_id)
                 if dataset.owner_user_id and dataset.owner_user_id.strip():
-                    return dataset.owner_user_id
+                    owner_id = dataset.owner_user_id.strip()
+                    if self.notification_actor_id_resolver is not None:
+                        resolved = self.notification_actor_id_resolver(owner_id)
+                        if resolved is not None:
+                            return resolved
+                    return owner_id
             except (GovernanceNotFoundError, Exception):
                 pass
         return request.maker_actor_id
+
+    def _resolve_notification_user_id(self, maybe_actor_id: str) -> str:
+        """Map an actor UUID to a user ID when a resolver is configured.
+
+        Returns the original value unchanged when no resolver is available or
+        the lookup yields no match.  This is a safe pass-through: if the value
+        is already a ``user_id`` string the resolver returns it as-is via
+        ``DevelopmentUserRegistry.get_user``.
+        """
+        if self.notification_actor_id_resolver is not None:
+            resolved = self.notification_actor_id_resolver(maybe_actor_id)
+            if resolved is not None:
+                return resolved
+        return maybe_actor_id
 
     def _publish_governance_notification(
         self,
@@ -1392,20 +1417,27 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
         The explicit *recipient_user_id* is always included.  When a
         ``notification_recipient_provider`` is configured its results (e.g.
         governance specialists) are merged in as well.
+
+        Every collected identifier is passed through
+        ``_resolve_notification_user_id`` so that actor UUIDs stored in
+        domain records are mapped to notification-compatible user IDs.
         """
         if self.notification_sink is None:
             return
-        recipients: set[str] = {recipient_user_id}
+        recipients: set[str] = {self._resolve_notification_user_id(recipient_user_id)}
         if self.notification_recipient_provider is not None:
             try:
                 extra = self.notification_recipient_provider(request, event_type)
-                recipients.update(extra)
+                recipients.update(
+                    self._resolve_notification_user_id(uid) for uid in extra
+                )
             except Exception:
                 logger.warning(
                     "Governance notification recipient resolution failed for %s",
                     request.approval_request_id,
                     exc_info=True,
                 )
+        recipients.discard("")
         for user_id in sorted(recipients):
             try:
                 self.notification_sink.publish_governance_approval_event(
