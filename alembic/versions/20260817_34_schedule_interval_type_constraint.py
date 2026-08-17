@@ -4,16 +4,16 @@
 ck_schedules_type CHECK constraint'ini güncellemeyi unuttu.
 Bu migration constraint'i ONCE/DAILY/WEEKLY/MONTHLY/INTERVAL olarak genişletir.
 
-Revision ID: 20260817_31
-Revises: 20260817_30
+Revision ID: 20260817_34
+Revises: 20260817_33
 """
 
 from __future__ import annotations
 
 from alembic import op
 
-revision = "20260817_31"
-down_revision = "20260817_30"
+revision = "20260817_34"
+down_revision = "20260817_33"
 branch_labels = None
 depends_on = None
 
