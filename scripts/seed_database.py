@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import random
 import sys
 from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
@@ -36,8 +37,10 @@ except ImportError:
 from alembic import command as alembic_command
 from alembic.config import Config as AlembicConfig
 
-from veri_kalitesi.audit.models import AuditEvent, AuditEventInput, AuditResult, PreparedAuditEvent
+from veri_kalitesi.api.identity import DevelopmentUser, build_default_development_users
+from veri_kalitesi.audit.models import AuditEventInput, AuditResult, PreparedAuditEvent
 from veri_kalitesi.audit.postgresql_outbox import PostgreSQLTransactionalAudit
+from veri_kalitesi.audit.postgresql_repository import PostgreSQLAuditRepository
 from veri_kalitesi.audit.redaction import AuditRedactor
 from veri_kalitesi.audit.policies import build_default_redaction_policy
 from veri_kalitesi.data_protection.policy import ClassificationCode
@@ -137,39 +140,6 @@ def _hours_ago(n: int) -> datetime:
     return _utc_now() - timedelta(hours=n)
 
 
-class _SeedPreparedAuditRepository:
-    """Seed icin PreparedAuditRepository protocol uygulamasi."""
-
-    def __init__(self) -> None:
-        self._seq = 0
-
-    def append(self, prepared: PreparedAuditEvent) -> AuditEvent:
-        self._seq += 1
-        return AuditEvent(
-            sequence_no=self._seq,
-            event_id=prepared.event_id,
-            event_version=prepared.event_version,
-            occurred_at=prepared.occurred_at,
-            actor_id=prepared.actor_id,
-            actor_type=prepared.actor_type,
-            session_id_digest=prepared.session_id_digest,
-            correlation_id=prepared.correlation_id,
-            action=prepared.action,
-            object_type=prepared.object_type,
-            object_id=prepared.object_id,
-            result=prepared.result,
-            reason_code=prepared.reason_code,
-            old_value_summary=prepared.old_value_summary,
-            new_value_summary=prepared.new_value_summary,
-            old_value_digest=prepared.old_value_digest,
-            new_value_digest=prepared.new_value_digest,
-            redacted_fields=prepared.redacted_fields,
-            redaction_policy_version=prepared.redaction_policy_version,
-            previous_event_hash=uuid4().hex,
-            event_hash=uuid4().hex,
-        )
-
-
 def _make_audit_event(
     audit_outbox: PostgreSQLTransactionalAudit,
     action: str,
@@ -223,12 +193,358 @@ def _make_seed_evidence() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Role dayali denetim gecmisi
+# ---------------------------------------------------------------------------
+
+_AUDIT_HISTORY_SEED = 20260817
+
+# Her rolun yapabilecegi aksiyonlar; uretilen olaylar yalnizca bu
+# katalogdan secilir boylece denetim ekrani rol gercekligini yansitir.
+_ROLE_ACTION_CATALOG: dict[str, tuple[str, ...]] = {
+    "DATA_VIEWER": (
+        "LDAP_AUTHENTICATION",
+        "IDENTITY_SESSION",
+        "REPORT_PREVIEW_VIEWED",
+        "DATASET_PREVIEW_VIEWED",
+    ),
+    "DATA_STEWARD": (
+        "DATA_SOURCE_CONNECTION_TESTED",
+        "QUALITY_RULE_CREATED",
+        "QUALITY_RULE_TESTED",
+        "QUALITY_RULE_APPROVAL_REQUESTED",
+        "GOVERNANCE_APPROVAL_REQUESTED",
+        "EXECUTION_MANUAL_STARTED",
+        "SCHEDULE_CREATED",
+        "DATASET_PREVIEW_VIEWED",
+    ),
+    "DATA_OWNER": (
+        "QUALITY_RULE_APPROVAL_DECIDED",
+        "DATA_SOURCE_ACTIVATION_DECIDED",
+        "GOVERNANCE_APPROVAL_DECIDED",
+        "SCORING_CONFIGURATION_ACTIVATED",
+    ),
+    "DATA_GOVERNANCE_SPECIALIST": (
+        "QUALITY_RULE_ACTIVATED",
+        "SCORING_CONFIGURATION_APPROVAL_REQUESTED",
+        "GOVERNANCE_APPROVAL_APPLIED",
+        "SCHEDULE_ACTIVATED",
+        "SCHEDULE_DEACTIVATED",
+    ),
+    "DATA_ENGINEER": (
+        "DATA_SOURCE_CONNECTION_TESTED",
+        "DATA_SOURCE_METADATA_DISCOVERED",
+        "DATASET_PROFILE_CREATED",
+    ),
+    "AUDIT_VIEWER": (
+        "AUDIT_RECORDS_VIEWED",
+        "AUDIT_EXPORT_COMPLETED",
+    ),
+}
+
+_DATA_SOURCE_ACTIONS = frozenset(
+    {
+        "DATA_SOURCE_CONNECTION_TESTED",
+        "DATA_SOURCE_METADATA_DISCOVERED",
+        "DATA_SOURCE_ACTIVATION_DECIDED",
+    }
+)
+_RULE_ACTIONS = frozenset(
+    {
+        "QUALITY_RULE_CREATED",
+        "QUALITY_RULE_TESTED",
+        "QUALITY_RULE_APPROVAL_REQUESTED",
+        "QUALITY_RULE_APPROVAL_DECIDED",
+        "QUALITY_RULE_ACTIVATED",
+    }
+)
+
+_HISTORY_SUCCESS_REASONS: dict[str, str] = {
+    "LDAP_AUTHENTICATION": "AUTHENTICATED",
+    "IDENTITY_SESSION": "SESSION_CLOSED",
+    "REPORT_PREVIEW_VIEWED": "QUERY_COMPLETED",
+    "DATA_SOURCE_CONNECTION_TESTED": "TEST_SUCCEEDED",
+    "DATA_SOURCE_METADATA_DISCOVERED": "DISCOVERY_COMPLETED",
+    "DATA_SOURCE_ACTIVATION_DECIDED": "APPROVED",
+    "DATASET_PROFILE_CREATED": "PROFILE_COMPLETED",
+    "QUALITY_RULE_CREATED": "CREATED",
+    "QUALITY_RULE_TESTED": "TEST_COMPLETED",
+    "QUALITY_RULE_APPROVAL_REQUESTED": "REQUEST_SUBMITTED",
+    "QUALITY_RULE_APPROVAL_DECIDED": "APPROVED",
+    "QUALITY_RULE_ACTIVATED": "ACTIVATED",
+    "SCORING_CONFIGURATION_APPROVAL_REQUESTED": "REQUEST_SUBMITTED",
+    "GOVERNANCE_APPROVAL_REQUESTED": "REQUEST_SUBMITTED",
+    "GOVERNANCE_APPROVAL_DECIDED": "APPROVED",
+    "GOVERNANCE_APPROVAL_APPLIED": "APPLIED",
+    "AUDIT_RECORDS_VIEWED": "QUERY_COMPLETED",
+    "AUDIT_EXPORT_COMPLETED": "EXPORT_COMPLETED",
+    "DATASET_PREVIEW_VIEWED": "PREVIEW_LOADED",
+    "EXECUTION_MANUAL_STARTED": "MANUAL_START",
+    "SCHEDULE_CREATED": "CREATED",
+    "SCHEDULE_ACTIVATED": "ACTIVATED",
+    "SCHEDULE_DEACTIVATED": "DEACTIVATED",
+    "SCORING_CONFIGURATION_ACTIVATED": "ACTIVATED",
+}
+_HISTORY_FAILURE_REASONS = ("TECHNICAL_ERROR", "TIMEOUT", "SESSION_EXPIRED")
+_HISTORY_DENIED_REASONS = ("MAKER_CHECKER_REQUIRED", "SCOPE_DENIED", "APPROVAL_REQUIRED")
+
+
+class _CorrelationCodeGenerator:
+    """Okunur sirali iliski kodlari uretir: ILISKI-YYYYMMDD-NNNN."""
+
+    def __init__(self, now: datetime) -> None:
+        self._date = now.strftime("%Y%m%d")
+        self._sequence = 0
+
+    def next(self) -> str:
+        self._sequence += 1
+        return f"ILISKI-{self._date}-{self._sequence:04d}"
+
+
+def _history_object(
+    action: str,
+    user: DevelopmentUser,
+    source_list: list[DataSource],
+    rule_list: list[QualityRule],
+    datasets_by_id: dict[str, Dataset],
+    rng: random.Random,
+) -> tuple[str, str | None, str]:
+    """Aksiyona uygun nesne turu / kimligi / okunabilir adi uretir."""
+    if action in _DATA_SOURCE_ACTIONS:
+        source = rng.choice(source_list)
+        return "DataSource", source.data_source_id, source.name
+    if action in _RULE_ACTIONS:
+        rule = rng.choice(rule_list)
+        return "QualityRule", rule.quality_rule_id, f"{rule.code} — {rule.name}"
+    if action == "DATASET_PROFILE_CREATED":
+        rule = rng.choice(rule_list)
+        dataset = datasets_by_id.get(rule.dataset_id)
+        name = dataset.name if dataset is not None else rule.dataset_id
+        return "Dataset", rule.dataset_id, name
+    if action == "DATASET_PREVIEW_VIEWED":
+        dataset = rng.choice(list(datasets_by_id.values()))
+        return "Dataset", dataset.dataset_id, dataset.name
+    if action == "SCORING_CONFIGURATION_APPROVAL_REQUESTED":
+        return "ScoringConfiguration", "scoring-config-v2", "Skorlama Politikası v2"
+    if action.startswith("GOVERNANCE_APPROVAL"):
+        request_id = f"gov-approval-{uuid4()}"
+        return "GovernanceApprovalRequest", request_id, "Yönetişim onay isteği"
+    if action == "REPORT_PREVIEW_VIEWED":
+        return "ReportPreview", None, "Kalite önizleme raporu"
+    if action == "AUDIT_RECORDS_VIEWED":
+        return "AuditLog", None, "Denetim kayıtları"
+    if action == "AUDIT_EXPORT_COMPLETED":
+        return "AuditExport", None, "Denetim kaydı dışa aktarma"
+    return "UserSession", None, user.display_name
+
+
+def _history_event(
+    *,
+    user: DevelopmentUser,
+    action: str,
+    object_type: str,
+    object_id: str | None,
+    object_name: str,
+    result: AuditResult,
+    reason_code: str,
+    occurred_at: datetime,
+    correlation_id: str,
+    extra_new_values: dict | None = None,
+) -> AuditEventInput:
+    new_values: dict = {"object_name": object_name}
+    if extra_new_values:
+        new_values.update(extra_new_values)
+    return AuditEventInput(
+        actor_id=user.actor_id or user.user_id,
+        actor_type="USER",
+        correlation_id=correlation_id,
+        action=action,
+        object_type=object_type,
+        object_id=object_id,
+        result=result,
+        reason_code=reason_code,
+        old_values={},
+        new_values=new_values,
+        occurred_at=occurred_at,
+    )
+
+
+def seed_audit_history(
+    audit_outbox: PostgreSQLTransactionalAudit,
+    sources: dict[str, DataSource],
+    rules: dict[str, tuple[QualityRule, RuleVersion]],
+    datasets: dict[str, Dataset],
+) -> None:
+    """Tum demo kullanicilari icin role-uygun, rastgele denetim olaylari uretir.
+
+    - Her kullanicinin olaylari yalnizca rollerinin izin verdigi aksiyonlardan
+      secilir (``_ROLE_ACTION_CATALOG``).
+    - Iliski kodlari okunur sirali formattadir (ILISKI-YYYYMMDD-NNNN);
+      iliskili akislar ayni kodu paylasir.
+    - Nesne referanslari gercek seed kayitlarina isaret eder; okunabilir ad
+      ``object_name`` alaniyla tasinir.
+    """
+    print("[11/11] Role dayali denetim gecmisi uretiliyor ...")
+    rng = random.Random(_AUDIT_HISTORY_SEED)
+    users = {user.user_id: user for user in build_default_development_users()}
+    source_list = list(sources.values())
+    rule_list = [rule for rule, _version in rules.values()]
+    datasets_by_id = {dataset.dataset_id: dataset for dataset in datasets.values()}
+    codes = _CorrelationCodeGenerator(_utc_now())
+    events: list[AuditEventInput] = []
+
+    def random_result() -> tuple[AuditResult, str]:
+        roll = rng.random()
+        if roll < 0.12:
+            return AuditResult.FAILURE, rng.choice(_HISTORY_FAILURE_REASONS)
+        if roll < 0.20:
+            return AuditResult.DENIED, rng.choice(_HISTORY_DENIED_REASONS)
+        return AuditResult.SUCCESS, ""
+
+    # Her kullanici icin rolune uygun rastgele olaylar
+    for user in users.values():
+        allowed_actions: list[str] = []
+        for role in sorted(user.roles):
+            allowed_actions.extend(_ROLE_ACTION_CATALOG.get(role, ()))
+        allowed_actions = sorted(set(allowed_actions))
+        for _index in range(rng.randint(2, 5)):
+            action = rng.choice(allowed_actions)
+            object_type, object_id, object_name = _history_object(
+                action, user, source_list, rule_list, datasets_by_id, rng
+            )
+            result, failure_reason = random_result()
+            reason_code = (
+                failure_reason
+                if result is not AuditResult.SUCCESS
+                else _HISTORY_SUCCESS_REASONS.get(action, "COMPLETED")
+            )
+            extra: dict | None = None
+            if action == "DATA_SOURCE_CONNECTION_TESTED":
+                extra = {
+                    "succeeded": result is AuditResult.SUCCESS,
+                    "duration_ms": rng.randint(40, 900),
+                }
+            if action == "DATASET_PREVIEW_VIEWED":
+                extra = {
+                    "row_count": rng.randint(10, 200),
+                    "limit": 50,
+                }
+            events.append(
+                _history_event(
+                    user=user,
+                    action=action,
+                    object_type=object_type,
+                    object_id=object_id,
+                    object_name=object_name,
+                    result=result,
+                    reason_code=reason_code,
+                    occurred_at=_utc_now()
+                    - timedelta(days=rng.uniform(0, 5.9), seconds=rng.randrange(86_400)),
+                    correlation_id=codes.next(),
+                    extra_new_values=extra,
+                )
+            )
+
+    # Sinirli steward: kapsami disindaki kaynak icin erisim reddi
+    limited = users["dev-limited-steward"]
+    out_of_scope = sources["mssql_risk"]
+    events.append(
+        _history_event(
+            user=limited,
+            action="DATA_SOURCE_CONNECTION_TESTED",
+            object_type="DataSource",
+            object_id=out_of_scope.data_source_id,
+            object_name=out_of_scope.name,
+            result=AuditResult.DENIED,
+            reason_code="SOURCE_SCOPE_DENIED",
+            occurred_at=_days_ago(2),
+            correlation_id=codes.next(),
+            extra_new_values={"succeeded": False, "duration_ms": 0},
+        )
+    )
+
+    # Ayricalikli kullanici: denetim erisimi politikayi ihlal eder
+    privileged = users["dev-privileged-user"]
+    events.append(
+        _history_event(
+            user=privileged,
+            action="AUDIT_RECORDS_VIEW_AUTHORIZATION",
+            object_type="AuthorizationDecision",
+            object_id=None,
+            object_name="Denetim erişim kararı",
+            result=AuditResult.DENIED,
+            reason_code="PRIVILEGED_CONTEXT_NOT_ALLOWED",
+            occurred_at=_days_ago(1),
+            correlation_id=codes.next(),
+        )
+    )
+
+    # Maker/checker negatif test kullanicisi: ayni aktor ihlali
+    maker_checker = users["dev-data-steward-owner"]
+    events.append(
+        _history_event(
+            user=maker_checker,
+            action="GOVERNANCE_MAKER_CHECKER_VIOLATION",
+            object_type="GovernanceApprovalRequest",
+            object_id=f"gov-approval-{uuid4()}",
+            object_name="Yönetişim onay isteği",
+            result=AuditResult.FAILURE,
+            reason_code="SAME_ACTOR_DECISION",
+            occurred_at=_hours_ago(30),
+            correlation_id=codes.next(),
+        )
+    )
+
+    # Roller arasi kural yasam dongusu: ayni iliski kodunu paylasir
+    lifecycle_code = codes.next()
+    lifecycle_rule = rng.choice(rule_list)
+    lifecycle_base = _utc_now() - timedelta(days=rng.uniform(1.5, 3.0))
+    lifecycle_steps = (
+        (users["dev-data-steward"], "QUALITY_RULE_CREATED", "CREATED", timedelta(0)),
+        (users["dev-data-steward"], "QUALITY_RULE_TESTED", "TEST_COMPLETED", timedelta(hours=1)),
+        (
+            users["dev-data-steward"],
+            "QUALITY_RULE_APPROVAL_REQUESTED",
+            "REQUEST_SUBMITTED",
+            timedelta(hours=2),
+        ),
+        (users["dev-data-owner"], "QUALITY_RULE_APPROVAL_DECIDED", "APPROVED", timedelta(days=1)),
+        (
+            users["dev-data-governance"],
+            "QUALITY_RULE_ACTIVATED",
+            "ACTIVATED",
+            timedelta(days=1, hours=2),
+        ),
+    )
+    for actor, action, reason_code, offset in lifecycle_steps:
+        events.append(
+            _history_event(
+                user=actor,
+                action=action,
+                object_type="QualityRule",
+                object_id=lifecycle_rule.quality_rule_id,
+                object_name=f"{lifecycle_rule.code} — {lifecycle_rule.name}",
+                result=AuditResult.SUCCESS,
+                reason_code=reason_code,
+                occurred_at=lifecycle_base + offset,
+                correlation_id=lifecycle_code,
+            )
+        )
+
+    events.sort(key=lambda event: event.occurred_at)
+    prepared_events = [audit_outbox.prepare(event) for event in events]
+    with transactional_session(audit_outbox.session_factory) as session:
+        for prepared in prepared_events:
+            audit_outbox.stage(prepared, session=session)
+    print(f"      {len(events)} denetim olayi evrelendi ({len(users)} kullanici).")
+
+
+# ---------------------------------------------------------------------------
 # Alembic migration
 # ---------------------------------------------------------------------------
 
 
 def run_alembic_migration(settings: DatabaseSettings) -> None:
-    print(f"[1/10] Alembic migration calistiriliyor ({settings.safe_url()}) ...")
+    print(f"[1/11] Alembic migration calistiriliyor ({settings.safe_url()}) ...")
     cfg = AlembicConfig(str(ALEMBIC_INI))
     cfg.set_main_option("sqlalchemy.url", settings.url.render_as_string(hide_password=False))
     cfg.set_main_option("data_quality_schema", settings.schema)
@@ -247,7 +563,7 @@ def seed_data_sources(
     schema: str,
 ) -> dict[str, DataSource]:
     """3 farkli veri kaynagi ekler."""
-    print("[2/10] Veri kaynaklari ekleniyor ...")
+    print("[2/11] Veri kaynaklari ekleniyor ...")
     sources = {
         "pg_core_banking": DataSource(
             name="Core Banking PostgreSQL",
@@ -325,7 +641,7 @@ def seed_metadata(
     schema: str,
 ) -> dict[str, Dataset]:
     """Her kaynak icin dataset + field + discovery + profile ekler."""
-    print("[3/10] Metadata (dataset, field, discovery, profile) ekleniyor ...")
+    print("[3/11] Metadata (dataset, field, discovery, profile) ekleniyor ...")
     datasets: dict[str, Dataset] = {}
 
     # --- Core Banking datasets ---
@@ -730,7 +1046,7 @@ def seed_rules(
     datasets: dict[str, Dataset],
 ) -> dict[str, tuple[QualityRule, RuleVersion]]:
     """Tum demo datasetlerini kapsayan kalite kurallarini ekler."""
-    print("[4/10] Kalite kurallari ekleniyor ...")
+    print("[4/11] Kalite kurallari ekleniyor ...")
     rules: dict[str, tuple[QualityRule, RuleVersion]] = {}
 
     definitions = [
@@ -931,7 +1247,7 @@ def seed_executions(
     sources: dict[str, DataSource],
 ) -> dict[str, RuleExecution]:
     """3 calistirma (1 basarili, 1 kismi, 1 teknik hata) ekler."""
-    print("[5/10] Kural calistirmalari ekleniyor ...")
+    print("[5/11] Kural calistirmalari ekleniyor ...")
     executions: dict[str, RuleExecution] = {}
 
     rule_version_ids = tuple(v.rule_version_id for _, v in rules.values())
@@ -1093,7 +1409,7 @@ def seed_issues(
     datasets: dict[str, Dataset],
 ) -> dict[str, DataQualityIssue]:
     """3 farkli durumda quality issue ekler."""
-    print("[6/10] Kalite sorunlari ekleniyor ...")
+    print("[6/11] Kalite sorunlari ekleniyor ...")
     issues: dict[str, DataQualityIssue] = {}
 
     issue_defs = [
@@ -1207,7 +1523,7 @@ def seed_jobs(
     audit_outbox: PostgreSQLTransactionalAudit,
 ) -> dict[str, BackgroundJob]:
     """5 farkli durumda is kuyrugu kaydi ekler."""
-    print("[7/10] Is kuyrugu kayitlari ekleniyor ...")
+    print("[7/11] Is kuyrugu kayitlari ekleniyor ...")
     jobs: dict[str, BackgroundJob] = {}
 
     job_defs = [
@@ -1297,7 +1613,7 @@ def seed_reports(
     schedule_repo: PostgreSQLReportScheduleRepository,
 ) -> None:
     """2 rapor + 2 rapor zamani ekler."""
-    print("[8/10] Raporlar ve rapor zamanlari ekleniyor ...")
+    print("[8/11] Raporlar ve rapor zamanlari ekleniyor ...")
 
     # Raporlar
     report_requests = [
@@ -1367,7 +1683,7 @@ def seed_source_usage_policy(
     repo: PostgreSQLSourceUsagePolicyRepository,
 ) -> SourceUsagePolicy:
     """Global kaynak kullanım politikası ekler (worker için gerekli)."""
-    print("[9/10] Kaynak kullanım politikası ekleniyor ...")
+    print("[9/11] Kaynak kullanım politikası ekleniyor ...")
     policy = SourceUsagePolicy(
         policy_id=str(uuid4()),
         policy_version=1,
@@ -1410,7 +1726,7 @@ def seed_raw_quality_data(session_factory, schema: str) -> None:
     """Kuralların gerçekten sorgulayacağı 30 günlük ham kaynak tablolarını doldurur."""
     from sqlalchemy import text
 
-    print("[5/10] Ham kalite kaynak tabloları ve satırları ekleniyor ...")
+    print("[5/11] Ham kalite kaynak tabloları ve satırları ekleniyor ...")
     table_definitions = (
         """CREATE TABLE accounts (
             observed_on DATE NOT NULL, account_id UUID NOT NULL, customer_id UUID NOT NULL,
@@ -1551,7 +1867,7 @@ def seed_quality_scores(
     audit_outbox: PostgreSQLTransactionalAudit,
 ) -> None:
     """Aktif kuralları ham tablolarda çalıştırır ve sonuçlardan skor yayımlar."""
-    print("[10/10] Aktif kurallar ham kaynak tablolarında çalıştırılıyor ...")
+    print("[10/11] Aktif kurallar ham kaynak tablolarında çalıştırılıyor ...")
 
     score_repository = PostgreSQLScoreRepository(session_factory, schema=schema)
     now = _utc_now()
@@ -1668,11 +1984,11 @@ def main() -> int:
 
     # 4. Audit altyapisi
     redactor = AuditRedactor(build_default_redaction_policy())
-    prepared_repo = _SeedPreparedAuditRepository()
+    audit_repository = PostgreSQLAuditRepository(session_factory, schema=schema)
     audit_outbox = PostgreSQLTransactionalAudit(
         session_factory=session_factory,
         redactor=redactor,
-        repository=prepared_repo,
+        repository=audit_repository,
         policy_version="SEED_V1",
         schema=schema,
     )
@@ -1711,10 +2027,16 @@ def main() -> int:
         ds_repo,
         audit_outbox,
     )
+    seed_audit_history(audit_outbox, sources, rules, datasets)
 
     # 7. Publish pending audit events
-    outbox_status = audit_outbox.publish_pending()
-    print(f"\nAudit outbox: {outbox_status.published_count} event publish edildi.")
+    total_published = 0
+    for _attempt in range(50):
+        outbox_status = audit_outbox.publish_pending()
+        total_published += outbox_status.published_count
+        if outbox_status.pending_count == 0 or outbox_status.failed_count > 0:
+            break
+    print(f"\nAudit outbox: {total_published} event publish edildi.")
 
     print("\n" + "=" * 60)
     print("  Seed basariyla tamamlandi!")

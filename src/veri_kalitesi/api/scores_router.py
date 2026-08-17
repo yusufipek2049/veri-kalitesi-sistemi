@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Annotated, Protocol
+from typing import Annotated, Any, Protocol
 
 from fastapi import FastAPI, Query as FastApiQuery, Request
 
@@ -92,6 +92,64 @@ def _resolve_scope_display(
         return _ScopeDisplayInfo(display_name=None, parent_name=None)
 
     return _ScopeDisplayInfo(display_name=None, parent_name=None)
+
+
+def _resolve_component_name(
+    component: dict[str, Any],
+    *,
+    catalog_reader: _CatalogReader | None,
+    rule_version_reader: _RuleVersionReader | None,
+) -> str | None:
+    """Katkı bileşeninin referansını insan-okunur isme çözümler."""
+    component_type = component.get("component_type")
+    try:
+        if component_type == "RULE" and rule_version_reader is not None:
+            rule_version_id = component.get("rule_version_id")
+            if isinstance(rule_version_id, str) and rule_version_id:
+                version = rule_version_reader.get_version(rule_version_id)
+                definition = version.definition  # type: ignore[attr-defined]
+                name = definition.get("name") or definition.get("code")
+                if isinstance(name, str) and name:
+                    return name
+        elif component_type == "DATASET" and catalog_reader is not None:
+            dataset_id = component.get("dataset_id")
+            if isinstance(dataset_id, str) and dataset_id:
+                dataset = catalog_reader.get_dataset(dataset_id)
+                return f"{dataset.namespace}.{dataset.name}"  # type: ignore[attr-defined]
+        elif component_type == "SOURCE" and catalog_reader is not None:
+            data_source_id = component.get("data_source_id")
+            if isinstance(data_source_id, str) and data_source_id:
+                source = catalog_reader.get_data_source(data_source_id)
+                return source.name  # type: ignore[attr-defined,no-any-return]
+    except Exception:
+        return None
+    return None
+
+
+def _enrich_contribution_graph(
+    graph: dict[str, Any],
+    *,
+    catalog_reader: _CatalogReader | None,
+    rule_version_reader: _RuleVersionReader | None,
+) -> dict[str, Any]:
+    """Katkı grafiği bileşenlerine insan-okunur isim ekler."""
+    enriched_graph = dict(graph)
+    components = graph.get("components")
+    if isinstance(components, list):
+        enriched_components: list[Any] = []
+        for component in components:
+            if isinstance(component, dict):
+                enriched_component = dict(component)
+                enriched_component["component_name"] = _resolve_component_name(
+                    component,
+                    catalog_reader=catalog_reader,
+                    rule_version_reader=rule_version_reader,
+                )
+                enriched_components.append(enriched_component)
+            else:
+                enriched_components.append(component)
+        enriched_graph["components"] = enriched_components
+    return enriched_graph
 
 
 def _apply_scope_display(
@@ -328,7 +386,11 @@ def register_scores_routes(
                 thaw(detail.score.calculation_details) if detail.score.calculation_details else None
             ),
             contribution_graph=(
-                dict(detail.contribution_graph.graph)
+                _enrich_contribution_graph(
+                    dict(detail.contribution_graph.graph),
+                    catalog_reader=catalog_reader,
+                    rule_version_reader=rule_version_reader,
+                )
                 if detail.contribution_graph is not None
                 else None
             ),

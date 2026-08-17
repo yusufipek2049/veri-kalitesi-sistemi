@@ -35,6 +35,7 @@ from veri_kalitesi.data_sources.models import (
     ProfileMethod,
     ProfileStatus,
     SourceType,
+    TimelinessNature,
 )
 
 
@@ -118,6 +119,9 @@ def row_to_dataset(row: RowMapping) -> Dataset:
         criticality=Criticality(row["criticality"]),
         owner_user_id=row["owner_user_id"],
         estimated_row_count=row["estimated_row_count"],
+        timeliness_nature=(
+            TimelinessNature(row["timeliness_nature"]) if row.get("timeliness_nature") else None
+        ),
         status=CatalogItemStatus(row.get("status", "ACTIVE") or "ACTIVE"),
         first_seen_discovery_id=row.get("first_seen_discovery_id"),
         last_seen_discovery_id=row.get("last_seen_discovery_id"),

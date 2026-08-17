@@ -93,13 +93,13 @@ export function RuleHealthPage() {
     <AnalyticsShell activeTab="rule-health" state={state} correlationId={correlationId}>
       {state === "loading" && (
         <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
-          <CircularProgress aria-label="Yukleniyor" />
+          <CircularProgress aria-label="Yükleniyor" />
         </Box>
       )}
 
       {state === "error" && (
         <Alert severity="error">
-          <Typography>Kural sagligi verisi yuklenemedi.</Typography>
+          <Typography>Kural sağlığı verisi yüklenemedi.</Typography>
           {correlationId && (
             <Typography variant="caption">Correlation: {correlationId}</Typography>
           )}
@@ -108,7 +108,7 @@ export function RuleHealthPage() {
 
       {state === "empty" && (
         <Alert severity="info">
-          <Typography>Gosterilecek kural sagligi verisi bulunamadi.</Typography>
+          <Typography>Gösterilecek kural sağlığı verisi bulunamadı.</Typography>
         </Alert>
       )}
 
@@ -117,12 +117,12 @@ export function RuleHealthPage() {
           {/* KPI cards */}
           <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap", gap: 1 }}>
             <KpiCard
-              title="Dataset Kapsami"
+              title="Dataset Kapsamı"
               value={formatRatio(summary.datasetCoverage)}
               tooltip={ratioTooltip(summary.datasetCoverage)}
             />
             <KpiCard
-              title="Alan Kapsami"
+              title="Alan Kapsamı"
               value={formatRatio(summary.fieldCoverage)}
               tooltip={ratioTooltip(summary.fieldCoverage)}
             />
@@ -132,11 +132,11 @@ export function RuleHealthPage() {
               tooltip={ratioTooltip(summary.criticalCoverage)}
             />
             <KpiCard
-              title="Hic Calismamis"
+              title="Hiç Çalışmamış"
               value={String(summary.neverExecutedCount)}
             />
             <KpiCard
-              title="Dalgali Kurallar"
+              title="Dalgalı Kurallar"
               value={String(summary.flakyRuleCount)}
             />
           </Stack>
@@ -145,7 +145,7 @@ export function RuleHealthPage() {
           <Card>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
-                Guvenilmez / Dalgali Kurallar
+                Güvenilmez / Dalgalı Kurallar
               </Typography>
               <Box sx={{ overflowX: "auto" }}>
                 <Table size="small" aria-label="Riskli kurallar tablosu">
@@ -164,9 +164,7 @@ export function RuleHealthPage() {
                     {data?.items.slice(0, 50).map((item, idx) => (
                       <TableRow key={String(item.quality_rule_id ?? idx)}>
                         <TableCell>
-                          <Link to={`/rules/${String(item.quality_rule_id)}`}>
-                            {String(item.code ?? "")}
-                          </Link>
+                          {String(item.code ?? "")}
                         </TableCell>
                         <TableCell>
                           {item.dataset_id ? (

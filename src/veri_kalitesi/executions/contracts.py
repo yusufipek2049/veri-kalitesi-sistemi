@@ -58,6 +58,10 @@ class ExecutionRepository(Protocol[AuditRepoT]):
 
     def list_results(self, execution_id: str) -> list[RuleExecutionResult]: ...
 
+    def list_latest_results_for_rule_versions(
+        self, rule_version_ids: frozenset[str]
+    ) -> dict[str, RuleExecutionResult]: ...
+
     # --- Write methods (with audit) ---
 
     def create_or_get(

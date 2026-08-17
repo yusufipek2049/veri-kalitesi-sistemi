@@ -81,6 +81,46 @@ describe("çalıştırma başlatma API istemcisi", () => {
     });
     expect(result.execution_id).toBe("e-new");
   });
+
+  it("yönetişim onayı gerektiren 409 yanıtını governance_approval_required olarak ayrıştırır", async () => {
+    const problem = JSON.stringify({
+      code: "EXECUTION_GOVERNANCE_APPROVAL_REQUIRED",
+      governance_request_type: "EXECUTION_MANUAL_START",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(problem, { status: 409, headers: { "X-Correlation-ID": "c-gov" } }),
+      ),
+    );
+    await expect(
+      startExecution({
+        rule_version_ids: ["rv-critical"],
+        source_ids: [],
+        idempotency_key: "idem-gov",
+        execution_mode: "OFFICIAL",
+      }),
+    ).rejects.toEqual(
+      new ExecutionApiError("governance_approval_required", "c-gov", "EXECUTION_MANUAL_START"),
+    );
+  });
+
+  it("gövdesiz 409 yanıtını jenerik conflict olarak sınıflandırır", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(null, { status: 409, headers: { "X-Correlation-ID": "c-plain" } }),
+      ),
+    );
+    await expect(
+      startExecution({
+        rule_version_ids: ["rv-1"],
+        source_ids: [],
+        idempotency_key: "idem-plain",
+        execution_mode: "OFFICIAL",
+      }),
+    ).rejects.toEqual(new ExecutionApiError("conflict", "c-plain"));
+  });
 });
 
 describe("çalıştırma iptal API istemcisi", () => {
@@ -96,5 +136,21 @@ describe("çalıştırma iptal API istemcisi", () => {
     const result = await cancelExecution("e-cancel", { reason: "user request" });
     expect(result.execution_id).toBe("e-cancel");
     expect(result.status).toBe("CANCELLED");
+  });
+
+  it("kritik iptal 409 yanıtını governance_approval_required olarak ayrıştırır", async () => {
+    const problem = JSON.stringify({
+      code: "EXECUTION_GOVERNANCE_APPROVAL_REQUIRED",
+      governance_request_type: "EXECUTION_CANCEL",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(problem, { status: 409, headers: { "X-Correlation-ID": "c-gov-cancel" } }),
+      ),
+    );
+    await expect(cancelExecution("e-critical", { reason: "vazgeçildi" })).rejects.toEqual(
+      new ExecutionApiError("governance_approval_required", "c-gov-cancel", "EXECUTION_CANCEL"),
+    );
   });
 });

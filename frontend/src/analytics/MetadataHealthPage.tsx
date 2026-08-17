@@ -84,44 +84,44 @@ export function MetadataHealthPage() {
     <AnalyticsShell activeTab="metadata-health" state={state} correlationId={correlationId}>
       {state === "loading" && (
         <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
-          <CircularProgress aria-label="Yukleniyor" />
+          <CircularProgress aria-label="Yükleniyor" />
         </Box>
       )}
       {state === "error" && (
         <Alert severity="error">
-          <Typography>Metadata sagligi verisi yuklenemedi.</Typography>
+          <Typography>Metadata sağlığı verisi yüklenemedi.</Typography>
         </Alert>
       )}
       {state === "empty" && (
         <Alert severity="info">
-          <Typography>Metadata acigi bulunamadi.</Typography>
+          <Typography>Metadata açığı bulunamadı.</Typography>
         </Alert>
       )}
       {state === "normal" && summary && (
         <Stack spacing={3}>
           <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap", gap: 1 }}>
             <KpiCard
-              title="Sahiplik Tamligi"
+              title="Sahiplik Tamlığı"
               value={formatRatio(summary.ownershipCompleteness)}
               tooltip={ratioTooltip(summary.ownershipCompleteness)}
             />
             <KpiCard
-              title="Siniflandirma Tamligi"
+              title="Sınıflandırma Tamlığı"
               value={formatRatio(summary.classificationCompleteness)}
               tooltip={ratioTooltip(summary.classificationCompleteness)}
             />
             <KpiCard
-              title="Hassas Isaretleme"
+              title="Hassas İşaretleme"
               value={formatRatio(summary.sensitiveMarkingCompleteness)}
               tooltip={ratioTooltip(summary.sensitiveMarkingCompleteness)}
             />
             <KpiCard
-              title="Politika Guncelligi"
+              title="Politika Güncelliği"
               value={formatRatio(summary.policyCurrency)}
               tooltip={ratioTooltip(summary.policyCurrency)}
             />
             <KpiCard title="Eski Dataset" value={String(summary.staleDatasetCount)} />
-            <KpiCard title="Kritik Acik" value={String(summary.criticalGapCount)} />
+            <KpiCard title="Kritik Açık" value={String(summary.criticalGapCount)} />
           </Stack>
 
           {/* Classification breakdown */}
@@ -129,7 +129,7 @@ export function MetadataHealthPage() {
             <Card>
               <CardContent>
                 <Typography variant="h6" sx={{ mb: 1, fontWeight: 700 }}>
-                  Siniflandirma Dagilimi
+                  Sınıflandırma Dağılımı
                 </Typography>
                 <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 0.5 }}>
                   {Object.entries(data.breakdowns.by_classification as Record<string, number>).map(
@@ -146,18 +146,18 @@ export function MetadataHealthPage() {
           <Card>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
-                Kritik Aciklar
+                Kritik Açıklar
               </Typography>
               <Box sx={{ overflowX: "auto" }}>
-                <Table size="small" aria-label="Kritik metadata aciklari tablosu">
+                <Table size="small" aria-label="Kritik metadata açıkları tablosu">
                   <TableHead>
                     <TableRow>
                       <TableCell>Tip</TableCell>
                       <TableCell>Ad</TableCell>
                       <TableCell>Kritiklik</TableCell>
-                      <TableCell>Siniflandirma</TableCell>
-                      <TableCell>Acik Kodu</TableCell>
-                      <TableCell>Islem</TableCell>
+                      <TableCell>Sınıflandırma</TableCell>
+                      <TableCell>Açık Kodu</TableCell>
+                      <TableCell>İşlem</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>

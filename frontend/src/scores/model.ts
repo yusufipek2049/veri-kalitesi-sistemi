@@ -43,6 +43,7 @@ export interface ScoreDetail {
 export interface ContributionGraphComponent {
   component_ref: string;
   component_type: "RULE" | "DATASET" | "DIMENSION" | "SOURCE" | "UNKNOWN";
+  component_name?: string | null;
   included: boolean;
   weight: string | null;
   contribution: string | null;

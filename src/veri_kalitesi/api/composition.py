@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Callable
+from typing import Any, Callable
 
 from sqlalchemy import inspect, text
 
@@ -27,10 +27,13 @@ from veri_kalitesi.api.service_groups import (
     DataSourceServices,
     ExecutionServices,
     GovernanceServices,
+    ScoringConfigurationServices,
+    SqlTemplateServices,
     IssueServices,
     NotificationServices,
     ReportingServices,
     RuleServices,
+    ScheduleServices,
 )
 from veri_kalitesi.api.postgresql_metadata import PostgreSQLMetadataCommandService
 from veri_kalitesi.api.rule_commands import RuleCommandAdapter
@@ -58,12 +61,17 @@ from veri_kalitesi.data_sources.models import DataSourceCommandPolicy
 from veri_kalitesi.data_sources.postgresql import PostgreSQLConnector
 from veri_kalitesi.data_sources.postgresql_driver import SQLAlchemyPostgreSQLDriver
 from veri_kalitesi.data_sources.postgresql_repository import PostgreSQLDataSourceRepository
+from veri_kalitesi.data_sources.preview import DatasetPreviewService
 from veri_kalitesi.data_sources.query import DataSourceQueryService
 from veri_kalitesi.data_sources.secrets import SecretResolver
 from veri_kalitesi.data_sources.service import DataSourceService
 from veri_kalitesi.data_sources.catalog import CatalogQueryService
 from veri_kalitesi.executions.postgresql_repository import PostgreSQLExecutionRepository
+from veri_kalitesi.executions.postgresql_scheduling import PostgreSQLScheduleRepository
 from veri_kalitesi.executions.query import ExecutionQueryService
+from veri_kalitesi.executions.scheduling import SchedulingService
+from veri_kalitesi.executions.service import validate_rule_versions_for_catalogs
+from veri_kalitesi.executions.errors import ExecutionValidationError
 from veri_kalitesi.executions.strategy_engine import ExecutionStrategyEngine
 from veri_kalitesi.executions.governance import ExecutionCriticalityGuard
 from veri_kalitesi.identity import (
@@ -98,9 +106,12 @@ from veri_kalitesi.governance import (
     GovernanceApprovalCommandService,
     GovernanceApprovalPolicy,
     GovernanceApprovalQueryService,
+    GovernanceApprovalRequest,
     PostgreSQLDatasetOwnershipWriter,
+    PostgreSQLDiffGovernanceWriter,
     PostgreSQLGovernanceApprovalRepository,
     PostgreSQLMetadataGovernanceWriter,
+    PostgreSQLScheduleGovernanceWriter,
 )
 from veri_kalitesi.rules import (
     PostgreSQLRuleRepository,
@@ -113,15 +124,43 @@ from veri_kalitesi.scoring.postgresql_contributions import (
     PostgreSQLContributionGraphRepository,
 )
 from veri_kalitesi.scoring.postgresql_repository import PostgreSQLScoreRepository
+from veri_kalitesi.scoring.models import ScoringApprovalPolicy
 from veri_kalitesi.scoring.query import ScoreQueryService
+from veri_kalitesi.scoring.service import ScoringConfigurationService
 from veri_kalitesi.dashboard.service import DashboardQueryService
 from veri_kalitesi.dashboard.postgresql_insights import PostgreSQLInsightsReader
 from veri_kalitesi.dashboard.rule_health import RuleHealthQueryService
 from veri_kalitesi.dashboard.metadata_health import MetadataHealthQueryService
 from veri_kalitesi.dashboard.issue_performance import IssuePerformanceQueryService
 from veri_kalitesi.dashboard.scoring_policy_impact import ScoringPolicyImpactQueryService
+from veri_kalitesi.sql_templates import (
+    PostgreSQLSqlTemplateRepository,
+    SqlTemplateService,
+)
 
-CURRENT_MIGRATION_HEAD = "20260816_27"
+CURRENT_MIGRATION_HEAD = "20260817_33"
+
+
+class ApiScheduleExecutionBridge:
+    """API katmanı zamanlayıcı köprüsü: yalnız kural sürüm doğrulaması yapar.
+
+    Tetikleme (start_scheduled) worker sürecinde kalır; API üzerinden
+    çağrılırsa fail-closed reddedilir.
+    """
+
+    def __init__(self, rule_catalog: Any, source_catalog: Any) -> None:
+        self._rule_catalog = rule_catalog
+        self._source_catalog = source_catalog
+
+    def validate_rule_versions(self, rule_version_ids: tuple[str, ...]) -> tuple[str, ...]:
+        return validate_rule_versions_for_catalogs(
+            self._rule_catalog, self._source_catalog, rule_version_ids
+        )
+
+    def start_scheduled(self, **kwargs: Any) -> Any:
+        raise ExecutionValidationError("Scheduled triggering runs in the worker process.")
+
+
 # Migration zincirinin head'i tarafindan olusturulan tam tablo envanteri.
 # tests/unit/test_migration_preflight.py bu iki sabiti alembic/versions ile
 # karsilastirir; yeni migration eklendiginde ikisi birlikte guncellenmelidir.
@@ -173,6 +212,7 @@ REQUIRED_TABLES = frozenset(
         "scoring_configuration_approvals",
         "scoring_configurations",
         "source_usage_policies",
+        "sql_query_templates",
         "workers",
     }
 )
@@ -270,6 +310,91 @@ class DefaultRuleApprovalNotificationSink:
             payload={
                 "rule_code": rule_code,
                 "rule_name": rule_name,
+                "recipient_user_id": recipient_user_id,
+                **payload,
+            },
+            event_id=str(uuid4()),
+        )
+        if hasattr(self._publisher, "create_for_event"):
+            self._publisher.create_for_event(event, actor_ctx)
+
+
+def _build_governance_recipient_provider(
+    registry: DevelopmentUserRegistry,
+) -> Callable[[GovernanceApprovalRequest, str], list[str]]:
+    """Return a provider that yields governance specialist user IDs."""
+
+    def _provider(
+        request: GovernanceApprovalRequest, event_type: str
+    ) -> list[str]:
+        return [
+            user.user_id
+            for user in registry.list_users()
+            if "DATA_GOVERNANCE_SPECIALIST" in user.roles
+        ]
+
+    return _provider
+
+
+class DefaultGovernanceApprovalNotificationSink:
+    """Governance approval notification sink — builds NotificationEvent and publishes."""
+
+    def __init__(
+        self,
+        notification_publisher: object,
+        actor_context_provider: Callable[[], ActorContext] | None,
+    ) -> None:
+        self._publisher = notification_publisher
+        self._actor_context_provider = actor_context_provider
+
+    def publish_governance_approval_event(
+        self,
+        *,
+        event_type: str,
+        approval_request_id: str,
+        request_type: str,
+        object_type: str,
+        object_id: str,
+        object_name: str,
+        scope_type: str,
+        scope_id: str,
+        maker_actor_id: str,
+        recipient_user_id: str,
+        actor_context: ActorContext | None,
+        correlation_id: str,
+        payload: dict,
+    ) -> None:
+        from uuid import uuid4
+        from datetime import datetime, timezone
+
+        actor_ctx = actor_context or (
+            self._actor_context_provider() if self._actor_context_provider else None
+        )
+        try:
+            notif_event_type = NotificationEventType(event_type)
+        except ValueError:
+            return
+        try:
+            notif_scope_type = NotificationScopeType(scope_type)
+        except ValueError:
+            notif_scope_type = NotificationScopeType.GOVERNANCE
+        event = NotificationEvent(
+            event_type=notif_event_type,
+            scope_type=notif_scope_type,
+            scope_id=scope_id or object_id,
+            deduplication_key=(
+                f"governance-approval-{event_type}-{approval_request_id}"
+            ),
+            occurred_at=datetime.now(timezone.utc),
+            correlation_id=correlation_id,
+            source_ref=f"{object_type}:{object_id}",
+            payload={
+                "approval_request_id": approval_request_id,
+                "request_type": request_type,
+                "object_type": object_type,
+                "object_id": object_id,
+                "object_name": object_name,
+                "maker_actor_id": maker_actor_id,
                 "recipient_user_id": recipient_user_id,
                 **payload,
             },
@@ -386,14 +511,20 @@ def create_application(
         authorization,
         command_policy,
     )
+    postgresql_connector = PostgreSQLConnector(SQLAlchemyPostgreSQLDriver())
     service = DataSourceService(
         repository,
-        ConnectorRegistry([PostgreSQLConnector(SQLAlchemyPostgreSQLDriver())]),
+        ConnectorRegistry([postgresql_connector]),
         secret_resolver,
         audit_sink=audit_service,
         transactional_audit=transactional_audit,
         activation_policy=command_policy,
         enforce_command_authorization=True,
+    )
+    dataset_preview_service = DatasetPreviewService(
+        reader=repository,
+        connector=postgresql_connector,
+        secret_resolver=secret_resolver,
     )
     command_adapter = DataSourceCommandAdapter(service, query_service, audit_service)
     rule_query_service = RuleQueryService(rule_repository, authorization)
@@ -441,6 +572,14 @@ def create_application(
     governance_catalog = _GovernanceCompositeCatalog(
         repository, rule_repository, execution_repository, job_queue_repository
     )
+    schedule_repository = PostgreSQLScheduleRepository(
+        session_factory, schema=settings.database.schema
+    )
+    scheduling_service = SchedulingService(
+        schedule_repository,
+        ApiScheduleExecutionBridge(rule_repository, repository),
+        transactional_audit=transactional_audit,
+    )
     governance_command_service = GovernanceApprovalCommandService(
         governance_approval_repository,
         governance_catalog,
@@ -449,7 +588,14 @@ def create_application(
         transactional_audit=transactional_audit,
         policy=governance_policy,
         metadata_writer=PostgreSQLMetadataGovernanceWriter(repository),
+        diff_writer=None,  # wired after metadata command service
         execution_writer=None,  # wired after execution services
+        schedule_writer=PostgreSQLScheduleGovernanceWriter(scheduling_service),
+        notification_recipient_provider=(
+            _build_governance_recipient_provider(development_user_registry)
+            if development_user_registry is not None
+            else None
+        ),
     )
     governance_query_service = GovernanceApprovalQueryService(
         rule_repository,
@@ -457,6 +603,10 @@ def create_application(
         authorization,
         center_reader=governance_approval_repository,
         center_policy=governance_policy,
+    )
+    sql_template_service = SqlTemplateService(
+        PostgreSQLSqlTemplateRepository(session_factory),
+        clock=lambda: datetime.now(timezone.utc),
     )
     issue_query_service = IssueQueryService(issue_repository, authorization)
     execution_query_service = ExecutionQueryService(execution_repository, authorization)
@@ -586,6 +736,16 @@ def create_application(
             notification_sink=rule_approval_notification_sink,
         )
         rule_command_adapter = RuleCommandAdapter(rule_service)
+        # Wire governance notification sink
+        governance_approval_notification_sink = DefaultGovernanceApprovalNotificationSink(
+            notification_publisher=notification_publisher,
+            actor_context_provider=(
+                phase_b_providers.issue_notification_actor_context_provider
+                if phase_b_providers is not None
+                else None
+            ),
+        )
+        governance_command_service.notification_sink = governance_approval_notification_sink
     audit_query_service = AuditQueryService(
         audit_repository,
         audit_service,
@@ -610,6 +770,8 @@ def create_application(
         job_enqueuer=job_queue_repository,
         command_policy=command_policy,
     )
+    # Wire metadata diff writer into governance command service
+    governance_command_service.diff_writer = PostgreSQLDiffGovernanceWriter(service, repository)
     catalog_query_service = CatalogQueryService(reader=repository)
 
     # DS-06: Skor sorgulama bileşenleri
@@ -625,6 +787,16 @@ def create_application(
         score_reader=score_repository,
         authorization_service=authorization,
         clock=lambda: datetime.now(timezone.utc),
+    )
+    scoring_configuration_service = ScoringConfigurationService(
+        score_repository,
+        transactional_audit=transactional_audit,
+        approval_policy=ScoringApprovalPolicy(
+            version="SCORING_APPROVAL_POLICY_V1",
+            actor_policy_version=settings.actor_policy_version,
+            maker_roles=frozenset({"DATA_STEWARD", "DATA_GOVERNANCE_SPECIALIST"}),
+            checker_roles=frozenset({"DATA_OWNER"}),
+        ),
     )
 
     # Analytics insights reader and services
@@ -743,12 +915,13 @@ def create_application(
             job_queue=job_queue_repository,
             governance_guard=execution_governance_guard,
         ),
-        audit=AuditServices(query=audit_query_service),
+        audit=AuditServices(query=audit_query_service, command=audit_service),
         catalog=CatalogServices(
             metadata_command=metadata_command_service,
             query=catalog_query_service,
             score_query=score_query_service,
             dashboard_query=dashboard_query_service,
+            preview=dataset_preview_service,
         ),
         notifications=NotificationServices(
             query=notification_query_service,
@@ -759,12 +932,18 @@ def create_application(
             query=governance_query_service,
             command=governance_command_service,
         ),
+        scoring_configurations=ScoringConfigurationServices(
+            command=scoring_configuration_service,
+            reader=score_repository,
+        ),
+        sql_templates=SqlTemplateServices(service=sql_template_service),
         analytics=AnalyticsServices(
             rule_health=rule_health_service,
             metadata_health=metadata_health_service,
             issue_performance=issue_performance_service,
             scoring_policy_impact=scoring_policy_impact_service,
         ),
+        schedules=ScheduleServices(scheduling=scheduling_service),
     )
     app.state.application_settings = settings
     app.state.session_factory = session_factory
@@ -772,6 +951,8 @@ def create_application(
     app.state.rule_repository = rule_repository
     app.state.issue_repository = issue_repository
     app.state.execution_repository = execution_repository
+    app.state.scheduling_service = scheduling_service
+    app.state.scheduling_service = scheduling_service
     app.state.issue_service = issue_service
     app.state.rule_command_adapter = rule_command_adapter
     app.state.audit_repository = audit_repository

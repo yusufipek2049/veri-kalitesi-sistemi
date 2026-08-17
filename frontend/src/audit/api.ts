@@ -128,7 +128,6 @@ function auditQueryParams(
   }
   if (filters.actorId.trim()) params.set("actor_id", filters.actorId.trim());
   if (filters.action.trim()) params.set("action", filters.action.trim());
-  if (filters.objectType.trim()) params.set("object_type", filters.objectType.trim());
   if (filters.objectId.trim()) params.set("object_id", filters.objectId.trim());
   if (filters.result !== "ALL") params.set("result", filters.result);
   if (includeCorrelation && filters.correlationId.trim()) {

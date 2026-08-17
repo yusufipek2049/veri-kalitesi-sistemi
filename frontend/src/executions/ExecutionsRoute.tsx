@@ -5,6 +5,16 @@ import { ExecutionsPage, type ExecutionRuleOption, type ExecutionSourceOption } 
 import { fetchRules, createRule } from "../rules/api";
 import { fetchDataSources } from "../dataSources/api";
 import { listCatalogDatasets } from "../catalog/api";
+import { createGovernanceApproval, GovernanceApiError } from "../governance/api";
+import { canCreateGovernanceRequest } from "../governance/GovernanceTasksRoute";
+import {
+  GovernanceApprovalDialog,
+  governancePromptForCancel,
+  governancePromptForStart,
+  type GovernancePrompt,
+  type GovernancePromptResult,
+} from "./GovernanceApprovalDialog";
+import { useDevelopmentUser } from "../development/UserContext";
 
 const executionStates: ExecutionState[] = ["normal", "loading", "empty", "error", "unauthorized", "long-content"];
 
@@ -22,6 +32,11 @@ export function ExecutionsRoute() {
   const [executionDetail, setExecutionDetail] = useState<ExecutionDetail | null>(null);
   const [ruleOptions, setRuleOptions] = useState<ExecutionRuleOption[]>([]);
   const [sourceOptions, setSourceOptions] = useState<ExecutionSourceOption[]>([]);
+  const [governancePrompt, setGovernancePrompt] = useState<GovernancePrompt | null>(null);
+  const [governanceSubmitting, setGovernanceSubmitting] = useState(false);
+  const [governanceResult, setGovernanceResult] = useState<GovernancePromptResult | null>(null);
+  const { currentUser } = useDevelopmentUser();
+  const canCreateGovernance = canCreateGovernanceRequest(currentUser?.roles);
 
   // Read filter params from URL
   const urlParams = new URLSearchParams(window.location.search);
@@ -150,7 +165,13 @@ export function ExecutionsRoute() {
       await startExecution({ rule_version_ids: ruleVersionIds, source_ids: sourceIds, idempotency_key: idempotencyKey, execution_mode: "OFFICIAL" });
       await load();
     } catch (error) {
-      if (error instanceof ExecutionApiError) setCorrelationId(error.correlationId);
+      if (error instanceof ExecutionApiError) {
+        setCorrelationId(error.correlationId);
+        if (error.kind === "governance_approval_required") {
+          setGovernanceResult(null);
+          setGovernancePrompt(governancePromptForStart(ruleVersionIds));
+        }
+      }
     } finally {
       setStarting(false);
     }
@@ -170,7 +191,7 @@ export function ExecutionsRoute() {
         threshold: 100,
         weight: 1,
         criticality: "MEDIUM",
-        owner_user_id: "adhoc-user",
+        owner_user_id: currentUser?.user_id ?? "adhoc-user",
         parameters: {
           sql,
           timeout_seconds: timeoutSeconds,
@@ -193,7 +214,7 @@ export function ExecutionsRoute() {
     } finally {
       setAdhocSqlLoading(false);
     }
-  }, [load]);
+  }, [load, currentUser]);
 
   const handleCancel = useCallback(async (executionId: string, reason: string) => {
     setCancelling(true);
@@ -201,11 +222,45 @@ export function ExecutionsRoute() {
       await cancelExecution(executionId, { reason });
       await load();
     } catch (error) {
-      if (error instanceof ExecutionApiError) setCorrelationId(error.correlationId);
+      if (error instanceof ExecutionApiError) {
+        setCorrelationId(error.correlationId);
+        if (error.kind === "governance_approval_required") {
+          setGovernanceResult(null);
+          setGovernancePrompt(governancePromptForCancel(executionId, reason));
+        }
+      }
     } finally {
       setCancelling(false);
     }
   }, [load]);
+
+  const handleSubmitGovernance = useCallback(async () => {
+    if (!governancePrompt) return;
+    setGovernanceSubmitting(true);
+    try {
+      await createGovernanceApproval({
+        request_type: governancePrompt.requestType,
+        object_id: governancePrompt.objectId,
+        reason_code: governancePrompt.reasonCode,
+        proposed_changes: governancePrompt.proposedChanges,
+      });
+      setGovernanceResult({
+        ok: true,
+        message:
+          "Yönetişim talebi oluşturuldu. Onay ve uygulama adımları Yönetişim Görevleri ekranında izlenir.",
+      });
+    } catch (error) {
+      setGovernanceResult({
+        ok: false,
+        message:
+          error instanceof GovernanceApiError
+            ? error.message
+            : "Yönetişim talebi oluşturulamadı. Yeniden deneyin.",
+      });
+    } finally {
+      setGovernanceSubmitting(false);
+    }
+  }, [governancePrompt]);
 
   const handleSelect = useCallback(async (executionId: string) => {
     setDetailOpen(true);
@@ -227,6 +282,7 @@ export function ExecutionsRoute() {
   }, []);
 
   return (
+    <>
     <ExecutionsPage
       cancelling={cancelling}
       adhocSqlLoading={adhocSqlLoading}
@@ -251,5 +307,15 @@ export function ExecutionsRoute() {
       starting={starting}
       state={fixtureState ?? state}
     />
+
+    <GovernanceApprovalDialog
+      prompt={governancePrompt}
+      submitting={governanceSubmitting}
+      result={governanceResult}
+      canCreate={canCreateGovernance}
+      onClose={() => setGovernancePrompt(null)}
+      onSubmit={() => void handleSubmitGovernance()}
+    />
+    </>
   );
 }

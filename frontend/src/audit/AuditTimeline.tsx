@@ -14,6 +14,8 @@ import type { AuditEventListItem } from "./model";
 interface AuditTimelineProps {
   items: AuditEventListItem[];
   onSelect: (item: AuditEventListItem) => void;
+  /** Aktör kimliğini demo kullanıcı adına çevirir; eşleşme yoksa undefined. */
+  actorLabel?: (actorId: string) => string | undefined;
 }
 
 const groupColors = [
@@ -56,7 +58,7 @@ function formatDate(value: string): string {
   }).format(new Date(value));
 }
 
-export function AuditTimeline({ items, onSelect }: AuditTimelineProps) {
+export function AuditTimeline({ actorLabel, items, onSelect }: AuditTimelineProps) {
   const groups = useMemo(() => {
     const grouped = new Map<string, AuditEventListItem[]>();
     for (const item of items) {
@@ -141,7 +143,7 @@ export function AuditTimeline({ items, onSelect }: AuditTimelineProps) {
                   <Typography sx={{ fontWeight: 700 }} variant="body2">{item.action}</Typography>
                   <StatusBadge label={resultLabels[item.result] ?? item.result} tone={resultTone(item.result)} />
                 </Box>
-                <Typography color="text.secondary" variant="body2">{item.actorId}</Typography>
+                <Typography color="text.secondary" variant="body2">{actorLabel?.(item.actorId) ?? item.actorId}</Typography>
                 <Typography color="text.secondary" variant="caption">{formatDate(item.occurredAt)}</Typography>
               </Paper>
             ))}

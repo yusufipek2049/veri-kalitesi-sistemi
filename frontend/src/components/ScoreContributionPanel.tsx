@@ -25,16 +25,18 @@ import {
 import type { EChartsCoreOption } from "echarts/core";
 import { copyTableToClipboard } from "./exportTable";
 
-// Bu modulleri import etmek yetmez, echarts cekirdegine kaydedilmeleri gerekir.
-// Kayit eksikti ve grafik yalniz DashboardPage/DatasetTrendPage daha once
-// yuklendiyse calisiyordu; route seviyesinde lazy yukleme ile bu varsayim
-// gecersiz oldugundan panel tek basina acildiginda bos kaliyordu.
+// Bu modülleri import etmek yetmez, echarts çekirdeğine kaydedilmeleri gerekir.
+// Kayıt eksikti ve grafik yalnız DashboardPage/DatasetTrendPage daha once
+// yüklendiyse çalışıyordu; route seviyesinde lazy yükleme ile bu varsayım
+// geçersiz olduğundan panel tek başına açıldığında boş kalıyordu.
 echarts.use([BarChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer]);
 
 interface ContributionComponent {
   component_ref: string;
   component_type: "RULE" | "DATASET" | "DIMENSION" | "SOURCE" | "UNKNOWN";
+  component_name?: string | null;
   included: boolean;
+  score?: string | null;
   weight: string | null;
   contribution: string | null;
   exclusion_reason: string | null;
@@ -50,8 +52,12 @@ interface ScoreContributionPanelProps {
 
 type ContributionView = "chart" | "table";
 
-function formatValue(value: string | null): string {
+function formatValue(value: string | null | undefined): string {
   return value ?? "—";
+}
+
+function displayLabel(component: ContributionComponent): string {
+  return component.component_name ?? component.component_ref;
 }
 
 export function ScoreContributionPanel({
@@ -68,12 +74,13 @@ export function ScoreContributionPanel({
   const includedComponents = components.filter((c) => c.included);
 
   const handleExport = () => {
-    const headers = ["Bileşen", "Tip", "Dahil", "Ağırlık", "Katkı", "Dışlama nedeni"];
+    const headers = ["Bileşen", "Tip", "Dahil", "Skor", "Ağırlık", "Katkı", "Dışlama nedeni"];
     const tableRows = components.map((c) => ({
       cells: [
-        c.component_ref,
+        displayLabel(c),
         c.component_type,
         c.included ? "Evet" : "Hayır",
+        formatValue(c.score),
         formatValue(c.weight),
         formatValue(c.contribution),
         formatValue(c.exclusion_reason),
@@ -99,7 +106,7 @@ export function ScoreContributionPanel({
       },
       yAxis: {
         type: "category",
-        data: includedComponents.map((c) => c.component_ref),
+        data: includedComponents.map((c) => displayLabel(c)),
         axisLine: { lineStyle: { color: theme.palette.divider } },
         axisLabel: { color: theme.palette.text.secondary },
       },
@@ -180,6 +187,7 @@ export function ScoreContributionPanel({
                 <TableCell>Bileşen</TableCell>
                 <TableCell>Tip</TableCell>
                 <TableCell>Dahil</TableCell>
+                <TableCell align="right">Skor</TableCell>
                 <TableCell align="right">Ağırlık</TableCell>
                 <TableCell align="right">Katkı</TableCell>
                 <TableCell>Dışlama nedeni</TableCell>
@@ -188,9 +196,19 @@ export function ScoreContributionPanel({
             <TableBody>
               {components.map((c) => (
                 <TableRow key={c.component_ref}>
-                  <TableCell>{c.component_ref}</TableCell>
+                  <TableCell>
+                    {displayLabel(c)}
+                    {c.component_name && c.component_name !== c.component_ref ? (
+                      <Typography color="text.secondary" noWrap variant="caption">
+                        {c.component_ref}
+                      </Typography>
+                    ) : null}
+                  </TableCell>
                   <TableCell>{c.component_type}</TableCell>
                   <TableCell>{c.included ? "Evet" : "Hayır"}</TableCell>
+                  <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>
+                    {formatValue(c.score)}
+                  </TableCell>
                   <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>
                     {formatValue(c.weight)}
                   </TableCell>

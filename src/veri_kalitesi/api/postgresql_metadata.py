@@ -107,29 +107,6 @@ class PostgreSQLMetadataCommandService:
             correlation_id=correlation_id,
         )
 
-    def apply_diff(
-        self,
-        *,
-        actor_context: ActorContext,
-        metadata_diff_id: str,
-        reason_code: str,
-        expected_version: int,
-        correlation_id: str,
-    ) -> Any:
-        diff = self.repository.get_metadata_diff(metadata_diff_id)
-        self._assert_user_actor(
-            actor_context,
-            required_roles=self.command_policy.metadata_diff_applier_roles,
-            data_source_id=diff.data_source_id,
-        )
-        return self.service.apply_discovery_diff(
-            actor_id=actor_context.actor_id,
-            metadata_diff_id=metadata_diff_id,
-            reason_code=reason_code,
-            expected_version=expected_version,
-            correlation_id=correlation_id,
-        )
-
     def update_dataset(
         self,
         *,

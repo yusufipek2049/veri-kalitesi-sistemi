@@ -21,7 +21,10 @@ EXPECTED_ROUTE_METHODS = {
     ("GET", "/api/v1/datasets"),
     ("GET", "/api/v1/datasets/{dataset_id}"),
     ("GET", "/api/v1/datasets/{dataset_id}/fields"),
+    ("GET", "/api/v1/datasets/{dataset_id}/preview"),
+    ("GET", "/api/v1/datasets/{dataset_id}/preview"),
     ("GET", "/api/v1/datasets/{dataset_id}/scores"),
+    ("GET", "/api/v1/datasets/{dataset_id}/schedule-proposals"),
     ("GET", "/api/v1/development/users"),
     ("GET", "/api/v1/executions"),
     ("GET", "/api/v1/executions/{execution_id}"),
@@ -54,15 +57,20 @@ EXPECTED_ROUTE_METHODS = {
     ("GET", "/api/v1/rules"),
     ("GET", "/api/v1/rules/{quality_rule_id}/scores"),
     ("GET", "/api/v1/rules/{rule_id}"),
+    ("GET", "/api/v1/schedules"),
+    ("GET", "/api/v1/scoring-configurations"),
     ("GET", "/api/v1/scores"),
     ("GET", "/api/v1/scores/comparison"),
     ("GET", "/api/v1/scores/rules/{rule_version_id}"),
     ("GET", "/api/v1/scores/trend"),
     ("GET", "/api/v1/scores/{quality_score_id}"),
+    ("GET", "/api/v1/sql-templates"),
     ("GET", "/health"),
     ("GET", "/ready"),
     ("PATCH", "/api/v1/datasets/{dataset_id}"),
     ("PATCH", "/api/v1/fields/{field_id}"),
+    ("PATCH", "/api/v1/sql-templates/{template_id}"),
+    ("DELETE", "/api/v1/sql-templates/{template_id}"),
     ("POST", "/api/v1/data-source-activation-requests/{activation_request_id}/decision"),
     ("POST", "/api/v1/data-source-deactivation-requests/{deactivation_request_id}/decision"),
     ("POST", "/api/v1/data-sources"),
@@ -83,7 +91,6 @@ EXPECTED_ROUTE_METHODS = {
     ("POST", "/api/v1/issues/{issue_id}/investigation"),
     ("POST", "/api/v1/issues/{issue_id}/resolution"),
     ("POST", "/api/v1/issues/{issue_id}/verification"),
-    ("POST", "/api/v1/metadata-diffs/{metadata_diff_id}/application"),
     ("POST", "/api/v1/notifications/deliveries/bulk-read"),
     ("POST", "/api/v1/notifications/deliveries/{delivery_id}/read"),
     ("POST", "/api/v1/notifications/inbox/mark-all-read"),
@@ -95,6 +102,12 @@ EXPECTED_ROUTE_METHODS = {
     ("POST", "/api/v1/rules/{quality_rule_id}/passivation"),
     ("POST", "/api/v1/rules/{quality_rule_id}/test"),
     ("POST", "/api/v1/rules/{quality_rule_id}/versions"),
+    ("POST", "/api/v1/schedules"),
+    ("POST", "/api/v1/schedules/{schedule_id}/activate"),
+    ("POST", "/api/v1/schedules/{schedule_id}/deactivate"),
+    ("POST", "/api/v1/scoring-configurations"),
+    ("POST", "/api/v1/scoring-configurations/approvals/{approval_id}/decision"),
+    ("POST", "/api/v1/sql-templates"),
     ("PUT", "/api/v1/data-sources/{data_source_id}/discovery-scope"),
 }
 
@@ -117,6 +130,7 @@ def test_unreachable_capability_routes_are_absent_from_openapi() -> None:
         "/api/v1/report-schedules/trigger-due",
         "/api/v1/lineage/snapshots/{snapshot_id}",
         "/api/v1/governance/{asset_ref}/projection",
+        "/api/v1/metadata-diffs/{metadata_diff_id}/application",
         "/api/v1/session/logout",
     }
 
@@ -132,7 +146,7 @@ def test_dashboard_api_route_table_matches_snapshot() -> None:
     }
 
     assert actual == EXPECTED_ROUTE_METHODS
-    assert len(app.routes) == 88
+    assert len(app.routes) == 100
     assert (
         len(
             [
@@ -141,7 +155,7 @@ def test_dashboard_api_route_table_matches_snapshot() -> None:
                 if getattr(route, "path", "") not in {"/health", "/ready"}
             ]
         )
-        == 86
+        == 98
     )
 
 

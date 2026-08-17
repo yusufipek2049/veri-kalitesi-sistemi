@@ -42,6 +42,14 @@ _PAYLOAD_ALLOWLIST = frozenset(
         "source_name",
         "assignee_id",
         "assignee_name",
+        "approval_request_id",
+        "request_type",
+        "object_type",
+        "object_id",
+        "object_name",
+        "maker_actor_id",
+        "checker_actor_id",
+        "reason_code",
     }
 )
 

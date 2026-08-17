@@ -339,7 +339,7 @@ def test_fr_007_uc_002_creates_csv_data_source_with_secret_reference_and_audit(
     assert audits[-1].action == "DATA_SOURCE_CREATED"
     assert audits[-1].correlation_id == "correlation-source-create"
     assert audits[-1].new_value_summary["status"] == "TEST_PENDING"
-    assert audits[-1].redaction_policy_version == "AUDIT_REDACTION_V3"
+    assert audits[-1].redaction_policy_version == "AUDIT_REDACTION_V4"
     assert _audit_repository(service).verify_integrity().valid is True
     legacy_count = service.repository.connection.execute(
         "SELECT COUNT(*) FROM audit_records"

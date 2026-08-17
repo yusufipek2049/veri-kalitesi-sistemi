@@ -25,11 +25,12 @@ import {
   ToggleButtonGroup,
   Typography,
 } from "@mui/material";
-import { Plus, RefreshCw } from "lucide-react";
+import { Plus, RefreshCw, GitBranch, Table2 } from "lucide-react";
 import { AppShell } from "../components/AppShell";
 import {
   governanceActionLabels,
   governanceDecisionReasonCodes,
+  governanceExecutionReasonCodes,
   governanceFieldSensitivityReasonCodes,
   governanceMetadataReasonCodes,
   governanceOwnershipReasonCodes,
@@ -46,6 +47,9 @@ import {
 } from "./model";
 import { CLASSIFICATION_OPTIONS } from "../catalog/model";
 import { Link } from "react-router-dom";
+import { GovernanceFlowchart } from "./GovernanceFlowchart";
+
+type DisplayMode = "table" | "flowchart";
 
 interface GovernanceTasksPageProps {
   state?: GovernanceState;
@@ -68,6 +72,8 @@ interface GovernanceTasksPageProps {
     proposedChanges?: Record<string, unknown>;
   }) => Promise<void> | void;
   loadFields?: (datasetId: string) => Promise<{ id: string; name: string }[]>;
+  ruleOptions?: { ruleVersionId: string; label: string }[];
+  executionOptions?: { executionId: string; label: string }[];
 }
 
 export interface GovernanceOwnerCandidate {
@@ -76,16 +82,52 @@ export interface GovernanceOwnerCandidate {
   roles: string;
 }
 
-type CreateRequestKind = "OWNERSHIP" | "METADATA" | "FIELD_SENSITIVITY";
+type CreateRequestKind = "OWNERSHIP" | "METADATA" | "FIELD_SENSITIVITY" | "EXECUTION";
 
 const createKindLabels: Record<CreateRequestKind, string> = {
   OWNERSHIP: "Sahiplik",
   METADATA: "Kritik metadata",
   FIELD_SENSITIVITY: "Alan hassasiyeti",
+  EXECUTION: "Çalıştırma",
+};
+
+type ExecutionRequestType = "EXECUTION_MANUAL_START" | "EXECUTION_CANCEL" | "DEAD_LETTER_REPROCESS";
+
+const executionTypeLabels: Record<ExecutionRequestType, string> = {
+  EXECUTION_MANUAL_START: "Kritik manuel çalıştırma",
+  EXECUTION_CANCEL: "Çalıştırma iptali",
+  DEAD_LETTER_REPROCESS: "Dead letter yeniden işleme",
+};
+
+const executionTypeReasonCodes: Record<ExecutionRequestType, string> = {
+  EXECUTION_MANUAL_START: "EXECUTION.MANUAL.START",
+  EXECUTION_CANCEL: "EXECUTION.CANCEL",
+  DEAD_LETTER_REPROCESS: "EXECUTION.DEAD.LETTER.REPROCESS",
 };
 
 const criticalityOptions = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 const datasetStatusOptions = ["ACTIVE", "INACTIVE"];
+const timelinessNatureOptions = ["NEAR_TIME", "REAL_TIME", "BATCH_TIME"];
+
+type MetadataAttribute = "criticality" | "status" | "timeliness_nature";
+
+const metadataAttributeLabels: Record<MetadataAttribute, string> = {
+  criticality: "Kritiklik",
+  status: "Durum",
+  timeliness_nature: "Zamanlılık niteliği",
+};
+
+const metadataAttributeDefaultReason: Record<MetadataAttribute, string> = {
+  criticality: "METADATA.CRITICALITY.CHANGE",
+  status: "METADATA.STATUS.CHANGE",
+  timeliness_nature: "METADATA.TIMELINESS.CHANGE",
+};
+
+const metadataAttributeOptions: Record<MetadataAttribute, string[]> = {
+  criticality: criticalityOptions,
+  status: datasetStatusOptions,
+  timeliness_nature: timelinessNatureOptions,
+};
 
 const statusColors: Record<string, "warning" | "success" | "error" | "default" | "info"> = {
   PENDING: "warning",
@@ -159,6 +201,8 @@ export function GovernanceTasksPage({
   onApply,
   onCreateRequest,
   loadFields,
+  ruleOptions = [],
+  executionOptions = [],
 }: GovernanceTasksPageProps) {
   const now = new Date();
   const [decisionTarget, setDecisionTarget] = useState<GovernanceApprovalItem | null>(null);
@@ -172,13 +216,21 @@ export function GovernanceTasksPage({
   const [createDatasetId, setCreateDatasetId] = useState("");
   const [createOwner, setCreateOwner] = useState("");
   const [createReason, setCreateReason] = useState(governanceOwnershipReasonCodes[1]);
-  const [createMetaAttribute, setCreateMetaAttribute] = useState<"criticality" | "status">("criticality");
+  const [createMetaAttribute, setCreateMetaAttribute] = useState<MetadataAttribute>("criticality");
   const [createMetaValue, setCreateMetaValue] = useState("CRITICAL");
   const [createFieldId, setCreateFieldId] = useState("");
   const [createFields, setCreateFields] = useState<{ id: string; name: string }[]>([]);
   const [createFieldsLoading, setCreateFieldsLoading] = useState(false);
   const [createSensitive, setCreateSensitive] = useState(true);
   const [createClassification, setCreateClassification] = useState("PERSONAL_DATA");
+  const [createExecutionType, setCreateExecutionType] =
+    useState<ExecutionRequestType>("EXECUTION_MANUAL_START");
+  const [createRuleVersionIds, setCreateRuleVersionIds] = useState<string[]>([]);
+  const [createExecutionMode, setCreateExecutionMode] = useState<"OFFICIAL" | "SHADOW">("OFFICIAL");
+  const [createExecutionId, setCreateExecutionId] = useState("");
+  const [createCancelReason, setCreateCancelReason] = useState("");
+  const [createDeadLetterId, setCreateDeadLetterId] = useState("");
+  const [displayMode, setDisplayMode] = useState<DisplayMode>("table");
 
   const selectedDataset = datasets.find((candidate) => candidate.id === createDatasetId);
   const ownershipRequestType = selectedDataset?.ownerId ? "DATASET_OWNER_CHANGE" : "DATASET_OWNER_ASSIGN";
@@ -191,6 +243,12 @@ export function GovernanceTasksPage({
     if (kind === "OWNERSHIP") setCreateReason(governanceOwnershipReasonCodes[1]);
     if (kind === "METADATA") setCreateReason(governanceMetadataReasonCodes[0]);
     if (kind === "FIELD_SENSITIVITY") setCreateReason(governanceFieldSensitivityReasonCodes[0]);
+    if (kind === "EXECUTION") setCreateReason(executionTypeReasonCodes[createExecutionType]);
+  };
+
+  const handleExecutionTypeChange = (type: ExecutionRequestType) => {
+    setCreateExecutionType(type);
+    setCreateReason(executionTypeReasonCodes[type]);
   };
 
   const handleCreateDatasetChange = (datasetId: string) => {
@@ -211,7 +269,13 @@ export function GovernanceTasksPage({
       ? Boolean(createDatasetId && createOwner.trim())
       : createKind === "METADATA"
         ? Boolean(createDatasetId)
-        : Boolean(createDatasetId && createFieldId);
+        : createKind === "EXECUTION"
+          ? createExecutionType === "EXECUTION_MANUAL_START"
+            ? createRuleVersionIds.length > 0
+            : createExecutionType === "EXECUTION_CANCEL"
+              ? Boolean(createExecutionId && createCancelReason.trim())
+              : Boolean(createDeadLetterId.trim())
+          : Boolean(createDatasetId && createFieldId);
 
   const handleSubmitCreate = () => {
     if (!onCreateRequest) return;
@@ -229,6 +293,28 @@ export function GovernanceTasksPage({
         proposedChanges: { [createMetaAttribute]: createMetaValue },
         reasonCode: createReason,
       });
+    } else if (createKind === "EXECUTION") {
+      if (createExecutionType === "EXECUTION_MANUAL_START") {
+        void onCreateRequest({
+          requestType: "EXECUTION_MANUAL_START",
+          objectId: "manual-execution",
+          proposedChanges: { rule_version_ids: createRuleVersionIds, execution_mode: createExecutionMode },
+          reasonCode: createReason,
+        });
+      } else if (createExecutionType === "EXECUTION_CANCEL") {
+        void onCreateRequest({
+          requestType: "EXECUTION_CANCEL",
+          objectId: createExecutionId,
+          proposedChanges: { reason: createCancelReason.trim() },
+          reasonCode: createReason,
+        });
+      } else {
+        void onCreateRequest({
+          requestType: "DEAD_LETTER_REPROCESS",
+          objectId: createDeadLetterId.trim(),
+          reasonCode: createReason,
+        });
+      }
     } else {
       void onCreateRequest({
         requestType: "FIELD_SENSITIVITY_MARK",
@@ -265,6 +351,27 @@ export function GovernanceTasksPage({
             </Typography>
           </Box>
           <Stack direction="row" sx={{ gap: 1 }}>
+            <ToggleButtonGroup
+              exclusive
+              onChange={(_event, mode: DisplayMode | null) => {
+                if (mode) setDisplayMode(mode);
+              }}
+              size="small"
+              value={displayMode}
+            >
+              <ToggleButton value="table">
+                <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
+                  <Table2 size={14} />
+                  <Typography sx={{ fontSize: "0.75rem", textTransform: "none" }}>Tablo</Typography>
+                </Stack>
+              </ToggleButton>
+              <ToggleButton value="flowchart">
+                <Stack direction="row" sx={{ alignItems: "center", gap: 0.5 }}>
+                  <GitBranch size={14} />
+                  <Typography sx={{ fontSize: "0.75rem", textTransform: "none" }}>Akış</Typography>
+                </Stack>
+              </ToggleButton>
+            </ToggleButtonGroup>
             {onCreateRequest ? (
               <Button onClick={() => setCreateOpen(true)} startIcon={<Plus size={16} />} variant="contained">
                 Yönetişim Talebi
@@ -331,7 +438,11 @@ export function GovernanceTasksPage({
           </Alert>
         )}
 
-        {state === "normal" && (
+        {state === "normal" && displayMode === "flowchart" && (
+          <GovernanceFlowchart items={items} />
+        )}
+
+        {state === "normal" && displayMode === "table" && (
           <TableContainer>
             <Table aria-label="Yönetişim talepleri" size="small">
               <TableHead>
@@ -452,7 +563,8 @@ export function GovernanceTasksPage({
                         {(item.domain === "QUALITY_RULE" ||
                           item.domain === "DATA_SOURCE" ||
                           item.domain === "METADATA_AND_CLASSIFICATION" ||
-                          item.domain === "EXECUTION") && (
+                          item.domain === "EXECUTION" ||
+                          item.domain === "SCHEDULE") && (
                           <Button component={Link} size="small" to={governanceTargetHref(item)}>
                             Hedefe git
                           </Button>
@@ -598,18 +710,20 @@ export function GovernanceTasksPage({
               </MenuItem>
             ))}
           </TextField>
-          <TextField
-            label="Dataset / Tablo"
-            onChange={(event) => handleCreateDatasetChange(event.target.value)}
-            select
-            value={createDatasetId}
-          >
-            {datasets.map((dataset) => (
-              <MenuItem key={dataset.id} value={dataset.id}>
-                {dataset.namespace}.{dataset.name}
-              </MenuItem>
-            ))}
-          </TextField>
+          {createKind !== "EXECUTION" ? (
+            <TextField
+              label="Dataset / Tablo"
+              onChange={(event) => handleCreateDatasetChange(event.target.value)}
+              select
+              value={createDatasetId}
+            >
+              {datasets.map((dataset) => (
+                <MenuItem key={dataset.id} value={dataset.id}>
+                  {dataset.namespace}.{dataset.name}
+                </MenuItem>
+              ))}
+            </TextField>
+          ) : null}
 
           {createKind === "OWNERSHIP" ? (
             <>
@@ -655,20 +769,19 @@ export function GovernanceTasksPage({
               <TextField
                 label="Kritik öznitelik"
                 onChange={(event) => {
-                  const attribute = event.target.value as "criticality" | "status";
+                  const attribute = event.target.value as MetadataAttribute;
                   setCreateMetaAttribute(attribute);
-                  setCreateMetaValue(attribute === "criticality" ? "CRITICAL" : "INACTIVE");
-                  setCreateReason(
-                    attribute === "criticality"
-                      ? governanceMetadataReasonCodes[0]
-                      : governanceMetadataReasonCodes[1],
-                  );
+                  setCreateMetaValue(metadataAttributeOptions[attribute][0]);
+                  setCreateReason(metadataAttributeDefaultReason[attribute]);
                 }}
                 select
                 value={createMetaAttribute}
               >
-                <MenuItem value="criticality">Kritiklik</MenuItem>
-                <MenuItem value="status">Durum</MenuItem>
+                {(Object.keys(metadataAttributeLabels) as MetadataAttribute[]).map((attribute) => (
+                  <MenuItem key={attribute} value={attribute}>
+                    {metadataAttributeLabels[attribute]}
+                  </MenuItem>
+                ))}
               </TextField>
               <TextField
                 label="Yeni değer"
@@ -676,13 +789,11 @@ export function GovernanceTasksPage({
                 select
                 value={createMetaValue}
               >
-                {(createMetaAttribute === "criticality" ? criticalityOptions : datasetStatusOptions).map(
-                  (value) => (
-                    <MenuItem key={value} value={value}>
-                      {value}
-                    </MenuItem>
-                  ),
-                )}
+                {metadataAttributeOptions[createMetaAttribute].map((value) => (
+                  <MenuItem key={value} value={value}>
+                    {value}
+                  </MenuItem>
+                ))}
               </TextField>
             </>
           ) : null}
@@ -727,6 +838,86 @@ export function GovernanceTasksPage({
             </>
           ) : null}
 
+          {createKind === "EXECUTION" ? (
+            <>
+              <TextField
+                label="Çalıştırma işlemi"
+                onChange={(event) =>
+                  handleExecutionTypeChange(event.target.value as ExecutionRequestType)
+                }
+                select
+                value={createExecutionType}
+              >
+                {(Object.keys(executionTypeLabels) as ExecutionRequestType[]).map((type) => (
+                  <MenuItem key={type} value={type}>
+                    {executionTypeLabels[type]}
+                  </MenuItem>
+                ))}
+              </TextField>
+              {createExecutionType === "EXECUTION_MANUAL_START" ? (
+                <>
+                  <TextField
+                    helperText="Kritik dataset hedefli kural sürümlerini seçin."
+                    label="Kural sürümleri"
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setCreateRuleVersionIds(typeof value === "string" ? value.split(",") : value);
+                    }}
+                    select
+                    slotProps={{ select: { multiple: true } }}
+                    value={createRuleVersionIds}
+                  >
+                    {ruleOptions.map((option) => (
+                      <MenuItem key={option.ruleVersionId} value={option.ruleVersionId}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <TextField
+                    label="Çalıştırma modu"
+                    onChange={(event) =>
+                      setCreateExecutionMode(event.target.value as "OFFICIAL" | "SHADOW")
+                    }
+                    select
+                    value={createExecutionMode}
+                  >
+                    <MenuItem value="OFFICIAL">OFFICIAL</MenuItem>
+                    <MenuItem value="SHADOW">SHADOW</MenuItem>
+                  </TextField>
+                </>
+              ) : null}
+              {createExecutionType === "EXECUTION_CANCEL" ? (
+                <>
+                  <TextField
+                    label="Çalıştırma"
+                    onChange={(event) => setCreateExecutionId(event.target.value)}
+                    select
+                    value={createExecutionId}
+                  >
+                    {executionOptions.map((option) => (
+                      <MenuItem key={option.executionId} value={option.executionId}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <TextField
+                    label="İptal gerekçesi"
+                    onChange={(event) => setCreateCancelReason(event.target.value)}
+                    value={createCancelReason}
+                  />
+                </>
+              ) : null}
+              {createExecutionType === "DEAD_LETTER_REPROCESS" ? (
+                <TextField
+                  helperText="Dead letter kaydının kimliğini girin."
+                  label="Dead letter kimliği"
+                  onChange={(event) => setCreateDeadLetterId(event.target.value)}
+                  value={createDeadLetterId}
+                />
+              ) : null}
+            </>
+          ) : null}
+
           <TextField
             label="Gerekçe kodu"
             onChange={(event) => setCreateReason(event.target.value)}
@@ -737,7 +928,9 @@ export function GovernanceTasksPage({
               ? governanceOwnershipReasonCodes
               : createKind === "METADATA"
                 ? governanceMetadataReasonCodes
-                : governanceFieldSensitivityReasonCodes
+                : createKind === "EXECUTION"
+                  ? governanceExecutionReasonCodes
+                  : governanceFieldSensitivityReasonCodes
             ).map((code) => (
               <MenuItem key={code} value={code}>
                 {code}

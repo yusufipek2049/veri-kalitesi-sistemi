@@ -243,13 +243,17 @@ def _analytics_tables(schema: str) -> dict[str, Table]:
         Column("is_active", Boolean),
         Column("created_at", DateTime(timezone=True)),
     )
+    # Katki grafigi tablosunda surum/resmiyet ayri kolon degildir; her ikisi de
+    # ``graph`` JSONB govdesinde tasinir (bkz. scoring/postgresql_contributions).
     contribution_graphs = Table(
         "score_contribution_graphs",
         metadata,
         Column("quality_score_id", String(36)),
-        Column("graph_version", String(40)),
-        Column("official", Boolean),
-        Column("graph_data", JSONB),
+        Column("execution_id", String(36)),
+        Column("scope_type", String(20)),
+        Column("scope_id", String(128)),
+        Column("graph", JSONB),
+        Column("created_at", DateTime(timezone=True)),
     )
     return {
         "datasets": datasets,
@@ -660,15 +664,7 @@ class PostgreSQLInsightsReader:
                 .mappings()
                 .all()
             )
-        return [
-            _ContributionGraphRow(
-                quality_score_id=str(r["quality_score_id"]),
-                graph_version=str(r["graph_version"]),
-                official=bool(r["official"]),
-                graph_data=dict(r["graph_data"]) if r["graph_data"] else {},
-            )
-            for r in rows
-        ]
+        return [_map_contribution_graph_row(r) for r in rows]
 
 
 # ── Row mappers ──
@@ -690,6 +686,19 @@ def _map_score_row(r: Any) -> _ScoreRow:
     )
 
 
+def _weight_map(raw: Any) -> dict[str, float]:
+    """Agirliklar JSONB'de ondalik metin olarak saklanir; sayisala cevrilir."""
+    if not raw:
+        return {}
+    weights: dict[str, float] = {}
+    for key, value in dict(raw).items():
+        try:
+            weights[str(key)] = float(value)
+        except (TypeError, ValueError):
+            continue
+    return weights
+
+
 def _map_config_row(r: Any) -> _ConfigurationRow:
     return _ConfigurationRow(
         configuration_id=str(r["configuration_id"]),
@@ -698,8 +707,19 @@ def _map_config_row(r: Any) -> _ConfigurationRow:
         critical_upper_exclusive=float(r["critical_upper_exclusive"]),
         risky_upper_exclusive=float(r["risky_upper_exclusive"]),
         acceptable_upper_exclusive=float(r["acceptable_upper_exclusive"]),
-        dimension_weights=(dict(r["dimension_weights"]) if r["dimension_weights"] else {}),
-        criticality_weights=(dict(r["criticality_weights"]) if r["criticality_weights"] else {}),
+        dimension_weights=_weight_map(r["dimension_weights"]),
+        criticality_weights=_weight_map(r["criticality_weights"]),
         is_active=bool(r["is_active"]),
         created_at=r["created_at"],
+    )
+
+
+def _map_contribution_graph_row(r: Any) -> _ContributionGraphRow:
+    graph = dict(r["graph"]) if r["graph"] else {}
+    version = graph.get("graph_version")
+    return _ContributionGraphRow(
+        quality_score_id=str(r["quality_score_id"]),
+        graph_version=str(version) if version is not None else "",
+        official=bool(graph.get("official", False)),
+        graph_data=graph,
     )

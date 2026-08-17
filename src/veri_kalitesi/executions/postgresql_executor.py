@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 import hashlib
-import re
 from dataclasses import dataclass
 from datetime import date
 from time import perf_counter
@@ -20,11 +19,16 @@ from veri_kalitesi.executions.models import (
     RuleExecution,
     RuleResultComputation,
 )
-from veri_kalitesi.rules.models import QualityRule, RuleStatus, RuleType, RuleVersion
+from veri_kalitesi.executions.violation_sql import (
+    SQL_IDENTIFIER,
+    build_violation_query,
+    quote_identifier,
+    requires_reference,
+)
+from veri_kalitesi.rules.models import QualityRule, RuleStatus, RuleVersion
 
 
 logger = logging.getLogger(__name__)
-_SQL_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,62}")
 
 
 class RuleExecutionCatalog(Protocol):
@@ -143,7 +147,7 @@ class PostgreSQLRuleExecutionExecutor:
                     query_timeout_seconds=timeouts.query_seconds,
                 )
             else:
-                violation_sql = self._build_violation_query(version, definition, table)
+                violation_sql = self._violation_query(version, definition, table, dataset)
                 population_sql = self._build_population_query(table)
                 violation_count = self.connector.execute_count_query(
                     source,
@@ -206,7 +210,7 @@ class PostgreSQLRuleExecutionExecutor:
 
     @staticmethod
     def _scoped_relation(execution: RuleExecution, dataset: Dataset) -> str:
-        if not _SQL_IDENTIFIER.fullmatch(dataset.namespace) or not _SQL_IDENTIFIER.fullmatch(
+        if not SQL_IDENTIFIER.fullmatch(dataset.namespace) or not SQL_IDENTIFIER.fullmatch(
             dataset.name
         ):
             raise ExecutionTechnicalError("Dataset identifier is invalid.", retryable=False)
@@ -245,50 +249,44 @@ class PostgreSQLRuleExecutionExecutor:
             )
         return dataset.data_source_id, dataset
 
-    @staticmethod
-    def _build_violation_query(version: RuleVersion, definition: dict[str, Any], table: str) -> str:
-        field = definition.get("field_id", "")
-        if not field:
+    def _violation_query(
+        self,
+        version: RuleVersion,
+        definition: dict[str, Any],
+        table: str,
+        dataset: Dataset,
+    ) -> str:
+        reference_table = (
+            self._reference_relation(definition, dataset)
+            if requires_reference(version.rule_type)
+            else None
+        )
+        return build_violation_query(
+            rule_type=version.rule_type,
+            definition=definition,
+            table=table,
+            reference_table=reference_table,
+        )
+
+    def _reference_relation(self, definition: dict[str, Any], dataset: Dataset) -> str:
+        reference_dataset_id = definition.get("reference_dataset_id")
+        if not isinstance(reference_dataset_id, str) or not reference_dataset_id:
             raise ExecutionTechnicalError(
-                "Rule definition lacks field_id for template query.",
+                "Rule definition lacks reference_dataset_id.",
                 retryable=False,
             )
-        rule_type = version.rule_type
-        if rule_type is RuleType.REQUIRED:
-            return f'SELECT COUNT(*) FROM {table} WHERE "{field}" IS NULL'
-        if rule_type is RuleType.UNIQUE:
-            return (
-                f'SELECT COUNT(*) - COUNT(DISTINCT "{field}") '
-                f'FROM {table} WHERE "{field}" IS NOT NULL'
+        reference = self.source_repository.get_dataset(reference_dataset_id)
+        if reference is None:
+            raise ExecutionTechnicalError(
+                f"Reference dataset {reference_dataset_id} not found.",
+                retryable=False,
             )
-        if rule_type is RuleType.RANGE:
-            low = definition.get("minimum")
-            high = definition.get("maximum")
-            conditions: list[str] = []
-            if low is not None:
-                conditions.append(f'"{field}" < {low}')
-            if high is not None:
-                conditions.append(f'"{field}" > {high}')
-            where = " OR ".join(conditions) if conditions else "FALSE"
-            return f'SELECT COUNT(*) FROM {table} WHERE "{field}" IS NOT NULL AND ({where})'
-        if rule_type is RuleType.REGEX:
-            pattern = definition.get("pattern", "")
-            return (
-                f"SELECT COUNT(*) FROM {table} "
-                f'WHERE "{field}" IS NOT NULL AND "{field}" !~ \'{pattern}\''
+        if reference.data_source_id != dataset.data_source_id:
+            raise ExecutionTechnicalError(
+                "Reference dataset must belong to the same data source.",
+                retryable=False,
             )
-        if rule_type is RuleType.FRESHNESS:
-            max_age_minutes = definition.get("max_age_minutes", 1440)
-            ts_field = definition.get("field_id", field)
-            return (
-                f"SELECT COUNT(*) FROM {table} "
-                f'WHERE "{ts_field}" IS NOT NULL '
-                f"AND \"{ts_field}\" < NOW() - INTERVAL '{max_age_minutes} minutes'"
-            )
-        raise ExecutionTechnicalError(
-            f"Unsupported template rule type: {rule_type.value}",
-            retryable=False,
-        )
+        return f"{quote_identifier(reference.namespace)}.{quote_identifier(reference.name)}"
 
     @staticmethod
     def _build_population_query(table: str) -> str:

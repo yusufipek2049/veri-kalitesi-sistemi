@@ -55,6 +55,10 @@ class NotificationEventType(str, Enum):
     RULE_APPROVAL_DECIDED = "RULE_APPROVAL_DECIDED"
     RULE_APPROVAL_WITHDRAWN = "RULE_APPROVAL_WITHDRAWN"
     RULE_APPROVAL_EXPIRED = "RULE_APPROVAL_EXPIRED"
+    GOVERNANCE_APPROVAL_REQUESTED = "GOVERNANCE_APPROVAL_REQUESTED"
+    GOVERNANCE_APPROVAL_DECIDED = "GOVERNANCE_APPROVAL_DECIDED"
+    GOVERNANCE_APPROVAL_REJECTED = "GOVERNANCE_APPROVAL_REJECTED"
+    GOVERNANCE_APPROVAL_WITHDRAWN = "GOVERNANCE_APPROVAL_WITHDRAWN"
 
 
 class NotificationScopeType(str, Enum):
@@ -63,6 +67,7 @@ class NotificationScopeType(str, Enum):
     SOURCE = "SOURCE"
     EXECUTION = "EXECUTION"
     ISSUE_ASSIGNMENT = "ISSUE_ASSIGNMENT"
+    GOVERNANCE = "GOVERNANCE"
 
 
 # ---------------------------------------------------------------------------
@@ -150,6 +155,10 @@ EVENT_SEVERITY: dict[NotificationEventType, NotificationSeverity] = {
     NotificationEventType.RULE_APPROVAL_DECIDED: NotificationSeverity.ACTION_REQUIRED,
     NotificationEventType.RULE_APPROVAL_WITHDRAWN: NotificationSeverity.ACTION_REQUIRED,
     NotificationEventType.RULE_APPROVAL_EXPIRED: NotificationSeverity.ACTION_REQUIRED,
+    NotificationEventType.GOVERNANCE_APPROVAL_REQUESTED: NotificationSeverity.ACTION_REQUIRED,
+    NotificationEventType.GOVERNANCE_APPROVAL_DECIDED: NotificationSeverity.ACTION_REQUIRED,
+    NotificationEventType.GOVERNANCE_APPROVAL_REJECTED: NotificationSeverity.ACTION_REQUIRED,
+    NotificationEventType.GOVERNANCE_APPROVAL_WITHDRAWN: NotificationSeverity.ACTION_REQUIRED,
 }
 
 

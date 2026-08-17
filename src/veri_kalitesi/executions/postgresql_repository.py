@@ -282,6 +282,41 @@ class PostgreSQLExecutionRepository:
             )
         return [_row_to_result(row) for row in rows]
 
+    def list_latest_results_for_rule_versions(
+        self, rule_version_ids: frozenset[str]
+    ) -> dict[str, RuleExecutionResult]:
+        """Return the latest result for each rule version from any SUCCESS execution."""
+        if not rule_version_ids:
+            return {}
+        results_t = self._tables.results
+        exec_t = self._tables.executions
+        with self._session_factory() as session:
+            rows = (
+                session.execute(
+                    select(results_t)
+                    .select_from(
+                        results_t.join(
+                            exec_t,
+                            exec_t.c.execution_id == results_t.c.execution_id,
+                        )
+                    )
+                    .where(
+                        and_(
+                            results_t.c.rule_version_id.in_(sorted(rule_version_ids)),
+                            exec_t.c.status == ExecutionStatus.SUCCESS.value,
+                        )
+                    )
+                    .order_by(
+                        results_t.c.rule_version_id,
+                        exec_t.c.finished_at.desc(),
+                    )
+                    .distinct(results_t.c.rule_version_id)
+                )
+                .mappings()
+                .all()
+            )
+        return {row["rule_version_id"]: _row_to_result(row) for row in rows}
+
     # ------------------------------------------------------------------
     # Write methods
     # ------------------------------------------------------------------

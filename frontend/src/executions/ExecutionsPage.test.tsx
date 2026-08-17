@@ -118,7 +118,7 @@ describe("Çalıştırmalar ekranı", () => {
     expect(progressbar).toBeVisible();
   });
 
-  it("dataset isimlerini ve schedule bilgisini gosterir", () => {
+  it("dataset isimlerini ve schedule bilgisini gösterir", () => {
     const items: ExecutionListItem[] = [{
       id: "execution-with-datasets",
       executionType: "SCHEDULED",
@@ -140,7 +140,7 @@ describe("Çalıştırmalar ekranı", () => {
     expect(screen.getByText("Zamanlanmış: schedule-daily-tx")).toBeVisible();
   });
 
-  it("baslatma dialog'u dropdown alanlari ve otomatik idempotency anahtari gosterir", () => {
+  it("başlatma dialog'u dropdown alanları ve otomatik idempotency anahtarı gösterir", () => {
     const onStart = vi.fn();
     const ruleOptions = [{ ruleVersionId: "rv-1", label: "Müşteri KYK (v3)" }];
     const sourceOptions = [{ sourceId: "src-1", label: "Core DB" }];
@@ -228,7 +228,7 @@ describe("Çalıştırmalar ekranı", () => {
     expect(idempotencyField).toBeVisible();
   });
 
-  it("detay dialog'unda job bilgilerini gosterir", () => {
+  it("detay dialog'unda job bilgilerini gösterir", () => {
     const detail: ExecutionDetail = {
       item: {
         id: "execution-job-detail",
@@ -309,7 +309,7 @@ describe("Çalıştırmalar ekranı", () => {
     expect(screen.getByLabelText("Durum: Başarısız")).toBeVisible();
   });
 
-  it("onAdhocSql verildiginde 'Ozel SQL' butonu gosterir", () => {
+  it("onAdhocSql verildiğinde 'Özel SQL' butonu gösterir", () => {
     const onAdhocSql = vi.fn();
     render(
       <ThemeModeProvider>
@@ -321,7 +321,7 @@ describe("Çalıştırmalar ekranı", () => {
     expect(screen.getByText("Özel SQL")).toBeVisible();
   });
 
-  it("onAdhocSql yoksa 'Ozel SQL' butonu gostermez", () => {
+  it("onAdhocSql yoksa 'Özel SQL' butonu göstermez", () => {
     render(
       <ThemeModeProvider>
         <MemoryRouter>
@@ -332,7 +332,7 @@ describe("Çalıştırmalar ekranı", () => {
     expect(screen.queryByText("Özel SQL")).not.toBeInTheDocument();
   });
 
-  it("Ozel SQL dialog'u SQL editor, kaynak, zaman asimi ve satir limiti alanlarini gosterir", () => {
+  it("Özel SQL dialog'u SQL editor, kaynak, zaman aşımı ve satır limiti alanlarını gösterir", () => {
     const onAdhocSql = vi.fn();
     const sourceOptions = [{ sourceId: "src-1", label: "Core DB" }];
     render(
@@ -350,7 +350,7 @@ describe("Çalıştırmalar ekranı", () => {
     expect(screen.getByDisplayValue("1000")).toBeVisible();
   });
 
-  it("Ozel SQL dialog'unda bos SQL ile submit engellenir", async () => {
+  it("Özel SQL dialog'unda boş SQL ile submit engellenir", async () => {
     const onAdhocSql = vi.fn();
     render(
       <ThemeModeProvider>
@@ -366,7 +366,7 @@ describe("Çalıştırmalar ekranı", () => {
     expect(onAdhocSql).not.toHaveBeenCalled();
   });
 
-  it("Ozel SQL dialog'unda SELECT ile baslamayan SQL hata verir", async () => {
+  it("Özel SQL dialog'unda SELECT ile başlamayan SQL hata verir", async () => {
     const onAdhocSql = vi.fn();
     render(
       <ThemeModeProvider>
@@ -384,7 +384,7 @@ describe("Çalıştırmalar ekranı", () => {
     expect(onAdhocSql).not.toHaveBeenCalled();
   });
 
-  it("Ozel SQL dialog'nda yasak keyword iceren SQL hata verir", async () => {
+  it("Özel SQL dialog'nda yasak keyword içeren SQL hata verir", async () => {
     const onAdhocSql = vi.fn();
     render(
       <ThemeModeProvider>
@@ -402,7 +402,7 @@ describe("Çalıştırmalar ekranı", () => {
     expect(onAdhocSql).not.toHaveBeenCalled();
   });
 
-  it("Gecerli SQL ile submit onAdhocSql'i dogru parametrelerle cagirir", async () => {
+  it("Geçerli SQL ile submit onAdhocSql'i doğru parametrelerle çağırır", async () => {
     const onAdhocSql = vi.fn().mockResolvedValue(undefined);
     render(
       <ThemeModeProvider>

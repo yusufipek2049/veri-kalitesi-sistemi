@@ -88,6 +88,7 @@ function catalogFixture() {
         name: "Müşteriler",
         dataset_type: "TABLE",
         status: "ACTIVE" as const,
+        criticality: "MEDIUM",
         estimated_row_count: null,
         field_count: 4,
         version: 1,
@@ -99,6 +100,7 @@ function catalogFixture() {
         name: "İşlemler",
         dataset_type: "TABLE",
         status: "ACTIVE" as const,
+        criticality: "HIGH",
         estimated_row_count: null,
         field_count: 6,
         version: 1,
@@ -269,7 +271,7 @@ describe("Dashboard kalite trendi", () => {
     expect(await screen.findByText("Skorlama Detaylı Bilgi")).toBeVisible();
     expect(screen.getByText("Skorlama Parametreleri")).toBeVisible();
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByText("logarithmic_improvement")).toBeVisible();
+    expect(within(dialog).getByText("SEED_SCORING_V1")).toBeVisible();
     expect(within(dialog).getByText("92.4")).toBeVisible();
     expect(fetchScoreDetail).toHaveBeenCalledWith("score-dataset-a-1", expect.any(AbortSignal));
   });

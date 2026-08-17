@@ -6,9 +6,9 @@ import { DevelopmentUserProvider, useDevelopmentUser } from "./development/UserC
 import { AppShell } from "./components/AppShell";
 import {
   CatalogApiError,
-  applyMetadataDiff,
   getCatalogDataset,
   getCatalogField,
+  getDatasetPreview,
   getDiscoveryDiff,
   listCatalogDatasets,
   listCatalogFields,
@@ -20,6 +20,7 @@ import {
 import {
   mapCatalogDataset,
   mapCatalogField,
+  mapDatasetPreview,
   mapDiscoveryStatus,
   mapMetadataDiff,
   type CatalogDataset,
@@ -27,6 +28,7 @@ import {
   type CatalogPageState,
   type DatasetDetailState,
   type DatasetUpdatePayload,
+  type DiffObjectSelection,
   type DiscoveryStatus,
   type FieldDetailState,
   type FieldUpdatePayload,
@@ -39,13 +41,14 @@ import { fetchRules } from "./rules/api";
 import { rulesFromApi } from "./rules/model";
 import { LauncherControlProvider } from "./launcherControl";
 
-// F-10: Analytics, governance, issues, rules ve audit yuzeyleri baslangic
-// paketini gereksiz buyutuyordu; hepsi route seviyesinde lazy yuklenir.
+// F-10: Analytics, governance, issues, rules ve audit yüzeyleri başlangıç
+// paketini gereksiz büyütüyordu; hepsi route seviyesinde lazy yüklenir.
 const AuditRoute = lazy(() => import("./audit/AuditRoute").then((module) => ({ default: module.AuditRoute })));
 const DataSourcesRoute = lazy(() => import("./dataSources/DataSourcesRoute").then((module) => ({ default: module.DataSourcesRoute })));
 const ExecutionsRoute = lazy(() => import("./executions/ExecutionsRoute").then((module) => ({ default: module.ExecutionsRoute })));
 const GovernanceTasksRoute = lazy(() => import("./governance/GovernanceTasksRoute").then((module) => ({ default: module.GovernanceTasksRoute })));
 const IssuesRoute = lazy(() => import("./issues/IssuesRoute").then((module) => ({ default: module.IssuesRoute })));
+const JobsRoute = lazy(() => import("./jobs/JobsRoute").then((module) => ({ default: module.JobsRoute })));
 const RulesRoute = lazy(() => import("./rules/RulesRoute").then((module) => ({ default: module.RulesRoute })));
 const RuleHealthPage = lazy(() => import("./analytics/RuleHealthPage").then((module) => ({ default: module.RuleHealthPage })));
 const MetadataHealthPage = lazy(() => import("./analytics/MetadataHealthPage").then((module) => ({ default: module.MetadataHealthPage })));
@@ -58,6 +61,7 @@ const DashboardPage = lazy(() => import("./dashboard/DashboardPage").then((modul
 const ScoresPage = lazy(() => import("./scores/ScoresPage").then((module) => ({ default: module.ScoresPage })));
 const ScoreDetailPage = lazy(() => import("./scores/ScoreDetailPage").then((module) => ({ default: module.ScoreDetailPage })));
 const ScoreComparisonPage = lazy(() => import("./scores/ScoreComparisonPage").then((module) => ({ default: module.ScoreComparisonPage })));
+const ScoringPolicyPage = lazy(() => import("./scoringPolicy/ScoringPolicyPage").then((module) => ({ default: module.ScoringPolicyPage })));
 const DatasetTrendPage = lazy(() => import("./scores/DatasetTrendPage").then((module) => ({ default: module.DatasetTrendPage })));
 const NotificationsPage = lazy(() => import("./notifications/NotificationsPage").then((module) => ({ default: module.NotificationsPage })));
 const NotificationPreferencesPage = lazy(() => import("./notifications/NotificationPreferencesPage").then((module) => ({ default: module.NotificationPreferencesPage })));
@@ -355,15 +359,18 @@ function DatasetDetailRoute() {
     }
   }, []);
 
-  const handleApplyDiff = useCallback(async (metadataDiffId: string) => {
-    const response = await applyMetadataDiff(metadataDiffId, {
-      reason_code: "USER_APPLIED",
-      expected_version: latestDiff?.metadataDiffId ? 1 : 1,
-    });
-    setCorrelationId(response.correlation_id);
-    setLatestDiff(null);
-    void load();
-  }, [latestDiff, load]);
+  const handleSubmitDiffApproval = useCallback(
+    async (metadataDiffId: string, selectedObjects: DiffObjectSelection[]) => {
+      const { createGovernanceApproval } = await import("./governance/api");
+      await createGovernanceApproval({
+        request_type: "METADATA_DIFF_APPLICATION",
+        object_id: metadataDiffId,
+        reason_code: "METADATA.DIFF.APPLICATION",
+        proposed_changes: { selected_objects: selectedObjects },
+      });
+    },
+    [],
+  );
 
   const handleUpdateDataset = useCallback(async (payload: DatasetUpdatePayload) => {
     if (!dataset) return;
@@ -371,6 +378,27 @@ function DatasetDetailRoute() {
     setDataset(mapCatalogDataset(response.dataset));
     setCorrelationId(response.correlation_id);
   }, [dataset]);
+
+  const handleSubmitAttributeChange = useCallback(
+    async (attribute: string, value: string, reasonCode: string) => {
+      if (!dataset) return;
+      const { createGovernanceApproval } = await import("./governance/api");
+      const response = await createGovernanceApproval({
+        request_type: "METADATA_CRITICAL_CHANGE",
+        object_id: dataset.id,
+        reason_code: reasonCode,
+        proposed_changes: { [attribute]: value },
+      });
+      setCorrelationId(response.correlation_id);
+    },
+    [dataset],
+  );
+
+  const handlePreviewRows = useCallback(async () => {
+    const response = await getDatasetPreview(datasetId);
+    setCorrelationId(response.correlation_id);
+    return mapDatasetPreview(response);
+  }, [datasetId]);
 
   return (
     <DatasetDetailPage
@@ -380,10 +408,12 @@ function DatasetDetailRoute() {
       discoveryStatus={discoveryStatus}
       fields={fields}
       latestDiff={latestDiff}
-      onApplyDiff={fixtureState ? undefined : handleApplyDiff}
+      onSubmitDiffApproval={fixtureState ? undefined : handleSubmitDiffApproval}
+      onPreviewRows={fixtureState ? undefined : handlePreviewRows}
       onRefresh={() => void load()}
       onRequestDiscovery={fixtureState ? undefined : handleRequestDiscovery}
       onUpdateDataset={fixtureState ? undefined : handleUpdateDataset}
+      onSubmitAttributeChange={fixtureState ? undefined : handleSubmitAttributeChange}
       rules={datasetRules}
       state={fixtureState ?? state}
     />
@@ -518,10 +548,12 @@ export function ApplicationRoutes() {
       <Route element={<RulesRoute />} path="/rules" />
       <Route element={<ExecutionsRoute />} path="/executions" />
       <Route element={<ScoresPage />} path="/scores" />
+      <Route element={<ScoringPolicyPage />} path="/scores/policy" />
       <Route element={<ScoreDetailPage />} path="/scores/:scoreId" />
       <Route element={<ScoreComparisonPage />} path="/scores/comparison" />
       <Route element={<DatasetTrendPage />} path="/catalog/datasets/:datasetId/trend" />
       <Route element={<IssuesRoute />} path="/issues" />
+      <Route element={<JobsRoute />} path="/jobs" />
       <Route element={<GovernanceTasksRoute />} path="/governance" />
       <Route element={<RouteBoundary unauthorized />} path="/unauthorized" />
       <Route element={<AuditRoute />} path="/audit" />

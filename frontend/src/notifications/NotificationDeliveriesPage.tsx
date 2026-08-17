@@ -13,6 +13,7 @@ import {
 } from "@mui/material";
 import { RefreshCw, Route } from "lucide-react";
 import { AppShell } from "../components/AppShell";
+import { NotificationTabs } from "./NotificationTabs";
 import { StatusBadge } from "../components/StatusBadge";
 import { type StatusTone } from "../theme/tokens";
 import type { NotificationDelivery, NotificationDeliveryStatus } from "./model";
@@ -178,6 +179,8 @@ export function NotificationDeliveriesPage({
             </Button>
           ) : null}
         </Box>
+
+        <NotificationTabs />
 
         {state !== "unauthorized" ? (
           <Paper component="section" sx={{ borderRadius: 1.5, p: 4 }} variant="outlined">

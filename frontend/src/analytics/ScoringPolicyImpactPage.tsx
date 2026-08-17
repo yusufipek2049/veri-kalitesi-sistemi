@@ -98,18 +98,18 @@ export function ScoringPolicyImpactPage() {
     <AnalyticsShell activeTab="scoring-policy" state={state} correlationId={correlationId}>
       {state === "loading" && (
         <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
-          <CircularProgress aria-label="Yukleniyor" />
+          <CircularProgress aria-label="Yükleniyor" />
         </Box>
       )}
       {state === "error" && (
-        <Alert severity="error"><Typography>Politika etki verisi yuklenemedi.</Typography></Alert>
+        <Alert severity="error"><Typography>Politika etki verisi yüklenemedi.</Typography></Alert>
       )}
       {state === "normal" && summary && (
         <Stack spacing={3}>
           {/* Version selectors */}
           <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
             <TextField
-              label="Baseline Surum"
+              label="Baseline Sürüm"
               size="small"
               value={baselineVersion}
               onChange={(e) => handleVersionChange("baseline_version", e.target.value)}
@@ -117,7 +117,7 @@ export function ScoringPolicyImpactPage() {
               sx={{ minWidth: 200 }}
             />
             <TextField
-              label="Candidate Surum"
+              label="Candidate Sürüm"
               size="small"
               value={candidateVersion}
               onChange={(e) => handleVersionChange("candidate_version", e.target.value)}
@@ -127,18 +127,18 @@ export function ScoringPolicyImpactPage() {
 
           {/* Summary KPIs */}
           <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap", gap: 1 }}>
-            <KpiCard title="Iyilesen" value={String(summary.improvedCount)} />
-            <KpiCard title="Kotulesen" value={String(summary.deterioratedCount)} />
-            <KpiCard title="Degismeyen" value={String(summary.unchangedCount)} />
-            <KpiCard title="Seviye Degisen" value={String(summary.levelChangedCount)} />
-            <KpiCard title="Simule Edilemeyen" value={String(summary.notSimulatableCount)} />
+            <KpiCard title="İyileşen" value={String(summary.improvedCount)} />
+            <KpiCard title="Kötüleşen" value={String(summary.deterioratedCount)} />
+            <KpiCard title="Değişmeyen" value={String(summary.unchangedCount)} />
+            <KpiCard title="Seviye Değişen" value={String(summary.levelChangedCount)} />
+            <KpiCard title="Simüle Edilemeyen" value={String(summary.notSimulatableCount)} />
           </Stack>
 
           {/* Simulation warning */}
           <Alert severity="info">
             <Typography variant="body2">
-              Simule sonuclar tahmindir ve gercek skor yayini degildir.
-              Aktif konfigurasyon degisikligi governance onayi gerektirir.
+              Simüle sonuçlar tahmindir ve gerçek skor yayını değildir.
+              Aktif konfigürasyon değişikliği governance onayı gerektirir.
             </Typography>
           </Alert>
 
@@ -147,14 +147,14 @@ export function ScoringPolicyImpactPage() {
             <Card>
               <CardContent>
                 <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
-                  Konfigurasyon Farki
+                  Konfigürasyon Farkı
                 </Typography>
                 <Box sx={{ overflowX: "auto" }}>
-                  <Table size="small" aria-label="Konfigurasyon fark tablosu">
+                  <Table size="small" aria-label="Konfigürasyon fark tablosu">
                     <TableHead>
                       <TableRow>
                         <TableCell>Parametre</TableCell>
-                        <TableCell>Onceki</TableCell>
+                        <TableCell>Önceki</TableCell>
                         <TableCell>Sonraki</TableCell>
                         <TableCell>Delta</TableCell>
                       </TableRow>
@@ -187,7 +187,7 @@ export function ScoringPolicyImpactPage() {
           <Card>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
-                En Cok Etkilenen Kapsamlar
+                En Çok Etkilenen Kapsamlar
               </Typography>
               <Box sx={{ overflowX: "auto" }}>
                 <Table size="small" aria-label="Politika etki tablosu">
@@ -196,10 +196,10 @@ export function ScoringPolicyImpactPage() {
                       <TableCell>Kapsam</TableCell>
                       <TableCell>Mevcut Skor</TableCell>
                       <TableCell>Mevcut Seviye</TableCell>
-                      <TableCell>Simule Skor</TableCell>
-                      <TableCell>Simule Seviye</TableCell>
+                      <TableCell>Simüle Skor</TableCell>
+                      <TableCell>Simüle Seviye</TableCell>
                       <TableCell>Delta</TableCell>
-                      <TableCell>Kanit</TableCell>
+                      <TableCell>Kanıt</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -256,7 +256,7 @@ export function ScoringPolicyImpactPage() {
           <Alert severity="info">
             <Typography variant="body2">
               Konfigurasyonu aktifleştirmek icin{" "}
-              <Link to="/governance">Yonetisim Gorevleri</Link> sayfasindan talep olusturun.
+              <Link to="/governance">Yönetişim Görevleri</Link> sayfasından talep oluşturun.
             </Typography>
           </Alert>
         </Stack>

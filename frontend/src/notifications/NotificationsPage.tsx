@@ -13,8 +13,6 @@ import {
   Paper,
   Select,
   Skeleton,
-  Tab,
-  Tabs,
   TextField,
   Typography,
 } from "@mui/material";
@@ -30,8 +28,9 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
+import { NotificationTabs } from "./NotificationTabs";
 import { StatusBadge } from "../components/StatusBadge";
 import { type StatusTone } from "../theme/tokens";
 import type {
@@ -98,6 +97,10 @@ const eventTypeLabels: Record<string, string> = {
   RULE_APPROVAL_DECIDED: "Onay kararı",
   RULE_APPROVAL_WITHDRAWN: "Onay geri çekme",
   RULE_APPROVAL_EXPIRED: "Onay süresi doldu",
+  GOVERNANCE_APPROVAL_REQUESTED: "Yönetişim onay talebi",
+  GOVERNANCE_APPROVAL_DECIDED: "Yönetişim onay kararı",
+  GOVERNANCE_APPROVAL_REJECTED: "Yönetişim onay reddi",
+  GOVERNANCE_APPROVAL_WITHDRAWN: "Yönetişim onay geri çekme",
 };
 
 const severityConfig: Record<NotificationSeverity, { color: string; icon: typeof AlertTriangle }> = {
@@ -145,6 +148,14 @@ function formatEventTitle(
       return `Onay Geri Çekme: ${payload?.rule_code ?? ""} - ${payload?.rule_name ?? ""}`;
     case "RULE_APPROVAL_EXPIRED":
       return `Onay Süresi Doldu: ${payload?.rule_code ?? ""} - ${payload?.rule_name ?? ""}`;
+    case "GOVERNANCE_APPROVAL_REQUESTED":
+      return `Yönetişim Onay Talebi: ${payload?.request_type ?? ""} - ${payload?.object_name ?? payload?.object_id ?? ""}`;
+    case "GOVERNANCE_APPROVAL_DECIDED":
+      return `Yönetişim Onay Kararı: ${payload?.request_type ?? ""} - ${payload?.decision ?? ""}`;
+    case "GOVERNANCE_APPROVAL_REJECTED":
+      return `Yönetişim Onay Reddi: ${payload?.request_type ?? ""} - ${payload?.object_name ?? payload?.object_id ?? ""}`;
+    case "GOVERNANCE_APPROVAL_WITHDRAWN":
+      return `Yönetişim Onay Geri Çekme: ${payload?.request_type ?? ""} - ${payload?.object_name ?? payload?.object_id ?? ""}`;
     default:
       return eventTypeLabels[eventType] ?? eventType;
   }
@@ -156,6 +167,7 @@ const scopeTypeLabels: Record<string, string> = {
   RULE: "Kural",
   EXECUTION: "Çalıştırma",
   ISSUE_ASSIGNMENT: "Sorun ataması",
+  GOVERNANCE: "Yönetişim",
 };
 
 function deliveryScopeLink(item: NotificationDelivery): string | null {
@@ -523,15 +535,6 @@ export function NotificationsPage({
   const [filters, setFilters] = useState<NotificationFilters>(defaultFilters);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [drawerItem, setDrawerItem] = useState<NotificationDelivery | null>(null);
-  const location = useLocation();
-
-  const notificationTabs = [
-    { label: "Gelen Kutusu", path: "/notifications" },
-    { label: "Tercihler", path: "/notifications/preferences" },
-    { label: "Kanallar", path: "/notifications/channels" },
-    { label: "Teslimatlar", path: "/notifications/deliveries" },
-  ];
-  const currentTab = notificationTabs.findIndex((t) => t.path === location.pathname);
 
   const visibleItems = useMemo(
     () =>
@@ -643,20 +646,7 @@ export function NotificationsPage({
         </Box>
 
         {/* Sub-navigation tabs */}
-        <Tabs
-          value={currentTab >= 0 ? currentTab : 0}
-          sx={{ borderBottom: 1, borderColor: "divider" }}
-        >
-          {notificationTabs.map((tab) => (
-            <Tab
-              key={tab.path}
-              label={tab.label}
-              component={Link}
-              to={tab.path}
-              sx={{ textTransform: "none", fontWeight: 600 }}
-            />
-          ))}
-        </Tabs>
+        <NotificationTabs />
 
         {/* Filters */}
         {state !== "unauthorized" ? (

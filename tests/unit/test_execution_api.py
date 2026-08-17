@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.exc import SQLAlchemyError
 
 from veri_kalitesi.api import DevelopmentActorContextResolver, create_dashboard_api
+from veri_kalitesi.api.bff import CSRF_HEADER_NAME
 from veri_kalitesi.api.service_groups import (
     ActorResolverIdentity,
     ApiOptions,
@@ -138,6 +139,51 @@ def test_development_api_exposes_all_synthetic_execution_states() -> None:
     assert "development-reason" not in response.text
 
 
+def test_critical_manual_start_returns_governance_approval_problem_code() -> None:
+    client = TestClient(_command_app(_ApprovalRequiredGuard()))
+
+    response = client.post(
+        "/api/v1/executions",
+        headers=_command_headers(),
+        json={"rule_version_ids": ["version-critical"], "idempotency_key": "key-1"},
+    )
+
+    assert response.status_code == 409
+    body = response.json()
+    assert body["code"] == "EXECUTION_GOVERNANCE_APPROVAL_REQUIRED"
+    assert body["governance_request_type"] == "EXECUTION_MANUAL_START"
+    assert body["title"] == "Governance approval required"
+
+
+def test_critical_cancel_returns_governance_approval_problem_code() -> None:
+    client = TestClient(_command_app(_ApprovalRequiredGuard()))
+
+    response = client.post(
+        "/api/v1/executions/execution-critical/cancel",
+        headers=_command_headers(),
+        json={"reason": "vazgecildi"},
+    )
+
+    assert response.status_code == 409
+    body = response.json()
+    assert body["code"] == "EXECUTION_GOVERNANCE_APPROVAL_REQUIRED"
+    assert body["governance_request_type"] == "EXECUTION_CANCEL"
+
+
+def test_non_critical_manual_start_is_not_blocked_by_guard() -> None:
+    start = _FakeStartService()
+    client = TestClient(_command_app(_PermissiveGuard(), start=start))
+
+    response = client.post(
+        "/api/v1/executions",
+        headers=_command_headers(),
+        json={"rule_version_ids": ["version-normal"], "idempotency_key": "key-2"},
+    )
+
+    assert response.status_code == 201
+    assert start.started_with == ("version-normal",)
+
+
 class FakeExecutionReader:
     def __init__(self, executions: tuple[RuleExecution, ...]) -> None:
         self.executions = executions
@@ -244,5 +290,90 @@ def _app(
             start=None,
             cancel=None,
             job_queue=None,
+        ),
+    )
+
+
+class _ApprovalRequiredGuard:
+    def requires_approval_for_start(self, rule_version_ids: tuple[str, ...]) -> bool:
+        return True
+
+    def requires_approval_for_cancel(self, execution_id: str) -> bool:
+        return True
+
+
+class _PermissiveGuard:
+    def requires_approval_for_start(self, rule_version_ids: tuple[str, ...]) -> bool:
+        return False
+
+    def requires_approval_for_cancel(self, execution_id: str) -> bool:
+        return False
+
+
+class _FakeStartService:
+    def __init__(self) -> None:
+        self.started_with: tuple[str, ...] = ()
+
+    def start_manual(
+        self,
+        *,
+        rule_version_ids: tuple[str, ...],
+        source_ids: tuple[str, ...],
+        idempotency_key: str,
+        actor_context: object,
+        execution_mode: object = None,
+    ) -> RuleExecution:
+        self.started_with = rule_version_ids
+        return _execution("execution-started", ("source-a",))
+
+
+class _FakeCancelService:
+    def cancel(self, execution_id: str, *, reason: str, actor_context: object) -> RuleExecution:
+        return _execution(execution_id, ("source-a",))
+
+
+def _command_headers() -> dict[str, str]:
+    return {
+        CSRF_HEADER_NAME: "development-request-proof-v1",
+        "Origin": "https://dq.test",
+        "Referer": "https://dq.test/executions",
+        "Sec-Fetch-Site": "same-origin",
+    }
+
+
+def _command_app(guard: object, *, start: object = None, cancel: object = None):
+    resolver = DevelopmentActorContextResolver(
+        runtime_environment="development",
+        policy_version=POLICY_VERSION,
+        permitted_source_ids=frozenset({"source-a"}),
+        can_view_enterprise=False,
+        allowed_origins=frozenset({"https://dq.test"}),
+        clock=lambda: NOW,
+    )
+    return create_dashboard_api(
+        identity=ActorResolverIdentity(resolver),
+        options=ApiOptions(data_origin="synthetic-test"),
+        executions=ExecutionServices(
+            query=ExecutionQueryService(
+                FakeExecutionReader(("unused",)),  # type: ignore[arg-type]
+                PolicyAuthorizationService(
+                    DashboardAuthorizationPolicy(version=POLICY_VERSION),
+                    AuditService(
+                        SQLiteAuditRepository(),
+                        AuditRedactor(
+                            AuditRedactionPolicy(
+                                version="EXECUTION_API_REDACTION_V1",
+                                allowed_fields_by_action={},
+                            )
+                        ),
+                        AuditFailurePolicy("EXECUTION_API_AUDIT_V1", AuditFailureMode.FAIL_CLOSED),
+                    ),
+                    clock=lambda: NOW,
+                ),
+            ),
+            start=start or _FakeStartService(),
+            cancel=cancel or _FakeCancelService(),
+            job_queue=None,
+            governance_guard=guard,
         ),
     )

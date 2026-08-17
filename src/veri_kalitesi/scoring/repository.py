@@ -110,7 +110,9 @@ class SQLiteScoreRepository:
             ON quality_scores(scope_type, scope_id, calculated_at);
 
             CREATE UNIQUE INDEX IF NOT EXISTS idx_scoring_configurations_one_active
-            ON scoring_configurations(is_active) WHERE is_active = 1;
+            ON scoring_configurations(
+                COALESCE(dataset_id, '__GLOBAL__'), is_active
+            ) WHERE is_active = 1;
             """
         )
         self._ensure_default_configuration()
@@ -160,6 +162,13 @@ class SQLiteScoreRepository:
                 ALTER TABLE scoring_configurations
                 ADD COLUMN criticality_weights TEXT NOT NULL
                 DEFAULT '{"LOW":"1.0","MEDIUM":"1.0","HIGH":"1.0","CRITICAL":"1.0"}'
+                """
+            )
+        if "dataset_id" not in columns:
+            self.connection.execute(
+                """
+                ALTER TABLE scoring_configurations
+                ADD COLUMN dataset_id TEXT
                 """
             )
 
@@ -322,8 +331,10 @@ class SQLiteScoreRepository:
         approval: ScoringConfigurationApproval,
         *,
         audit_event: PreparedAuditEvent,
-        audit_outbox: SQLiteTransactionalAudit,
+        audit_outbox: object,
     ) -> tuple[ScoringConfiguration, ScoringConfigurationApproval]:
+        if not isinstance(audit_outbox, SQLiteTransactionalAudit):
+            raise ScoringValidationError("Audit outbox must be the SQLite transactional outbox.")
         if audit_outbox.connection is not self.connection:
             raise ScoringValidationError("Audit outbox must share the scoring transaction.")
         try:
@@ -335,8 +346,8 @@ class SQLiteScoreRepository:
                         critical_upper_exclusive,
                         risky_upper_exclusive, acceptable_upper_exclusive,
                         dimension_weights, criticality_weights, created_by,
-                        created_at, is_active, activated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)
+                        created_at, is_active, activated_at, dataset_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?)
                     """,
                     (
                         configuration.configuration_id,
@@ -349,6 +360,7 @@ class SQLiteScoreRepository:
                         _serialize_criticality_weights(configuration.criticality_weights),
                         configuration.created_by,
                         configuration.created_at.isoformat(),
+                        configuration.dataset_id,
                     ),
                 )
                 self.connection.execute(
@@ -396,8 +408,10 @@ class SQLiteScoreRepository:
         activate_configuration: bool,
         activated_at: datetime,
         audit_event: PreparedAuditEvent,
-        audit_outbox: SQLiteTransactionalAudit,
+        audit_outbox: object,
     ) -> tuple[ScoringConfiguration, ScoringConfigurationApproval]:
+        if not isinstance(audit_outbox, SQLiteTransactionalAudit):
+            raise ScoringValidationError("Audit outbox must be the SQLite transactional outbox.")
         if audit_outbox.connection is not self.connection:
             raise ScoringValidationError("Audit outbox must share the scoring transaction.")
         with self._lock, self.connection:
@@ -426,9 +440,26 @@ class SQLiteScoreRepository:
             if cursor.rowcount != 1:
                 raise ScoringValidationError("Scoring configuration approval is not pending.")
             if activate_configuration:
-                self.connection.execute(
-                    "UPDATE scoring_configurations SET is_active = 0 WHERE is_active = 1"
-                )
+                # Yalnizca ayni dataset kapsamindaki aktif konfigürasyonu kapat
+                if approval.configuration_id:
+                    target = self.connection.execute(
+                        "SELECT dataset_id FROM scoring_configurations WHERE configuration_id = ?",
+                        (approval.configuration_id,),
+                    ).fetchone()
+                    target_dataset_id = target["dataset_id"] if target else None
+                    if target_dataset_id is not None:
+                        self.connection.execute(
+                            "UPDATE scoring_configurations"
+                            " SET is_active = 0"
+                            " WHERE is_active = 1 AND dataset_id = ?",
+                            (target_dataset_id,),
+                        )
+                    else:
+                        self.connection.execute(
+                            "UPDATE scoring_configurations"
+                            " SET is_active = 0"
+                            " WHERE is_active = 1 AND dataset_id IS NULL"
+                        )
                 cursor = self.connection.execute(
                     """
                     UPDATE scoring_configurations
@@ -482,10 +513,20 @@ class SQLiteScoreRepository:
     def get_active_configuration(self) -> ScoringConfiguration:
         with self._lock:
             row = self.connection.execute(
-                "SELECT * FROM scoring_configurations WHERE is_active = 1"
+                "SELECT * FROM scoring_configurations WHERE is_active = 1 AND dataset_id IS NULL"
             ).fetchone()
         if row is None:
             raise ScoreNotFoundError("Active ScoringConfiguration not found.")
+        return _row_to_configuration(row)
+
+    def get_active_configuration_for_dataset(self, dataset_id: str) -> ScoringConfiguration:
+        with self._lock:
+            row = self.connection.execute(
+                "SELECT * FROM scoring_configurations WHERE is_active = 1 AND dataset_id = ?",
+                (dataset_id,),
+            ).fetchone()
+        if row is None:
+            return self.get_active_configuration()
         return _row_to_configuration(row)
 
     def list_configurations(self) -> list[ScoringConfiguration]:
@@ -494,6 +535,13 @@ class SQLiteScoreRepository:
                 "SELECT * FROM scoring_configurations ORDER BY created_at, version"
             ).fetchall()
         return [_row_to_configuration(row) for row in rows]
+
+    def list_configuration_approvals(self) -> list[ScoringConfigurationApproval]:
+        with self._lock:
+            rows = self.connection.execute(
+                "SELECT * FROM scoring_configuration_approvals ORDER BY requested_at, approval_id"
+            ).fetchall()
+        return [_row_to_configuration_approval(row) for row in rows]
 
 
 def _row_to_score(row: sqlite3.Row) -> QualityScore:
@@ -558,6 +606,7 @@ def _row_to_configuration(row: sqlite3.Row) -> ScoringConfiguration:
         created_at=datetime.fromisoformat(row["created_at"]),
         is_active=bool(row["is_active"]),
         activated_at=(datetime.fromisoformat(row["activated_at"]) if row["activated_at"] else None),
+        dataset_id=row["dataset_id"] if "dataset_id" in row.keys() else None,
     )
 
 

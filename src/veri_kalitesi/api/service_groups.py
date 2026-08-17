@@ -12,6 +12,7 @@ from fastapi import Request
 from veri_kalitesi.api.bff import BffSessionBoundary
 from veri_kalitesi.api.catalog_router import (
     CatalogQueryService,
+    DatasetPreviewProvider,
     MetadataCommandService,
 )
 from veri_kalitesi.api.data_sources_router import DataSourceMutationService
@@ -37,11 +38,12 @@ from veri_kalitesi.api.notifications_router import (
     NotificationQuery,
 )
 from veri_kalitesi.api.rules_router import RuleCreatorService, RuleMutationService
-from veri_kalitesi.audit.service import AuditQueryService
+from veri_kalitesi.audit.service import AuditQueryService, AuditService
 from veri_kalitesi.dashboard.service import DashboardQueryService
 from veri_kalitesi.data_sources.models import DataSource, Dataset
 from veri_kalitesi.data_sources.query import DataSourceQueryService
 from veri_kalitesi.executions.query import ExecutionQueryService
+from veri_kalitesi.executions.scheduling import SchedulingService
 from veri_kalitesi.governance import (
     GovernanceApprovalCommandService,
     GovernanceApprovalQueryService,
@@ -54,12 +56,15 @@ from veri_kalitesi.issues import (
 )
 from veri_kalitesi.jobs.models import BackgroundJob
 from veri_kalitesi.rules import RuleQueryService
+from veri_kalitesi.scoring.models import ScoringConfiguration, ScoringConfigurationApproval
 from veri_kalitesi.scoring.query import ScoreQueryService
+from veri_kalitesi.scoring.service import ScoringConfigurationService
 from veri_kalitesi.dashboard.rule_health import RuleHealthQueryService
 from veri_kalitesi.dashboard.metadata_health import MetadataHealthQueryService
 from veri_kalitesi.dashboard.issue_performance import IssuePerformanceQueryService
 from veri_kalitesi.dashboard.scoring_policy_impact import ScoringPolicyImpactQueryService
 from veri_kalitesi.reporting.service import ReportQueryService
+from veri_kalitesi.sql_templates import SqlTemplateService
 
 
 class StateChangeBoundary(Protocol):
@@ -132,6 +137,13 @@ class ExecutionServices:
 
 
 @dataclass(frozen=True)
+class ScheduleServices:
+    """Zamanlayıcı (jobs) rotalarının bağımlılık sözleşmesi."""
+
+    scheduling: SchedulingService | None = None
+
+
+@dataclass(frozen=True)
 class RuleServices:
     """Kural sorgu ve komut rotalarının bağımlılık sözleşmesi."""
 
@@ -165,6 +177,7 @@ class CatalogServices:
     query: CatalogQueryService | None
     score_query: ScoreQueryService | None
     dashboard_query: DashboardQueryService | None
+    preview: DatasetPreviewProvider | None = None
 
 
 @dataclass(frozen=True)
@@ -172,6 +185,7 @@ class AuditServices:
     """Denetim rotalarının bağımlılık sözleşmesi."""
 
     query: AuditQueryService | None
+    command: AuditService | None = None
 
 
 @dataclass(frozen=True)
@@ -195,6 +209,31 @@ class GovernanceServices:
 
     query: GovernanceApprovalQueryService | None
     command: GovernanceApprovalCommandService | None = None
+
+
+class ScoringConfigurationReader(Protocol):
+    """Skorlama konfigürasyon listeleme yüzeyinin okuma sözleşmesi."""
+
+    def get_active_configuration(self) -> ScoringConfiguration: ...
+
+    def list_configurations(self) -> list[ScoringConfiguration]: ...
+
+    def list_configuration_approvals(self) -> list[ScoringConfigurationApproval]: ...
+
+
+@dataclass(frozen=True)
+class ScoringConfigurationServices:
+    """Skorlama konfigürasyonu maker-checker rotalarının bağımlılık sözleşmesi."""
+
+    command: ScoringConfigurationService | None = None
+    reader: ScoringConfigurationReader | None = None
+
+
+@dataclass(frozen=True)
+class SqlTemplateServices:
+    """Adlandırılmış SQL şablonu rotalarının bağımlılık sözleşmesi."""
+
+    service: SqlTemplateService | None = None
 
 
 @dataclass(frozen=True)

@@ -70,6 +70,24 @@ _TEMPLATES = {
         "Rule approval expired",
         "A quality rule approval request has expired without a decision.",
     ),
+    NotificationEventType.GOVERNANCE_APPROVAL_REQUESTED: (
+        "Governance approval request",
+        "A governance approval request requires your review in the governance task center.",
+    ),
+    NotificationEventType.GOVERNANCE_APPROVAL_DECIDED: (
+        "Governance approval decision",
+        "A governance approval request has been decided. "
+        "Review the decision in the governance task center.",
+    ),
+    NotificationEventType.GOVERNANCE_APPROVAL_REJECTED: (
+        "Governance approval rejected",
+        "A governance approval request has been rejected. "
+        "Review the decision in the governance task center.",
+    ),
+    NotificationEventType.GOVERNANCE_APPROVAL_WITHDRAWN: (
+        "Governance approval withdrawn",
+        "A governance approval request has been withdrawn by its maker.",
+    ),
 }
 
 

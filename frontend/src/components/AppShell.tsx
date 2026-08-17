@@ -18,6 +18,7 @@ import {
   AlertCircle,
   BarChart3,
   Bell,
+  CalendarClock,
   ClipboardCheck,
   Database,
   LayoutDashboard,
@@ -28,6 +29,7 @@ import {
   PlayCircle,
   Power,
   ScrollText,
+  SlidersHorizontal,
   Sun,
   type LucideIcon,
 } from "lucide-react";
@@ -53,6 +55,7 @@ const navigationGroups: Array<{ label: string; items: NavigationItem[] }> = [
       { label: "Kurallar", icon: ListChecks, href: "/rules" },
       { label: "Çalıştırmalar", icon: PlayCircle, href: "/executions" },
       { label: "Skorlar", icon: BarChart3, href: "/scores" },
+      { label: "Skorlama Politikası", icon: SlidersHorizontal, href: "/scores/policy" },
       { label: "Kalite Analizleri", icon: PieChart, href: "/analytics" },
     ],
   },
@@ -60,6 +63,7 @@ const navigationGroups: Array<{ label: string; items: NavigationItem[] }> = [
     label: "OPERASYON",
     items: [
       { label: "Sorunlar", icon: AlertCircle, href: "/issues" },
+      { label: "Jobs", icon: CalendarClock, href: "/jobs" },
       { label: "Yönetişim Görevleri", icon: ClipboardCheck, href: "/governance" },
       { label: "Bildirimler", icon: Bell, href: "/notifications" },
       { label: "Denetim", icon: ScrollText, href: "/audit" },
@@ -130,22 +134,17 @@ export function AppShell({ children, currentPage = "Genel Bakış" }: AppShellPr
       >
         <Box sx={{ alignItems: "center", display: "flex", gap: 3, minHeight: (theme) => theme.appLayout.topBarHeight, px: 4 }}>
           <Box
-            aria-hidden="true"
+            component="img"
+            src="/veri-kalitesi.svg"
+            alt="Veri Kalitesi Sistemi logosu"
             sx={{
-              alignItems: "center",
-              bgcolor: "primary.main",
               borderRadius: 1,
-              color: "primary.contrastText",
-              display: "flex",
+              display: "block",
               flex: "0 0 auto",
-              fontWeight: 800,
               height: (theme) => theme.appLayout.brandMarkSize,
-              justifyContent: "center",
               width: (theme) => theme.appLayout.brandMarkSize,
             }}
-          >
-            VK
-          </Box>
+          />
           <Typography sx={{ fontWeight: 800, whiteSpace: "nowrap", "@media (max-width: 1100px)": { display: "none" } }}>Veri Kalitesi</Typography>
         </Box>
         <Divider sx={{ borderColor: designTokens.color.nav.hover }} />

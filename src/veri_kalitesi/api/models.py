@@ -1,16 +1,20 @@
 """Dashboard HTTP yant modelleri."""
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from veri_kalitesi.audit.models import AuditEvent, AuditQueryPage, AuditSummary
+from veri_kalitesi.data_sources.models import Criticality
 from veri_kalitesi.executions.models import RuleExecution
 from veri_kalitesi.governance.models import GovernanceApprovalItem
 from veri_kalitesi.issues.models import DataQualityIssue, IssuePriority
-from veri_kalitesi.rules.models import QualityRule, RuleTestResult, RuleVersion
+from veri_kalitesi.rules.models import QualityDimension, QualityRule, RuleTestResult, RuleVersion
+from veri_kalitesi.scoring.errors import ScoringValidationError
+from veri_kalitesi.scoring.models import ScoringConfiguration, ScoringConfigurationApproval
 
 
 class RuleListItemResponse(BaseModel):
@@ -582,6 +586,7 @@ class DevelopmentUserInfoResponse(BaseModel):
     user_id: str
     display_name: str
     roles: str
+    actor_id: str = ""
 
 
 class DevelopmentUserListResponse(BaseModel):
@@ -1097,3 +1102,168 @@ class GovernanceApprovalWithdrawRequest(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     reason_code: str
+
+
+class ScoringThresholdSetResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    version: str
+    critical_upper_exclusive: str
+    risky_upper_exclusive: str
+    acceptable_upper_exclusive: str
+
+
+class ScoringConfigurationItemResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    configuration_id: str
+    version: str
+    is_active: bool
+    activated_at: datetime | None
+    created_by: str
+    created_at: datetime
+    threshold_set: ScoringThresholdSetResponse
+    dimension_weights: dict[str, str]
+    criticality_weights: dict[str, str]
+    dataset_id: str | None = None
+
+    @classmethod
+    def from_domain(cls, configuration: ScoringConfiguration) -> "ScoringConfigurationItemResponse":
+        return cls(
+            configuration_id=configuration.configuration_id,
+            version=configuration.version,
+            is_active=configuration.is_active,
+            activated_at=configuration.activated_at,
+            created_by=configuration.created_by,
+            created_at=configuration.created_at,
+            threshold_set=ScoringThresholdSetResponse(
+                version=configuration.threshold_set.version,
+                critical_upper_exclusive=str(configuration.threshold_set.critical_upper_exclusive),
+                risky_upper_exclusive=str(configuration.threshold_set.risky_upper_exclusive),
+                acceptable_upper_exclusive=str(
+                    configuration.threshold_set.acceptable_upper_exclusive
+                ),
+            ),
+            dimension_weights={
+                dimension.value: str(weight)
+                for dimension, weight in configuration.dimension_weights.items()
+            },
+            criticality_weights={
+                criticality.value: str(weight)
+                for criticality, weight in configuration.criticality_weights.items()
+            },
+            dataset_id=configuration.dataset_id,
+        )
+
+
+class ScoringConfigurationApprovalItemResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    approval_id: str
+    configuration_id: str
+    status: str
+    maker_actor_id: str
+    checker_actor_id: str | None
+    policy_version: str
+    decision_reason_code: str | None
+    requested_at: datetime
+    decided_at: datetime | None
+
+    @classmethod
+    def from_domain(
+        cls, approval: ScoringConfigurationApproval
+    ) -> "ScoringConfigurationApprovalItemResponse":
+        return cls(
+            approval_id=approval.approval_id,
+            configuration_id=approval.configuration_id,
+            status=approval.status.value,
+            maker_actor_id=approval.maker_actor_id,
+            checker_actor_id=approval.checker_actor_id,
+            policy_version=approval.policy_version,
+            decision_reason_code=approval.decision_reason_code,
+            requested_at=approval.requested_at,
+            decided_at=approval.decided_at,
+        )
+
+
+class ScoringConfigurationEntryResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    configuration: ScoringConfigurationItemResponse
+    approval: ScoringConfigurationApprovalItemResponse | None
+
+
+class ScoringConfigurationListResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    active_configuration_id: str | None
+    pending_approval: ScoringConfigurationApprovalItemResponse | None
+    items: tuple[ScoringConfigurationEntryResponse, ...]
+
+
+class ScoringConfigurationDetailResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    configuration: ScoringConfigurationItemResponse
+    approval: ScoringConfigurationApprovalItemResponse
+
+
+class ScoringConfigurationCreateRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    version: str
+    threshold_version: str | None = None
+    critical_upper_exclusive: str | None = None
+    risky_upper_exclusive: str | None = None
+    acceptable_upper_exclusive: str | None = None
+    dimension_weights: dict[str, str] | None = None
+    criticality_weights: dict[str, str] | None = None
+    dataset_id: str | None = None
+
+    def parse_dimension_weights(self) -> dict[QualityDimension, Decimal]:
+        return {
+            _parse_quality_dimension(key): _parse_decimal(weight)
+            for key, weight in (self.dimension_weights or {}).items()
+        }
+
+    def parse_criticality_weights(self) -> dict[Criticality, Decimal]:
+        return {
+            _parse_criticality(key): _parse_decimal(weight)
+            for key, weight in (self.criticality_weights or {}).items()
+        }
+
+
+class ScoringConfigurationDecisionRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    decision: str
+    reason_code: str
+
+
+def _parse_decimal(value: str) -> Decimal:
+    try:
+        return Decimal(value)
+    except Exception as exc:
+        raise ScoringValidationError(
+            "Scoring configuration weight or threshold is invalid."
+        ) from exc
+
+
+def _parse_quality_dimension(value: str) -> QualityDimension:
+    try:
+        return QualityDimension(value.strip().upper())
+    except ValueError as exc:
+        raise ScoringValidationError("Scoring configuration dimension is invalid.") from exc
+
+
+def _parse_criticality(value: str) -> Criticality:
+    try:
+        return Criticality(value.strip().upper())
+    except ValueError as exc:
+        raise ScoringValidationError("Scoring configuration criticality is invalid.") from exc

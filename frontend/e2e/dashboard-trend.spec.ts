@@ -186,6 +186,7 @@ function dataset(datasetId: string, name: string, sourceId: string) {
     name,
     dataset_type: "TABLE",
     status: "ACTIVE",
+    criticality: "MEDIUM",
     estimated_row_count: null,
     field_count: 5,
     version: 1,

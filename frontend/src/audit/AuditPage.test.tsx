@@ -32,7 +32,7 @@ describe("Denetim ekranı", () => {
     renderPage({ onQuery });
 
     fireEvent.change(screen.getByLabelText("Aktör"), {
-      target: { value: "rule-checker" },
+      target: { value: "Data Owner" },
     });
     expect(screen.getByText("Kural aktivasyonu")).toBeVisible();
     expect(screen.queryByText("Bağlantı testi")).not.toBeInTheDocument();
@@ -82,7 +82,7 @@ describe("Denetim ekranı", () => {
     expect(screen.getByRole("heading", { name: "En sık işlemler" })).toBeVisible();
     expect(screen.getByRole("heading", { name: "En aktif aktörler" })).toBeVisible();
     expect(screen.getByText("Toplam 6 olay")).toBeVisible();
-    expect(screen.getAllByText("synthetic-data-steward").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Data Steward (DATA_STEWARD)").length).toBeGreaterThan(0);
   });
 
   it("dışa aktarma dialogunda CSV ve JSON formatlarını sunar", () => {
@@ -131,6 +131,8 @@ describe("Denetim ekranı", () => {
 
     expect(screen.getByText("Olay detayı")).toBeVisible();
     expect(screen.getByText("Aktör ID")).toBeVisible();
+    expect(screen.getByText("Nesne adı")).toBeVisible();
+    expect(screen.getByText("Veri Görüntüleyici oturumu")).toBeVisible();
   });
 
   it("drawer'daki ilişkili correlation butonu onQuery'yi tetikler", () => {
@@ -148,9 +150,9 @@ describe("Denetim ekranı", () => {
   it("bilinen nesne türlerini yeni sekme linki yapar, yönlendirilemeyen türleri metin bırakır", () => {
     renderPage();
 
-    const ruleLink = screen.getByRole("link", { name: "QualityRule · rule-customer-id-required" });
-    const sourceLink = screen.getByRole("link", { name: "DataSource · source-core-banking" });
-    const scoringLink = screen.getByRole("link", { name: "ScoringConfiguration · scoring-policy-v2" });
+    const ruleLink = screen.getByRole("link", { name: "QualityRule · Müşteri kimliği zorunlu kuralı" });
+    const sourceLink = screen.getByRole("link", { name: "DataSource · Core Banking (sentetik)" });
+    const scoringLink = screen.getByRole("link", { name: "ScoringConfiguration · Skorlama Politikası v2" });
     expect(ruleLink).toHaveAttribute("href", "/rules");
     expect(sourceLink).toHaveAttribute("href", "/data-sources/source-core-banking");
     expect(scoringLink).toHaveAttribute("href", "/scores");
@@ -189,7 +191,7 @@ describe("Denetim ekranı", () => {
     expect(screen.getAllByText("Kural aktivasyonu").length).toBeGreaterThan(0);
   });
 
-  it("nesne quick-filter butonuyla objectType ve objectId sorgusunu tetikler", () => {
+  it("nesne quick-filter butonuyla yalnızca objectId sorgusu tetikler, nesne türü içermez", () => {
     const onQuery = vi.fn();
     renderPage({ onQuery });
 
@@ -197,10 +199,9 @@ describe("Denetim ekranı", () => {
       name: "DataSource source-core-banking için audit kayıtlarını filtrele",
     }));
 
-    expect(onQuery).toHaveBeenLastCalledWith(expect.objectContaining({
-      objectId: "source-core-banking",
-      objectType: "DataSource",
-    }));
+    const lastFilters = onQuery.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+    expect(lastFilters.objectId).toBe("source-core-banking");
+    expect(lastFilters).not.toHaveProperty("objectType");
     expect(screen.getByLabelText("Nesne ID")).toHaveValue("source-core-banking");
   });
 

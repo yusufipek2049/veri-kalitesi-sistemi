@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
+from types import SimpleNamespace
 from typing import Any
 
 from fastapi import FastAPI
@@ -370,3 +371,106 @@ def test_scoring_conflict_error_maps_to_409() -> None:
     client = _client(score_query_service=stub)
     response = client.get("/api/v1/scores")
     assert response.status_code == 409
+
+
+# ── Katkı grafiği zenginleştirme ─────────────────────────────────────
+
+
+class _FakeRuleVersion:
+    def __init__(self, rule_version_id: str, definition: dict[str, Any]) -> None:
+        self.rule_version_id = rule_version_id
+        self.definition = definition
+
+
+class _FakeRuleVersionReader:
+    def __init__(self, versions: dict[str, _FakeRuleVersion]) -> None:
+        self.versions = versions
+
+    def get_version(self, rule_version_id: str) -> _FakeRuleVersion:
+        return self.versions[rule_version_id]
+
+
+class _FakeCatalogReader:
+    def __init__(self, datasets: dict[str, Any], sources: dict[str, Any]) -> None:
+        self.datasets = datasets
+        self.sources = sources
+
+    def get_dataset(self, dataset_id: str) -> Any:
+        return self.datasets[dataset_id]
+
+    def get_data_source(self, data_source_id: str) -> Any:
+        return self.sources[data_source_id]
+
+
+def test_enrich_contribution_graph_adds_human_readable_names() -> None:
+    from veri_kalitesi.api.scores_router import _enrich_contribution_graph
+
+    graph = {
+        "schema_version": "DQ_SCORE_CONTRIBUTION_GRAPH_V1",
+        "components": [
+            {
+                "component_ref": "rv-1",
+                "component_type": "RULE",
+                "rule_version_id": "rv-1",
+                "weight": 0.6,
+                "contribution": 54.0,
+            },
+            {
+                "component_ref": "dataset-1",
+                "component_type": "DATASET",
+                "dataset_id": "dataset-1",
+                "weight": 0.3,
+                "contribution": 27.0,
+            },
+            {
+                "component_ref": "source-1",
+                "component_type": "SOURCE",
+                "data_source_id": "source-1",
+                "weight": 0.1,
+                "contribution": 9.0,
+            },
+        ],
+    }
+    rule_reader = _FakeRuleVersionReader(
+        {"rv-1": _FakeRuleVersion("rv-1", {"name": "Null Oranı Kontrolü", "code": "NULL_RATIO"})}
+    )
+    catalog_reader = _FakeCatalogReader(
+        datasets={"dataset-1": SimpleNamespace(namespace="public", name="musteriler")},
+        sources={"source-1": SimpleNamespace(name="PostgreSQL Ana Kaynak")},
+    )
+
+    enriched = _enrich_contribution_graph(
+        graph,
+        catalog_reader=catalog_reader,
+        rule_version_reader=rule_reader,
+    )
+
+    names = [component["component_name"] for component in enriched["components"]]
+    assert names == ["Null Oranı Kontrolü", "public.musteriler", "PostgreSQL Ana Kaynak"]
+    # Orijinal grafik mutasyona uğramaz.
+    assert "component_name" not in graph["components"][0]
+
+
+def test_enrich_contribution_graph_tolerates_unresolvable_references() -> None:
+    from veri_kalitesi.api.scores_router import _enrich_contribution_graph
+
+    graph = {
+        "components": [
+            {
+                "component_ref": "rv-missing",
+                "component_type": "RULE",
+                "rule_version_id": "rv-missing",
+                "weight": 1.0,
+                "contribution": 90.0,
+            }
+        ]
+    }
+    rule_reader = _FakeRuleVersionReader(versions={})
+
+    enriched = _enrich_contribution_graph(
+        graph,
+        catalog_reader=None,
+        rule_version_reader=rule_reader,
+    )
+
+    assert enriched["components"][0]["component_name"] is None

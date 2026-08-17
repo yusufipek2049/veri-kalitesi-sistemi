@@ -34,6 +34,11 @@ from veri_kalitesi.api.notifications_router import register_notifications_routes
 from veri_kalitesi.api.health import register_health_routes
 from veri_kalitesi.api.reporting_router import register_reporting_routes
 from veri_kalitesi.api.governance_router import register_governance_routes
+from veri_kalitesi.api.scoring_configuration_router import (
+    register_scoring_configuration_routes,
+)
+from veri_kalitesi.api.schedules_router import register_schedules_routes
+from veri_kalitesi.api.sql_templates_router import register_sql_template_routes
 from veri_kalitesi.operational_logging import bind_correlation_id, reset_correlation_id
 from veri_kalitesi.api.service_groups import (
     ActorResolverIdentity,
@@ -52,6 +57,9 @@ from veri_kalitesi.api.service_groups import (
     NotificationServices,
     ReportingServices,
     RuleServices,
+    ScheduleServices,
+    ScoringConfigurationServices,
+    SqlTemplateServices,
     StateChangeBoundary,
 )
 
@@ -134,7 +142,10 @@ def create_dashboard_api(
     notifications: NotificationServices | None = None,
     reporting: ReportingServices | None = None,
     governance: GovernanceServices | None = None,
+    scoring_configurations: ScoringConfigurationServices | None = None,
     analytics: AnalyticsServices | None = None,
+    sql_templates: SqlTemplateServices | None = None,
+    schedules: ScheduleServices | None = None,
 ) -> FastAPI:
     """Bağımlılıkları dışarıdan verilen, varsayılanı fail-closed API üretir."""
 
@@ -294,6 +305,7 @@ def create_dashboard_api(
         ),
         resolver=resolver,
         data_origin=options.data_origin,
+        audit_service=audit.command if audit is not None else None,
     )
     register_scores_routes(
         app,
@@ -356,6 +368,30 @@ def create_dashboard_api(
         resolver=resolver,
         data_origin=options.data_origin,
     )
+    register_scoring_configuration_routes(
+        app,
+        scoring_configuration_service=(
+            scoring_configurations.command if scoring_configurations is not None else None
+        ),
+        configuration_reader=(
+            scoring_configurations.reader if scoring_configurations is not None else None
+        ),
+        resolver=resolver,
+        data_origin=options.data_origin,
+    )
+    register_sql_template_routes(
+        app,
+        sql_template_service=sql_templates.service if sql_templates is not None else None,
+        resolver=resolver,
+        data_origin=options.data_origin,
+    )
+    register_schedules_routes(
+        app,
+        scheduling_service=schedules.scheduling if schedules is not None else None,
+        dataset_reader=_catalog_reader,
+        resolver=resolver,
+        data_origin=options.data_origin,
+    )
     # ██████ Geliştirme Kullanıcıları ██████
 
     @app.get(
@@ -377,6 +413,7 @@ def create_dashboard_api(
                     user_id=u["user_id"],
                     display_name=u["display_name"],
                     roles=u["roles"],
+                    actor_id=u.get("actor_id", ""),
                 )
                 for u in users
             ),
@@ -389,6 +426,8 @@ def create_dashboard_api(
         resolver=resolver,
         data_origin=options.data_origin,
         score_query_service=catalog.score_query if catalog is not None else None,
+        dataset_preview_provider=catalog.preview if catalog is not None else None,
+        audit_service=audit.command if audit is not None else None,
     )
 
     return app

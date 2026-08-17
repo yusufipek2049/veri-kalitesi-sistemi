@@ -216,7 +216,10 @@ class ScoringPolicyImpactQueryService:
                     "scope_id": b.scope_id,
                     "current_score": b.score_value,
                     "current_level": b.level,
+                    # Gozlenen satirda karsilastirma degeri aday surumun gercek
+                    # skorudur; tabloda ayni kolonda gosterilir.
                     "candidate_score": c.score_value,
+                    "simulated_score": c.score_value,
                     "simulated_level": c.level,
                     "delta": delta,
                     "evidence_class": "OBSERVED",
@@ -369,7 +372,9 @@ class ScoringPolicyImpactQueryService:
             if not isinstance(comp, dict):
                 continue
             dimension = comp.get("dimension")
-            comp_score = comp.get("score_value")
+            # Katki grafigi bileseni skoru "score" alaninda tasir; "score_value"
+            # eski yazimlar icin geriye donuk kabul edilir.
+            comp_score = comp.get("score", comp.get("score_value"))
             if dimension is None or comp_score is None:
                 continue
             weight = Decimal(str(candidate_weights.get(dimension, "0")))

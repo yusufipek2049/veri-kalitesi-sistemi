@@ -89,6 +89,7 @@ class ScoringConfiguration:
     created_at: datetime = field(default_factory=utc_now)
     is_active: bool = False
     activated_at: datetime | None = None
+    dataset_id: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(

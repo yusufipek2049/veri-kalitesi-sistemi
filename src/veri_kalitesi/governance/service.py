@@ -10,10 +10,14 @@ Güvenlik kuralları backend tarafında fail-closed uygulanır:
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable, Generic, Mapping, Protocol, TypeVar
+from uuid import uuid4
+
+logger = logging.getLogger(__name__)
 
 from veri_kalitesi.audit.models import AuditEventInput, AuditResult
 from veri_kalitesi.audit.service import AuditSink
@@ -24,7 +28,16 @@ from veri_kalitesi.data_sources.errors import (
 from veri_kalitesi.data_sources.errors import (
     NotFoundError as DataSourceNotFoundError,
 )
-from veri_kalitesi.data_sources.models import CatalogItemStatus, Criticality, DataField, Dataset
+from veri_kalitesi.data_sources.models import (
+    CatalogItemStatus,
+    Criticality,
+    DataField,
+    Dataset,
+    MetadataDiff,
+    MetadataDiffStatus,
+    TimelinessNature,
+)
+from veri_kalitesi.data_sources.service_helpers import diff_object_key
 from veri_kalitesi.executions.errors import (
     ExecutionConflictError as ExecutionConflictErr,
     ExecutionNotFoundError as ExecutionNotFoundErr,
@@ -35,6 +48,8 @@ from veri_kalitesi.executions.models import (
     ExecutionStatus,
     RuleExecution,
 )
+from veri_kalitesi.executions.schedule_policy import is_within_band
+from veri_kalitesi.executions.scheduling import Schedule, ScheduleType, SchedulingService
 from veri_kalitesi.governance.errors import (
     GovernanceAuthorizationError,
     GovernanceConflictError,
@@ -104,6 +119,27 @@ class GovernanceMetadataWriter(Protocol):
     ) -> DataField: ...
 
 
+class GovernanceDiffWriter(Protocol):
+    """Onaylanan metadata diff seçimini kataloğa uygulayan adaptör."""
+
+    def get_metadata_diff(self, metadata_diff_id: str) -> MetadataDiff: ...
+
+    def dataset_versions_for_diff(
+        self, data_source_id: str, dataset_keys: frozenset[tuple[str, str]]
+    ) -> dict[str, int]: ...
+
+    def apply_metadata_diff(
+        self,
+        *,
+        actor_id: str,
+        metadata_diff_id: str,
+        reason_code: str,
+        expected_version: int,
+        selected_objects: frozenset[tuple[str, str, str, str, str | None]],
+        correlation_id: str,
+    ) -> MetadataDiff: ...
+
+
 class GovernanceExecutionWriter(Protocol):
     """Onaylanan çalıştırma kararlarını hedef nesneye uygulayan adaptör."""
 
@@ -127,6 +163,39 @@ class GovernanceExecutionWriter(Protocol):
         request: GovernanceApprovalRequest,
         actor_context: ActorContext,
     ) -> object: ...
+
+
+class GovernanceScheduleWriter(Protocol):
+    """Onaylanan bant dışı zamanlayıcı kararını hedef nesneye uygulayan adaptör."""
+
+    def apply_schedule_interval(
+        self,
+        *,
+        request: GovernanceApprovalRequest,
+        actor_context: ActorContext,
+    ) -> Schedule: ...
+
+
+class GovernanceNotificationSink(Protocol):
+    """Yönetişim onay olaylarını bildirim kanalına yayınlayan adaptör."""
+
+    def publish_governance_approval_event(
+        self,
+        *,
+        event_type: str,
+        approval_request_id: str,
+        request_type: str,
+        object_type: str,
+        object_id: str,
+        object_name: str,
+        scope_type: str,
+        scope_id: str,
+        maker_actor_id: str,
+        recipient_user_id: str,
+        actor_context: ActorContext | None,
+        correlation_id: str,
+        payload: dict[str, Any],
+    ) -> None: ...
 
 
 class DatasetUpdater(Protocol):
@@ -177,7 +246,7 @@ _EXECUTION_REQUEST_TYPES = frozenset(
 )
 
 #: Kritik metadata alanları: doğrudan düzenlenemez, onaydan geçmelidir.
-_CRITICAL_DATASET_ATTRIBUTES = frozenset({"criticality", "status"})
+_CRITICAL_DATASET_ATTRIBUTES = frozenset({"criticality", "status", "timeliness_nature"})
 _SENSITIVE_FIELD_ATTRIBUTES = frozenset({"is_sensitive", "classification"})
 
 
@@ -192,14 +261,24 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
         transactional_audit: AuditT,
         policy: GovernanceApprovalPolicy,
         metadata_writer: GovernanceMetadataWriter | None = None,
+        diff_writer: GovernanceDiffWriter | None = None,
         execution_writer: GovernanceExecutionWriter | None = None,
+        schedule_writer: GovernanceScheduleWriter | None = None,
+        notification_sink: GovernanceNotificationSink | None = None,
+        notification_recipient_provider: (
+            Callable[[GovernanceApprovalRequest, str], list[str]] | None
+        ) = None,
         clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc),
     ) -> None:
         self.repository = repository
         self.catalog = catalog
         self.ownership_writer = ownership_writer
         self.metadata_writer = metadata_writer
+        self.diff_writer = diff_writer
         self.execution_writer = execution_writer
+        self.schedule_writer = schedule_writer
+        self.notification_sink = notification_sink
+        self.notification_recipient_provider = notification_recipient_provider
         self.audit_sink = audit_sink
         self.transactional_audit = transactional_audit
         self.policy = policy
@@ -241,6 +320,10 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
             request = self._prepare_field_sensitivity_request(
                 context, object_id, proposed_changes, normalized_reason, requested_at
             )
+        elif parsed_type is GovernanceRequestType.METADATA_DIFF_APPLICATION:
+            request = self._prepare_diff_application_request(
+                context, object_id, proposed_changes, normalized_reason, requested_at
+            )
         elif parsed_type is GovernanceRequestType.EXECUTION_MANUAL_START:
             request = self._prepare_execution_start_request(
                 context, object_id, proposed_changes, normalized_reason, requested_at
@@ -252,6 +335,10 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
         elif parsed_type is GovernanceRequestType.DEAD_LETTER_REPROCESS:
             request = self._prepare_execution_dead_letter_request(
                 context, object_id, normalized_reason, requested_at
+            )
+        elif parsed_type is GovernanceRequestType.SCHEDULE_INTERVAL_EXCEPTION:
+            request = self._prepare_schedule_interval_request(
+                context, object_id, proposed_changes, normalized_reason, requested_at
             )
         else:
             raise GovernanceValidationError("Governance request type is not governed.")
@@ -278,6 +365,21 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
             audit_outbox=self.transactional_audit,
         )
         self.transactional_audit.publish_pending()
+        self._publish_governance_notification(
+            event_type="GOVERNANCE_APPROVAL_REQUESTED",
+            request=stored,
+            recipient_user_id=self._resolve_checker_recipient(stored),
+            actor_context=actor_context,
+            correlation_id=context.correlation_id,
+            payload={
+                "request_type": parsed_type.value,
+                "maker_actor_id": context.actor_id,
+                "object_type": stored.object_type,
+                "object_id": stored.object_id,
+                "approval_request_id": stored.approval_request_id,
+                "reason_code": normalized_reason,
+            },
+        )
         return stored
 
     def _prepare_ownership_request(
@@ -347,6 +449,9 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
         )
         _normalize_enum_attribute(updates, "criticality", Criticality, label="criticality")
         _normalize_enum_attribute(updates, "status", CatalogItemStatus, label="status")
+        _normalize_enum_attribute(
+            updates, "timeliness_nature", TimelinessNature, label="timeliness_nature"
+        )
         for attribute, value in updates.items():
             if _attribute_value(dataset, attribute) == value:
                 raise GovernanceValidationError("Proposed metadata change must modify the dataset.")
@@ -414,6 +519,53 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
                     attribute: _attribute_value(data_field, attribute) for attribute in updates
                 },
                 "after": updates,
+            },
+            status=GovernanceApprovalStatus.SUBMITTED,
+            reason_code=reason_code,
+            requested_at=requested_at,
+        )
+
+    def _prepare_diff_application_request(
+        self,
+        context: ActorContext,
+        object_id: str,
+        proposed_changes: Mapping[str, Any] | None,
+        reason_code: str,
+        requested_at: datetime,
+    ) -> GovernanceApprovalRequest:
+        writer = self._require_diff_writer()
+        diff = self._get_metadata_diff(object_id)
+        if diff.status is not MetadataDiffStatus.PENDING:
+            raise GovernanceValidationError("Metadata diff must be pending to request application.")
+        selected = _validate_diff_selection(diff, proposed_changes)
+        dataset_keys = frozenset((entry[2], entry[3]) for entry in selected)
+        dataset_versions = writer.dataset_versions_for_diff(diff.data_source_id, dataset_keys)
+        _assert_full_dataset_scope(context, frozenset(dataset_versions.keys()))
+        return GovernanceApprovalRequest(
+            request_type=GovernanceRequestType.METADATA_DIFF_APPLICATION,
+            object_type="MetadataDiff",
+            object_id=diff.metadata_diff_id,
+            scope_type="DATA_SOURCE",
+            scope_id=diff.data_source_id,
+            scope_version=diff.version,
+            maker_actor_id=context.actor_id,
+            maker_roles=tuple(sorted(context.roles)),
+            policy_version=self.policy.version,
+            correlation_id=context.correlation_id,
+            change_summary={
+                "before": {"status": "PENDING", "dataset_versions": dataset_versions},
+                "after": {"status": "APPLIED"},
+                "selected": [
+                    list(entry)
+                    for entry in sorted(
+                        selected, key=lambda entry: tuple(part or "" for part in entry)
+                    )
+                ],
+                "counts": {
+                    "added": sum(1 for entry in selected if entry[0] == "ADDED"),
+                    "changed": sum(1 for entry in selected if entry[0] == "CHANGED"),
+                    "removed": sum(1 for entry in selected if entry[0] == "REMOVED"),
+                },
             },
             status=GovernanceApprovalStatus.SUBMITTED,
             reason_code=reason_code,
@@ -562,6 +714,82 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
             requested_at=requested_at,
         )
 
+    def _prepare_schedule_interval_request(
+        self,
+        context: ActorContext,
+        object_id: str,
+        proposed_changes: Mapping[str, Any] | None,
+        reason_code: str,
+        requested_at: datetime,
+    ) -> GovernanceApprovalRequest:
+        dataset = self._get_dataset(object_id)
+        if dataset.dataset_id not in context.permitted_dataset_ids:
+            raise GovernanceAuthorizationError(
+                "Maker is outside the dataset scope for governance submission."
+            )
+        if dataset.timeliness_nature is None:
+            raise GovernanceValidationError(
+                "Dataset timeliness nature must be assigned before a schedule exception request."
+            )
+        if not proposed_changes or not isinstance(proposed_changes.get("schedule"), Mapping):
+            raise GovernanceValidationError(
+                "Schedule exception request requires a proposed schedule definition."
+            )
+        proposal = proposed_changes["schedule"]
+        raw_type = str(proposal.get("schedule_type", "")).strip().upper()
+        try:
+            schedule_type = ScheduleType(raw_type)
+        except ValueError as exc:
+            raise GovernanceValidationError("Proposed schedule type is invalid.") from exc
+        interval_minutes = proposal.get("interval_minutes")
+        if interval_minutes is not None and (
+            isinstance(interval_minutes, bool) or not isinstance(interval_minutes, int)
+        ):
+            raise GovernanceValidationError("Proposed interval_minutes must be an integer.")
+        if is_within_band(dataset.timeliness_nature, schedule_type, interval_minutes):
+            raise GovernanceValidationError(
+                "Proposed schedule is within the recommended band; no governance request needed."
+            )
+        raw_rule_ids = proposal.get("rule_version_ids")
+        if not isinstance(raw_rule_ids, (list, tuple)) or not raw_rule_ids:
+            raise GovernanceValidationError("Proposed schedule requires rule_version_ids.")
+        rule_version_ids = tuple(str(value) for value in raw_rule_ids)
+        _assert_full_dataset_scope(context, self._resolve_execution_dataset_ids(rule_version_ids))
+        name = str(proposal.get("name", "")).strip()
+        timezone_name = str(proposal.get("timezone_name", "")).strip()
+        if not name or not timezone_name:
+            raise GovernanceValidationError("Proposed schedule requires name and timezone_name.")
+        schedule_proposal = {
+            "schedule_id": str(uuid4()),
+            "name": name,
+            "schedule_type": schedule_type.value,
+            "timezone_name": timezone_name,
+            "rule_version_ids": list(rule_version_ids),
+            "interval_minutes": interval_minutes,
+            "local_time": proposal.get("local_time"),
+            "day_of_week": proposal.get("day_of_week"),
+            "day_of_month": proposal.get("day_of_month"),
+        }
+        return GovernanceApprovalRequest(
+            request_type=GovernanceRequestType.SCHEDULE_INTERVAL_EXCEPTION,
+            object_type="Dataset",
+            object_id=dataset.dataset_id,
+            scope_type="DATASET",
+            scope_id=dataset.dataset_id,
+            scope_version=dataset.version,
+            maker_actor_id=context.actor_id,
+            maker_roles=tuple(sorted(context.roles)),
+            policy_version=self.policy.version,
+            correlation_id=context.correlation_id,
+            change_summary={
+                "before": {"timeliness_nature": dataset.timeliness_nature.value},
+                "after": {"schedule": schedule_proposal},
+            },
+            status=GovernanceApprovalStatus.SUBMITTED,
+            reason_code=reason_code,
+            requested_at=requested_at,
+        )
+
     def _resolve_execution_dataset_ids(self, rule_version_ids: tuple[str, ...]) -> frozenset[str]:
         dataset_ids: set[str] = set()
         for vid in rule_version_ids:
@@ -648,6 +876,41 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
         stored = self._transition(
             request, decided, action="GOVERNANCE_APPROVAL_DECIDED", actor_id=context.actor_id
         )
+        self._publish_governance_notification(
+            event_type="GOVERNANCE_APPROVAL_DECIDED",
+            request=stored,
+            recipient_user_id=request.maker_actor_id,
+            actor_context=actor_context,
+            correlation_id=context.correlation_id,
+            payload={
+                "request_type": request.request_type.value,
+                "maker_actor_id": request.maker_actor_id,
+                "object_type": request.object_type,
+                "object_id": request.object_id,
+                "approval_request_id": request.approval_request_id,
+                "decision": status.value,
+                "reason_code": normalized_reason,
+                "checker_actor_id": context.actor_id,
+            },
+        )
+        if status is GovernanceApprovalStatus.REJECTED:
+            self._publish_governance_notification(
+                event_type="GOVERNANCE_APPROVAL_REJECTED",
+                request=stored,
+                recipient_user_id=context.actor_id,
+                actor_context=actor_context,
+                correlation_id=context.correlation_id,
+                payload={
+                    "request_type": request.request_type.value,
+                    "maker_actor_id": request.maker_actor_id,
+                    "object_type": request.object_type,
+                    "object_id": request.object_id,
+                    "approval_request_id": request.approval_request_id,
+                    "decision": status.value,
+                    "reason_code": normalized_reason,
+                    "checker_actor_id": context.actor_id,
+                },
+            )
         return stored
 
     # ------------------------------------------------------------------
@@ -679,9 +942,25 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
             reason_code=normalized_reason,
             decided_at=self.clock(),
         )
-        return self._transition(
+        stored = self._transition(
             request, withdrawn, action="GOVERNANCE_APPROVAL_WITHDRAWN", actor_id=context.actor_id
         )
+        self._publish_governance_notification(
+            event_type="GOVERNANCE_APPROVAL_WITHDRAWN",
+            request=stored,
+            recipient_user_id=request.maker_actor_id,
+            actor_context=actor_context,
+            correlation_id=context.correlation_id,
+            payload={
+                "request_type": request.request_type.value,
+                "maker_actor_id": request.maker_actor_id,
+                "object_type": request.object_type,
+                "object_id": request.object_id,
+                "approval_request_id": request.approval_request_id,
+                "reason_code": normalized_reason,
+            },
+        )
+        return stored
 
     # ------------------------------------------------------------------
     # Applier: kararı uygulama (idempotent)
@@ -710,8 +989,12 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
             return self._apply_dataset_metadata(request, context)
         if request.request_type is GovernanceRequestType.FIELD_SENSITIVITY_MARK:
             return self._apply_field_sensitivity(request, context)
+        if request.request_type is GovernanceRequestType.METADATA_DIFF_APPLICATION:
+            return self._apply_diff_application(request, context)
         if request.request_type in _EXECUTION_REQUEST_TYPES:
             return self._apply_execution(request, context)
+        if request.request_type is GovernanceRequestType.SCHEDULE_INTERVAL_EXCEPTION:
+            return self._apply_schedule_interval(request, context)
         raise GovernanceValidationError("Governance request type cannot be applied.")
 
     def _apply_ownership(
@@ -818,15 +1101,86 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
             request, applied, action="GOVERNANCE_APPROVAL_APPLIED", actor_id=context.actor_id
         )
 
+    def _apply_diff_application(
+        self, request: GovernanceApprovalRequest, context: ActorContext
+    ) -> GovernanceApprovalRequest:
+        writer = self._require_diff_writer()
+        diff = self._get_metadata_diff(request.object_id)
+        if diff.status is MetadataDiffStatus.APPLIED:
+            # Idempotent tekrar uygulama: diff zaten kapatılmış.
+            applied = _replace_status(
+                request,
+                GovernanceApprovalStatus.APPLIED,
+                applied_at=self.clock(),
+            )
+            return self._transition(
+                request, applied, action="GOVERNANCE_APPROVAL_APPLIED", actor_id=context.actor_id
+            )
+        if diff.status is not MetadataDiffStatus.PENDING or diff.version != request.scope_version:
+            # Diff değiştiyse talep geçersizleşir; yeni keşif yeni bir talep gerektirir.
+            invalidated = _replace_status(
+                request,
+                GovernanceApprovalStatus.INVALIDATED,
+                reason_code="GOVERNANCE.OBJECT.CHANGED",
+                decided_at=self.clock(),
+            )
+            self._transition(
+                request,
+                invalidated,
+                action="GOVERNANCE_APPROVAL_INVALIDATED",
+                actor_id=context.actor_id,
+            )
+            raise GovernanceConflictError("Metadata diff changed; the approval was invalidated.")
+        selected_raw = request.change_summary.get("selected", ())
+        selected_objects: frozenset[tuple[str, str, str, str, str | None]] = frozenset(
+            (str(entry[0]), str(entry[1]), str(entry[2]), str(entry[3]), entry[4] or None)
+            for entry in selected_raw
+            if isinstance(entry, (list, tuple)) and len(entry) == 5
+        )
+        if not selected_objects:
+            raise GovernanceValidationError("Governance diff request has no selected objects.")
+        try:
+            writer.apply_metadata_diff(
+                actor_id=context.actor_id,
+                metadata_diff_id=request.object_id,
+                reason_code=request.reason_code or "METADATA.DIFF.APPLICATION",
+                expected_version=request.scope_version,
+                selected_objects=selected_objects,
+                correlation_id=request.correlation_id,
+            )
+        except DataSourceConflictError:
+            self._fail_application(request, context)
+            raise GovernanceConflictError(
+                "Governance decision could not be applied; metadata diff changed."
+            ) from None
+        applied = _replace_status(
+            request,
+            GovernanceApprovalStatus.APPLIED,
+            applied_at=self.clock(),
+        )
+        return self._transition(
+            request, applied, action="GOVERNANCE_APPROVAL_APPLIED", actor_id=context.actor_id
+        )
+
     def _require_metadata_writer(self) -> GovernanceMetadataWriter:
         if self.metadata_writer is None:
             raise GovernanceValidationError("Metadata governance writer is not configured.")
         return self.metadata_writer
 
+    def _require_diff_writer(self) -> GovernanceDiffWriter:
+        if self.diff_writer is None:
+            raise GovernanceValidationError("Metadata diff governance writer is not configured.")
+        return self.diff_writer
+
     def _require_execution_writer(self) -> GovernanceExecutionWriter:
         if self.execution_writer is None:
             raise GovernanceValidationError("Execution governance writer is not configured.")
         return self.execution_writer
+
+    def _require_schedule_writer(self) -> GovernanceScheduleWriter:
+        if self.schedule_writer is None:
+            raise GovernanceValidationError("Schedule governance writer is not configured.")
+        return self.schedule_writer
 
     def _apply_execution(
         self, request: GovernanceApprovalRequest, context: ActorContext
@@ -845,6 +1199,31 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
             self._fail_application(request, context)
             raise GovernanceConflictError(
                 "Governance decision could not be applied; execution state changed."
+            ) from exc
+        except ExecutionValidationErr as exc:
+            self._fail_application(request, context)
+            raise GovernanceValidationError(
+                "Governance decision application failed validation."
+            ) from exc
+        applied = _replace_status(
+            request,
+            GovernanceApprovalStatus.APPLIED,
+            applied_at=self.clock(),
+        )
+        return self._transition(
+            request, applied, action="GOVERNANCE_APPROVAL_APPLIED", actor_id=context.actor_id
+        )
+
+    def _apply_schedule_interval(
+        self, request: GovernanceApprovalRequest, context: ActorContext
+    ) -> GovernanceApprovalRequest:
+        writer = self._require_schedule_writer()
+        try:
+            writer.apply_schedule_interval(request=request, actor_context=context)
+        except (ExecutionConflictErr, ExecutionNotFoundErr) as exc:
+            self._fail_application(request, context)
+            raise GovernanceConflictError(
+                "Governance decision could not be applied; schedule state changed."
             ) from exc
         except ExecutionValidationErr as exc:
             self._fail_application(request, context)
@@ -897,15 +1276,24 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
         except (DataSourceNotFoundError, KeyError) as exc:
             raise GovernanceNotFoundError("Governance target field not found.") from exc
 
+    def _get_metadata_diff(self, metadata_diff_id: str) -> MetadataDiff:
+        writer = self._require_diff_writer()
+        try:
+            return writer.get_metadata_diff(metadata_diff_id)
+        except (DataSourceNotFoundError, KeyError) as exc:
+            raise GovernanceNotFoundError("Governance target metadata diff not found.") from exc
+
     def _load_object(
         self, request: GovernanceApprovalRequest
-    ) -> Dataset | DataField | RuleExecution | DeadLetterRecord:
+    ) -> Dataset | DataField | RuleExecution | DeadLetterRecord | MetadataDiff:
         if request.object_type == "DataField":
             return self._get_data_field(request.object_id)
         if request.object_type == "RuleExecution":
             return self._get_execution(request.object_id)
         if request.object_type == "DeadLetterRecord":
             return self._get_dead_letter(request.object_id)
+        if request.object_type == "MetadataDiff":
+            return self._get_metadata_diff(request.object_id)
         return self._get_dataset(request.object_id)
 
     def _request_expired(self, request: GovernanceApprovalRequest) -> bool:
@@ -969,6 +1357,80 @@ class GovernanceApprovalCommandService(Generic[AuditT]):
             raise GovernanceConflictError(
                 "Governance target object changed; the approval was invalidated."
             )
+
+    # ------------------------------------------------------------------
+    # Notification helper methods
+    # ------------------------------------------------------------------
+
+    def _resolve_checker_recipient(self, request: GovernanceApprovalRequest) -> str:
+        """Resolve the notification recipient for a governance checker.
+
+        For dataset-scoped requests, the dataset owner is the natural checker.
+        Falls back to the maker actor id when no better recipient is found.
+        """
+        if request.scope_type == "DATASET" and request.scope_id:
+            try:
+                dataset = self._get_dataset(request.scope_id)
+                if dataset.owner_user_id and dataset.owner_user_id.strip():
+                    return dataset.owner_user_id
+            except (GovernanceNotFoundError, Exception):
+                pass
+        return request.maker_actor_id
+
+    def _publish_governance_notification(
+        self,
+        *,
+        event_type: str,
+        request: GovernanceApprovalRequest,
+        recipient_user_id: str,
+        actor_context: ActorContext | None,
+        correlation_id: str,
+        payload: dict[str, Any],
+    ) -> None:
+        """Publish governance notifications to all relevant recipients.
+
+        The explicit *recipient_user_id* is always included.  When a
+        ``notification_recipient_provider`` is configured its results (e.g.
+        governance specialists) are merged in as well.
+        """
+        if self.notification_sink is None:
+            return
+        recipients: set[str] = {recipient_user_id}
+        if self.notification_recipient_provider is not None:
+            try:
+                extra = self.notification_recipient_provider(request, event_type)
+                recipients.update(extra)
+            except Exception:
+                logger.warning(
+                    "Governance notification recipient resolution failed for %s",
+                    request.approval_request_id,
+                    exc_info=True,
+                )
+        for user_id in sorted(recipients):
+            try:
+                self.notification_sink.publish_governance_approval_event(
+                    event_type=event_type,
+                    approval_request_id=request.approval_request_id,
+                    request_type=request.request_type.value,
+                    object_type=request.object_type,
+                    object_id=request.object_id,
+                    object_name=request.object_id,
+                    scope_type=request.scope_type,
+                    scope_id=request.scope_id,
+                    maker_actor_id=request.maker_actor_id,
+                    recipient_user_id=user_id,
+                    actor_context=actor_context,
+                    correlation_id=correlation_id,
+                    payload=payload,
+                )
+            except Exception:
+                # Notification failures must not break the governance workflow.
+                logger.warning(
+                    "Governance notification publish failed for %s (recipient=%s)",
+                    request.approval_request_id,
+                    user_id,
+                    exc_info=True,
+                )
 
     def _transition(
         self,
@@ -1146,6 +1608,108 @@ class PostgreSQLMetadataGovernanceWriter:
         )
 
 
+class PostgreSQLDiffGovernanceRepository(Protocol):
+    """Metadata diff okuma ve katalog dataset envanteri yüzeyi."""
+
+    def get_metadata_diff(self, metadata_diff_id: str) -> MetadataDiff: ...
+
+    def list_datasets(self, data_source_id: str) -> list[Dataset]: ...
+
+
+class GovernanceDiffApplicationService(Protocol):
+    """Seçim filtreli metadata diff uygulama yüzeyi."""
+
+    def apply_discovery_diff(
+        self,
+        *,
+        actor_id: str,
+        metadata_diff_id: str,
+        reason_code: str,
+        expected_version: int,
+        correlation_id: str | None = None,
+        selected_objects: frozenset[tuple[str, str, str, str, str | None]] | None = None,
+    ) -> MetadataDiff: ...
+
+
+class PostgreSQLDiffGovernanceWriter:
+    """Onaylanan metadata diff seçimini DataSourceService ile uygulayan adaptör."""
+
+    def __init__(
+        self,
+        service: GovernanceDiffApplicationService,
+        repository: PostgreSQLDiffGovernanceRepository,
+    ) -> None:
+        self.service = service
+        self.repository = repository
+
+    def get_metadata_diff(self, metadata_diff_id: str) -> MetadataDiff:
+        return self.repository.get_metadata_diff(metadata_diff_id)
+
+    def dataset_versions_for_diff(
+        self, data_source_id: str, dataset_keys: frozenset[tuple[str, str]]
+    ) -> dict[str, int]:
+        versions: dict[str, int] = {}
+        for dataset in self.repository.list_datasets(data_source_id):
+            if (dataset.namespace, dataset.name) in dataset_keys:
+                versions[dataset.dataset_id] = dataset.version
+        return versions
+
+    def apply_metadata_diff(
+        self,
+        *,
+        actor_id: str,
+        metadata_diff_id: str,
+        reason_code: str,
+        expected_version: int,
+        selected_objects: frozenset[tuple[str, str, str, str, str | None]],
+        correlation_id: str,
+    ) -> MetadataDiff:
+        return self.service.apply_discovery_diff(
+            actor_id=actor_id,
+            metadata_diff_id=metadata_diff_id,
+            reason_code=reason_code,
+            expected_version=expected_version,
+            correlation_id=correlation_id,
+            selected_objects=selected_objects,
+        )
+
+
+class PostgreSQLScheduleGovernanceWriter:
+    """Onaylanan bant dışı zamanlayıcı önerisini SchedulingService ile oluşturur."""
+
+    def __init__(self, scheduling_service: SchedulingService) -> None:
+        self.scheduling_service = scheduling_service
+
+    def apply_schedule_interval(
+        self,
+        *,
+        request: GovernanceApprovalRequest,
+        actor_context: ActorContext,
+    ) -> Schedule:
+        schedule_proposal = request.change_summary.get("after", {}).get("schedule", {})
+        schedule_id = str(schedule_proposal.get("schedule_id", ""))
+        if schedule_id:
+            try:
+                # Idempotent tekrar uygulama: önerilen schedule zaten mevcut.
+                return self.scheduling_service.repository.get(schedule_id)
+            except ExecutionValidationErr:
+                pass
+        schedule, _preview = self.scheduling_service.create_schedule(
+            actor_id=actor_context.actor_id,
+            name=str(schedule_proposal.get("name", "")),
+            schedule_type=str(schedule_proposal.get("schedule_type", "")),
+            timezone_name=str(schedule_proposal.get("timezone_name", "")),
+            rule_version_ids=tuple(schedule_proposal.get("rule_version_ids", ())),
+            local_time=schedule_proposal.get("local_time"),
+            interval_minutes=schedule_proposal.get("interval_minutes"),
+            day_of_week=schedule_proposal.get("day_of_week"),
+            day_of_month=schedule_proposal.get("day_of_month"),
+            schedule_id=schedule_id or None,
+            correlation_id=request.correlation_id,
+        )
+        return schedule
+
+
 def _validate_policy(policy: GovernanceApprovalPolicy) -> None:
     if not policy.version.strip() or not policy.actor_policy_version.strip():
         raise GovernanceValidationError("Governance policy versions are required.")
@@ -1205,6 +1769,43 @@ def _validate_proposed_changes(
             f"Proposed changes include non-governed {object_label} attributes."
         )
     return dict(proposed_changes)
+
+
+def _validate_diff_selection(
+    diff: MetadataDiff, proposed_changes: Mapping[str, Any] | None
+) -> frozenset[tuple[str, str, str, str, str | None]]:
+    """Diff uygulaması için gönderilen obje seçimini doğrular."""
+    if not proposed_changes or "selected_objects" not in proposed_changes:
+        raise GovernanceValidationError("Metadata diff application requires an object selection.")
+    raw_selection = proposed_changes["selected_objects"]
+    if not isinstance(raw_selection, (list, tuple)) or not raw_selection:
+        raise GovernanceValidationError("Metadata diff selection must be a non-empty object list.")
+    known = {
+        diff_object_key(change_type, obj)
+        for change_type, bucket in (
+            ("ADDED", diff.added_objects),
+            ("CHANGED", diff.changed_objects),
+            ("REMOVED", diff.removed_objects),
+        )
+        for obj in bucket
+    }
+    selected: set[tuple[str, str, str, str, str | None]] = set()
+    for entry in raw_selection:
+        if not isinstance(entry, (list, tuple)) or len(entry) != 5:
+            raise GovernanceValidationError("Metadata diff selection entry is malformed.")
+        key = (
+            str(entry[0]).strip().upper(),
+            str(entry[1]),
+            str(entry[2]),
+            str(entry[3]),
+            str(entry[4]) if entry[4] else None,
+        )
+        if key not in known:
+            raise GovernanceValidationError(
+                "Selected object is not part of the pending metadata diff."
+            )
+        selected.add(key)
+    return frozenset(selected)
 
 
 def _normalize_enum_attribute(

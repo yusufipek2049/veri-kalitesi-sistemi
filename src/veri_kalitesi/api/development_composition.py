@@ -41,6 +41,7 @@ from veri_kalitesi.issues.evidence_files import (
 from veri_kalitesi.issues.evidence_candidates import ExecutionIssueEvidenceCandidateProvider
 from veri_kalitesi.api.development_rule_store import DevelopmentRuleReader, DevelopmentRuleStore
 from veri_kalitesi.governance import GovernanceApprovalQueryService
+from veri_kalitesi.sql_templates import InMemorySqlTemplateRepository, SqlTemplateService
 from veri_kalitesi.api.identity import (
     DevelopmentActorContextResolver,
     DevelopmentUserRegistry,
@@ -59,6 +60,7 @@ from veri_kalitesi.api.service_groups import (
     DataSourceServices,
     ExecutionServices,
     GovernanceServices,
+    SqlTemplateServices,
     IssueServices,
     RuleServices,
 )
@@ -238,11 +240,15 @@ def _seed_development_scores(repository: SQLiteScoreRepository, now: datetime) -
 
 
 def _seed_development_audit_events(audit_service: AuditService, now: datetime) -> None:
-    """Audit görünümü için sentetik olay kayıtlarını yükler."""
+    """Audit görünümü için sentetik olay kayıtlarını yükler.
+
+    Aktör kimlikleri `identity.build_default_development_users` ile aynıdır;
+    böylece denetim ekranındaki aktif aktörler demo kullanıcılara çözülür.
+    """
     for index, (actor_id, action, object_type, object_id, result, reason_code) in enumerate(
         (
             (
-                "synthetic-iam-user",
+                "33333333-3333-4333-8333-333333333333",
                 "LDAP_AUTHENTICATION",
                 "UserSession",
                 "synthetic-session",
@@ -250,7 +256,7 @@ def _seed_development_audit_events(audit_service: AuditService, now: datetime) -
                 "AUTHENTICATED",
             ),
             (
-                "synthetic-data-steward",
+                "11111111-1111-4111-8111-111111111111",
                 "DATA_SOURCE_CONNECTION_TEST",
                 "DataSource",
                 "source-core-banking",
@@ -258,7 +264,7 @@ def _seed_development_audit_events(audit_service: AuditService, now: datetime) -
                 "TEST_SUCCEEDED",
             ),
             (
-                "synthetic-rule-checker",
+                "22222222-2222-4222-8222-222222222222",
                 "RULE_ACTIVATION",
                 "QualityRule",
                 "rule-customer-id-required",
@@ -266,7 +272,7 @@ def _seed_development_audit_events(audit_service: AuditService, now: datetime) -
                 "APPROVED",
             ),
             (
-                "synthetic-score-checker",
+                "44444444-4444-4444-8444-444444444444",
                 "SCORING_CONFIGURATION_ACTIVATION",
                 "ScoringConfiguration",
                 "scoring-policy-v2",
@@ -274,7 +280,7 @@ def _seed_development_audit_events(audit_service: AuditService, now: datetime) -
                 "MAKER_CHECKER_REQUIRED",
             ),
             (
-                "synthetic-report-viewer",
+                "77777777-7777-4777-8777-777777777777",
                 "REPORT_PREVIEW_VIEWED",
                 "ReportPreview",
                 None,
@@ -282,7 +288,7 @@ def _seed_development_audit_events(audit_service: AuditService, now: datetime) -
                 "QUERY_COMPLETED",
             ),
             (
-                "synthetic-session-user",
+                "55555555-5555-4555-8555-555555555555",
                 "IDENTITY_SESSION",
                 "UserSession",
                 "synthetic-expired-session",
@@ -396,6 +402,7 @@ def create_synthetic_development_app(  # type: ignore[no-untyped-def]
         execution_store = DevelopmentExecutionStore()
         execution_start_service = execution_store  # type: ignore[assignment]
         execution_cancel_service = execution_store  # type: ignore[assignment]
+    sql_template_repository = InMemorySqlTemplateRepository()
     return create_dashboard_api(
         identity=ActorResolverIdentity(resolver),
         options=ApiOptions(
@@ -452,6 +459,12 @@ def create_synthetic_development_app(  # type: ignore[no-untyped-def]
                 authorization_service=authorization,
                 clock=lambda: datetime.now(timezone.utc),
                 trend_policy=DEVELOPMENT_TREND_POLICY,
+            ),
+        ),
+        sql_templates=SqlTemplateServices(
+            service=SqlTemplateService(
+                sql_template_repository,
+                clock=lambda: datetime.now(timezone.utc),
             ),
         ),
         governance=GovernanceServices(

@@ -1,32 +1,54 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
+  FormGroup,
+  MenuItem,
   Paper,
   Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
 } from "@mui/material";
-import { ArrowLeft, Edit, ListChecks, RefreshCw, Search as SearchIcon, TrendingUp } from "lucide-react";
+import { ArrowLeft, Edit, Eye, ListChecks, RefreshCw, Search as SearchIcon, ShieldAlert, TrendingUp } from "lucide-react";
 import { Link } from "react-router-dom";
 import { AppShell } from "../components/AppShell";
 import { StatusBadge } from "../components/StatusBadge";
+import { timelinessNatureLabels } from "../jobs/model";
+import { CatalogApiError } from "./api";
+import { diffObjectSelection, type DiffObjectSelection } from "./model";
 import type {
   CatalogDataset,
   CatalogField,
   CatalogItemStatus,
   DatasetDetailState,
+  DatasetPreview,
   DatasetUpdatePayload,
   DiscoveryStatus,
   MetadataDiff,
 } from "./model";
+
+const diffObjectLabel = (object: Record<string, unknown>): string => {
+  const namespace = String(object.namespace ?? "");
+  const datasetName = String(object.dataset_name ?? "");
+  const fieldName = object.field_name;
+  const base = namespace ? `${namespace}.${datasetName}` : datasetName;
+  return typeof fieldName === "string" && fieldName ? `${base}.${fieldName}` : base;
+};
 
 interface DatasetRule {
   id: string;
@@ -49,8 +71,17 @@ interface DatasetDetailPageProps {
   correlationId?: string;
   onRefresh?: () => void;
   onRequestDiscovery?: (dataSourceId: string) => Promise<void>;
-  onApplyDiff?: (metadataDiffId: string) => Promise<void>;
+  onSubmitDiffApproval?: (
+    metadataDiffId: string,
+    selectedObjects: DiffObjectSelection[],
+  ) => Promise<void>;
   onUpdateDataset?: (payload: DatasetUpdatePayload) => Promise<void>;
+  onSubmitAttributeChange?: (
+    attribute: string,
+    value: string,
+    reasonCode: string,
+  ) => Promise<void>;
+  onPreviewRows?: () => Promise<DatasetPreview>;
 }
 
 const fieldStatusTone = (status: CatalogItemStatus): "success" | "unknown" =>
@@ -83,22 +114,84 @@ const discoveryStatusLabels: Record<string, string> = {
   CANCELLED: "İptal",
 };
 
+const fieldColumns = ["Alan", "Veri tipi", "Boş olabilir", "Hassas veri", "Durum"];
+
+const fieldGridSx = {
+  display: "grid",
+  gap: 3,
+  gridTemplateColumns: {
+    xs: "minmax(0, 1fr)",
+    md: "minmax(180px, 1fr) 120px 100px 100px 120px",
+  },
+  px: 4,
+} as const;
+
+const ruleColumns = ["Kural", "Boyut", "Durum", "Kritiklik"];
+
+const ruleGridSx = {
+  display: "grid",
+  gap: 2,
+  gridTemplateColumns: {
+    xs: "minmax(0, 1fr)",
+    md: "minmax(200px, 1fr) 140px 120px 120px",
+  },
+  px: 4,
+} as const;
+
+const previewErrorMessages: Record<string, string> = {
+  PREVIEW_UNSUPPORTED_SOURCE_TYPE:
+    "Satır önizleme yalnızca PostgreSQL veri kaynakları için desteklenir.",
+  DATA_SOURCE_NOT_ACTIVE:
+    "Veri kaynağı aktif olmadığı için satır önizlemesi yapılamaz.",
+  DATASET_FIELDS_MISSING:
+    "Bu dataset için katalog alanı tanımlı olmadığından önizleme yapılamaz.",
+};
+
+/** Dar ekranda sütun başlığı satırı gizlendiği için etiket değerin yanında gösterilir. */
+function CellLabel({ children }: { children: string }) {
+  return (
+    <Box
+      component="span"
+      sx={{ display: { xs: "inline", md: "none" }, fontWeight: 600, mr: 1 }}
+    >
+      {children}:
+    </Box>
+  );
+}
+
+function FieldTableHeader() {
+  return (
+    <Box
+      component="li"
+      sx={{
+        ...fieldGridSx,
+        alignItems: "center",
+        bgcolor: "action.hover",
+        borderBottom: 1,
+        borderColor: "divider",
+        display: { xs: "none", md: "grid" },
+        py: 1.5,
+      }}
+    >
+      {fieldColumns.map((column) => (
+        <Typography color="text.secondary" key={column} sx={{ fontWeight: 700 }} variant="caption">
+          {column}
+        </Typography>
+      ))}
+    </Box>
+  );
+}
+
 function FieldRow({ field }: { field: CatalogField }) {
   return (
     <Box
       component="li"
       sx={{
+        ...fieldGridSx,
         alignItems: "center",
         borderBottom: 1,
         borderColor: "divider",
-        display: "grid",
-        gap: 3,
-        gridTemplateColumns: {
-          xs: "minmax(0, 1fr)",
-          md: "minmax(180px, 1fr) 120px 80px 80px 120px",
-        },
         minHeight: 56,
-        px: 4,
         py: 2,
         "&:last-child": { borderBottom: 0 },
       }}
@@ -115,15 +208,23 @@ function FieldRow({ field }: { field: CatalogField }) {
         </Typography>
       </Box>
       <Typography color="text.secondary" variant="body2">
+        <CellLabel>Veri tipi</CellLabel>
         {field.nativeDataType}
       </Typography>
       <Typography color="text.secondary" variant="body2">
+        <CellLabel>Boş olabilir</CellLabel>
         {field.isNullable ? "Evet" : "Hayır"}
       </Typography>
       <Typography color="text.secondary" variant="body2">
+        <CellLabel>Hassas veri</CellLabel>
         {field.isSensitive ? "Evet" : "Hayır"}
       </Typography>
-      <StatusBadge label={field.status} tone={fieldStatusTone(field.status)} />
+      <Box sx={{ alignItems: "center", display: "flex" }}>
+        <Typography color="text.secondary" variant="body2">
+          <CellLabel>Durum</CellLabel>
+        </Typography>
+        <StatusBadge label={field.status} tone={fieldStatusTone(field.status)} />
+      </Box>
     </Box>
   );
 }
@@ -139,17 +240,32 @@ export function DatasetDetailPage({
   correlationId,
   onRefresh,
   onRequestDiscovery,
-  onApplyDiff,
+  onSubmitDiffApproval,
   onUpdateDataset,
+  onSubmitAttributeChange,
+  onPreviewRows,
 }: DatasetDetailPageProps) {
   const [fieldQuery, setFieldQuery] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [discovering, setDiscovering] = useState(false);
-  const [applying, setApplying] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [selectedDiffKeys, setSelectedDiffKeys] = useState<ReadonlySet<string>>(new Set());
+  const [diffSubmitted, setDiffSubmitted] = useState(false);
+  const [preview, setPreview] = useState<DatasetPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", namespace: "" });
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+
+  // Governance attribute change dialog state
+  const [attrDialogOpen, setAttrDialogOpen] = useState(false);
+  const [attrAttribute, setAttrAttribute] = useState("criticality");
+  const [attrValue, setAttrValue] = useState("CRITICAL");
+  const [attrSaving, setAttrSaving] = useState(false);
+  const [attrError, setAttrError] = useState<string | null>(null);
+  const [attrSuccess, setAttrSuccess] = useState(false);
 
   const filteredFields = fields.filter((f) =>
     f.name.toLocaleLowerCase("tr-TR").includes(fieldQuery.toLocaleLowerCase("tr-TR")),
@@ -168,16 +284,66 @@ export function DatasetDetailPage({
     }
   };
 
-  const handleApplyDiff = async () => {
-    if (!latestDiff?.metadataDiffId || !onApplyDiff) return;
-    setApplying(true);
+  useEffect(() => {
+    setSelectedDiffKeys(new Set());
+    setDiffSubmitted(false);
+  }, [latestDiff?.metadataDiffId]);
+
+  const diffGroups = latestDiff
+    ? ([
+        { changeType: "ADDED", title: "Yeni", color: "success", objects: latestDiff.addedObjects },
+        { changeType: "CHANGED", title: "Değişen", color: "warning", objects: latestDiff.changedObjects },
+        { changeType: "REMOVED", title: "Kaldırılan", color: "error", objects: latestDiff.removedObjects },
+      ] as const)
+    : [];
+
+  const toggleDiffObject = (key: DiffObjectSelection) => {
+    const serialized = JSON.stringify(key);
+    setSelectedDiffKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(serialized)) {
+        next.delete(serialized);
+      } else {
+        next.add(serialized);
+      }
+      return next;
+    });
+  };
+
+  const handleSubmitDiffApproval = async () => {
+    if (!latestDiff?.metadataDiffId || !onSubmitDiffApproval || selectedDiffKeys.size === 0) return;
+    setSubmitting(true);
     setActionError(null);
     try {
-      await onApplyDiff(latestDiff.metadataDiffId);
+      const selectedObjects = [...selectedDiffKeys].map(
+        (serialized) => JSON.parse(serialized) as DiffObjectSelection,
+      );
+      await onSubmitDiffApproval(latestDiff.metadataDiffId, selectedObjects);
+      setDiffSubmitted(true);
     } catch {
-      setActionError("Fark uygulaması tamamlanamadı.");
+      setActionError("Onay talebi gönderilemedi.");
     } finally {
-      setApplying(false);
+      setSubmitting(false);
+    }
+  };
+
+  const handlePreviewRows = async () => {
+    if (!onPreviewRows) return;
+    setPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      setPreview(await onPreviewRows());
+    } catch (error) {
+      if (error instanceof CatalogApiError) {
+        setPreviewError(
+          previewErrorMessages[error.detail] ??
+            `Satır önizlemesi yüklenemedi (${error.detail}).`,
+        );
+      } else {
+        setPreviewError("Satır önizlemesi yüklenemedi.");
+      }
+    } finally {
+      setPreviewLoading(false);
     }
   };
 
@@ -202,6 +368,56 @@ export function DatasetDetailPage({
       setEditError("Dataset güncellenemedi. Lütfen tekrar deneyin.");
     } finally {
       setEditSaving(false);
+    }
+  };
+
+  // Governance attribute change helpers
+  const attributeOptions: Record<string, { label: string; values: string[]; reason: string }> = {
+    criticality: {
+      label: "Kritiklik",
+      values: ["LOW", "MEDIUM", "HIGH", "CRITICAL"],
+      reason: "METADATA.CRITICALITY.CHANGE",
+    },
+    status: {
+      label: "Durum",
+      values: ["ACTIVE", "INACTIVE"],
+      reason: "METADATA.STATUS.CHANGE",
+    },
+    timeliness_nature: {
+      label: "Zamanlılık niteliği",
+      values: ["NEAR_TIME", "REAL_TIME", "BATCH_TIME"],
+      reason: "METADATA.TIMELINESS.CHANGE",
+    },
+  };
+
+  const currentAttributeValue =
+    attrAttribute === "criticality"
+      ? dataset?.criticality
+      : attrAttribute === "status"
+        ? dataset?.status
+        : dataset?.timelinessNature ?? "—";
+
+  const handleAttributeChange = (attribute: string) => {
+    setAttrAttribute(attribute);
+    const first = attributeOptions[attribute]?.values[0] ?? "";
+    setAttrValue(first);
+    setAttrError(null);
+    setAttrSuccess(false);
+  };
+
+  const handleSubmitAttributeChange = async () => {
+    if (!dataset || !onSubmitAttributeChange) return;
+    setAttrSaving(true);
+    setAttrError(null);
+    setAttrSuccess(false);
+    try {
+      const reason = attributeOptions[attrAttribute]?.reason ?? "METADATA.CRITICALITY.CHANGE";
+      await onSubmitAttributeChange(attrAttribute, attrValue, reason);
+      setAttrSuccess(true);
+    } catch {
+      setAttrError("Nitelik değişiklik talebi gönderilemedi.");
+    } finally {
+      setAttrSaving(false);
     }
   };
 
@@ -306,6 +522,19 @@ export function DatasetDetailPage({
                     Düzenle
                   </Button>
                 ) : null}
+                {onSubmitAttributeChange ? (
+                  <Button
+                    onClick={() => {
+                      setAttrError(null);
+                      setAttrSuccess(false);
+                      setAttrDialogOpen(true);
+                    }}
+                    startIcon={<ShieldAlert aria-hidden="true" size={16} />}
+                    variant="outlined"
+                  >
+                    Nitelik Değiştir
+                  </Button>
+                ) : null}
                 <Button onClick={onRefresh} variant="outlined">
                   Yenile
                 </Button>
@@ -320,7 +549,7 @@ export function DatasetDetailPage({
 
             {/* Dataset metadata summary */}
             <Paper variant="outlined" sx={{ borderRadius: 1.5, p: 4 }}>
-              <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr 1fr 1fr" } }}>
+              <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr 1fr 1fr 1fr 1fr" } }}>
                 <Box>
                   <Typography color="text.secondary" variant="caption">
                     Tip
@@ -338,6 +567,25 @@ export function DatasetDetailPage({
                 </Box>
                 <Box>
                   <Typography color="text.secondary" variant="caption">
+                    Kritiklik
+                  </Typography>
+                  <Chip
+                    color={
+                      dataset.criticality === "CRITICAL"
+                        ? "error"
+                        : dataset.criticality === "HIGH"
+                          ? "warning"
+                          : dataset.criticality === "MEDIUM"
+                            ? "info"
+                            : "default"
+                    }
+                    label={dataset.criticality}
+                    size="small"
+                    sx={{ mt: 0.5 }}
+                  />
+                </Box>
+                <Box>
+                  <Typography color="text.secondary" variant="caption">
                     Alan sayısı
                   </Typography>
                   <Typography sx={{ fontWeight: 600 }}>{dataset.fieldCount}</Typography>
@@ -349,6 +597,29 @@ export function DatasetDetailPage({
                   <Typography sx={{ fontWeight: 600 }}>
                     {dataset.estimatedRowCount?.toLocaleString("tr-TR") ?? "—"}
                   </Typography>
+                </Box>
+                <Box>
+                  <Typography color="text.secondary" variant="caption">
+                    Zamanlılık niteliği
+                  </Typography>
+                  {dataset.timelinessNature ? (
+                    <Chip
+                      color={
+                        dataset.timelinessNature === "REAL_TIME"
+                          ? "success"
+                          : dataset.timelinessNature === "NEAR_TIME"
+                            ? "info"
+                            : "warning"
+                      }
+                      label={timelinessNatureLabels[dataset.timelinessNature]}
+                      size="small"
+                      sx={{ mt: 0.5 }}
+                    />
+                  ) : (
+                    <Typography color="text.secondary" sx={{ fontWeight: 600 }}>
+                      Atanmadı (job için gerekli)
+                    </Typography>
+                  )}
                 </Box>
               </Box>
             </Paper>
@@ -421,24 +692,56 @@ export function DatasetDetailPage({
                   <Typography component="h2" sx={{ fontWeight: 700 }} variant="h3">
                     Bekleyen Fark
                   </Typography>
-                  {onApplyDiff ? (
+                  {onSubmitDiffApproval && !diffSubmitted ? (
                     <Button
-                      disabled={applying}
-                      onClick={() => void handleApplyDiff()}
+                      disabled={submitting || selectedDiffKeys.size === 0}
+                      onClick={() => void handleSubmitDiffApproval()}
                       variant="contained"
                     >
-                      Farkı uygula
+                      Onaya gönder
                     </Button>
                   ) : null}
                 </Box>
-                <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-                  <Chip color="success" label={`+${latestDiff.addedObjects.length} yeni`} size="small" variant="outlined" />
-                  <Chip color="warning" label={`~${latestDiff.changedObjects.length} değişti`} size="small" variant="outlined" />
-                  <Chip color="error" label={`-${latestDiff.removedObjects.length} kaldırıldı`} size="small" variant="outlined" />
-                  {latestDiff.requiresRuleReview ? (
-                    <Chip color="info" label="Kural incelemesi gerekli" size="small" />
-                  ) : null}
-                </Box>
+                {diffSubmitted ? (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    Onay bekleniyor. Seçilen değişiklikler onay süreci tamamlanınca uygulanacak.
+                  </Alert>
+                ) : null}
+                {latestDiff.requiresRuleReview ? (
+                  <Chip color="info" label="Kural incelemesi gerekli" size="small" sx={{ mb: 1 }} />
+                ) : null}
+                {diffGroups.map((group) =>
+                  group.objects.length === 0 ? null : (
+                    <Box key={group.changeType} sx={{ mt: 2 }}>
+                      <Chip
+                        color={group.color}
+                        label={`${group.title} (${group.objects.length})`}
+                        size="small"
+                        variant="outlined"
+                      />
+                      <FormGroup sx={{ mt: 1 }}>
+                        {group.objects.map((object) => {
+                          const key = diffObjectSelection(group.changeType, object);
+                          const serialized = JSON.stringify(key);
+                          return (
+                            <FormControlLabel
+                              key={serialized}
+                              control={
+                                <Checkbox
+                                  checked={selectedDiffKeys.has(serialized)}
+                                  disabled={diffSubmitted || !onSubmitDiffApproval}
+                                  onChange={() => toggleDiffObject(key)}
+                                  size="small"
+                                />
+                              }
+                              label={diffObjectLabel(object)}
+                            />
+                          );
+                        })}
+                      </FormGroup>
+                    </Box>
+                  ),
+                )}
               </Paper>
             ) : null}
 
@@ -483,6 +786,7 @@ export function DatasetDetailPage({
               </Box>
               {filteredFields.length > 0 ? (
                 <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }}>
+                  <FieldTableHeader />
                   {filteredFields.map((field) => (
                     <FieldRow field={field} key={field.id} />
                   ))}
@@ -495,6 +799,126 @@ export function DatasetDetailPage({
                 </Box>
               )}
             </Paper>
+
+            {/* Data preview section */}
+            {onPreviewRows ? (
+              <Paper variant="outlined" sx={{ borderRadius: 1.5, overflow: "hidden" }}>
+                <Box
+                  sx={{
+                    alignItems: "center",
+                    borderBottom: 1,
+                    borderColor: "divider",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    px: 4,
+                    py: 3,
+                  }}
+                >
+                  <Box sx={{ alignItems: "center", display: "flex", gap: 1 }}>
+                    <Eye aria-hidden="true" size={20} />
+                    <Typography component="h2" variant="h3">
+                      Veri Önizleme
+                    </Typography>
+                  </Box>
+                  <Button
+                    disabled={previewLoading}
+                    onClick={() => void handlePreviewRows()}
+                    size="small"
+                    startIcon={
+                      previewLoading ? undefined : <RefreshCw aria-hidden="true" size={14} />
+                    }
+                    variant="contained"
+                  >
+                    {previewLoading ? "Yükleniyor..." : preview ? "Yeniden yükle" : "Satırları görüntüle"}
+                  </Button>
+                </Box>
+                <Box sx={{ p: 4 }}>
+                  {previewError ? (
+                    <Alert onClose={() => setPreviewError(null)} severity="warning">
+                      {previewError}
+                    </Alert>
+                  ) : null}
+                  {!preview && !previewError ? (
+                    <Typography color="text.secondary" variant="body2">
+                      Kaynak tablodaki ilk satırları görüntülemek için "Satırları görüntüle"
+                      düğmesini kullanın. Sorgu salt okunurdur ve en fazla 50 satır getirilir.
+                    </Typography>
+                  ) : null}
+                  {previewLoading ? (
+                    <Box sx={{ alignItems: "center", display: "flex", gap: 1, mt: preview ? 2 : 0 }}>
+                      <CircularProgress aria-label="Satırlar yükleniyor" size={16} />
+                      <Typography color="text.secondary" variant="body2">
+                        Tablo satırları yükleniyor...
+                      </Typography>
+                    </Box>
+                  ) : null}
+                  {preview ? (
+                    <Box sx={{ mt: previewError || previewLoading ? 2 : 0 }}>
+                      <Box sx={{ alignItems: "center", display: "flex", flexWrap: "wrap", gap: 1, mb: 2 }}>
+                        <Chip
+                          label={`${preview.namespace}.${preview.tableName}`}
+                          size="small"
+                          variant="outlined"
+                        />
+                        <Typography color="text.secondary" variant="body2">
+                          {preview.rows.length} satır (ilk {preview.limit} ile sınırlı)
+                        </Typography>
+                        {preview.columns.some((column) => column.isSensitive) ? (
+                          <Chip color="warning" label="Hassas alanlar maskelendi" size="small" />
+                        ) : null}
+                      </Box>
+                      {preview.rows.length === 0 ? (
+                        <Alert severity="info">Tabloda gösterilecek satır bulunamadı.</Alert>
+                      ) : (
+                        <TableContainer sx={{ maxHeight: 480 }}>
+                          <Table size="small" stickyHeader aria-label="Tablo satır önizlemesi">
+                            <TableHead>
+                              <TableRow>
+                                {preview.columns.map((column) => (
+                                  <TableCell key={column.name} sx={{ whiteSpace: "nowrap" }}>
+                                    <Box sx={{ alignItems: "center", display: "flex", gap: 0.5 }}>
+                                      <Typography sx={{ fontWeight: 700 }} variant="body2">
+                                        {column.name}
+                                      </Typography>
+                                      {column.isSensitive ? (
+                                        <Chip color="warning" label="Hassas" size="small" />
+                                      ) : null}
+                                    </Box>
+                                    <Typography color="text.secondary" variant="caption">
+                                      {column.nativeDataType}
+                                    </Typography>
+                                  </TableCell>
+                                ))}
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {preview.rows.map((row, rowIndex) => (
+                                <TableRow key={rowIndex}>
+                                  {row.map((value, columnIndex) => (
+                                    <TableCell
+                                      key={preview.columns[columnIndex]?.name ?? columnIndex}
+                                      sx={{ maxWidth: 320, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                                    >
+                                      {value === null ? (
+                                        <Typography color="text.disabled" variant="body2">
+                                          NULL
+                                        </Typography>
+                                      ) : (
+                                        value
+                                      )}
+                                    </TableCell>
+                                  ))}
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      )}
+                    </Box>
+                  ) : null}
+                </Box>
+              </Paper>
+            ) : null}
 
             {/* Rules section */}
             <Paper variant="outlined" sx={{ borderRadius: 1.5, overflow: "hidden" }}>
@@ -526,22 +950,39 @@ export function DatasetDetailPage({
               </Box>
               {rules.length > 0 ? (
                 <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }}>
+                  <Box
+                    component="li"
+                    sx={{
+                      ...ruleGridSx,
+                      alignItems: "center",
+                      bgcolor: "action.hover",
+                      borderBottom: 1,
+                      borderColor: "divider",
+                      display: { xs: "none", md: "grid" },
+                      py: 1.5,
+                    }}
+                  >
+                    {ruleColumns.map((column) => (
+                      <Typography
+                        color="text.secondary"
+                        key={column}
+                        sx={{ fontWeight: 700 }}
+                        variant="caption"
+                      >
+                        {column}
+                      </Typography>
+                    ))}
+                  </Box>
                   {rules.map((rule) => (
                     <Box
                       component="li"
                       key={rule.id}
                       sx={{
+                        ...ruleGridSx,
                         alignItems: "center",
                         borderBottom: 1,
                         borderColor: "divider",
-                        display: "grid",
-                        gap: 2,
-                        gridTemplateColumns: {
-                          xs: "minmax(0, 1fr)",
-                          md: "minmax(200px, 1fr) 140px 120px 120px",
-                        },
                         minHeight: 52,
-                        px: 4,
                         py: 1.5,
                         "&:last-child": { borderBottom: 0 },
                       }}
@@ -561,18 +1002,29 @@ export function DatasetDetailPage({
                         </Typography>
                       </Box>
                       <Typography color="text.secondary" variant="body2">
+                        <CellLabel>Boyut</CellLabel>
                         {rule.dimension}
                       </Typography>
-                      <StatusBadge
-                        label={rule.status}
-                        tone={rule.status === "ACTIVE" ? "success" : rule.status === "PASSIVE" ? "unknown" : "warning"}
-                      />
-                      <Chip
-                        label={rule.criticality}
-                        size="small"
-                        color={rule.criticality === "CRITICAL" ? "error" : rule.criticality === "HIGH" ? "warning" : "default"}
-                        variant="outlined"
-                      />
+                      <Box sx={{ alignItems: "center", display: "flex" }}>
+                        <Typography color="text.secondary" variant="body2">
+                          <CellLabel>Durum</CellLabel>
+                        </Typography>
+                        <StatusBadge
+                          label={rule.status}
+                          tone={rule.status === "ACTIVE" ? "success" : rule.status === "PASSIVE" ? "unknown" : "warning"}
+                        />
+                      </Box>
+                      <Box sx={{ alignItems: "center", display: "flex" }}>
+                        <Typography color="text.secondary" variant="body2">
+                          <CellLabel>Kritiklik</CellLabel>
+                        </Typography>
+                        <Chip
+                          label={rule.criticality}
+                          size="small"
+                          color={rule.criticality === "CRITICAL" ? "error" : rule.criticality === "HIGH" ? "warning" : "default"}
+                          variant="outlined"
+                        />
+                      </Box>
                     </Box>
                   ))}
                 </Box>
@@ -619,12 +1071,9 @@ export function DatasetDetailPage({
                 error={!editForm.namespace.trim()}
               />
               <Alert severity="info">
-                Durum ve kritiklik değişiklikleri yönetişim onayı gerektirir. Yönetişim Görevleri
-                sayfasından "Kritik metadata" talebi oluşturun.
+                Durum, kritiklik ve zamanlılık niteliği değişiklikleri için "Nitelik
+                Değiştir" butonunu kullanın.
               </Alert>
-              <Button component={Link} size="small" sx={{ alignSelf: "flex-start" }} to="/governance">
-                Yönetişim Görevlerine git
-              </Button>
             </Box>
           </DialogContent>
           <DialogActions>
@@ -637,6 +1086,76 @@ export function DatasetDetailPage({
               variant="contained"
             >
               {editSaving ? "Kaydediliyor..." : "Kaydet"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Governance attribute change dialog */}
+        <Dialog open={attrDialogOpen} onClose={() => setAttrDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Kritik Nitelik Değişikliği</DialogTitle>
+          <DialogContent>
+            {attrError ? (
+              <Alert onClose={() => setAttrError(null)} severity="error" sx={{ mb: 2 }}>
+                {attrError}
+              </Alert>
+            ) : null}
+            {attrSuccess ? (
+              <Alert severity="success" sx={{ mb: 2 }}>
+                Değişiklik talebi gönderildi. Onay sonrası uygulanacaktır.
+              </Alert>
+            ) : null}
+            <Box sx={{ display: "grid", gap: 2.5, mt: 1 }}>
+              <Alert severity="info">
+                Bu nitelikler yönetişim onayı gerektirir. Talep gönderildikten sonra
+                onaylanıp uygulanması gerekir.
+              </Alert>
+              <TextField
+                label="Öznitelik"
+                onChange={(e) => handleAttributeChange(e.target.value)}
+                select
+                value={attrAttribute}
+              >
+                {Object.entries(attributeOptions).map(([key, option]) => (
+                  <MenuItem key={key} value={key}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+                <Typography color="text.secondary" variant="body2">
+                  Mevcut değer:
+                </Typography>
+                <Typography sx={{ fontWeight: 600 }} variant="body2">
+                  {currentAttributeValue}
+                </Typography>
+              </Box>
+              <TextField
+                label="Yeni değer"
+                onChange={(e) => {
+                  setAttrValue(e.target.value);
+                  setAttrSuccess(false);
+                }}
+                select
+                value={attrValue}
+              >
+                {(attributeOptions[attrAttribute]?.values ?? []).map((value) => (
+                  <MenuItem key={value} value={value}>
+                    {value}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setAttrDialogOpen(false)} disabled={attrSaving}>
+              Kapat
+            </Button>
+            <Button
+              onClick={() => void handleSubmitAttributeChange()}
+              disabled={attrSaving || attrSuccess}
+              variant="contained"
+            >
+              {attrSaving ? "Gönderiliyor..." : "Talep Gönder"}
             </Button>
           </DialogActions>
         </Dialog>

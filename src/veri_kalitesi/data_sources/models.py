@@ -53,6 +53,14 @@ class ConnectionRevisionStatus(str, Enum):
     PROMOTED = "PROMOTED"
 
 
+class TimelinessNature(str, Enum):
+    """Tablonun zamanlılık niteliği; job tekrarlama aralığı önerilerini belirler."""
+
+    NEAR_TIME = "NEAR_TIME"
+    REAL_TIME = "REAL_TIME"
+    BATCH_TIME = "BATCH_TIME"
+
+
 @dataclass(frozen=True)
 class DataSourceCommandPolicy:
     version: str
@@ -241,6 +249,7 @@ class Dataset:
     criticality: Criticality = Criticality.MEDIUM
     owner_user_id: str | None = None
     estimated_row_count: int | None = None
+    timeliness_nature: TimelinessNature | None = None
     dataset_id: str = field(default_factory=lambda: str(uuid4()))
     status: CatalogItemStatus = CatalogItemStatus.ACTIVE
     first_seen_discovery_id: int | None = None

@@ -148,7 +148,7 @@ function normalizeSourceClass(raw: string): EvidenceSourceClass {
 }
 
 // ---------------------------------------------------------------------------
-// Investigation evidence (BE-04 — salt okunur ihlal inceleme kaniti)
+// Investigation evidence (BE-04 — salt okunur ihlal inceleme kanıtı)
 // ---------------------------------------------------------------------------
 
 export interface EvidenceComponent {

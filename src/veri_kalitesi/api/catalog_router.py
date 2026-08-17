@@ -14,9 +14,9 @@ from veri_kalitesi.api.models_catalog import (
     CatalogFieldDetailResponse,
     CatalogFieldListResponse,
     CatalogFieldResponse,
+    DatasetPreviewColumnResponse,
+    DatasetPreviewResponse,
     DatasetUpdateRequest,
-    DiffApplicationRequest,
-    DiffApplicationResponse,
     DiscoveryDiffResponse,
     DiscoveryRequest,
     DiscoveryResponse,
@@ -25,6 +25,10 @@ from veri_kalitesi.api.models_catalog import (
     DiscoveryStatusResponse,
     FieldUpdateRequest,
 )
+from veri_kalitesi.audit.models import AuditEventInput, AuditResult
+from veri_kalitesi.audit.service import AuditService
+from veri_kalitesi.data_sources.models import utc_now
+from veri_kalitesi.data_sources.preview import PreviewNotSupportedError
 from veri_kalitesi.data_sources.query import (
     DataSourceQueryTechnicalError,
 )
@@ -59,16 +63,6 @@ class MetadataCommandService(Protocol):
         timeout_seconds: int,
         expected_version: int,
         policy_version: str,
-        correlation_id: str,
-    ) -> Any: ...
-
-    def apply_diff(
-        self,
-        *,
-        actor_context: ActorContext,
-        metadata_diff_id: str,
-        reason_code: str,
-        expected_version: int,
         correlation_id: str,
     ) -> Any: ...
 
@@ -118,6 +112,12 @@ class CatalogQueryService(Protocol):
     def get_field_view(self, data_field_id: str, *, permitted_source_ids: frozenset) -> Any: ...
 
 
+class DatasetPreviewProvider(Protocol):
+    """Dataset tablosundan salt-okunur satır önizlemesi üretir."""
+
+    def preview(self, dataset_id: str, *, limit: int) -> Any: ...
+
+
 class _Resolver(Protocol):
     def resolve(self, request: Request) -> Any: ...
 
@@ -130,6 +130,8 @@ def register_catalog_routes(
     resolver: _Resolver,
     data_origin: str,
     score_query_service: ScoreQueryService | None = None,
+    dataset_preview_provider: DatasetPreviewProvider | None = None,
+    audit_service: AuditService | None = None,
 ) -> None:
     """Katalog ve metadata keşfi alanının route'larını FastAPI uygulamasına kaydeder."""
 
@@ -341,43 +343,6 @@ def register_catalog_routes(
             requires_rule_review=diff.requires_rule_review if diff else False,
         )
 
-    @app.post(
-        "/api/v1/metadata-diffs/{metadata_diff_id}/application",
-        tags=["catalog"],
-    )
-    async def apply_metadata_diff(
-        metadata_diff_id: str,
-        payload: DiffApplicationRequest,
-        request: Request,
-        response: Response,
-    ) -> DiffApplicationResponse:
-        if metadata_command_service is None:
-            raise DataSourceQueryTechnicalError(
-                "Metadata command service is not configured.",
-                request.state.correlation_id,
-            )
-        actor_context = getattr(request.state, "actor_context", None)
-        if actor_context is None:
-            raise DataSourceQueryTechnicalError(
-                "Actor context is missing from the request state.",
-                request.state.correlation_id,
-            )
-        result = metadata_command_service.apply_diff(
-            actor_context=actor_context,
-            metadata_diff_id=metadata_diff_id,
-            reason_code=payload.reason_code,
-            expected_version=payload.expected_version,
-            correlation_id=request.state.correlation_id,
-        )
-        response.headers["Cache-Control"] = "no-store"
-        return DiffApplicationResponse(
-            data_origin=data_origin,
-            correlation_id=request.state.correlation_id,
-            metadata_diff_id=result.metadata_diff_id,
-            status=result.status.value,
-            applied_at=result.applied_at,
-        )
-
     @app.get(
         "/api/v1/datasets",
         tags=["catalog"],
@@ -418,10 +383,14 @@ def register_catalog_routes(
                     name=v.dataset.name,
                     dataset_type=v.dataset.dataset_type.value,
                     status=v.dataset.status.value,
+                    criticality=v.dataset.criticality.value,
                     estimated_row_count=v.dataset.estimated_row_count,
                     field_count=v.field_count,
                     version=v.dataset.version,
                     owner_user_id=v.dataset.owner_user_id,
+                    timeliness_nature=(
+                        v.dataset.timeliness_nature.value if v.dataset.timeliness_nature else None
+                    ),
                 )
                 for v in views
             ),
@@ -459,10 +428,14 @@ def register_catalog_routes(
                 name=view.dataset.name,
                 dataset_type=view.dataset.dataset_type.value,
                 status=view.dataset.status.value,
+                criticality=view.dataset.criticality.value,
                 estimated_row_count=view.dataset.estimated_row_count,
                 field_count=view.field_count,
                 version=view.dataset.version,
                 owner_user_id=view.dataset.owner_user_id,
+                timeliness_nature=(
+                    view.dataset.timeliness_nature.value if view.dataset.timeliness_nature else None
+                ),
             ),
             data_source_name=view.data_source.name,
         )
@@ -541,6 +514,73 @@ def register_catalog_routes(
         )
 
     @app.get(
+        "/api/v1/datasets/{dataset_id}/preview",
+        response_model=DatasetPreviewResponse,
+        tags=["catalog"],
+    )
+    async def preview_dataset_rows(
+        dataset_id: str,
+        request: Request,
+        response: Response,
+        limit: int = 50,
+    ) -> DatasetPreviewResponse:
+        """Dataset'in kaynak tablosundan sınırlı sayıda satırı salt-okunur döndürür."""
+        if catalog_query_service is None or dataset_preview_provider is None:
+            raise DataSourceQueryTechnicalError(
+                "Dataset preview is not available.",
+                request.state.correlation_id,
+            )
+        if not 1 <= limit <= 200:
+            raise HTTPException(status_code=422, detail="limit must be between 1 and 200.")
+        actor_context = resolver.resolve(request)
+        permitted = (
+            frozenset()
+            if not actor_context.can_view_enterprise
+            else actor_context.permitted_source_ids
+        )
+        # Yetki ve varlık kontrolü katalog görünümü üzerinden yapılır.
+        catalog_query_service.get_dataset_view(dataset_id, permitted_source_ids=permitted)
+        try:
+            preview = dataset_preview_provider.preview(dataset_id, limit=limit)
+        except PreviewNotSupportedError as exc:
+            raise HTTPException(status_code=409, detail=exc.reason_code) from exc
+        response.headers["Cache-Control"] = "no-store"
+        preview_response = DatasetPreviewResponse(
+            data_origin=data_origin,
+            correlation_id=request.state.correlation_id,
+            dataset_id=preview.dataset_id,
+            source_type=preview.source_type,
+            namespace=preview.namespace,
+            table_name=preview.table_name,
+            limit=preview.limit,
+            columns=tuple(
+                DatasetPreviewColumnResponse(
+                    name=column.name,
+                    native_data_type=column.native_data_type,
+                    is_sensitive=column.is_sensitive,
+                )
+                for column in preview.columns
+            ),
+            rows=preview.rows,
+        )
+        if audit_service is not None and actor_context is not None:
+            audit_service.append(AuditEventInput(
+                actor_id=actor_context.actor_id,
+                actor_type=actor_context.actor_type.value,
+                correlation_id=request.state.correlation_id,
+                action="DATASET_PREVIEW_VIEWED",
+                object_type="Dataset",
+                object_id=dataset_id,
+                result=AuditResult.SUCCESS,
+                reason_code="PREVIEW_LOADED",
+                old_values={},
+                new_values={"row_count": len(preview.rows), "limit": limit},
+                occurred_at=utc_now(),
+                session_id=getattr(actor_context, "session_id", None),
+            ))
+        return preview_response
+
+    @app.get(
         "/api/v1/fields/{data_field_id}",
         tags=["catalog"],
     )
@@ -606,8 +646,9 @@ def register_catalog_routes(
         )
         # Verify access
         view = catalog_query_service.get_dataset_view(dataset_id, permitted_source_ids=permitted)
-        # Kritik dataset alanları (status) doğrudan düzenlenemez; yönetişim onayı gerekir.
-        if payload.status is not None:
+        # Kritik dataset alanları (status, timeliness_nature) doğrudan düzenlenemez;
+        # yönetişim onayı gerekir.
+        if payload.status is not None or payload.timeliness_nature is not None:
             raise HTTPException(
                 status_code=409,
                 detail="Critical dataset metadata changes require a governance approval request.",
@@ -631,10 +672,16 @@ def register_catalog_routes(
                     name=view.dataset.name,
                     dataset_type=view.dataset.dataset_type.value,
                     status=view.dataset.status.value,
+                    criticality=view.dataset.criticality.value,
                     estimated_row_count=view.dataset.estimated_row_count,
                     field_count=view.field_count,
                     version=view.dataset.version,
                     owner_user_id=view.dataset.owner_user_id,
+                    timeliness_nature=(
+                        view.dataset.timeliness_nature.value
+                        if view.dataset.timeliness_nature
+                        else None
+                    ),
                 ),
                 data_source_name=view.data_source.name,
             )
@@ -657,10 +704,16 @@ def register_catalog_routes(
                 name=updated_dataset.name,
                 dataset_type=updated_dataset.dataset_type.value,
                 status=updated_dataset.status.value,
+                criticality=updated_dataset.criticality.value,
                 estimated_row_count=updated_dataset.estimated_row_count,
                 field_count=view.field_count,
                 version=updated_dataset.version,
                 owner_user_id=updated_dataset.owner_user_id,
+                timeliness_nature=(
+                    updated_dataset.timeliness_nature.value
+                    if updated_dataset.timeliness_nature
+                    else None
+                ),
             ),
             data_source_name=view.data_source.name,
         )

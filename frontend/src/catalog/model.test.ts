@@ -19,6 +19,7 @@ const apiDataset: CatalogDatasetListApiResponse["items"][number] = {
   name: "accounts",
   dataset_type: "TABLE",
   status: "ACTIVE",
+  criticality: "MEDIUM",
   estimated_row_count: 12000,
   field_count: 8,
   version: 3,
@@ -87,6 +88,7 @@ describe("catalog model mappers", () => {
     expect(result.name).toBe("accounts");
     expect(result.datasetType).toBe("TABLE");
     expect(result.status).toBe("ACTIVE");
+    expect(result.criticality).toBe("MEDIUM");
     expect(result.estimatedRowCount).toBe(12000);
     expect(result.fieldCount).toBe(8);
     expect(result.version).toBe(3);

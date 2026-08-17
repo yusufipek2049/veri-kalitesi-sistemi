@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -49,8 +50,10 @@ import { StatusBadge } from "../components/StatusBadge";
 import { designTokens, type StatusTone } from "../theme/tokens";
 import { fetchAuditExport } from "./api";
 import { AuditTimeline } from "./AuditTimeline";
+import { useDevelopmentUser } from "../development/UserContext";
 import {
   defaultAuditFilters,
+  demoActors,
   syntheticAuditPage,
   syntheticAuditSummary,
   type AuditEventListItem,
@@ -89,6 +92,19 @@ const actionLabels: Record<string, string> = {
   IDENTITY_SESSION: "Oturum olayı",
   AUDIT_RECORDS_VIEWED: "Denetim kaydı görüntüleme",
   AUDIT_EXPORT_COMPLETED: "Denetim kaydı dışa aktarma",
+  DATASET_PREVIEW_VIEWED: "Veri önizleme",
+  EXECUTION_MANUAL_STARTED: "Manuel çalıştırma",
+  QUALITY_RULE_CREATED: "Yeni kural",
+  QUALITY_RULE_ACTIVATED: "Kural aktivasyonu",
+  QUALITY_RULE_PASSIVATED: "Kural pasifleşmesi",
+  SCHEDULE_CREATED: "Yeni job",
+  SCHEDULE_ACTIVATED: "Job aktivasyonu",
+  SCHEDULE_DEACTIVATED: "Job deaktivasyonu",
+  SCORING_CONFIGURATION_APPROVAL_REQUESTED: "Konfigürasyon onay talebi",
+  SCORING_CONFIGURATION_ACTIVATED: "Konfigürasyon aktivasyonu",
+  DATASET_UPDATED: "Dataset güncelleme",
+  FIELD_UPDATED: "Alan güncelleme",
+  METADATA_DISCOVERY_REQUESTED: "Metadata keşif",
 };
 
 function resultPresentation(result: string): { icon: LucideIcon; tone: StatusTone } {
@@ -140,6 +156,53 @@ function DistributionBar({ count, label, total }: { count: number; label: string
   );
 }
 
+/**
+ * Hem serbest metinle aranabilen hem de mevcut değerlerden seçilebilen filtre alanı.
+ * `optionLabel` verilirse arama hem kimlik hem de görünen ad üzerinde çalışır.
+ */
+function SearchableFilterField({
+  label,
+  onChange,
+  optionLabel,
+  options,
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  optionLabel?: (option: string) => string | undefined;
+  options: string[];
+  value: string;
+}) {
+  return (
+    <Autocomplete
+      autoHighlight
+      filterOptions={(candidates, params) => {
+        const query = params.inputValue.trim().toLocaleLowerCase("tr-TR");
+        if (!query) return candidates;
+        return candidates.filter((candidate) => (
+          `${candidate} ${optionLabel?.(candidate) ?? ""}`.toLocaleLowerCase("tr-TR").includes(query)
+        ));
+      }}
+      freeSolo
+      inputValue={value}
+      onInputChange={(_event, nextValue) => onChange(nextValue)}
+      options={options}
+      renderInput={(params) => <TextField {...params} label={label} />}
+      renderOption={({ key, ...optionProps }, option) => {
+        const displayName = optionLabel?.(option);
+        return (
+          <Box component="li" key={key} {...optionProps} sx={{ display: "block !important" }}>
+            <Typography noWrap variant="body2">{displayName ?? option}</Typography>
+            {displayName ? (
+              <Typography color="text.secondary" noWrap variant="caption">{option}</Typography>
+            ) : null}
+          </Box>
+        );
+      }}
+    />
+  );
+}
+
 function copyToClipboard(text: string): void {
   void navigator.clipboard.writeText(text);
 }
@@ -153,12 +216,94 @@ function objectHref(item: Pick<AuditEventListItem, "objectId" | "objectType">): 
   return null;
 }
 
+/**
+ * Audit kaydina yazilmis okunabilir nesne adi (``object_name``).
+ * UUID gibi anlamsiz kimlikler yerine once ad gosterilir; kimlik
+ * kopyalanabilir/filtrelenebilir ve link uzerinden kayda ulasilir.
+ */
+function objectDisplayName(item: Pick<AuditEventListItem, "newValueSummary">): string | null {
+  const name = item.newValueSummary?.object_name;
+  return typeof name === "string" && name.trim() ? name : null;
+}
+
+function EventObjectCell({
+  item,
+  onFilterByObject,
+}: {
+  item: AuditEventListItem;
+  onFilterByObject?: (item: AuditEventListItem) => void;
+}) {
+  const href = objectHref(item);
+  const displayName = objectDisplayName(item);
+  const objectLabel = `${item.objectType} · ${displayName ?? item.objectId ?? ""}`;
+  return (
+    <Box sx={{ minWidth: 0 }}>
+      <Typography noWrap sx={{ fontWeight: 700 }}>
+        {actionLabels[item.action] ?? item.action}
+      </Typography>
+      <Box sx={{ alignItems: "center", display: "flex", minWidth: 0 }}>
+        <Box sx={{ minWidth: 0 }}>
+          {href ? (
+            <Link
+              color="text.secondary"
+              href={href}
+              noWrap
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+              rel="noopener noreferrer"
+              sx={{ display: "block" }}
+              target="_blank"
+              title={displayName ? item.objectId ?? undefined : undefined}
+              underline="hover"
+              variant="caption"
+            >
+              {objectLabel}
+            </Link>
+          ) : (
+            <Typography color="text.secondary" noWrap variant="caption">
+              {objectLabel}
+            </Typography>
+          )}
+          {displayName && item.objectId ? (
+            <Typography
+              color="text.secondary"
+              noWrap
+              sx={{ display: "block", fontFamily: "monospace", fontSize: "0.7rem" }}
+              title={item.objectId}
+              variant="caption"
+            >
+              {item.objectId}
+            </Typography>
+          ) : null}
+        </Box>
+        {item.objectId ? (
+          <Tooltip title="Bu nesnenin tüm audit kayıtları">
+            <IconButton
+              aria-label={`${item.objectType} ${item.objectId} için audit kayıtlarını filtrele`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onFilterByObject?.(item);
+              }}
+              onKeyDown={(event) => event.stopPropagation()}
+              size="small"
+            >
+              <ListFilter aria-hidden="true" size={13} />
+            </IconButton>
+          </Tooltip>
+        ) : null}
+      </Box>
+    </Box>
+  );
+}
+
 function EventRow({
+  actorName,
   highlighted,
   item,
   onClick,
   onFilterByObject,
 }: {
+  actorName?: string;
   highlighted?: boolean;
   item: AuditEventListItem;
   onClick?: (item: AuditEventListItem) => void;
@@ -166,7 +311,6 @@ function EventRow({
 }) {
   const presentation = resultPresentation(item.result);
   const Icon = presentation.icon;
-  const href = objectHref(item);
   return (
     <Box
       aria-current={highlighted ? "true" : undefined}
@@ -214,47 +358,7 @@ function EventRow({
       >
         <Icon size={designTokens.layout.navIconSize} strokeWidth={1.8} />
       </Box>
-      <Box sx={{ minWidth: 0 }}>
-        <Typography noWrap sx={{ fontWeight: 700 }}>
-          {actionLabels[item.action] ?? item.action}
-        </Typography>
-        <Box sx={{ alignItems: "center", display: "flex", minWidth: 0 }}>
-          {href ? (
-            <Link
-              color="text.secondary"
-              href={href}
-              noWrap
-              onClick={(event) => event.stopPropagation()}
-              onKeyDown={(event) => event.stopPropagation()}
-              rel="noopener noreferrer"
-              target="_blank"
-              underline="hover"
-              variant="caption"
-            >
-              {item.objectType} · {item.objectId}
-            </Link>
-          ) : (
-            <Typography color="text.secondary" noWrap variant="caption">
-              {item.objectType}{item.objectId ? ` · ${item.objectId}` : ""}
-            </Typography>
-          )}
-          {item.objectId ? (
-            <Tooltip title="Bu nesnenin tüm audit kayıtları">
-              <IconButton
-                aria-label={`${item.objectType} ${item.objectId} için audit kayıtlarını filtrele`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onFilterByObject?.(item);
-                }}
-                onKeyDown={(event) => event.stopPropagation()}
-                size="small"
-              >
-                <ListFilter aria-hidden="true" size={13} />
-              </IconButton>
-            </Tooltip>
-          ) : null}
-        </Box>
-      </Box>
+      <EventObjectCell item={item} onFilterByObject={onFilterByObject} />
       <Box sx={{ gridColumn: { xs: "2", md: "auto" } }}>
         <StatusBadge
           label={resultLabels[item.result] ?? item.result}
@@ -262,9 +366,9 @@ function EventRow({
         />
       </Box>
       <Box sx={{ gridColumn: { xs: "2", md: "auto" }, minWidth: 0 }}>
-        <Typography noWrap variant="body2">{item.actorId}</Typography>
-        <Typography color="text.secondary" variant="caption">
-          {item.actorType ?? "Aktör türü yok"}
+        <Typography noWrap variant="body2">{actorName ?? item.actorId}</Typography>
+        <Typography color="text.secondary" noWrap variant="caption">
+          {actorName ? item.actorId : item.actorType ?? "Aktör türü yok"}
         </Typography>
         <Typography
           color="text.secondary"
@@ -371,7 +475,16 @@ function EventDetailDrawer({
         <Divider sx={{ my: 2 }} />
         <Typography sx={{ fontWeight: 700, mb: 1.5 }} variant="body2">Nesne</Typography>
         <DetailField label="Nesne türü">{item.objectType}</DetailField>
-        <DetailField label="Nesne ID">{item.objectId ?? "—"}</DetailField>
+        {objectDisplayName(item) ? <DetailField label="Nesne adı">{objectDisplayName(item)}</DetailField> : null}
+        <Box sx={{ mb: 2 }}>
+          <Typography color="text.secondary" variant="caption">Nesne ID</Typography>
+          <Box sx={{ alignItems: "center", display: "flex", gap: 1 }}>
+            <Typography sx={{ fontFamily: "monospace", wordBreak: "break-all" }} variant="body2">{item.objectId ?? "—"}</Typography>
+            {item.objectId ? (
+              <Tooltip title="Kopyala"><IconButton aria-label="Nesne ID'yi kopyala" onClick={() => copyToClipboard(item.objectId ?? "")} size="small"><Copy size={14} /></IconButton></Tooltip>
+            ) : null}
+          </Box>
+        </Box>
         <DetailField label="Gerekçe kodu">{item.reasonCode}</DetailField>
 
         {(hasOldValues || hasNewValues) && (
@@ -504,6 +617,35 @@ export function AuditPage({
   const [exporting, setExporting] = useState(false);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "timeline">("list");
+  const { availableUsers } = useDevelopmentUser();
+
+  const actorNames = useMemo(() => {
+    const names = new Map(demoActors.map((actor) => [actor.actorId, actor.displayName]));
+    for (const user of availableUsers) {
+      if (user.actor_id) names.set(user.actor_id, user.display_name);
+    }
+    return names;
+  }, [availableUsers]);
+  const actorLabel = useCallback(
+    (actorId: string) => actorNames.get(actorId),
+    [actorNames],
+  );
+  const actorOptions = useMemo(() => {
+    const ids = new Set(actorNames.keys());
+    for (const item of page.items) ids.add(item.actorId);
+    for (const actor of summary.topActors) ids.add(actor.actorId);
+    return [...ids].sort((left, right) => (
+      (actorNames.get(left) ?? left).localeCompare(actorNames.get(right) ?? right, "tr-TR")
+    ));
+  }, [actorNames, page.items, summary.topActors]);
+  const objectIdOptions = useMemo(() => (
+    [...new Set(page.items.flatMap((item) => (item.objectId ? [item.objectId] : [])))]
+      .sort((left, right) => left.localeCompare(right, "tr-TR"))
+  ), [page.items]);
+  const correlationOptions = useMemo(() => (
+    [...new Set(page.items.map((item) => item.correlationId))]
+      .sort((left, right) => left.localeCompare(right, "tr-TR"))
+  ), [page.items]);
 
   const setPeriodMode = (value: string) => {
     if (value === "custom") {
@@ -544,11 +686,7 @@ export function AuditPage({
   const handleFilterByObject = useCallback((item: AuditEventListItem) => {
     if (!item.objectId) return;
     setDrawerOpen(false);
-    const nextFilters = {
-      ...defaultAuditFilters,
-      objectType: item.objectType,
-      objectId: item.objectId,
-    };
+    const nextFilters = { ...defaultAuditFilters, objectId: item.objectId };
     setFilters(nextFilters);
     onQuery?.(nextFilters);
   }, [onQuery]);
@@ -566,14 +704,15 @@ export function AuditPage({
 
   const visibleItems = useMemo(
     () => page.items.filter((item) => (
-      (!filters.actorId || item.actorId.toLocaleLowerCase("tr-TR").includes(filters.actorId.toLocaleLowerCase("tr-TR")))
+      (!filters.actorId || `${item.actorId} ${actorNames.get(item.actorId) ?? ""}`
+        .toLocaleLowerCase("tr-TR")
+        .includes(filters.actorId.toLocaleLowerCase("tr-TR")))
       && (!filters.action || item.action.includes(filters.action.toLocaleUpperCase("tr-TR")))
-      && (!filters.objectType || item.objectType.toLocaleLowerCase("tr-TR").includes(filters.objectType.toLocaleLowerCase("tr-TR")))
       && (!filters.objectId || item.objectId === filters.objectId)
       && (filters.result === "ALL" || item.result === filters.result)
       && (!filters.correlationId || item.correlationId.toLocaleLowerCase("tr-TR").includes(filters.correlationId.toLocaleLowerCase("tr-TR")))
     )),
-    [filters, page.items],
+    [actorNames, filters, page.items],
   );
   const effectiveItems = state === "long-content"
     ? Array.from({ length: 5 }, (_, group) => page.items.map((item) => ({
@@ -671,13 +810,28 @@ export function AuditPage({
         {state !== "unauthorized" ? (
           <Paper component="section" sx={{ borderRadius: 1.5, p: 4 }} variant="outlined">
             <Box aria-label="Denetim filtreleri" sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(180px, 1fr))", lg: "repeat(3, minmax(155px, 1fr))" } }}>
-              <TextField label="Aktör" onChange={(event) => setFilters((current) => ({ ...current, actorId: event.target.value }))} value={filters.actorId} />
+              <SearchableFilterField
+                label="Aktör"
+                onChange={(value) => setFilters((current) => ({ ...current, actorId: value }))}
+                optionLabel={actorLabel}
+                options={actorOptions}
+                value={filters.actorId}
+              />
               <FormControl><InputLabel id="audit-action-label">İşlem</InputLabel><Select label="İşlem" labelId="audit-action-label" onChange={(event) => setFilters((current) => ({ ...current, action: event.target.value }))} value={filters.action}><MenuItem value="">Tüm işlemler</MenuItem>{Object.entries(actionLabels).map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}</Select></FormControl>
-              <TextField label="Nesne türü" onChange={(event) => setFilters((current) => ({ ...current, objectType: event.target.value }))} value={filters.objectType} />
-              <TextField label="Nesne ID" onChange={(event) => setFilters((current) => ({ ...current, objectId: event.target.value }))} value={filters.objectId} />
+              <SearchableFilterField
+                label="Nesne ID"
+                onChange={(value) => setFilters((current) => ({ ...current, objectId: value }))}
+                options={objectIdOptions}
+                value={filters.objectId}
+              />
               <FormControl><InputLabel id="audit-result-label">Sonuç</InputLabel><Select label="Sonuç" labelId="audit-result-label" onChange={(event) => setFilters((current) => ({ ...current, result: event.target.value }))} value={filters.result}><MenuItem value="ALL">Tüm sonuçlar</MenuItem>{Object.entries(resultLabels).map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}</Select></FormControl>
               <FormControl><InputLabel id="audit-period-label">Dönem</InputLabel><Select label="Dönem" labelId="audit-period-label" onChange={(event) => setPeriodMode(event.target.value)} value={filters.periodStart ? "custom" : String(filters.days)}><MenuItem value="1">Son 24 saat</MenuItem><MenuItem value="7">Son 7 gün</MenuItem><MenuItem value="30">Son 30 gün</MenuItem><MenuItem value="custom">Özel aralık</MenuItem></Select></FormControl>
-              <TextField label="İlişki kodu" onChange={(event) => setFilters((current) => ({ ...current, correlationId: event.target.value }))} value={filters.correlationId} />
+              <SearchableFilterField
+                label="İlişki kodu"
+                onChange={(value) => setFilters((current) => ({ ...current, correlationId: value }))}
+                options={correlationOptions}
+                value={filters.correlationId}
+              />
               {filters.periodStart ? (
                 <LocalizationProvider adapterLocale={tr} dateAdapter={AdapterDateFns}>
                   <DatePicker
@@ -782,7 +936,12 @@ export function AuditPage({
                 <Box component="ol" sx={{ display: "grid", gap: 1.5, listStyle: "none", m: 0, mt: 2, p: 0 }}>
                   {summary.topActors.map((actor) => (
                     <Box component="li" key={actor.actorId} sx={{ display: "flex", gap: 2, justifyContent: "space-between" }}>
-                      <Typography noWrap variant="body2">{actor.actorId}</Typography>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography noWrap variant="body2">{actorLabel(actor.actorId) ?? actor.actorId}</Typography>
+                        {actorLabel(actor.actorId) ? (
+                          <Typography color="text.secondary" noWrap variant="caption">{actor.actorId}</Typography>
+                        ) : null}
+                      </Box>
                       <Typography sx={{ fontWeight: 700 }} variant="body2">{actor.count}</Typography>
                     </Box>
                   ))}
@@ -802,7 +961,7 @@ export function AuditPage({
                   </Box>
                   <Typography color="text.secondary" variant="body2">{effectiveItems.length} kayıt</Typography>
                 </Box>
-                <Box sx={{ p: 4 }}><AuditTimeline items={effectiveItems} onSelect={handleEventClick} /></Box>
+                <Box sx={{ p: 4 }}><AuditTimeline actorLabel={actorLabel} items={effectiveItems} onSelect={handleEventClick} /></Box>
               </Paper>
             ) : (
               <Paper component="section" sx={{ borderRadius: 1.5, overflow: "hidden" }} variant="outlined">
@@ -816,7 +975,7 @@ export function AuditPage({
                 <Box aria-hidden="true" sx={{ borderBottom: 1, borderColor: "divider", color: "text.secondary", display: { xs: "none", lg: "grid" }, fontSize: "caption.fontSize", fontWeight: 700, gap: 3, gridTemplateColumns: "40px minmax(235px, 1fr) minmax(145px, .58fr) minmax(175px, .7fr) minmax(180px, .72fr) minmax(165px, .66fr)", px: 4, py: 2 }}>
                   <Box /><Box>İşlem ve nesne</Box><Box>Sonuç</Box><Box>Aktör</Box><Box>İlişki ve gerekçe</Box><Box>Zaman</Box>
                 </Box>
-                <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }}>{effectiveItems.map((item) => <EventRow highlighted={item.eventId === highlightedEventId} item={item} key={item.eventId} onClick={handleEventClick} onFilterByObject={handleFilterByObject} />)}</Box>
+                <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }}>{effectiveItems.map((item) => <EventRow actorName={actorLabel(item.actorId)} highlighted={item.eventId === highlightedEventId} item={item} key={item.eventId} onClick={handleEventClick} onFilterByObject={handleFilterByObject} />)}</Box>
                 {page.nextAfterSequenceNo !== null ? <Box sx={{ borderTop: 1, borderColor: "divider", display: "flex", justifyContent: "center", p: 3 }}><Button onClick={onLoadMore}>Daha fazla göster</Button></Box> : null}
               </Paper>
             )}

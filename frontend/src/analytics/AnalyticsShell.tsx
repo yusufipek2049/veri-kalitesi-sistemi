@@ -15,7 +15,7 @@ import { AppShell } from "../components/AppShell";
 import type { AnalyticsPageState } from "./model";
 
 const TAB_ROUTES = [
-  { key: "rule-health", label: "Kural Sagligi" },
+  { key: "rule-health", label: "Kural Sağlığı" },
   { key: "metadata-health", label: "Metadata" },
   { key: "issues", label: "Sorunlar" },
   { key: "scoring-policy", label: "Politika Etkisi" },
@@ -79,7 +79,7 @@ export function AnalyticsShell({ activeTab, state, correlationId, children }: An
             Yetki yok
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Bu analitik gorunumu icin yetkiniz bulunmuyor.
+            Bu analitik görünümü için yetkiniz bulunmuyor.
           </Typography>
           {correlationId && (
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
@@ -122,7 +122,7 @@ export function AnalyticsShell({ activeTab, state, correlationId, children }: An
           }}
         >
           <TextField
-            label="Baslangic"
+            label="Başlangıç"
             type="date"
             size="small"
             value={startDate}
@@ -132,7 +132,7 @@ export function AnalyticsShell({ activeTab, state, correlationId, children }: An
             sx={{ minWidth: 150 }}
           />
           <TextField
-            label="Bitis"
+            label="Bitiş"
             type="date"
             size="small"
             value={endDate}
@@ -142,7 +142,7 @@ export function AnalyticsShell({ activeTab, state, correlationId, children }: An
             sx={{ minWidth: 150 }}
           />
           <TextField
-            label="Veri Kaynagi"
+            label="Veri Kaynağı"
             size="small"
             value={sourceId}
             onChange={(e) => updateFilter("source_id", e.target.value)}

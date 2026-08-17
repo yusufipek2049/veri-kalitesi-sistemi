@@ -100,6 +100,7 @@ from veri_kalitesi.data_sources.validation import (
 )
 from veri_kalitesi.data_sources.service_helpers import (
     diff_metadata as _diff_metadata,
+    diff_object_key as _diff_object_key,
     elapsed_ms as _elapsed_ms,
     error_class_for_exception as _error_class_for_exception,
     latest_profile_observation as _latest_profile_observation,
@@ -1482,14 +1483,35 @@ class DataSourceService:
         reason_code: str,
         expected_version: int,
         correlation_id: str | None = None,
+        selected_objects: frozenset[tuple[str, str, str, str, str | None]] | None = None,
     ) -> MetadataDiff:
-        """Apply a pending metadata diff to reconcile the catalog."""
+        """Apply a pending metadata diff selection to reconcile the catalog."""
         correlation_id = _resolve_correlation_id(correlation_id)
         diff = self.repository.get_metadata_diff(metadata_diff_id)
         if diff.status is not MetadataDiffStatus.PENDING:
             raise ConflictError("Metadata diff is not in PENDING state.")
         data_source = self.repository.get_data_source(diff.data_source_id)
         _discovery = self.repository.get_discovery_result(diff.discovery_id)
+
+        added_entries = diff.added_objects
+        changed_entries = diff.changed_objects
+        removed_entries = diff.removed_objects
+        if selected_objects is not None:
+            if not selected_objects:
+                raise ValidationError(
+                    "Metadata diff application requires a non-empty object selection."
+                )
+            added_entries = tuple(
+                o for o in added_entries if _diff_object_key("ADDED", o) in selected_objects
+            )
+            changed_entries = tuple(
+                o for o in changed_entries if _diff_object_key("CHANGED", o) in selected_objects
+            )
+            removed_entries = tuple(
+                o for o in removed_entries if _diff_object_key("REMOVED", o) in selected_objects
+            )
+            if not (added_entries or changed_entries or removed_entries):
+                raise ValidationError("Selected objects do not match the pending metadata diff.")
 
         datasets: list[Dataset] = []
         fields_by_dataset_id: dict[str, list[DataField]] = {}
@@ -1506,7 +1528,7 @@ class DataSourceService:
                 f.name: f for f in self.repository.list_data_fields(ds.dataset_id)
             }
 
-        for added in diff.added_objects:
+        for added in added_entries:
             if added["object_type"] == "DATASET":
                 ds_key = (added["namespace"], added["dataset_name"])
                 previous = existing_datasets.get(ds_key)
@@ -1541,7 +1563,46 @@ class DataSourceService:
                         )
                     )
 
-        for removed in diff.removed_objects:
+        for change in changed_entries:
+            if change["object_type"] != "DATA_FIELD":
+                continue
+            ds_key = (change["namespace"], change["dataset_name"])
+            ds_candidate = existing_datasets.get(ds_key)
+            if ds_candidate is None:
+                continue
+            previous_field = existing_fields_map.get(ds_candidate.dataset_id, {}).get(
+                change["field_name"]
+            )
+            if previous_field is None:
+                continue
+            nv = change.get("new_values", {})
+            fields_by_dataset_id.setdefault(ds_candidate.dataset_id, []).append(
+                DataField(
+                    dataset_id=ds_candidate.dataset_id,
+                    name=change["field_name"],
+                    native_data_type=str(
+                        nv.get("native_data_type", previous_field.native_data_type)
+                    ),
+                    is_nullable=bool(nv.get("is_nullable", previous_field.is_nullable)),
+                    is_sensitive=bool(nv.get("is_sensitive", previous_field.is_sensitive)),
+                    classification=previous_field.classification,
+                    classification_policy_version=previous_field.classification_policy_version,
+                    data_field_id=previous_field.data_field_id,
+                )
+            )
+
+        # Alan güncellemesi içeren mevcut dataset'leri upsert kapsamına al.
+        dataset_ids_in_play = {d.dataset_id for d in datasets}
+        for dataset_id in fields_by_dataset_id:
+            if dataset_id in dataset_ids_in_play:
+                continue
+            existing = next(
+                (ds for ds in existing_datasets.values() if ds.dataset_id == dataset_id), None
+            )
+            if existing is not None:
+                datasets.append(existing)
+
+        for removed in removed_entries:
             if removed["object_type"] == "DATASET":
                 ds_key = (removed["namespace"], removed["dataset_name"])
                 ds_removed = existing_datasets.get(ds_key)
@@ -1567,8 +1628,11 @@ class DataSourceService:
             reason_code=reason_code,
             new_values={
                 "metadata_diff_id": metadata_diff_id,
+                "applied_added": len(added_entries),
+                "applied_changed": len(changed_entries),
                 "passivated_datasets": len(passivated_dataset_ids),
                 "passivated_fields": len(passivated_field_ids),
+                "selection_limited": selected_objects is not None,
             },
         )
         prepared = self.transactional_audit.prepare(audit_event)

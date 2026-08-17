@@ -13,8 +13,8 @@ if TYPE_CHECKING:
 from veri_kalitesi.audit.models import (
     AuditEventInput,
     AuditResult,
+    PreparedAuditEvent,
 )
-from veri_kalitesi.audit.outbox import SQLiteTransactionalAudit
 from veri_kalitesi.data_sources.models import Criticality, Dataset
 from veri_kalitesi.executions.models import (
     ExecutionStatus,
@@ -23,7 +23,7 @@ from veri_kalitesi.executions.models import (
     RuleExecutionResult,
 )
 from veri_kalitesi.identity import ActorContext, is_trusted_actor_context
-from veri_kalitesi.rules.models import QualityDimension, QualityRule, RuleVersion
+from veri_kalitesi.rules.models import QualityDimension, QualityRule, RuleStatus, RuleVersion
 from veri_kalitesi.scoring.errors import (
     ScoringAuthorizationError,
     ScoringValidationError,
@@ -65,11 +65,60 @@ class ExecutionHistory(Protocol):
 
     def list_results(self, execution_id: str) -> list[RuleExecutionResult]: ...
 
+    def list_latest_results_for_rule_versions(
+        self, rule_version_ids: frozenset[str]
+    ) -> dict[str, RuleExecutionResult]: ...
+
+
+class ScoringConfigurationRepository(Protocol):
+    """Konfigürasyon onay akışının SQLite ve PostgreSQL ortak repository yüzeyi."""
+
+    def get_active_configuration(self) -> ScoringConfiguration: ...
+
+    def get_active_configuration_for_dataset(self, dataset_id: str) -> ScoringConfiguration: ...
+
+    def get_configuration_by_id(self, configuration_id: str) -> ScoringConfiguration: ...
+
+    def get_latest_configuration(self) -> ScoringConfiguration: ...
+
+    def get_configuration_approval(self, approval_id: str) -> ScoringConfigurationApproval: ...
+
+    def add_configuration_with_approval(
+        self,
+        configuration: ScoringConfiguration,
+        approval: ScoringConfigurationApproval,
+        *,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: object,
+    ) -> tuple[ScoringConfiguration, ScoringConfigurationApproval]: ...
+
+    def decide_configuration_approval(
+        self,
+        approval: ScoringConfigurationApproval,
+        *,
+        activate_configuration: bool,
+        activated_at: datetime,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: object,
+    ) -> tuple[ScoringConfiguration, ScoringConfigurationApproval]: ...
+
+
+class ScoringAuditOutbox(Protocol):
+    """Konfigürasyon servisinin audit outbox'tan beklediği asgari yüzey."""
+
+    def prepare(self, event: AuditEventInput) -> PreparedAuditEvent: ...
+
+    def publish_pending(self, *, limit: int = 100) -> object: ...
+
 
 class RuleCatalog(Protocol):
     def get_version(self, rule_version_id: str) -> RuleVersion: ...
 
     def get_rule(self, quality_rule_id: str) -> QualityRule: ...
+
+    def list_rules_with_latest_version(
+        self, dataset_ids: frozenset[str]
+    ) -> list[tuple[QualityRule, RuleVersion]]: ...
 
 
 class SourceCatalog(Protocol):
@@ -79,9 +128,9 @@ class SourceCatalog(Protocol):
 class ScoringConfigurationService:
     def __init__(
         self,
-        repository: SQLiteScoreRepository,
+        repository: ScoringConfigurationRepository,
         *,
-        transactional_audit: SQLiteTransactionalAudit,
+        transactional_audit: ScoringAuditOutbox,
         approval_policy: ScoringApprovalPolicy,
         clock: Any = utc_now,
     ) -> None:
@@ -99,6 +148,7 @@ class ScoringConfigurationService:
         threshold_set: ThresholdSet,
         dimension_weights: Mapping[QualityDimension, Decimal],
         criticality_weights: Mapping[Criticality, Decimal] | None = None,
+        dataset_id: str | None = None,
     ) -> tuple[ScoringConfiguration, ScoringConfigurationApproval]:
         now = self.clock()
         _validate_aware_time(now)
@@ -118,6 +168,7 @@ class ScoringConfigurationService:
             ),
             created_by=context.actor_id,
             created_at=now,
+            dataset_id=dataset_id,
         )
         validate_scoring_configuration(configuration)
         approval = ScoringConfigurationApproval(
@@ -847,6 +898,107 @@ class ScoringService:
             calculated_at=self.clock(),
         )
 
+    def _gather_supplementary_rule_scores(
+        self,
+        execution: RuleExecution,
+        datasets_by_id: dict[str, list[tuple[QualityScore, RuleVersion]]],
+        current_results_by_version: dict[str, RuleExecutionResult],
+        configuration: ScoringConfiguration,
+    ) -> dict[str, list[tuple[QualityScore, RuleVersion]]]:
+        """Find rule results from other executions for sibling rules.
+
+        When a dataset has multiple active rules but the current execution
+        only covers a subset, this method fetches the latest results for
+        the remaining rules from their most recent successful executions
+        and creates in-memory ``QualityScore`` objects suitable for dataset
+        aggregation.
+        """
+        supplementary: dict[str, list[tuple[QualityScore, RuleVersion]]] = {}
+
+        for dataset_id, candidates in datasets_by_id.items():
+            # Collect all active rules for this dataset
+            all_rules = self.rule_catalog.list_rules_with_latest_version(
+                frozenset({dataset_id})
+            )
+            active_rules = [
+                (rule, version)
+                for rule, version in all_rules
+                if rule.status is RuleStatus.ACTIVE
+            ]
+
+            # Determine which rule versions are already covered
+            covered_version_ids = {version.rule_version_id for _, version in candidates}
+            current_execution_version_ids = set(execution.rule_version_ids)
+
+            # Find uncovered active rules
+            uncovered_versions: list[RuleVersion] = []
+            for rule, version in active_rules:
+                if version.rule_version_id not in covered_version_ids:
+                    uncovered_versions.append(version)
+
+            if not uncovered_versions:
+                continue
+
+            # Fetch latest results for uncovered rule versions
+            uncovered_version_ids = frozenset(
+                v.rule_version_id for v in uncovered_versions
+            )
+            latest_results = (
+                self.execution_history.list_latest_results_for_rule_versions(
+                    uncovered_version_ids
+                )
+            )
+
+            version_lookup = {
+                version.rule_version_id: version for version in uncovered_versions
+            }
+
+            extras: list[tuple[QualityScore, RuleVersion]] = []
+            for rule_version_id, result in latest_results.items():
+                version = version_lookup.get(rule_version_id)
+                if version is None:
+                    continue
+                # Build a synthetic QualityScore for aggregation
+                measurement_status = result.measurement_status
+                if (
+                    measurement_status is not None
+                    and measurement_status in _SCOREABLE_MEASUREMENT_STATUSES
+                    and result.evaluated_count is not None
+                    and result.evaluated_count > 0
+                    and result.passed_count is not None
+                ):
+                    value = calculate_rule_score(result.passed_count, result.evaluated_count)
+                    level = classify_score(value, configuration.threshold_set)
+                    status = ScoreStatus.CALCULATED
+                else:
+                    value = None
+                    level = None
+                    status = ScoreStatus.NOT_CALCULATED
+
+                synthetic_score = QualityScore(
+                    execution_id=result.execution_id,
+                    rule_result_id=result.rule_result_id,
+                    rule_version_id=version.rule_version_id,
+                    scope_id=version.quality_rule_id,
+                    score_value=value,
+                    score_status=status,
+                    measurement_status=measurement_status,
+                    level=level,
+                    calculation_details={
+                        "formula_version": FORMULA_VERSION,
+                        "cross_execution": True,
+                        "source_execution_id": result.execution_id,
+                        "included_in_official_aggregation": status is ScoreStatus.CALCULATED,
+                    },
+                    calculated_at=self.clock(),
+                )
+                extras.append((synthetic_score, version))
+
+            if extras:
+                supplementary[dataset_id] = extras
+
+        return supplementary
+
     def calculate_full_score_set(
         self,
         execution_id: str,
@@ -892,7 +1044,8 @@ class ScoringService:
         )
         all_scores: list[QualityScore] = list(rule_scores)
 
-        # Dataset scores
+        # Dataset scores — enrich with latest results from sibling rules
+        # that were executed separately (cross-execution aggregation).
         datasets_by_id: dict[str, list[tuple[QualityScore, RuleVersion]]] = {}
         for score in rule_scores:
             if score.rule_version_id is None:
@@ -901,11 +1054,22 @@ class ScoringService:
             rule = self.rule_catalog.get_rule(version.quality_rule_id)
             datasets_by_id.setdefault(rule.dataset_id, []).append((score, version))
 
+        # For each affected dataset, check whether other active rules
+        # have results from earlier executions and include them.
+        supplementary = self._gather_supplementary_rule_scores(
+            execution,
+            datasets_by_id,
+            results_by_version,
+            configuration,
+        )
+
         dataset_scores: list[QualityScore] = []
         for dataset_id, candidates in datasets_by_id.items():
+            extra = supplementary.get(dataset_id, [])
+            all_candidates = list(candidates) + extra
             dataset_scores.append(
                 self.calculate_dataset_score(
-                    execution_id, dataset_id, _candidates=candidates, _persist=_persist
+                    execution_id, dataset_id, _candidates=all_candidates, _persist=_persist
                 )
             )
         all_scores.extend(dataset_scores)

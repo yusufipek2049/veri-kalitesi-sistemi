@@ -3,10 +3,10 @@ import type {
   CatalogDatasetDetailApiResponse,
   CatalogFieldListApiResponse,
   CatalogFieldDetailApiResponse,
+  DatasetPreviewApiResponse,
   DiscoveryStatusApiResponse,
   DiscoveryResponse,
   DiscoveryDiffApiResponse,
-  DiffApplicationApiResponse,
   DatasetUpdatePayload,
   FieldUpdatePayload,
 } from "./model";
@@ -97,6 +97,19 @@ export async function getCatalogField(
   return (await response.json()) as CatalogFieldDetailApiResponse;
 }
 
+export async function getDatasetPreview(
+  datasetId: string,
+  limit = 50,
+  signal?: AbortSignal,
+): Promise<DatasetPreviewApiResponse> {
+  const response = await developmentFetch(
+    `/api/v1/datasets/${encodeURIComponent(datasetId)}/preview?limit=${limit}`,
+    { signal },
+  );
+  if (!response.ok) throw await catalogApiError(response);
+  return (await response.json()) as DatasetPreviewApiResponse;
+}
+
 export async function getDiscoveryStatus(
   discoveryId: number,
 ): Promise<DiscoveryStatusApiResponse> {
@@ -178,22 +191,6 @@ export async function requestMetadataDiscovery(
   );
   if (!response.ok) throw await catalogApiError(response);
   return (await response.json()) as DiscoveryResponse;
-}
-
-export async function applyMetadataDiff(
-  metadataDiffId: string,
-  payload: { reason_code: string; expected_version: number },
-): Promise<DiffApplicationApiResponse> {
-  const response = await developmentFetch(
-    `/api/v1/metadata-diffs/${encodeURIComponent(metadataDiffId)}/application`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    },
-  );
-  if (!response.ok) throw await catalogApiError(response);
-  return (await response.json()) as DiffApplicationApiResponse;
 }
 
 // ── PATCH endpoints (catalog editing) ───────────────────────────────

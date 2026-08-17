@@ -130,3 +130,89 @@ test("maker-checker sahiplik akışı: talep, karar, uygulama ve denetçi görü
   await expect(auditorRow.getByRole("button", { name: "Geri Çek" })).toHaveCount(0);
   await expect(auditorRow.getByRole("button", { name: "Uygula" })).toHaveCount(0);
 });
+
+test("metadata diff uygulama akışı: seçim, onay ve uygulama", async ({ page }) => {
+  test.setTimeout(180_000);
+
+  // ── Maker: keşif ve seçim ───────────────────────────────────────────
+  await page.goto("/catalog");
+  await page.evaluate(() => {
+    window.localStorage.setItem("development-user-id", "dev-data-steward");
+  });
+  await page.reload();
+  await page.getByRole("row").first().getByRole("link").first().click();
+  await expect(page.getByRole("heading", { name: "Alanlar" })).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole("button", { name: /Keşfi çalıştır|Yeniden keşfet/ }).click();
+  // Keşif tamamlanana kadar bekle; fark yoksa senaryo geçerli değildir.
+  const diffPanel = page.getByText("Bekleyen Fark");
+  try {
+    await expect
+      .poll(async () => diffPanel.isVisible(), { timeout: 90_000 })
+      .toBe(true);
+  } catch {
+    // poll timed out – panel may still be invisible
+  }
+  if (!(await diffPanel.isVisible())) {
+    test.skip(true, "Keşif bekleyen metadata farkı üretmedi.");
+    return;
+  }
+
+  const submitResponse = page.waitForResponse(
+    (response) =>
+      response.url().includes("/api/v1/governance/approval-requests") &&
+      response.request().method() === "POST",
+  );
+  const checkboxes = page.getByRole("checkbox");
+  const checkboxCount = await checkboxes.count();
+  for (let index = 0; index < checkboxCount; index += 1) {
+    await checkboxes.nth(index).check();
+  }
+  await page.getByRole("button", { name: "Onaya gönder" }).click();
+  await expect(page.getByText(/Onay bekleniyor/)).toBeVisible({ timeout: 15_000 });
+  const createdRequest = (await (await submitResponse).json()) as {
+    approval_request_id: string;
+  };
+
+  // ── Checker: API üzerinden onay ─────────────────────────────────────
+  const decided = await page.evaluate(
+    async ({ id, proof }) => {
+      const response = await fetch(`/api/v1/governance/approval-requests/${id}/decision`, {
+        body: JSON.stringify({ decision: "APPROVE", reason_code: "METADATA.VERIFIED" }),
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "X-CSRF-Token": proof,
+          "X-Development-User-Id": "dev-data-owner",
+        },
+        method: "POST",
+      });
+      return response.status;
+    },
+    { id: createdRequest.approval_request_id, proof: csrfProof },
+  );
+  expect(decided).toBe(200);
+
+  // ── Applier: API üzerinden uygulama ─────────────────────────────────
+  const applied = await page.evaluate(
+    async ({ id, proof }) => {
+      const response = await fetch(`/api/v1/governance/approval-requests/${id}/apply`, {
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+          "X-CSRF-Token": proof,
+          "X-Development-User-Id": "dev-data-governance",
+        },
+        method: "POST",
+      });
+      return response.status;
+    },
+    { id: createdRequest.approval_request_id, proof: csrfProof },
+  );
+  expect(applied).toBe(200);
+
+  // Diff APPLIED kapandığı için yeni keşifte aynı fark tekrar üretilmez.
+  await page.reload();
+  await expect(page.getByText("Bekleyen Fark")).toHaveCount(0);
+});

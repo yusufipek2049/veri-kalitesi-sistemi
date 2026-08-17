@@ -226,7 +226,13 @@ class DevelopmentIssueNotificationPublisher:
             published_at=now,
         )
         delivery_id = str(uuid4())
-        recipient = actor_context.actor_id if actor_context else "development-dashboard-user"
+        # Payload'daki recipient_user_id varsa onu kullan (governance/rule approval).
+        # Yoksa actor_context'ten, son çare olarak development default kullanıcıdan al.
+        recipient = (
+            event.payload.get("recipient_user_id")
+            if isinstance(event.payload, dict) and event.payload.get("recipient_user_id")
+            else (actor_context.actor_id if actor_context else "development-dashboard-user")
+        )
         staged_delivery = _StagedDelivery(
             delivery_id=delivery_id,
             event_id=event.event_id,

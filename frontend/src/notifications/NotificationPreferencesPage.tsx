@@ -10,6 +10,7 @@ import {
 } from "@mui/material";
 import { Lock, RefreshCw, Settings2 } from "lucide-react";
 import { AppShell } from "../components/AppShell";
+import { NotificationTabs } from "./NotificationTabs";
 import type { NotificationSubscription } from "./model";
 
 export type NotificationPreferencesPageState =
@@ -131,6 +132,8 @@ export function NotificationPreferencesPage({
             </Button>
           ) : null}
         </Box>
+
+        <NotificationTabs />
 
         {state === "loading" ? (
           <Alert severity="info">

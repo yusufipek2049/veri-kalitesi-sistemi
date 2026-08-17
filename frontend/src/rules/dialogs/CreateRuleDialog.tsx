@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -12,8 +13,11 @@ import {
   InputLabel,
   MenuItem,
   Select,
+  Stack,
   TextField,
+  Typography,
 } from "@mui/material";
+import { useDevelopmentUser } from "../../development/UserContext";
 import { criticalityLabels, dimensionLabels, ruleTypeLabels } from "../labels";
 import type { RuleCreateRequest } from "../model";
 import { initialSqlEditorValues, sqlParameters, validateSql, type SqlEditorValues } from "../sqlValidation";
@@ -157,7 +161,69 @@ function RuleTypeField({ formData, onPatch }: Pick<CreateRuleFormFieldsProps, "f
   );
 }
 
-function RulePolicyFields({ formData, onPatch }: Pick<CreateRuleFormFieldsProps, "formData" | "onPatch">) {
+interface OwnerCandidate {
+  id: string;
+  displayName: string;
+  roles: string;
+}
+
+/** Sahip alanı: kullanıcı listesi varsa seçim, yoksa serbest metin. */
+function RuleOwnerField({
+  value,
+  onChange,
+  candidates,
+}: {
+  value: string;
+  onChange: (ownerUserId: string) => void;
+  candidates: OwnerCandidate[];
+}) {
+  if (candidates.length === 0) {
+    return (
+      <TextField
+        fullWidth
+        label="Sahip Kullanıcı"
+        onChange={(e) => onChange(e.target.value)}
+        required
+        value={value}
+      />
+    );
+  }
+  return (
+    <Autocomplete
+      fullWidth
+      getOptionLabel={(option) => option.displayName}
+      isOptionEqualToValue={(option, selected) => option.id === selected.id}
+      noOptionsText="Eşleşen kullanıcı bulunamadı"
+      onChange={(_event, option) => onChange(option?.id ?? "")}
+      options={candidates}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          helperText="Kuralın sahibi olacak kullanıcıyı listeden seçin."
+          label="Sahip Kullanıcı"
+          required
+        />
+      )}
+      renderOption={(props, option) => (
+        <Box component="li" {...props} key={option.id}>
+          <Stack>
+            <Typography variant="body2">{option.displayName}</Typography>
+            <Typography color="text.secondary" variant="caption">
+              {option.roles}
+            </Typography>
+          </Stack>
+        </Box>
+      )}
+      value={candidates.find((candidate) => candidate.id === value) ?? null}
+    />
+  );
+}
+
+function RulePolicyFields({
+  formData,
+  onPatch,
+  ownerCandidates,
+}: Pick<CreateRuleFormFieldsProps, "formData" | "onPatch"> & { ownerCandidates: OwnerCandidate[] }) {
   return (
     <>
       <FormControl fullWidth>
@@ -202,14 +268,34 @@ function RulePolicyFields({ formData, onPatch }: Pick<CreateRuleFormFieldsProps,
           ))}
         </Select>
       </FormControl>
-      <TextField
-        fullWidth
-        label="Sahip Kullanıcı ID"
-        onChange={(e) => onPatch({ owner_user_id: e.target.value })}
-        required
+      <RuleOwnerField
+        candidates={ownerCandidates}
+        onChange={(ownerUserId) => onPatch({ owner_user_id: ownerUserId })}
         value={formData.owner_user_id}
       />
     </>
+  );
+}
+
+/** Seçilebilir sahip listesini üretir ve diyalog açılışında oturumdaki kullanıcıyı varsayar. */
+function useOwnerCandidates(
+  open: boolean,
+  setFormData: Dispatch<SetStateAction<RuleCreateRequest>>,
+): OwnerCandidate[] {
+  const { availableUsers, currentUser } = useDevelopmentUser();
+
+  useEffect(() => {
+    if (!open || !currentUser) return;
+    setFormData((prev) => (prev.owner_user_id ? prev : { ...prev, owner_user_id: currentUser.user_id }));
+  }, [open, currentUser, setFormData]);
+
+  return useMemo(
+    () => availableUsers.map((user) => ({
+      id: user.user_id,
+      displayName: user.display_name,
+      roles: user.roles,
+    })),
+    [availableUsers],
   );
 }
 
@@ -236,6 +322,7 @@ export function CreateRuleDialog({
   const [sqlError, setSqlError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const ownerCandidates = useOwnerCandidates(open, setFormData);
 
   useEffect(() => {
     if (open) setCreateError(null);
@@ -333,6 +420,7 @@ export function CreateRuleDialog({
           <RulePolicyFields
             formData={formData}
             onPatch={(patch) => setFormData((prev) => ({ ...prev, ...patch }))}
+            ownerCandidates={ownerCandidates}
           />
           {createError ? (
             <Alert severity="error" sx={{ mb: 1 }}>{createError}</Alert>

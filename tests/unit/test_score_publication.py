@@ -189,6 +189,11 @@ class _StubExecutionHistory:
     def list_results(self, execution_id: str) -> list[RuleExecutionResult]:
         return self.results
 
+    def list_latest_results_for_rule_versions(
+        self, rule_version_ids: frozenset[str]
+    ) -> dict[str, RuleExecutionResult]:
+        return {}
+
 
 @dataclass
 class _StubTransactionalAudit:
@@ -375,6 +380,9 @@ def test_reproduce_matches_original() -> None:
         def get_version(self, rule_version_id: str) -> str:
             return rule_version_id
 
+        def list_rules_with_latest_version(self, dataset_ids: frozenset[str]) -> list:
+            return []
+
     service = ScorePublicationService(
         scoring_service=scoring,
         score_repository=repo,
@@ -411,6 +419,9 @@ def test_reproduce_detects_value_mismatch() -> None:
     class _StubRuleCatalog:
         def get_version(self, rule_version_id: str) -> str:
             return rule_version_id
+
+        def list_rules_with_latest_version(self, dataset_ids: frozenset[str]) -> list:
+            return []
 
     service = ScorePublicationService(
         scoring_service=scoring,

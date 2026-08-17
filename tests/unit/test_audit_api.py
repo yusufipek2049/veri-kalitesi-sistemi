@@ -187,6 +187,33 @@ def test_development_api_exposes_integrity_checked_synthetic_audit_events() -> N
     assert "development-reference-only" not in response.text
 
 
+def test_new_audit_action_types_are_appended_and_queryable() -> None:
+    repository, audit_service = _audit_components()
+    audit_service.append(
+        _event("preview-event", "DATASET_PREVIEW_VIEWED", AuditResult.SUCCESS)
+    )
+    audit_service.append(
+        _event("exec-event", "EXECUTION_MANUAL_STARTED", AuditResult.SUCCESS)
+    )
+
+    response = TestClient(_app(repository, audit_service)).get(
+        "/api/v1/audit/events",
+        params={"action": "DATASET_PREVIEW_VIEWED"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total_count"] if "total_count" in payload else len(payload["items"]) >= 1
+    assert any(item["action"] == "DATASET_PREVIEW_VIEWED" for item in payload["items"])
+
+    response_exec = TestClient(_app(repository, audit_service)).get(
+        "/api/v1/audit/events",
+        params={"action": "EXECUTION_MANUAL_STARTED"},
+    )
+    assert response_exec.status_code == 200
+    payload_exec = response_exec.json()
+    assert any(item["action"] == "EXECUTION_MANUAL_STARTED" for item in payload_exec["items"])
+
+
 def _audit_components() -> tuple[SQLiteAuditRepository, AuditService]:
     repository = SQLiteAuditRepository()
     service = AuditService(

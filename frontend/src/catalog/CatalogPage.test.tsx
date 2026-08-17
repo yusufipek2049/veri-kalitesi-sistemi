@@ -23,10 +23,12 @@ const sampleDatasets: CatalogDataset[] = [
     name: "accounts",
     datasetType: "TABLE",
     status: "ACTIVE",
+    criticality: "HIGH",
     estimatedRowCount: 1000,
     fieldCount: 5,
     version: 1,
     ownerId: null,
+    timelinessNature: null,
   },
   {
     id: "ds-2",
@@ -35,10 +37,12 @@ const sampleDatasets: CatalogDataset[] = [
     name: "transactions",
     datasetType: "TABLE",
     status: "INACTIVE",
+    criticality: "LOW",
     estimatedRowCount: null,
     fieldCount: 12,
     version: 2,
     ownerId: "user-owner",
+    timelinessNature: "BATCH_TIME",
   },
 ];
 

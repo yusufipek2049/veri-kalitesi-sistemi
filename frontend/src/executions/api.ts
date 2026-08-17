@@ -11,6 +11,7 @@ export type ExecutionErrorKind =
   | "forbidden"
   | "not_found"
   | "conflict"
+  | "governance_approval_required"
   | "validation"
   | "technical";
 
@@ -18,6 +19,7 @@ export class ExecutionApiError extends Error {
   constructor(
     public readonly kind: ExecutionErrorKind,
     public readonly correlationId?: string,
+    public readonly governanceRequestType?: string,
   ) {
     super("Execution request failed.");
   }
@@ -32,10 +34,31 @@ function classifyStatus(status: number): ExecutionErrorKind {
   return "technical";
 }
 
+async function classifyError(response: Response): Promise<ExecutionApiError> {
+  const correlationId = response.headers.get("X-Correlation-ID") ?? undefined;
+  if (response.status === 409) {
+    try {
+      const body = (await response.json()) as {
+        code?: string;
+        governance_request_type?: string;
+      };
+      if (body?.code === "EXECUTION_GOVERNANCE_APPROVAL_REQUIRED") {
+        return new ExecutionApiError(
+          "governance_approval_required",
+          correlationId,
+          body.governance_request_type,
+        );
+      }
+    } catch {
+      // Gövde JSON değilse jenerik conflict olarak sınıflandır.
+    }
+  }
+  return new ExecutionApiError(classifyStatus(response.status), correlationId);
+}
+
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    const correlationId = response.headers.get("X-Correlation-ID") ?? undefined;
-    throw new ExecutionApiError(classifyStatus(response.status), correlationId);
+    throw await classifyError(response);
   }
   return response.json() as Promise<T>;
 }

@@ -25,7 +25,6 @@ describe("audit API", () => {
         action: "RULE_ACTIVATION",
         actorId: "audit-user",
         objectId: "rule-42",
-        objectType: "QualityRule",
         result: "DENIED",
       },
       {
@@ -39,7 +38,7 @@ describe("audit API", () => {
     const query = new URL(url, "http://localhost").searchParams;
     expect(query.get("actor_id")).toBe("audit-user");
     expect(query.get("action")).toBe("RULE_ACTIVATION");
-    expect(query.get("object_type")).toBe("QualityRule");
+    expect(query.get("object_type")).toBeNull();
     expect(query.get("object_id")).toBe("rule-42");
     expect(query.get("result")).toBe("DENIED");
     expect(query.get("after_sequence_no")).toBe("20");
@@ -128,7 +127,7 @@ describe("audit API", () => {
       ...defaultAuditFilters,
       actorId: "audit-user",
       action: "RULE_ACTIVATION",
-      correlationId: "summary-icin-desteklenmiyor",
+      correlationId: "summary-için-desteklenmiyor",
     });
 
     const [url] = fetchMock.mock.calls[0] as [string, RequestInit];

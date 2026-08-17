@@ -182,10 +182,9 @@ class ExecutionService(Generic[_RepoT]):
         )
 
     def validate_rule_versions(self, rule_version_ids: tuple[str, ...]) -> tuple[str, ...]:
-        if not rule_version_ids or len(set(rule_version_ids)) != len(rule_version_ids):
-            raise ExecutionValidationError("Rule versions must be non-empty and unique.")
-        versions = tuple(self.rule_catalog.get_version(item) for item in rule_version_ids)
-        return self._validate_versions(versions)
+        return validate_rule_versions_for_catalogs(
+            self.rule_catalog, self.source_catalog, rule_version_ids
+        )
 
     def _start(
         self,
@@ -533,6 +532,32 @@ class ExecutionService(Generic[_RepoT]):
                 raise ExecutionValidationError("Execution requires an active data source.")
             source_ids.append(source.data_source_id)
         return tuple(dict.fromkeys(source_ids))
+
+
+def validate_rule_versions_for_catalogs(
+    rule_catalog: RuleCatalog,
+    source_catalog: SourceCatalog,
+    rule_version_ids: tuple[str, ...],
+) -> tuple[str, ...]:
+    """Kural sürümlerini aktiflik, güncellik ve kaynak durumu açısından doğrular."""
+
+    if not rule_version_ids or len(set(rule_version_ids)) != len(rule_version_ids):
+        raise ExecutionValidationError("Rule versions must be non-empty and unique.")
+    source_ids: list[str] = []
+    for item in rule_version_ids:
+        version = rule_catalog.get_version(item)
+        rule = rule_catalog.get_rule(version.quality_rule_id)
+        if rule.status is not RuleStatus.ACTIVE:
+            raise ExecutionValidationError("Manual execution requires active rules.")
+        available = rule_catalog.list_versions(rule.quality_rule_id)
+        if not available or available[-1].rule_version_id != version.rule_version_id:
+            raise ExecutionValidationError("Manual execution requires the latest rule version.")
+        dataset = source_catalog.get_dataset(rule.dataset_id)
+        source = source_catalog.get_data_source(dataset.data_source_id)
+        if source.status is not DataSourceStatus.ACTIVE:
+            raise ExecutionValidationError("Execution requires an active data source.")
+        source_ids.append(source.data_source_id)
+    return tuple(dict.fromkeys(source_ids))
 
 
 def _validate_start(actor_id: str, key: str, version_ids: tuple[str, ...]) -> None:

@@ -36,6 +36,21 @@ class ExecutionConflictError(ExecutionError):
     """Çalıştırma durumu işleme izin vermiyor (çakışma)."""
 
 
+class ExecutionGovernanceApprovalRequiredError(ExecutionConflictError):
+    """Kritik çalıştırma eylemi yönetişim onay talebi gerektiriyor (maker/checker)."""
+
+    def __init__(self, governance_request_type: str) -> None:
+        super().__init__(governance_request_type)
+        self.governance_request_type = governance_request_type
+
+
+class ScheduleGovernanceApprovalRequiredError(ExecutionGovernanceApprovalRequiredError):
+    """Bant dışı zamanlayıcı aralığı yönetişim onay talebi gerektiriyor (maker/checker)."""
+
+    def __init__(self) -> None:
+        super().__init__("SCHEDULE_INTERVAL_EXCEPTION")
+
+
 class IdempotencyConflictError(ExecutionError):
     """Aynı idempotency anahtarı farklı bir payload ile kullanıldı."""
 

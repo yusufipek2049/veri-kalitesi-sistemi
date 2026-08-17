@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>Veri Kalitesi Sistemi</title>
+  <desc>Koyu lacivert yüzey üzerinde veri sütunları ve onay işareti</desc>
+
+  <!-- 20 px guvenli bosluk, seffaf arka plan ve tek parca ana siluet. -->
+  <rect x="20" y="20" width="216" height="216" rx="42" fill="#0B1F3A"/>
+  <path d="M20 166H236V194C236 217.2 217.2 236 194 236H62C38.8 236 20 217.2 20 194Z"
+        fill="#142D4F"/>
+
+  <!-- Veri sutunlari: kucuk boyutlarda da kaybolmayacak kalinlikta. -->
+  <rect x="58" y="112" width="28" height="58" rx="6" fill="#FDB813"/>
+  <rect x="101" y="82" width="28" height="88" rx="6" fill="#FDB813"/>
+  <rect x="144" y="54" width="28" height="116" rx="6" fill="#FDB813"/>
+
+  <!-- Kalite onayi; renk disinda belirgin bir ikinci siluet saglar. -->
+  <path d="M91 188L116 212L174 151"
+        fill="none" stroke="#FFFFFF" stroke-width="18"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

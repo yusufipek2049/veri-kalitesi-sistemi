@@ -8,6 +8,7 @@ import {
 } from "@mui/material";
 import { Radio, RefreshCw, ShieldAlert } from "lucide-react";
 import { AppShell } from "../components/AppShell";
+import { NotificationTabs } from "./NotificationTabs";
 import { StatusBadge } from "../components/StatusBadge";
 import { type StatusTone } from "../theme/tokens";
 import type { NotificationChannel } from "./model";
@@ -120,6 +121,8 @@ export function NotificationChannelsPage({
             </Button>
           ) : null}
         </Box>
+
+        <NotificationTabs />
 
         {state === "loading" ? (
           <Alert severity="info">

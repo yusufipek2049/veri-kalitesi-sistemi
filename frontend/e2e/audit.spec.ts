@@ -83,7 +83,7 @@ test("audit ikonları aynı dikey eksende kalır ve filtreler temizlenir", async
   );
   expect(Math.max(...centers) - Math.min(...centers)).toBeLessThanOrEqual(0.5);
 
-  await page.getByLabel("Aktör").fill("rule-checker");
+  await page.getByLabel("Aktör").fill("Data Owner");
   await expect(page.getByText("Kural aktivasyonu")).toBeVisible();
   await expect(page.getByText("Bağlantı testi")).not.toBeVisible();
   await page.getByRole("button", { name: "Filtreleri temizle" }).click();
@@ -97,7 +97,7 @@ test("nesne linki ilgili sayfayı yeni sekmede açar", async ({ page }) => {
   await page.goto("/audit?state=normal");
 
   const popupPromise = page.waitForEvent("popup");
-  await page.getByRole("link", { name: "DataSource · source-core-banking" }).click();
+  await page.getByRole("link", { name: "DataSource · Core Banking (sentetik)" }).click();
   const popup = await popupPromise;
 
   await expect(popup).toHaveURL(/\/data-sources\/source-core-banking$/);
@@ -143,12 +143,12 @@ function auditFixture() {
     page_size: 50,
     policy_version: "DEVELOPMENT_AUDIT_ACCESS_V1",
     items: [
-      event(1, "LDAP_AUTHENTICATION", "UserSession", "SUCCESS", "AUTHENTICATED", "iam-user"),
-      event(2, "DATA_SOURCE_CONNECTION_TEST", "DataSource", "SUCCESS", "TEST_SUCCEEDED", "data-steward"),
-      event(3, "RULE_ACTIVATION", "QualityRule", "SUCCESS", "APPROVED", "rule-checker"),
-      event(4, "SCORING_CONFIGURATION_ACTIVATION", "ScoringConfiguration", "DENIED", "MAKER_CHECKER_REQUIRED", "score-checker"),
-      event(5, "REPORT_PREVIEW_VIEWED", "ReportPreview", "SUCCESS", "QUERY_COMPLETED", "report-viewer"),
-      event(6, "IDENTITY_SESSION", "UserSession", "FAILURE", "ABSOLUTE_TIMEOUT", "session-user"),
+      event(1, "LDAP_AUTHENTICATION", "UserSession", "SUCCESS", "AUTHENTICATED", "33333333-3333-4333-8333-333333333333"),
+      event(2, "DATA_SOURCE_CONNECTION_TEST", "DataSource", "SUCCESS", "TEST_SUCCEEDED", "11111111-1111-4111-8111-111111111111"),
+      event(3, "RULE_ACTIVATION", "QualityRule", "SUCCESS", "APPROVED", "22222222-2222-4222-8222-222222222222"),
+      event(4, "SCORING_CONFIGURATION_ACTIVATION", "ScoringConfiguration", "DENIED", "MAKER_CHECKER_REQUIRED", "44444444-4444-4444-8444-444444444444"),
+      event(5, "REPORT_PREVIEW_VIEWED", "ReportPreview", "SUCCESS", "QUERY_COMPLETED", "77777777-7777-4777-8777-777777777777"),
+      event(6, "IDENTITY_SESSION", "UserSession", "FAILURE", "ABSOLUTE_TIMEOUT", "55555555-5555-4555-8555-555555555555"),
     ],
   };
 }
@@ -158,7 +158,7 @@ function auditSummaryFixture() {
     total_count: 6,
     result_distribution: { SUCCESS: 4, FAILURE: 1, DENIED: 1 },
     action_distribution: { RULE_ACTIVATION: 1, DATA_SOURCE_CONNECTION_TEST: 1 },
-    top_actors: [{ actor_id: "rule-checker", count: 1 }],
+    top_actors: [{ actor_id: "22222222-2222-4222-8222-222222222222", count: 1 }],
     period_start: "2026-07-16T12:00:00Z",
     period_end: "2026-07-23T12:00:00Z",
   };

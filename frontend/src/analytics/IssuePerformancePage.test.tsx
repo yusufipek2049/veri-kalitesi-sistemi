@@ -42,10 +42,10 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe("Issue performans ekrani", () => {
-  it("acik issue varken satir listesi bos olsa da bos durum gostermez", async () => {
-    // F-06: durum, bir onceki render'in summary state'inden degil bu yanittan
-    // hesaplanmali; aksi halde acik issue varken ekran yanlislikla bosalirdi.
+describe("Issue performans ekranı", () => {
+  it("açık issue varken satır listesi boş olsa da boş durum göstermez", async () => {
+    // F-06: durum, bir önceki render'in summary state'inden değil bu yanıttan
+    // hesaplanmalı; aksi halde açık issue varken ekran yanlışlıkla boşalırdı.
     fetchMock.mockResolvedValue(
       envelope({ summary: { open_issue_count: 7, critical_open_count: 2 }, items: [] }),
     );
@@ -53,23 +53,23 @@ describe("Issue performans ekrani", () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("Acik Issue")).toBeVisible();
+      expect(screen.getByText("Açık Issue")).toBeVisible();
     });
-    expect(screen.queryByText("Gosterilecek issue verisi bulunamadi.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Gösterilecek issue verisi bulunamadı.")).not.toBeInTheDocument();
     expect(screen.getByText("7")).toBeVisible();
   });
 
-  it("hem satir hem acik issue yokken bos durumu gosterir", async () => {
+  it("hem satır hem açık issue yokken boş durumu gösterir", async () => {
     fetchMock.mockResolvedValue(envelope({ summary: { open_issue_count: 0 }, items: [] }));
 
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("Gosterilecek issue verisi bulunamadi.")).toBeVisible();
+      expect(screen.getByText("Gösterilecek issue verisi bulunamadı.")).toBeVisible();
     });
   });
 
-  it("acik issue yokken bile satir varsa veriyi gosterir", async () => {
+  it("açık issue yokken bile satır varsa veriyi gösterir", async () => {
     fetchMock.mockResolvedValue(
       envelope({
         summary: { open_issue_count: 0 },
@@ -80,12 +80,12 @@ describe("Issue performans ekrani", () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("Acik Issue")).toBeVisible();
+      expect(screen.getByText("Açık Issue")).toBeVisible();
     });
-    expect(screen.queryByText("Gosterilecek issue verisi bulunamadi.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Gösterilecek issue verisi bulunamadı.")).not.toBeInTheDocument();
   });
 
-  it("yetkisiz yanitta korelasyon kimligiyle yetki uyarisi gosterir", async () => {
+  it("yetkisiz yanıtta korelasyon kimliğiyle yetki uyarısı gösterir", async () => {
     fetchMock.mockRejectedValue(
       new AnalyticsApiError("forbidden", "correlation-forbidden"),
     );
@@ -93,18 +93,18 @@ describe("Issue performans ekrani", () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("Bu analitik gorunumu icin yetkiniz bulunmuyor.")).toBeVisible();
+      expect(screen.getByText("Bu analitik görünümü için yetkiniz bulunmuyor.")).toBeVisible();
     });
     expect(screen.getByText("Correlation: correlation-forbidden")).toBeVisible();
   });
 
-  it("teknik hatada hata durumunu gosterir", async () => {
+  it("teknik hatada hata durumunu gösterir", async () => {
     fetchMock.mockRejectedValue(new Error("network down"));
 
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText("Issue performans verisi yuklenemedi.")).toBeVisible();
+      expect(screen.getByText("Issue performans verisi yüklenemedi.")).toBeVisible();
     });
   });
 });

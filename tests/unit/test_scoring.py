@@ -87,6 +87,11 @@ class FakeRuleCatalog:
     def get_rule(self, quality_rule_id: str) -> QualityRule:
         raise AssertionError(f"Unexpected rule lookup: {quality_rule_id}")
 
+    def list_rules_with_latest_version(
+        self, dataset_ids: frozenset[str]
+    ) -> list[tuple[QualityRule, RuleVersion]]:
+        return []
+
 
 @dataclass
 class FakeAggregateRuleCatalog:
@@ -98,6 +103,19 @@ class FakeAggregateRuleCatalog:
 
     def get_rule(self, quality_rule_id: str) -> QualityRule:
         return self.rules[quality_rule_id]
+
+    def list_rules_with_latest_version(
+        self, dataset_ids: frozenset[str]
+    ) -> list[tuple[QualityRule, RuleVersion]]:
+        result = []
+        for rule in self.rules.values():
+            if rule.dataset_id not in dataset_ids:
+                continue
+            for version in self.versions.values():
+                if version.quality_rule_id == rule.quality_rule_id:
+                    result.append((rule, version))
+                    break
+        return result
 
 
 def _configuration_service(
@@ -2153,3 +2171,84 @@ def test_ds06_reproduce_rule_score_is_deterministic() -> None:
     )
     assert reproduced.score_value is not None
     assert reproduced.level is not None
+
+
+# ── Cross-execution dataset score aggregation ─────────────────────
+
+
+def test_cross_execution_dataset_score_includes_sibling_rule_results() -> None:
+    """When a dataset has multiple active rules but each execution only runs
+    one rule, the dataset score should aggregate results from all active rules
+    using their latest available execution results."""
+    service, score_repo, exec_repo, versions = _aggregate_service(weights=(1.0, 1.0))
+    version_a, version_b = versions
+
+    # Execution 1: only rule A (90% pass rate → score 90.00)
+    exec_a = _aggregate_execution(
+        versions, execution_id="exec-cross-a"
+    )
+    exec_a = RuleExecution(
+        execution_id="exec-cross-a",
+        idempotency_key_hash="key-cross-a",
+        payload_hash="payload-cross-a",
+        rule_version_ids=(version_a.rule_version_id,),
+        scope={"dataset_id": "dataset-main"},
+        triggered_by="system",
+        correlation_id="corr-cross-a",
+        status=ExecutionStatus.RUNNING,
+        started_at=datetime(2026, 7, 16, 10, 0, tzinfo=timezone.utc),
+    )
+    exec_repo.create_or_get(exec_a)
+    result_a = _version_result(exec_a, version_a, checked=100, passed=90, failed=10)
+    completed_a = exec_repo.complete_success(
+        exec_a.execution_id,
+        (result_a,),
+        datetime(2026, 7, 16, 10, 5, tzinfo=timezone.utc),
+    )
+    # Calculate and persist scores for execution A
+    service.calculate_full_score_set(completed_a.execution_id)
+
+    # Execution 2: only rule B (80% pass rate → score 80.00)
+    exec_b = RuleExecution(
+        execution_id="exec-cross-b",
+        idempotency_key_hash="key-cross-b",
+        payload_hash="payload-cross-b",
+        rule_version_ids=(version_b.rule_version_id,),
+        scope={"dataset_id": "dataset-main"},
+        triggered_by="system",
+        correlation_id="corr-cross-b",
+        status=ExecutionStatus.RUNNING,
+        started_at=datetime(2026, 7, 16, 11, 0, tzinfo=timezone.utc),
+    )
+    exec_repo.create_or_get(exec_b)
+    result_b = _version_result(exec_b, version_b, checked=100, passed=80, failed=20)
+    completed_b = exec_repo.complete_success(
+        exec_b.execution_id,
+        (result_b,),
+        datetime(2026, 7, 16, 11, 5, tzinfo=timezone.utc),
+    )
+    # Calculate full score set for execution B
+    all_scores_b = service.calculate_full_score_set(completed_b.execution_id)
+
+    # The dataset score should aggregate BOTH rules (A from exec 1, B from exec 2)
+    dataset_scores = [
+        s for s in all_scores_b if s.scope_type is ScoreScopeType.DATASET
+    ]
+    assert len(dataset_scores) == 1
+    dataset_score = dataset_scores[0]
+
+    # With equal weights (1.0, 1.0): (90 * 1 + 80 * 1) / (1 + 1) = 85.00
+    assert dataset_score.score_value == Decimal("85.00")
+    # Both rules should appear in included_components
+    included_version_ids = {
+        c["rule_version_id"] for c in dataset_score.calculation_details["included_components"]
+    }
+    assert version_a.rule_version_id in included_version_ids
+    assert version_b.rule_version_id in included_version_ids
+    # The cross-execution component should be marked
+    cross_components = [
+        c
+        for c in dataset_score.calculation_details["included_components"]
+        if c.get("rule_version_id") == version_a.rule_version_id
+    ]
+    assert len(cross_components) == 1

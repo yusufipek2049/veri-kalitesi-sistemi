@@ -20,10 +20,14 @@ from sqlalchemy import (
     literal_column,
     or_,
     select,
+    update,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import RowMapping
+from sqlalchemy.exc import IntegrityError
 
+from veri_kalitesi.audit.models import PreparedAuditEvent
+from veri_kalitesi.audit.postgresql_outbox import PostgreSQLTransactionalAudit
 from veri_kalitesi.data_sources.models import Criticality
 from veri_kalitesi.executions.models import MeasurementStatus
 from veri_kalitesi.persistence import (
@@ -43,7 +47,9 @@ from veri_kalitesi.scoring.models import (
     ScorePublicationStatus,
     ScoreScopeType,
     ScoreStatus,
+    ScoringApprovalStatus,
     ScoringConfiguration,
+    ScoringConfigurationApproval,
     ThresholdSet,
     is_official_observation,
 )
@@ -108,6 +114,7 @@ def score_tables(schema: str = DEFAULT_SCHEMA_NAME) -> ScoreTables:
         Column("created_at", DateTime(timezone=True), nullable=False),
         Column("is_active", Boolean, nullable=False),
         Column("activated_at", DateTime(timezone=True)),
+        Column("dataset_id", String(36)),
     )
     scoring_configuration_approvals = Table(
         "scoring_configuration_approvals",
@@ -407,9 +414,25 @@ class PostgreSQLScoreRepository:
     def get_active_configuration(self) -> ScoringConfiguration:
         with transactional_session(self._session_factory) as session:
             t = self._tables.scoring_configurations
-            row = session.execute(select(t).where(t.c.is_active.is_(True))).mappings().one_or_none()
+            row = session.execute(
+                select(t).where(
+                    and_(t.c.is_active.is_(True), t.c.dataset_id.is_(None))
+                )
+            ).mappings().one_or_none()
         if row is None:
             raise ScoreNotFoundError("Active ScoringConfiguration not found.")
+        return _row_to_configuration(row)
+
+    def get_active_configuration_for_dataset(self, dataset_id: str) -> ScoringConfiguration:
+        with transactional_session(self._session_factory) as session:
+            t = self._tables.scoring_configurations
+            row = session.execute(
+                select(t).where(
+                    and_(t.c.is_active.is_(True), t.c.dataset_id == dataset_id)
+                )
+            ).mappings().one_or_none()
+        if row is None:
+            return self.get_active_configuration()
         return _row_to_configuration(row)
 
     def get_configuration(self, version: str) -> ScoringConfiguration:
@@ -419,6 +442,204 @@ class PostgreSQLScoreRepository:
         if row is None:
             raise ScoreNotFoundError("ScoringConfiguration not found.")
         return _row_to_configuration(row)
+
+    def get_configuration_by_id(self, configuration_id: str) -> ScoringConfiguration:
+        with transactional_session(self._session_factory) as session:
+            t = self._tables.scoring_configurations
+            row = (
+                session.execute(select(t).where(t.c.configuration_id == configuration_id))
+                .mappings()
+                .one_or_none()
+            )
+        if row is None:
+            raise ScoreNotFoundError("ScoringConfiguration not found.")
+        return _row_to_configuration(row)
+
+    def get_latest_configuration(self) -> ScoringConfiguration:
+        with transactional_session(self._session_factory) as session:
+            t = self._tables.scoring_configurations
+            row = (
+                session.execute(
+                    select(t).order_by(t.c.created_at.desc(), t.c.configuration_id.desc()).limit(1)
+                )
+                .mappings()
+                .one_or_none()
+            )
+        if row is None:
+            raise ScoreNotFoundError("ScoringConfiguration not found.")
+        return _row_to_configuration(row)
+
+    def list_configurations(self) -> list[ScoringConfiguration]:
+        with transactional_session(self._session_factory) as session:
+            t = self._tables.scoring_configurations
+            rows = session.execute(select(t).order_by(t.c.created_at, t.c.version)).mappings().all()
+        return [_row_to_configuration(row) for row in rows]
+
+    def get_configuration_approval(self, approval_id: str) -> ScoringConfigurationApproval:
+        with transactional_session(self._session_factory) as session:
+            t = self._tables.scoring_configuration_approvals
+            row = (
+                session.execute(select(t).where(t.c.approval_id == approval_id))
+                .mappings()
+                .one_or_none()
+            )
+        if row is None:
+            raise ScoreNotFoundError("ScoringConfigurationApproval not found.")
+        return _row_to_configuration_approval(row)
+
+    def list_configuration_approvals(self) -> list[ScoringConfigurationApproval]:
+        with transactional_session(self._session_factory) as session:
+            t = self._tables.scoring_configuration_approvals
+            rows = (
+                session.execute(select(t).order_by(t.c.requested_at, t.c.approval_id))
+                .mappings()
+                .all()
+            )
+        return [_row_to_configuration_approval(row) for row in rows]
+
+    def add_configuration_with_approval(
+        self,
+        configuration: ScoringConfiguration,
+        approval: ScoringConfigurationApproval,
+        *,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: object,
+    ) -> tuple[ScoringConfiguration, ScoringConfigurationApproval]:
+        if not isinstance(audit_outbox, PostgreSQLTransactionalAudit):
+            raise ScoringValidationError(
+                "Audit outbox must be the PostgreSQL transactional outbox."
+            )
+        with transactional_session(self._session_factory) as session:
+            t = self._tables.scoring_configurations
+            approvals = self._tables.scoring_configuration_approvals
+            try:
+                session.execute(
+                    t.insert().values(
+                        configuration_id=configuration.configuration_id,
+                        version=configuration.version,
+                        threshold_version=configuration.threshold_set.version,
+                        critical_upper_exclusive=(
+                            configuration.threshold_set.critical_upper_exclusive
+                        ),
+                        risky_upper_exclusive=(configuration.threshold_set.risky_upper_exclusive),
+                        acceptable_upper_exclusive=(
+                            configuration.threshold_set.acceptable_upper_exclusive
+                        ),
+                        dimension_weights={
+                            dimension.value: str(weight)
+                            for dimension, weight in configuration.dimension_weights.items()
+                        },
+                        criticality_weights={
+                            criticality.value: str(weight)
+                            for criticality, weight in configuration.criticality_weights.items()
+                        },
+                        created_by=configuration.created_by,
+                        created_at=configuration.created_at,
+                        is_active=False,
+                        activated_at=None,
+                        dataset_id=configuration.dataset_id,
+                    )
+                )
+                session.execute(
+                    approvals.insert().values(
+                        approval_id=approval.approval_id,
+                        configuration_id=approval.configuration_id,
+                        maker_actor_id=approval.maker_actor_id,
+                        checker_actor_id=approval.checker_actor_id,
+                        policy_version=approval.policy_version,
+                        status=approval.status.value,
+                        decision_reason_code=approval.decision_reason_code,
+                        requested_at=approval.requested_at,
+                        decided_at=approval.decided_at,
+                    )
+                )
+            except IntegrityError as exc:
+                raise ScoringValidationError(
+                    "Scoring configuration version must be unique."
+                ) from exc
+            audit_outbox.stage(audit_event, session=session)
+        return (
+            self.get_configuration(configuration.version),
+            self.get_configuration_approval(approval.approval_id),
+        )
+
+    def decide_configuration_approval(
+        self,
+        approval: ScoringConfigurationApproval,
+        *,
+        activate_configuration: bool,
+        activated_at: datetime,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: object,
+    ) -> tuple[ScoringConfiguration, ScoringConfigurationApproval]:
+        if not isinstance(audit_outbox, PostgreSQLTransactionalAudit):
+            raise ScoringValidationError(
+                "Audit outbox must be the PostgreSQL transactional outbox."
+            )
+        with transactional_session(self._session_factory) as session:
+            t = self._tables.scoring_configurations
+            approvals = self._tables.scoring_configuration_approvals
+            latest = session.execute(
+                select(t.c.configuration_id)
+                .order_by(t.c.created_at.desc(), t.c.configuration_id.desc())
+                .limit(1)
+            ).scalar_one_or_none()
+            if latest is None or str(latest) != approval.configuration_id:
+                raise ScoringValidationError(
+                    "Approval does not target the latest scoring configuration."
+                )
+            result = session.execute(
+                update(approvals)
+                .where(
+                    and_(
+                        approvals.c.approval_id == approval.approval_id,
+                        approvals.c.status == ScoringApprovalStatus.PENDING.value,
+                    )
+                )
+                .values(
+                    status=approval.status.value,
+                    checker_actor_id=approval.checker_actor_id,
+                    decision_reason_code=approval.decision_reason_code,
+                    decided_at=approval.decided_at,
+                )
+            )
+            if result.rowcount != 1:  # type: ignore[attr-defined]
+                raise ScoringValidationError("Scoring configuration approval is not pending.")
+            if activate_configuration:
+                # Yalnizca ayni dataset kapsamindaki aktif konfigürasyonu kapat
+                target_config = session.execute(
+                    select(t.c.dataset_id).where(t.c.configuration_id == approval.configuration_id)
+                ).scalar_one_or_none()
+                if target_config is not None:
+                    session.execute(
+                        update(t).where(
+                            and_(t.c.is_active.is_(True), t.c.dataset_id == target_config)
+                        ).values(is_active=False)
+                    )
+                else:
+                    session.execute(
+                        update(t).where(
+                            and_(t.c.is_active.is_(True), t.c.dataset_id.is_(None))
+                        ).values(is_active=False)
+                    )
+                activation = session.execute(
+                    update(t)
+                    .where(
+                        and_(
+                            t.c.configuration_id == approval.configuration_id,
+                            t.c.is_active.is_(False),
+                        )
+                    )
+                    .values(is_active=True, activated_at=activated_at)
+                )
+                if activation.rowcount != 1:  # type: ignore[attr-defined]
+                    raise ScoringValidationError("Scoring configuration cannot be activated.")
+            audit_outbox.stage(audit_event, session=session)
+        configuration = self.get_configuration_by_id(approval.configuration_id)
+        return (
+            configuration,
+            self.get_configuration_approval(approval.approval_id),
+        )
 
 
 # ── Row mappers ──
@@ -487,6 +708,23 @@ def _row_to_configuration(row: RowMapping) -> ScoringConfiguration:
         created_at=row["created_at"],
         is_active=bool(row["is_active"]),
         activated_at=row["activated_at"],
+        dataset_id=str(row["dataset_id"]) if row.get("dataset_id") else None,
+    )
+
+
+def _row_to_configuration_approval(row: RowMapping) -> ScoringConfigurationApproval:
+    return ScoringConfigurationApproval(
+        approval_id=str(row["approval_id"]),
+        configuration_id=str(row["configuration_id"]),
+        maker_actor_id=str(row["maker_actor_id"]),
+        checker_actor_id=str(row["checker_actor_id"]) if row["checker_actor_id"] else None,
+        policy_version=str(row["policy_version"]),
+        status=ScoringApprovalStatus(str(row["status"])),
+        decision_reason_code=(
+            str(row["decision_reason_code"]) if row["decision_reason_code"] else None
+        ),
+        requested_at=row["requested_at"],
+        decided_at=row["decided_at"],
     )
 
 

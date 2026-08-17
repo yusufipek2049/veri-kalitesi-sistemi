@@ -27,6 +27,7 @@ from sqlalchemy.engine import RowMapping
 
 from veri_kalitesi.audit.models import PreparedAuditEvent
 from veri_kalitesi.audit.postgresql_outbox import PostgreSQLTransactionalAudit
+from veri_kalitesi.executions.errors import ExecutionValidationError
 from veri_kalitesi.executions.scheduling import (
     Schedule,
     ScheduleType,
@@ -54,6 +55,7 @@ def schedule_tables(schema: str = DEFAULT_SCHEMA_NAME) -> ScheduleTables:
         Column("once_at", DateTime(timezone=True)),
         Column("day_of_week", Integer),
         Column("day_of_month", Integer),
+        Column("interval_minutes", Integer),
         Column("is_active", Integer, nullable=False),
         Column("next_run_at", DateTime(timezone=True)),
         Column("created_at", DateTime(timezone=True), nullable=False),
@@ -99,6 +101,7 @@ class PostgreSQLScheduleRepository:
                     once_at=schedule.once_at,
                     day_of_week=schedule.day_of_week,
                     day_of_month=schedule.day_of_month,
+                    interval_minutes=schedule.interval_minutes,
                     is_active=1 if schedule.is_active else 0,
                     next_run_at=schedule.next_run_at,
                     created_at=schedule.created_at,
@@ -194,10 +197,33 @@ class PostgreSQLScheduleRepository:
                 .one_or_none()
             )
         if row is None:
-            from veri_kalitesi.executions.errors import ExecutionValidationError
-
             raise ExecutionValidationError("Schedule not found.")
         return _row_to_schedule(row)
+
+    def set_active(
+        self,
+        schedule_id: str,
+        *,
+        is_active: bool,
+        next_run_at: datetime | None,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: PostgreSQLTransactionalAudit,
+    ) -> Schedule:
+        with transactional_session(self._session_factory) as session:
+            t = self._tables.schedules
+            result = session.execute(
+                update(t)
+                .where(t.c.schedule_id == schedule_id)
+                .values(
+                    is_active=1 if is_active else 0,
+                    next_run_at=next_run_at,
+                )
+                .returning(t.c.schedule_id)
+            )
+            if result.one_or_none() is None:
+                raise ExecutionValidationError("Schedule not found.")
+            audit_outbox.stage(audit_event, session=session)
+        return self.get(schedule_id)
 
     def list_all(self) -> list[Schedule]:
         t = self._tables.schedules
@@ -222,6 +248,7 @@ def _row_to_schedule(row: RowMapping) -> Schedule:
         once_at=row["once_at"],
         day_of_week=row["day_of_week"],
         day_of_month=row["day_of_month"],
+        interval_minutes=row["interval_minutes"],
         is_active=bool(row["is_active"]),
         next_run_at=row["next_run_at"],
         created_at=row["created_at"],

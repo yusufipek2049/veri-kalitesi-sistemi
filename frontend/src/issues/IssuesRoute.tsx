@@ -32,8 +32,8 @@ import { IssuesPage } from "./IssuesPage";
 
 const issueStates: IssueState[] = ["normal", "loading", "empty", "error", "unauthorized", "long-content"];
 
-// Kural: karsiliktaki guncelleyen sorun listesinin ayni kaydi degistirilir ve
-// yanittaki izleme kodu sayfa seviyesinde saklanir.
+// Kural: karşılıktaki guncelleyen sorun listesinin aynı kaydı değiştirilir ve
+// yanıttaki izleme kodu sayfa seviyesinde saklanır.
 function useIssueMutations({
   setItems,
   setCorrelationId,

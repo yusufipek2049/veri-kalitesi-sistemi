@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, Request, Response
 
 from veri_kalitesi.api.bff import CSRF_HEADER_NAME
 from veri_kalitesi.api.identity import DevelopmentActorContextResolver
@@ -18,7 +18,10 @@ from veri_kalitesi.api.models import (
     ExecutionStartResponse,
     JobInfoRef,
 )
-from veri_kalitesi.executions.models import ExecutionMode, RuleExecution
+from veri_kalitesi.audit.models import AuditEventInput, AuditResult
+from veri_kalitesi.audit.service import AuditService
+from veri_kalitesi.executions.errors import ExecutionGovernanceApprovalRequiredError
+from veri_kalitesi.executions.models import ExecutionMode, RuleExecution, utc_now
 from veri_kalitesi.executions.query import (
     ExecutionQueryService,
     ExecutionQueryTechnicalError,
@@ -260,6 +263,7 @@ def register_executions_routes(
     execution_governance_guard: ExecutionGovernanceGuard | None = None,
     resolver: _Resolver,
     data_origin: str,
+    audit_service: AuditService | None = None,
 ) -> None:
     """Çalıştırma alanının route'larını FastAPI uygulamasına kaydeder."""
 
@@ -392,10 +396,7 @@ def register_executions_routes(
             execution_governance_guard is not None
             and execution_governance_guard.requires_approval_for_start(payload.rule_version_ids)
         ):
-            raise HTTPException(
-                status_code=409,
-                detail=("Critical manual execution requires a governance approval request."),
-            )
+            raise ExecutionGovernanceApprovalRequiredError("EXECUTION_MANUAL_START")
         execution = execution_start_service.start_manual(
             rule_version_ids=payload.rule_version_ids,
             source_ids=payload.source_ids,
@@ -403,6 +404,24 @@ def register_executions_routes(
             actor_context=actor_context,
             execution_mode=ExecutionMode(payload.execution_mode),
         )
+        if audit_service is not None:
+            audit_service.append(AuditEventInput(
+                actor_id=actor_context.actor_id,
+                actor_type=actor_context.actor_type.value,
+                correlation_id=request.state.correlation_id,
+                action="EXECUTION_MANUAL_STARTED",
+                object_type="RuleExecution",
+                object_id=execution.execution_id,
+                result=AuditResult.SUCCESS,
+                reason_code="MANUAL_START",
+                old_values={},
+                new_values={
+                    "rule_version_count": len(payload.rule_version_ids),
+                    "execution_mode": payload.execution_mode,
+                },
+                occurred_at=utc_now(),
+                session_id=getattr(actor_context, "session_id", None),
+            ))
         response.headers["Cache-Control"] = "no-store"
         return ExecutionStartResponse(
             data_origin=data_origin,
@@ -437,10 +456,7 @@ def register_executions_routes(
             execution_governance_guard is not None
             and execution_governance_guard.requires_approval_for_cancel(execution_id)
         ):
-            raise HTTPException(
-                status_code=409,
-                detail=("Critical execution cancellation requires a governance approval request."),
-            )
+            raise ExecutionGovernanceApprovalRequiredError("EXECUTION_CANCEL")
         execution = execution_cancel_service.cancel(
             execution_id,
             reason=payload.reason,

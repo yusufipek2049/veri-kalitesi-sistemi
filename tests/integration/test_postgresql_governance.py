@@ -36,16 +36,22 @@ from veri_kalitesi.audit.repository import SQLiteAuditRepository
 from veri_kalitesi.audit.service import AuditService
 from veri_kalitesi.data_protection.policy import ClassificationCode
 from veri_kalitesi.data_sources.models import (
+    CatalogItemStatus,
     Criticality,
     DataField,
     DataSource,
     DataSourceActivationRequest,
     Dataset,
+    MetadataDiff,
+    MetadataDiffStatus,
+    MetadataDiscoveryResult,
     SourceType,
 )
+from veri_kalitesi.data_sources.connectors import ConnectorRegistry
 from veri_kalitesi.data_sources.postgresql_repository import (
     PostgreSQLDataSourceRepository,
 )
+from veri_kalitesi.data_sources.service import DataSourceService
 from veri_kalitesi.governance import GovernanceApprovalQueryService, GovernanceView
 from veri_kalitesi.governance.errors import (
     GovernanceConflictError,
@@ -61,6 +67,7 @@ from veri_kalitesi.governance.repository import PostgreSQLGovernanceApprovalRepo
 from veri_kalitesi.governance.service import (
     GovernanceApprovalCommandService,
     PostgreSQLDatasetOwnershipWriter,
+    PostgreSQLDiffGovernanceWriter,
     PostgreSQLMetadataGovernanceWriter,
 )
 from veri_kalitesi.identity import (
@@ -980,3 +987,220 @@ def test_versioned_request_still_rejects_zero_scope_version(pg: PgFixture) -> No
             audit_event=_prepared(audit, object_id=request.object_id),
             audit_outbox=audit,
         )
+
+
+# ----------------------------------------------------------------------
+# Metadata diff application integration
+# ----------------------------------------------------------------------
+
+
+def _diff_governance_service(pg: PgFixture):
+    """Diff uygulamasi icin gercek DataSourceService + governance servisi."""
+    source_repo = PostgreSQLDataSourceRepository(pg.session_factory, schema=pg.schema)
+    governance_repo = PostgreSQLGovernanceApprovalRepository(pg.session_factory, schema=pg.schema)
+    audit = _audit(pg)
+
+    class _NoopAuditSink:
+        def append(self, event: AuditEventInput) -> None:
+            del event
+
+    metadata_service = DataSourceService(
+        source_repo,
+        ConnectorRegistry([]),
+        None,
+        audit_sink=_NoopAuditSink(),
+        transactional_audit=audit,
+        clock=lambda: NOW,
+    )
+    policy = GovernanceApprovalPolicy(
+        version="GOVERNANCE_APPROVAL_POLICY_V1",
+        actor_policy_version=ACTOR_POLICY_VERSION,
+        maker_roles=frozenset({"DATA_STEWARD"}),
+        checker_roles=frozenset({"DATA_OWNER"}),
+        applier_roles=frozenset({"DATA_GOVERNANCE_SPECIALIST"}),
+    )
+    command_service = GovernanceApprovalCommandService(
+        governance_repo,
+        source_repo,
+        PostgreSQLDatasetOwnershipWriter(source_repo),
+        audit_sink=_NoopAuditSink(),
+        transactional_audit=audit,
+        policy=policy,
+        metadata_writer=PostgreSQLMetadataGovernanceWriter(source_repo),
+        diff_writer=PostgreSQLDiffGovernanceWriter(metadata_service, source_repo),
+        clock=lambda: NOW,
+    )
+    return command_service, source_repo, audit
+
+
+def _seed_diff_catalog(pg: PgFixture, source_repo, audit) -> tuple[Dataset, MetadataDiff]:
+    source = DataSource(
+        data_source_id=str(uuid4()),
+        name="Diff Source",
+        source_type=SourceType.POSTGRESQL,
+        connection_config={},
+        secret_reference="secret-diff",
+    )
+    source_repo.add_data_source(
+        source,
+        audit_event=_prepared(audit, object_type="DataSource", object_id=source.data_source_id),
+        audit_outbox=audit,
+    )
+    dataset = Dataset(
+        data_source_id=source.data_source_id,
+        namespace="public",
+        name="customers",
+        dataset_id=str(uuid4()),
+    )
+    amount = DataField(
+        data_field_id=str(uuid4()),
+        dataset_id=dataset.dataset_id,
+        name="amount",
+        native_data_type="integer",
+        is_nullable=True,
+    )
+    legacy = DataField(
+        data_field_id=str(uuid4()),
+        dataset_id=dataset.dataset_id,
+        name="legacy",
+        native_data_type="text",
+    )
+    discovery = MetadataDiscoveryResult(
+        data_source_id=source.data_source_id,
+        succeeded=True,
+        duration_ms=1,
+        datasets=(dataset,),
+        fields=(amount, legacy),
+    )
+    source_repo.replace_metadata(
+        source.data_source_id,
+        [dataset],
+        {dataset.dataset_id: [amount, legacy]},
+        discovery,
+        audit_event=_prepared(
+            audit,
+            action="DATA_SOURCE_METADATA_DISCOVERED",
+            object_type="DataSource",
+            object_id=source.data_source_id,
+        ),
+        audit_outbox=audit,
+    )
+    with pg.engine.begin() as conn:
+        discovery_id = conn.execute(
+            text(f'SELECT max(discovery_id) FROM "{pg.schema}".metadata_discovery_results')
+        ).scalar()
+    diff = MetadataDiff(
+        metadata_diff_id=str(uuid4()),
+        discovery_id=discovery_id,
+        data_source_id=source.data_source_id,
+        added_objects=(
+            {
+                "object_type": "DATASET",
+                "namespace": "public",
+                "dataset_name": "orders",
+                "new_values": {"dataset_type": "TABLE"},
+            },
+            {
+                "object_type": "DATA_FIELD",
+                "namespace": "public",
+                "dataset_name": "customers",
+                "field_name": "email",
+                "new_values": {
+                    "native_data_type": "text",
+                    "is_nullable": True,
+                    "is_sensitive": True,
+                },
+            },
+        ),
+        changed_objects=(
+            {
+                "object_type": "DATA_FIELD",
+                "namespace": "public",
+                "dataset_name": "customers",
+                "field_name": "amount",
+                "new_values": {"native_data_type": "numeric", "is_nullable": False},
+            },
+        ),
+        removed_objects=(
+            {
+                "object_type": "DATA_FIELD",
+                "namespace": "public",
+                "dataset_name": "customers",
+                "field_name": "legacy",
+            },
+        ),
+    )
+    persisted = source_repo.persist_metadata_diff(
+        diff,
+        audit_event=_prepared(
+            audit,
+            action="DATA_SOURCE_METADATA_DIFF_RECORDED",
+            object_type="DataSource",
+            object_id=source.data_source_id,
+        ),
+        audit_outbox=audit,
+    )
+    return source_repo.get_dataset(dataset.dataset_id), persisted
+
+
+def test_metadata_diff_application_flow_end_to_end(pg: PgFixture) -> None:
+    """Maker -> checker -> applier akisi kismi secimle diff'i APPLIED kapatir."""
+    command_service, source_repo, audit = _diff_governance_service(pg)
+    dataset, diff = _seed_diff_catalog(pg, source_repo, audit)
+    scope = frozenset({dataset.dataset_id})
+    source_scope = frozenset({diff.data_source_id})
+
+    maker = _actor_context(
+        scope, source_scope, actor_id="dev-data-steward", roles=frozenset({"DATA_STEWARD"})
+    )
+    request = command_service.submit_request(
+        actor_context=maker,
+        request_type="METADATA_DIFF_APPLICATION",
+        object_id=diff.metadata_diff_id,
+        reason_code="METADATA.DIFF.APPLICATION",
+        proposed_changes={
+            "selected_objects": [
+                ["ADDED", "DATA_FIELD", "public", "customers", "email"],
+                ["CHANGED", "DATA_FIELD", "public", "customers", "amount"],
+            ]
+        },
+    )
+    assert request.status is GovernanceApprovalStatus.SUBMITTED
+    assert request.object_type == "MetadataDiff"
+    assert request.scope_type == "DATA_SOURCE"
+    assert request.scope_id == diff.data_source_id
+    assert request.scope_version == diff.version
+
+    checker = _actor_context(scope, source_scope, actor_id="dev-data-owner")
+    decided = command_service.decide_request(
+        actor_context=checker,
+        approval_request_id=request.approval_request_id,
+        decision="APPROVE",
+        reason_code="METADATA.VERIFIED",
+    )
+    assert decided.status is GovernanceApprovalStatus.APPROVED
+
+    applier = _actor_context(
+        scope,
+        source_scope,
+        actor_id="dev-data-governance",
+        roles=frozenset({"DATA_GOVERNANCE_SPECIALIST"}),
+    )
+    applied = command_service.apply_request(
+        actor_context=applier,
+        approval_request_id=request.approval_request_id,
+    )
+    assert applied.status is GovernanceApprovalStatus.APPLIED
+
+    closed = source_repo.get_metadata_diff(diff.metadata_diff_id)
+    assert closed.status is MetadataDiffStatus.APPLIED
+    assert closed.applied_by_actor_id == "dev-data-governance"
+
+    fields = {f.name: f for f in source_repo.list_data_fields(dataset.dataset_id)}
+    assert fields["email"].native_data_type == "text"
+    assert fields["email"].is_sensitive is True
+    assert fields["amount"].native_data_type == "numeric"
+    assert fields["amount"].is_nullable is False
+    # Secilmeyen objeler uygulanmaz; sonraki kesife kalir.
+    assert fields["legacy"].status is CatalogItemStatus.ACTIVE
+    assert all(ds.name != "orders" for ds in source_repo.list_datasets(diff.data_source_id))

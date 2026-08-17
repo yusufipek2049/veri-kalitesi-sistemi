@@ -33,6 +33,19 @@ AUDIT_ACTIONS = (
     ("IDENTITY_SESSION", "Oturum olayı"),
     ("AUDIT_RECORDS_VIEWED", "Denetim kaydı görüntüleme"),
     ("AUDIT_EXPORT_COMPLETED", "Denetim kaydı dışa aktarma"),
+    ("DATASET_PREVIEW_VIEWED", "Veri önizleme"),
+    ("EXECUTION_MANUAL_STARTED", "Manuel çalıştırma"),
+    ("QUALITY_RULE_CREATED", "Yeni kural"),
+    ("QUALITY_RULE_ACTIVATED", "Kural aktivasyonu"),
+    ("QUALITY_RULE_PASSIVATED", "Kural pasifleşmesi"),
+    ("SCHEDULE_CREATED", "Yeni job"),
+    ("SCHEDULE_ACTIVATED", "Job aktivasyonu"),
+    ("SCHEDULE_DEACTIVATED", "Job deaktivasyonu"),
+    ("SCORING_CONFIGURATION_APPROVAL_REQUESTED", "Konfigürasyon onay talebi"),
+    ("SCORING_CONFIGURATION_ACTIVATED", "Konfigürasyon aktivasyonu"),
+    ("DATASET_UPDATED", "Dataset güncelleme"),
+    ("FIELD_UPDATED", "Alan güncelleme"),
+    ("METADATA_DISCOVERY_REQUESTED", "Metadata keşif"),
 )
 
 

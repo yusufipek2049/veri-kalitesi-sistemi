@@ -158,6 +158,7 @@ def data_source_tables(schema: str = DEFAULT_SCHEMA_NAME) -> DataSourceTables:
         Column("criticality", String(20), nullable=False),
         Column("owner_user_id", String(128)),
         Column("estimated_row_count", Integer),
+        Column("timeliness_nature", String(20)),
         Column("status", String(20), nullable=False, server_default="ACTIVE"),
         Column("first_seen_discovery_id", Integer),
         Column("last_seen_discovery_id", Integer),
@@ -173,6 +174,11 @@ def data_source_tables(schema: str = DEFAULT_SCHEMA_NAME) -> DataSourceTables:
         CheckConstraint(
             "criticality IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')",
             name="ck_ds_criticality",
+        ),
+        CheckConstraint(
+            "timeliness_nature IS NULL OR timeliness_nature IN "
+            "('NEAR_TIME', 'REAL_TIME', 'BATCH_TIME')",
+            name="ck_ds_timeliness_nature",
         ),
         CheckConstraint("status IN ('ACTIVE', 'INACTIVE')", name="ck_ds_datasets_status"),
         CheckConstraint("version >= 1", name="ck_ds_datasets_version"),

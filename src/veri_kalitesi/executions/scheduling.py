@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, time, timedelta, timezone
 from enum import Enum
@@ -18,8 +19,7 @@ from veri_kalitesi.audit.models import (
 )
 from veri_kalitesi.audit.outbox import SQLiteTransactionalAudit
 from veri_kalitesi.executions.errors import ExecutionValidationError
-from veri_kalitesi.executions.models import RuleExecution
-from veri_kalitesi.executions.service import ExecutionService
+from veri_kalitesi.executions.models import ExecutionMode, RuleExecution
 
 
 class ScheduleTransactionalAudit(Protocol):
@@ -69,12 +69,23 @@ class ScheduleRepository(Protocol[_AuditT]):
 
     def list_all(self) -> list[Schedule]: ...
 
+    def set_active(
+        self,
+        schedule_id: str,
+        *,
+        is_active: bool,
+        next_run_at: datetime | None,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: _AuditT,
+    ) -> Schedule: ...
+
 
 class ScheduleType(str, Enum):
     ONCE = "ONCE"
     DAILY = "DAILY"
     WEEKLY = "WEEKLY"
     MONTHLY = "MONTHLY"
+    INTERVAL = "INTERVAL"
 
 
 @dataclass(frozen=True)
@@ -88,6 +99,7 @@ class Schedule:
     once_at: datetime | None = None
     day_of_week: int | None = None
     day_of_month: int | None = None
+    interval_minutes: int | None = None
     is_active: bool = True
     next_run_at: datetime | None = None
     schedule_id: str = field(default_factory=lambda: str(uuid4()))
@@ -97,6 +109,25 @@ class Schedule:
 
 class ScheduleTechnicalEventSink(Protocol):
     def notify_schedule_failure(self, schedule: Schedule, error_class: str) -> None: ...
+
+
+class ScheduleExecutionBridge(Protocol):
+    """Zamanlayıcının çalıştırma katmanından tükettiği dar yüzey.
+
+    API katmanı yalnız kural sürüm doğrulaması yapar; tetikleme worker'dadır.
+    """
+
+    def validate_rule_versions(self, rule_version_ids: tuple[str, ...]) -> tuple[str, ...]: ...
+
+    def start_scheduled(
+        self,
+        *,
+        idempotency_key: str,
+        rule_version_ids: tuple[str, ...],
+        scope: Mapping[str, Any],
+        correlation_id: str,
+        execution_mode: ExecutionMode = ExecutionMode.OFFICIAL,
+    ) -> RuleExecution: ...
 
 
 class SQLiteScheduleRepository:
@@ -120,6 +151,7 @@ class SQLiteScheduleRepository:
                 once_at TEXT,
                 day_of_week INTEGER,
                 day_of_month INTEGER,
+                interval_minutes INTEGER,
                 is_active INTEGER NOT NULL,
                 next_run_at TEXT,
                 created_at TEXT NOT NULL,
@@ -146,9 +178,9 @@ class SQLiteScheduleRepository:
                     INSERT INTO schedules (
                         schedule_id, name, schedule_type, timezone_name,
                         rule_version_ids, created_by, local_time, once_at,
-                        day_of_week, day_of_month, is_active, next_run_at,
-                        created_at, last_triggered_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        day_of_week, day_of_month, interval_minutes, is_active,
+                        next_run_at, created_at, last_triggered_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         schedule.schedule_id,
@@ -161,6 +193,7 @@ class SQLiteScheduleRepository:
                         _datetime_text(schedule.once_at),
                         schedule.day_of_week,
                         schedule.day_of_month,
+                        schedule.interval_minutes,
                         1 if schedule.is_active else 0,
                         _datetime_text(schedule.next_run_at),
                         schedule.created_at.isoformat(),
@@ -252,12 +285,36 @@ class SQLiteScheduleRepository:
             ).fetchall()
         return [_row_to_schedule(row) for row in rows]
 
+    def set_active(
+        self,
+        schedule_id: str,
+        *,
+        is_active: bool,
+        next_run_at: datetime | None,
+        audit_event: PreparedAuditEvent,
+        audit_outbox: SQLiteTransactionalAudit,
+    ) -> Schedule:
+        if audit_outbox.connection is not self.connection:
+            raise ExecutionValidationError("Audit outbox must share the schedule transaction.")
+        with self._lock, self.connection:
+            result = self.connection.execute(
+                """
+                UPDATE schedules SET is_active = ?, next_run_at = ?
+                WHERE schedule_id = ?
+                """,
+                (1 if is_active else 0, _datetime_text(next_run_at), schedule_id),
+            )
+            if result.rowcount != 1:
+                raise ExecutionValidationError("Schedule not found.")
+            audit_outbox.stage(audit_event)
+        return self.get(schedule_id)
+
 
 class SchedulingService:
     def __init__(
         self,
         repository: ScheduleRepository[Any],
-        execution_service: ExecutionService,
+        execution_service: ScheduleExecutionBridge,
         *,
         transactional_audit: ScheduleTransactionalAudit,
         technical_event_sink: ScheduleTechnicalEventSink | None = None,
@@ -281,6 +338,8 @@ class SchedulingService:
         once_at: datetime | None = None,
         day_of_week: int | None = None,
         day_of_month: int | None = None,
+        interval_minutes: int | None = None,
+        schedule_id: str | None = None,
         correlation_id: str | None = None,
     ) -> tuple[Schedule, tuple[datetime, ...]]:
         correlation_id = _resolve_correlation_id(correlation_id)
@@ -292,7 +351,9 @@ class SchedulingService:
             raise ExecutionValidationError("Schedule type is invalid.") from exc
         zone = _zone(timezone_name)
         parsed_time = _parse_time(local_time) if local_time is not None else None
-        _validate_definition(parsed_type, parsed_time, once_at, day_of_week, day_of_month)
+        _validate_definition(
+            parsed_type, parsed_time, once_at, day_of_week, day_of_month, interval_minutes
+        )
         self.execution_service.validate_rule_versions(rule_version_ids)
         now = self.clock().astimezone(timezone.utc)
         schedule = Schedule(
@@ -305,6 +366,8 @@ class SchedulingService:
             once_at=once_at.astimezone(timezone.utc) if once_at else None,
             day_of_week=day_of_week,
             day_of_month=day_of_month,
+            interval_minutes=interval_minutes,
+            schedule_id=schedule_id or str(uuid4()),
             created_at=now,
         )
         preview = preview_runs(schedule, after=now, count=5)
@@ -324,6 +387,7 @@ class SchedulingService:
             new_values={
                 "schedule_type": schedule.schedule_type.value,
                 "timezone": schedule.timezone_name,
+                "interval_minutes": schedule.interval_minutes,
                 "rule_version_count": len(schedule.rule_version_ids),
                 "next_run_count": len(preview),
                 "next_run_at": preview[0].isoformat(),
@@ -337,6 +401,50 @@ class SchedulingService:
         )
         self.transactional_audit.publish_pending()
         return schedule, preview
+
+    def set_active(
+        self,
+        schedule_id: str,
+        *,
+        actor_id: str,
+        is_active: bool,
+        correlation_id: str | None = None,
+    ) -> Schedule:
+        correlation_id = _resolve_correlation_id(correlation_id)
+        if not actor_id.strip():
+            raise ExecutionValidationError("Schedule actor is required.")
+        schedule = self.repository.get(schedule_id)
+        if schedule.is_active == is_active:
+            return schedule
+        now = self.clock().astimezone(timezone.utc)
+        next_run_at: datetime | None = None
+        if is_active:
+            preview = preview_runs(schedule, after=now, count=1)
+            if not preview:
+                raise ExecutionValidationError("Schedule must have a future trigger.")
+            next_run_at = preview[0]
+        event = AuditEventInput(
+            actor_id=actor_id,
+            actor_type="USER",
+            correlation_id=correlation_id,
+            action="SCHEDULE_UPDATED",
+            object_type="Schedule",
+            object_id=schedule_id,
+            result=AuditResult.SUCCESS,
+            reason_code="SCHEDULE_UPDATED",
+            old_values={"is_active": schedule.is_active},
+            new_values={"is_active": is_active},
+            occurred_at=now,
+        )
+        updated = self.repository.set_active(
+            schedule_id,
+            is_active=is_active,
+            next_run_at=next_run_at,
+            audit_event=self.transactional_audit.prepare(event),
+            audit_outbox=self.transactional_audit,
+        )
+        self.transactional_audit.publish_pending()
+        return updated
 
     def trigger_due(self, *, now: datetime | None = None) -> tuple[RuleExecution, ...]:
         current = (now or self.clock()).astimezone(timezone.utc)
@@ -394,6 +502,11 @@ def preview_runs(schedule: Schedule, *, after: datetime, count: int) -> tuple[da
         if schedule.once_at is not None and schedule.once_at > after_utc:
             return (schedule.once_at.astimezone(timezone.utc),)
         return ()
+    if schedule.schedule_type is ScheduleType.INTERVAL:
+        if schedule.interval_minutes is None or schedule.interval_minutes < 1:
+            raise ExecutionValidationError("INTERVAL schedule requires interval_minutes.")
+        step = timedelta(minutes=schedule.interval_minutes)
+        return tuple(after_utc + step * offset for offset in range(1, count + 1))
 
     zone = _zone(schedule.timezone_name)
     local_after = after_utc.astimezone(zone)
@@ -441,10 +554,22 @@ def _validate_definition(
     once_at: datetime | None,
     day_of_week: int | None,
     day_of_month: int | None,
+    interval_minutes: int | None = None,
 ) -> None:
     if schedule_type is ScheduleType.ONCE:
         if once_at is None or once_at.tzinfo is None:
             raise ExecutionValidationError("ONCE schedule requires an aware once_at value.")
+        return
+    if schedule_type is ScheduleType.INTERVAL:
+        if (
+            interval_minutes is None
+            or isinstance(interval_minutes, bool)
+            or not isinstance(interval_minutes, int)
+            or not 1 <= interval_minutes <= 43200
+        ):
+            raise ExecutionValidationError(
+                "INTERVAL schedule requires interval_minutes between 1 and 43200."
+            )
         return
     if local_time is None:
         raise ExecutionValidationError("Periodic schedule requires local_time.")
@@ -501,6 +626,7 @@ def _row_to_schedule(row: sqlite3.Row) -> Schedule:
         once_at=_datetime_value(row["once_at"]),
         day_of_week=row["day_of_week"],
         day_of_month=row["day_of_month"],
+        interval_minutes=row["interval_minutes"],
         is_active=bool(row["is_active"]),
         next_run_at=_datetime_value(row["next_run_at"]),
         created_at=datetime.fromisoformat(row["created_at"]),

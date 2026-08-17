@@ -8,6 +8,7 @@ type DiscoveryLifecycleStatus =
 
 type DiffStatus = "PENDING" | "APPLIED";
 export type CatalogItemStatus = "ACTIVE" | "INACTIVE";
+type TimelinessNatureValue = "NEAR_TIME" | "REAL_TIME" | "BATCH_TIME";
 
 export type CatalogPageState = "normal" | "loading" | "empty" | "error" | "unauthorized";
 export type DatasetDetailState = "normal" | "loading" | "error" | "unauthorized" | "not-found";
@@ -20,10 +21,12 @@ export interface CatalogDataset {
   name: string;
   datasetType: string;
   status: CatalogItemStatus;
+  criticality: string;
   estimatedRowCount: number | null;
   fieldCount: number;
   version: number;
   ownerId: string | null;
+  timelinessNature: TimelinessNatureValue | null;
 }
 
 export interface CatalogField {
@@ -61,6 +64,23 @@ export interface MetadataDiff {
   requiresRuleReview: boolean;
 }
 
+/** Diff objesi seçim anahtarı: [change_type, object_type, namespace, dataset_name, field_name]. */
+export type DiffObjectSelection = [string, string, string, string, string | null];
+
+export function diffObjectSelection(
+  changeType: "ADDED" | "CHANGED" | "REMOVED",
+  object: Record<string, unknown>,
+): DiffObjectSelection {
+  const fieldName = object.field_name;
+  return [
+    changeType,
+    String(object.object_type ?? ""),
+    String(object.namespace ?? ""),
+    String(object.dataset_name ?? ""),
+    typeof fieldName === "string" && fieldName ? fieldName : null,
+  ];
+}
+
 export interface DiscoveryScope {
   dataSourceId: string;
   includePatterns: string[];
@@ -87,10 +107,12 @@ export interface CatalogDatasetListApiResponse extends ApiEnvelope {
     name: string;
     dataset_type: string;
     status: CatalogItemStatus;
+    criticality: string;
     estimated_row_count: number | null;
     field_count: number;
     version: number;
     owner_user_id?: string | null;
+    timeliness_nature?: TimelinessNatureValue | null;
   }[];
 }
 
@@ -117,6 +139,44 @@ export interface CatalogFieldDetailApiResponse extends ApiEnvelope {
   field: CatalogFieldListApiResponse["items"][number];
   dataset_name: string;
   data_source_name: string;
+}
+
+export interface DatasetPreviewApiResponse extends ApiEnvelope {
+  dataset_id: string;
+  source_type: string;
+  namespace: string;
+  table_name: string;
+  limit: number;
+  columns: { name: string; native_data_type: string; is_sensitive: boolean }[];
+  rows: (string | null)[][];
+}
+
+export interface DatasetPreviewColumn {
+  name: string;
+  nativeDataType: string;
+  isSensitive: boolean;
+}
+
+export interface DatasetPreview {
+  tableName: string;
+  namespace: string;
+  limit: number;
+  columns: DatasetPreviewColumn[];
+  rows: (string | null)[][];
+}
+
+export function mapDatasetPreview(api: DatasetPreviewApiResponse): DatasetPreview {
+  return {
+    tableName: api.table_name,
+    namespace: api.namespace,
+    limit: api.limit,
+    columns: api.columns.map((column) => ({
+      name: column.name,
+      nativeDataType: column.native_data_type,
+      isSensitive: column.is_sensitive,
+    })),
+    rows: api.rows,
+  };
 }
 
 export interface DiscoveryStatusApiResponse extends ApiEnvelope {
@@ -159,12 +219,6 @@ export interface DiscoveryScopeApiResponse extends ApiEnvelope {
   version: number;
 }
 
-export interface DiffApplicationApiResponse extends ApiEnvelope {
-  metadata_diff_id: string;
-  status: string;
-  applied_at: string | null;
-}
-
 // ── Mappers ─────────────────────────────────────────────────────────
 
 export function mapCatalogDataset(api: CatalogDatasetListApiResponse["items"][number]): CatalogDataset {
@@ -175,10 +229,12 @@ export function mapCatalogDataset(api: CatalogDatasetListApiResponse["items"][nu
     name: api.name,
     datasetType: api.dataset_type,
     status: api.status,
+    criticality: api.criticality,
     estimatedRowCount: api.estimated_row_count,
     fieldCount: api.field_count,
     version: api.version,
     ownerId: api.owner_user_id ?? null,
+    timelinessNature: api.timeliness_nature ?? null,
   };
 }
 

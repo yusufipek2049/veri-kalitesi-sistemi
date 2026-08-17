@@ -83,24 +83,6 @@ class DiscoveryDiffResponse(BaseModel):
     requires_rule_review: bool = False
 
 
-class DiffApplicationRequest(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    reason_code: str
-    expected_version: int = Field(ge=1)
-
-
-class DiffApplicationResponse(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    api_version: str = "v1"
-    data_origin: str
-    correlation_id: str
-    metadata_diff_id: str
-    status: str
-    applied_at: datetime | None = None
-
-
 class CatalogDatasetResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
@@ -110,10 +92,12 @@ class CatalogDatasetResponse(BaseModel):
     name: str
     dataset_type: str
     status: str
+    criticality: str
     estimated_row_count: int | None = None
     field_count: int = 0
     version: int = 1
     owner_user_id: str | None = None
+    timeliness_nature: str | None = None
 
 
 class CatalogDatasetListResponse(BaseModel):
@@ -169,6 +153,29 @@ class CatalogFieldDetailResponse(BaseModel):
     data_source_name: str
 
 
+class DatasetPreviewColumnResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    name: str
+    native_data_type: str
+    is_sensitive: bool
+
+
+class DatasetPreviewResponse(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    api_version: str = "v1"
+    data_origin: str
+    correlation_id: str
+    dataset_id: str
+    source_type: str
+    namespace: str
+    table_name: str
+    limit: int
+    columns: tuple[DatasetPreviewColumnResponse, ...]
+    rows: tuple[tuple[str | None, ...], ...]
+
+
 # ── Update request models ─────────────────────────────────────────────
 
 
@@ -180,6 +187,9 @@ class DatasetUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=400)
     namespace: str | None = Field(default=None, min_length=1, max_length=200)
     status: str | None = Field(default=None, pattern="^(ACTIVE|INACTIVE)$")
+    timeliness_nature: str | None = Field(
+        default=None, pattern="^(NEAR_TIME|REAL_TIME|BATCH_TIME)$"
+    )
     expected_version: int | None = Field(default=None, ge=1)
 
 

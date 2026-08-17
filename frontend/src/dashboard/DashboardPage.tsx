@@ -397,12 +397,6 @@ function DatasetTrendView({
 
 // ── Score Detail Dialog (Detaylı Bilgi) ──
 
-function formatDetailValue(value: unknown): string {
-  if (value === null || value === undefined) return "—";
-  if (typeof value === "object") return JSON.stringify(value);
-  return String(value);
-}
-
 function ScoreDetailDialog({ scoreId, onClose }: { scoreId: string | null; onClose: () => void }) {
   const [detail, setDetail] = useState<ScoreDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -477,12 +471,6 @@ function ScoreDetailDialog({ scoreId, onClose }: { scoreId: string | null; onClo
                       <TableCell>{detail.publication.status} · {detail.publication.period}</TableCell>
                     </TableRow>
                   )}
-                  {detail.calculationDetails && Object.entries(detail.calculationDetails).map(([key, value]) => (
-                    <TableRow key={key}>
-                      <TableCell>{key}</TableCell>
-                      <TableCell sx={{ wordBreak: "break-all" }}>{formatDetailValue(value)}</TableCell>
-                    </TableRow>
-                  ))}
                   {detail.contributionGraph && (
                     <>
                       <TableRow>
@@ -526,7 +514,9 @@ function ScoreDetailDialog({ scoreId, onClose }: { scoreId: string | null; onClo
                   <TableBody>
                     {detail.contributionGraph.components.map((component, index) => (
                       <TableRow key={`${component.component_ref}-${index}`}>
-                        <TableCell sx={{ wordBreak: "break-all" }}>{component.component_ref}</TableCell>
+                        <TableCell sx={{ wordBreak: "break-all" }}>
+                          {component.component_name ?? component.component_ref}
+                        </TableCell>
                         <TableCell>{component.component_type}</TableCell>
                         <TableCell align="right" sx={{ fontVariantNumeric: "tabular-nums" }}>
                           {component.weight ?? "—"}
@@ -842,10 +832,9 @@ export function DashboardPage() {
       }));
   }, [datasetHistory, trendWindow]);
 
-  // Datasetler yalnızca arama girildiğinde görüntülenir.
+  // Datasetler her zaman gösterilir, arama ile filtrelenebilir.
   const trendRows = useMemo<DatasetTrendRow[]>(() => {
     const query = datasetSearch.trim().toLocaleLowerCase("tr-TR");
-    if (!query) return [];
     const cutoff = Date.now() - trendWindowDays[trendWindow] * 86_400_000;
     const rows: DatasetTrendRow[] = [];
     for (const ds of catalogDatasets) {

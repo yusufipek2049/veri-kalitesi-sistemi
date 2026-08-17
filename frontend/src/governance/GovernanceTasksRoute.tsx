@@ -15,6 +15,8 @@ import {
 } from "./model";
 import { GovernanceTasksPage } from "./GovernanceTasksPage";
 import { listCatalogDatasets, listCatalogFields } from "../catalog/api";
+import { fetchRules } from "../rules/api";
+import { fetchExecutions } from "../executions/api";
 import { useDevelopmentUser } from "../development/UserContext";
 
 const governanceStates: GovernanceState[] = ["normal", "loading", "empty", "error", "unauthorized"];
@@ -41,6 +43,10 @@ export function GovernanceTasksRoute() {
   const [view, setView] = useState<GovernanceView>("PENDING");
   const [items, setItems] = useState<GovernanceApprovalItem[]>([]);
   const [datasets, setDatasets] = useState<GovernanceDatasetOption[]>([]);
+  const [ruleOptions, setRuleOptions] = useState<{ ruleVersionId: string; label: string }[]>([]);
+  const [executionOptions, setExecutionOptions] = useState<{ executionId: string; label: string }[]>(
+    [],
+  );
   const [correlationId, setCorrelationId] = useState<string>();
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -52,6 +58,26 @@ export function GovernanceTasksRoute() {
         const [response, catalogResponse] = await Promise.all([
           fetchGovernanceApprovals(nextView, signal),
           listCatalogDatasets(undefined, signal).catch(() => null),
+          fetchRules(signal)
+            .then((rulesResponse) => {
+              setRuleOptions(
+                rulesResponse.items.map((item) => ({
+                  ruleVersionId: item.rule_version_id,
+                  label: `${item.name} (v${item.version_no})`,
+                })),
+              );
+            })
+            .catch(() => null),
+          fetchExecutions(signal)
+            .then((executionsResponse) => {
+              setExecutionOptions(
+                executionsResponse.items.map((item) => ({
+                  executionId: item.execution_id,
+                  label: `${item.execution_id.slice(0, 12)}… · ${item.status} · ${item.rule_count} kural`,
+                })),
+              );
+            })
+            .catch(() => null),
         ]);
         if (signal?.aborted) return;
         const mapped = governanceItemsFromApi(response);
@@ -181,6 +207,7 @@ export function GovernanceTasksRoute() {
       actionError={actionError}
       correlationId={correlationId}
       datasets={datasets}
+      executionOptions={executionOptions}
       items={items}
       loadFields={handleLoadFields}
       onApply={handleApply}
@@ -194,6 +221,7 @@ export function GovernanceTasksRoute() {
         displayName: user.display_name,
         roles: user.roles,
       }))}
+      ruleOptions={ruleOptions}
       state={fixtureState ?? state}
       view={view}
     />

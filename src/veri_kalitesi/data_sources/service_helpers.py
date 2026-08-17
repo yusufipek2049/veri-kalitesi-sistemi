@@ -137,6 +137,20 @@ def field_signature(field: DataField) -> dict[str, Any]:
     }
 
 
+#: Diff objesi seçim anahtarı: (change_type, object_type, namespace, dataset_name, field_name).
+def diff_object_key(
+    change_type: str, obj: Mapping[str, Any]
+) -> tuple[str, str, str, str, str | None]:
+    field_name = obj.get("field_name")
+    return (
+        change_type,
+        str(obj.get("object_type", "")),
+        str(obj.get("namespace", "")),
+        str(obj.get("dataset_name", "")),
+        str(field_name) if field_name else None,
+    )
+
+
 def profile_from_failure(
     dataset_id: str,
     options: ProfileOptions,

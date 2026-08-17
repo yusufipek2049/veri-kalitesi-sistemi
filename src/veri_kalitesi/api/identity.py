@@ -93,6 +93,7 @@ class DevelopmentUserRegistry:
                 "user_id": u.user_id,
                 "display_name": u.display_name,
                 "roles": " / ".join(sorted(u.roles)),
+                "actor_id": u.actor_id or "",
             }
             for u in self._users.values()
         ]
@@ -314,12 +315,22 @@ class DevelopmentActorContextResolver:
                     user.can_view_enterprise,
                     user.privileged,
                 )
+        # Default fallback: also consult enterprise scope providers if bound
+        source_ids = self.permitted_source_ids
+        dataset_ids = self.permitted_dataset_ids
+        can_view_enterprise = self.can_view_enterprise
+        if self._enterprise_source_scope_provider:
+            source_ids = source_ids | self._enterprise_source_scope_provider()
+            can_view_enterprise = True
+        if self._enterprise_dataset_scope_provider:
+            dataset_ids = dataset_ids | self._enterprise_dataset_scope_provider()
+            can_view_enterprise = True
         return (
             "development-dashboard-user",
             self.roles,
-            self.permitted_source_ids,
-            self.permitted_dataset_ids,
-            self.can_view_enterprise,
+            source_ids,
+            dataset_ids,
+            can_view_enterprise,
             False,
         )
 

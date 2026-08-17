@@ -104,6 +104,20 @@ class PostgreSQLDriver(Protocol):
     ) -> int:
         """Salt okunur count sorgusunu yürütür ve tek sütunlu tamsayı sonucunu döndürür."""
 
+    def preview_table(
+        self,
+        *,
+        config: Mapping[str, Any],
+        credentials: Mapping[str, Any],
+        schema: str,
+        table: str,
+        columns: tuple[str, ...],
+        limit: int,
+        connect_timeout_seconds: int,
+        statement_timeout_ms: int,
+    ) -> tuple[tuple[str | None, ...], ...]:
+        """Tablodan sınırlı sayıda satırı metin olarak döndürür (salt okunur)."""
+
 
 class DNSConnectionError(Exception):
     """Host adı çözülemedi."""
@@ -177,6 +191,20 @@ class MissingPostgreSQLDriver:
         connection_timeout_seconds: int,
         statement_timeout_ms: int,
     ) -> int:
+        raise DriverConnectionError("PostgreSQL driver is not configured.")
+
+    def preview_table(
+        self,
+        *,
+        config: Mapping[str, Any],
+        credentials: Mapping[str, Any],
+        schema: str,
+        table: str,
+        columns: tuple[str, ...],
+        limit: int,
+        connect_timeout_seconds: int,
+        statement_timeout_ms: int,
+    ) -> tuple[tuple[str | None, ...], ...]:
         raise DriverConnectionError("PostgreSQL driver is not configured.")
 
 
@@ -292,6 +320,30 @@ class PostgreSQLConnector:
             sql=sql,
             connection_timeout_seconds=connection_timeout_seconds,
             statement_timeout_ms=query_timeout_seconds * 1000,
+        )
+
+    def preview_table(
+        self,
+        data_source: DataSource,
+        secret: Mapping[str, Any],
+        *,
+        schema: str,
+        table: str,
+        columns: tuple[str, ...],
+        limit: int,
+        connect_timeout_seconds: int = 5,
+        statement_timeout_ms: int = 10_000,
+    ) -> tuple[tuple[str | None, ...], ...]:
+        config = data_source.connection_config
+        return self.driver.preview_table(
+            config=config,
+            credentials=dict(secret),
+            schema=schema,
+            table=table,
+            columns=columns,
+            limit=limit,
+            connect_timeout_seconds=connect_timeout_seconds,
+            statement_timeout_ms=statement_timeout_ms,
         )
 
 

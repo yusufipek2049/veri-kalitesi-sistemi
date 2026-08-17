@@ -680,6 +680,35 @@ class SQLiteExecutionRepository:
             ).fetchall()
         return [_row_to_result(row) for row in rows]
 
+    def list_latest_results_for_rule_versions(
+        self, rule_version_ids: frozenset[str]
+    ) -> dict[str, RuleExecutionResult]:
+        """Return the latest result for each rule version from any SUCCESS execution."""
+        if not rule_version_ids:
+            return {}
+        placeholders = ",".join("?" for _ in rule_version_ids)
+        with self._lock:
+            rows = self.connection.execute(
+                f"""
+                SELECT r.*
+                FROM rule_execution_results r
+                JOIN rule_executions e ON e.execution_id = r.execution_id
+                WHERE r.rule_version_id IN ({placeholders})
+                  AND e.status = 'SUCCESS'
+                ORDER BY r.rule_version_id, e.finished_at DESC
+                """,
+                tuple(sorted(rule_version_ids)),
+            ).fetchall()
+        # Keep only the first (latest) result per rule_version_id
+        seen: set[str] = set()
+        result: dict[str, RuleExecutionResult] = {}
+        for row in rows:
+            parsed = _row_to_result(row)
+            if parsed.rule_version_id not in seen:
+                seen.add(parsed.rule_version_id)
+                result[parsed.rule_version_id] = parsed
+        return result
+
 
 def _execution_values(execution: RuleExecution) -> tuple[object, ...]:
     return (

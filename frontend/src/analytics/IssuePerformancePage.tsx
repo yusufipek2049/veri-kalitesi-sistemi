@@ -16,7 +16,6 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
-import { Link } from "react-router-dom";
 import { AnalyticsShell } from "./AnalyticsShell";
 import { AnalyticsApiError, fetchIssuePerformance, type AnalyticsEnvelope } from "./api";
 import {
@@ -66,8 +65,8 @@ export function IssuePerformancePage() {
       setData(response);
       setCorrelationId(response.correlation_id);
       setSummary(nextSummary);
-      // Bos durum bu yanittan hesaplanir; bir onceki render'in summary state'i
-      // henuz guncellenmedigi icin oradan okumak yanlis "empty" uretiyordu.
+      // Boş durum bu yanıttan hesaplanır; bir önceki render'in summary state'i
+      // henüz güncellenmediği için oradan okumak yanlış "empty" üretiyordu.
       setState(response.items.length > 0 || nextSummary.openIssueCount ? "normal" : "empty");
     } catch (error) {
       if (signal?.aborted) return;
@@ -88,43 +87,43 @@ export function IssuePerformancePage() {
     <AnalyticsShell activeTab="issues" state={state} correlationId={correlationId}>
       {state === "loading" && (
         <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
-          <CircularProgress aria-label="Yukleniyor" />
+          <CircularProgress aria-label="Yükleniyor" />
         </Box>
       )}
       {state === "error" && (
-        <Alert severity="error"><Typography>Issue performans verisi yuklenemedi.</Typography></Alert>
+        <Alert severity="error"><Typography>Issue performans verisi yüklenemedi.</Typography></Alert>
       )}
       {state === "empty" && (
-        <Alert severity="info"><Typography>Gosterilecek issue verisi bulunamadi.</Typography></Alert>
+        <Alert severity="info"><Typography>Gösterilecek issue verisi bulunamadı.</Typography></Alert>
       )}
       {state === "normal" && summary && (
         <Stack spacing={3}>
           <Stack direction="row" spacing={2} sx={{ flexWrap: "wrap", gap: 1 }}>
-            <KpiCard title="Acik Issue" value={String(summary.openIssueCount)} />
-            <KpiCard title="Kritik Acik" value={String(summary.criticalOpenCount)} />
+            <KpiCard title="Açık Issue" value={String(summary.openIssueCount)} />
+            <KpiCard title="Kritik Açık" value={String(summary.criticalOpenCount)} />
             <KpiCard
               title="MTTA p50"
               value={formatDuration(summary.mttaP50)}
-              tooltip={`Orneklem: ${summary.mttaSampleCount}`}
+              tooltip={`Örneklem: ${summary.mttaSampleCount}`}
             />
             <KpiCard
               title="MTTA p95"
               value={formatDuration(summary.mttaP95)}
-              tooltip={`Orneklem: ${summary.mttaSampleCount}`}
+              tooltip={`Örneklem: ${summary.mttaSampleCount}`}
             />
             <KpiCard
               title="MTTR p50"
               value={formatDuration(summary.mttrP50)}
-              tooltip={`Orneklem: ${summary.mttrSampleCount}`}
+              tooltip={`Örneklem: ${summary.mttrSampleCount}`}
             />
             <KpiCard
               title="MTTR p95"
               value={formatDuration(summary.mttrP95)}
-              tooltip={`Orneklem: ${summary.mttrSampleCount}`}
+              tooltip={`Örneklem: ${summary.mttrSampleCount}`}
             />
-            <KpiCard title="Cozulmemis" value={String(summary.unresolvedCount)} />
+            <KpiCard title="Çözülmemiş" value={String(summary.unresolvedCount)} />
             <KpiCard
-              title="Dogrulama Basarisi"
+              title="Doğrulama Başarısı"
               value={formatRatio(summary.verificationSuccessRate)}
               tooltip={ratioTooltip(summary.verificationSuccessRate)}
             />
@@ -136,12 +135,12 @@ export function IssuePerformancePage() {
             <Card>
               <CardContent>
                 <Typography variant="h6" sx={{ mb: 1, fontWeight: 700 }}>
-                  Yas Dagilimi
+                  Yaş Dağılımı
                 </Typography>
                 <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 0.5 }}>
                   {Object.entries(data.breakdowns.by_age_bucket as Record<string, number>).map(
                     ([bucket, count]) => (
-                      <Chip key={bucket} label={`${bucket} gun: ${count as number}`} size="small" variant="outlined" />
+                      <Chip key={bucket} label={`${bucket} gün: ${count as number}`} size="small" variant="outlined" />
                     ),
                   )}
                 </Stack>
@@ -153,7 +152,7 @@ export function IssuePerformancePage() {
           <Card>
             <CardContent>
               <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
-                En Yasli ve Tekrarlayan Issue'lar
+                En Yaşlı ve Tekrarlayan Issue'lar
               </Typography>
               <Box sx={{ overflowX: "auto" }}>
                 <Table size="small" aria-label="Issue performans tablosu">
@@ -162,8 +161,8 @@ export function IssuePerformancePage() {
                       <TableCell>Issue</TableCell>
                       <TableCell>Kapsam</TableCell>
                       <TableCell>Durum</TableCell>
-                      <TableCell>Oncelik</TableCell>
-                      <TableCell>Yas</TableCell>
+                      <TableCell>Öncelik</TableCell>
+                      <TableCell>Yaş</TableCell>
                       <TableCell>MTTA</TableCell>
                       <TableCell>MTTR</TableCell>
                       <TableCell>Tekrar</TableCell>
@@ -173,9 +172,7 @@ export function IssuePerformancePage() {
                     {data?.items.slice(0, 50).map((item, idx) => (
                       <TableRow key={String(item.issue_id ?? idx)}>
                         <TableCell>
-                          <Link to={`/issues?issue_id=${String(item.issue_id)}`}>
-                            {String(item.issue_id).slice(0, 8)}...
-                          </Link>
+                          {String(item.issue_id).slice(0, 8)}...
                         </TableCell>
                         <TableCell>
                           <Chip label={String(item.scope_type ?? "")} size="small" />

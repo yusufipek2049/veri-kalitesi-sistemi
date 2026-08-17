@@ -12,7 +12,8 @@ export type GovernanceDomain =
   | "DATA_SOURCE"
   | "DATA_OWNERSHIP"
   | "METADATA_AND_CLASSIFICATION"
-  | "EXECUTION";
+  | "EXECUTION"
+  | "SCHEDULE";
 
 export interface GovernanceApprovalItem {
   approvalRequestId: string;
@@ -82,9 +83,11 @@ export const governanceRequestTypeLabels: Record<string, string> = {
   DATASET_OWNER_CHANGE: "Sahip Değişikliği",
   METADATA_CRITICAL_CHANGE: "Kritik Metadata Değişikliği",
   FIELD_SENSITIVITY_MARK: "Alan Hassasiyet İşareti",
+  METADATA_DIFF_APPLICATION: "Metadata Farkı Uygulama",
   EXECUTION_MANUAL_START: "Kritik Manuel Çalıştırma",
   EXECUTION_CANCEL: "Çalıştırma İptali",
   DEAD_LETTER_REPROCESS: "Dead Letter Yeniden İşleme",
+  SCHEDULE_INTERVAL_EXCEPTION: "Bant Dışı Zamanlayıcı Aralığı",
 };
 
 export const governanceStatusLabels: Record<string, string> = {
@@ -109,6 +112,8 @@ export const governanceDecisionReasonCodes: string[] = [
   "METADATA.INSUFFICIENT.EVIDENCE",
   "EXECUTION.VERIFIED",
   "EXECUTION.INSUFFICIENT.EVIDENCE",
+  "SCHEDULE.OUT_OF_BAND.VERIFIED",
+  "SCHEDULE.OUT_OF_BAND.INSUFFICIENT.EVIDENCE",
 ];
 
 /** Sahiplik talepleri için gönderim gerekçe kodları. */
@@ -122,6 +127,7 @@ export const governanceOwnershipReasonCodes: string[] = [
 export const governanceMetadataReasonCodes: string[] = [
   "METADATA.CRITICALITY.CHANGE",
   "METADATA.STATUS.CHANGE",
+  "METADATA.TIMELINESS.CHANGE",
 ];
 
 /** Alan hassasiyet talepleri için gönderim gerekçe kodları. */
@@ -129,6 +135,9 @@ export const governanceFieldSensitivityReasonCodes: string[] = [
   "METADATA.SENSITIVITY.MARK",
   "METADATA.CLASSIFICATION.CHANGE",
 ];
+
+/** Metadata diff uygulama talepleri için gönderim gerekçe kodları. */
+export const governanceDiffApplicationReasonCodes: string[] = ["METADATA.DIFF.APPLICATION"];
 
 /** Çalıştırma talepleri için gönderim gerekçe kodları. */
 export const governanceExecutionReasonCodes: string[] = [
@@ -155,7 +164,9 @@ export function governanceItemFromApi(item: GovernanceApprovalApiItem): Governan
           ? "METADATA_AND_CLASSIFICATION"
           : item.domain === "EXECUTION"
             ? "EXECUTION"
-            : "QUALITY_RULE";
+            : item.domain === "SCHEDULE"
+              ? "SCHEDULE"
+              : "QUALITY_RULE";
   return {
     approvalRequestId: item.approval_request_id,
     domain,
@@ -185,8 +196,10 @@ export function governanceItemsFromApi(response: GovernanceListApiResponse): Gov
 /** Hedef nesnenin domain ekranına giden rotasını üretir. */
 export function governanceTargetHref(item: GovernanceApprovalItem): string {
   if (item.domain === "DATA_SOURCE") return "/data-sources";
+  if (item.requestType === "METADATA_DIFF_APPLICATION") return "/data-sources";
   if (item.domain === "METADATA_AND_CLASSIFICATION") return `/catalog/datasets/${item.scopeId}`;
   if (item.domain === "EXECUTION") return "/executions";
+  if (item.domain === "SCHEDULE") return "/jobs";
   return "/rules";
 }
 

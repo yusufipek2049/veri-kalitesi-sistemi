@@ -177,6 +177,44 @@ class SQLAlchemyPostgreSQLDriver:
         finally:
             engine.dispose()
 
+    def preview_table(
+        self,
+        *,
+        config: Mapping[str, Any],
+        credentials: Mapping[str, Any],
+        schema: str,
+        table: str,
+        columns: tuple[str, ...],
+        limit: int,
+        connect_timeout_seconds: int,
+        statement_timeout_ms: int,
+    ) -> tuple[tuple[str | None, ...], ...]:
+        if not columns:
+            raise ValidationError("Preview requires at least one catalog field.")
+        engine = self._create_engine(
+            config=config,
+            credentials=credentials,
+            connect_timeout_seconds=connect_timeout_seconds,
+            statement_timeout_ms=statement_timeout_ms,
+        )
+        preparer = engine.dialect.identifier_preparer
+        table_ref = f"{preparer.quote(schema)}.{preparer.quote(table)}"
+        column_exprs = ", ".join(
+            f"{preparer.quote(column)}::text AS {preparer.quote(f'col_{index}')}"
+            for index, column in enumerate(columns)
+        )
+        try:
+            with engine.connect() as connection:
+                rows = connection.execute(
+                    text(f"SELECT {column_exprs} FROM {table_ref} LIMIT :preview_limit"),
+                    {"preview_limit": limit},
+                ).all()
+            return tuple(tuple(_cell_to_text(value) for value in row) for row in rows)
+        except Exception as exc:
+            _raise_classified(exc)
+        finally:
+            engine.dispose()
+
     @staticmethod
     def _discover_metadata_on_engine(
         engine: Engine,
@@ -586,6 +624,15 @@ class SQLAlchemyPostgreSQLDriver:
             )
         except SQLAlchemyError as exc:
             raise DriverConnectionError() from exc
+
+
+def _cell_to_text(value: Any) -> str | None:
+    """Hücre değerini önizleme için güvenli metne çevirir."""
+    if value is None:
+        return None
+    if isinstance(value, datetime | date | time):
+        return value.isoformat()
+    return str(value)
 
 
 def _raise_classified(exc: Exception) -> NoReturn:

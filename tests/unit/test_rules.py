@@ -395,7 +395,7 @@ def test_fr_025_fr_027_uc_005_creates_draft_with_valid_scope_threshold_and_owner
     assert audit.action == "QUALITY_RULE_CREATED"
     assert audit.correlation_id == "correlation-rule-create"
     assert audit.new_value_summary["rule_version_id"] == version.rule_version_id
-    assert audit.redaction_policy_version == "AUDIT_REDACTION_V3"
+    assert audit.redaction_policy_version == "AUDIT_REDACTION_V4"
 
 
 @pytest.mark.parametrize(

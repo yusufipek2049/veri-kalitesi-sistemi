@@ -5,6 +5,8 @@ export interface DevelopmentUserInfo {
   user_id: string;
   display_name: string;
   roles: string;
+  /** Audit kayıtlarındaki aktör kimliği; eski yanıtlarda bulunmayabilir. */
+  actor_id?: string;
 }
 
 export interface DevelopmentUserListResponse {
