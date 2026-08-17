@@ -112,7 +112,13 @@ class PostgreSQLScheduleRepository:
                 )
                 audit_outbox.stage(audit_event, session=session)
             except SqlaIntegrityError as exc:
-                raise ExecutionValidationError("Schedule name must be unique.") from exc
+                orig = exc.orig
+                constraint = getattr(orig, "constraint_name", None) if hasattr(orig, "constraint_name") else None
+                if constraint == "schedules_name_key" or "unique" in str(orig).lower():
+                    raise ExecutionValidationError("Schedule name must be unique.") from exc
+                raise ExecutionValidationError(
+                    f"Schedule could not be saved: database constraint violation."
+                ) from exc
         return schedule
 
     def due(self, now: datetime) -> list[Schedule]:
