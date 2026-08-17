@@ -281,11 +281,6 @@ class ScorePublicationService:
                         superseded_at=publication.published_at,
                     )
                 )
-                session.execute(
-                    update(tables.quality_scores)
-                    .where(tables.quality_scores.c.publication_id == existing_pub["publication_id"])
-                    .values(publication_id=None)
-                )
             session.execute(
                 insert(tables.score_publications).values(
                     publication_id=publication.publication_id,
