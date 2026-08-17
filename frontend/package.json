@@ -9,7 +9,7 @@
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "lint": "eslint src/ --max-warnings 59",
+    "lint": "eslint src/ --max-warnings 52",
     "lint:advisory": "eslint src/",
     "dead-code": "knip",
     "copy-paste": "jscpd --config ../.jscpd.json src/",
