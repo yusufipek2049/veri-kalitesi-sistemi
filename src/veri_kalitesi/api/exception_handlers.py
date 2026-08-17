@@ -38,6 +38,7 @@ from veri_kalitesi.data_sources.errors import (
 )
 from veri_kalitesi.executions.errors import (
     ExecutionConflictError,
+    ExecutionGovernanceApprovalRequiredError,
     ExecutionNotFoundError,
 )
 from veri_kalitesi.executions.query import (
@@ -84,6 +85,13 @@ from veri_kalitesi.reporting.errors import (
     ReportNotFoundError,
     ReportTechnicalError,
     ReportValidationError,
+)
+from veri_kalitesi.sql_templates.errors import (
+    SqlTemplateAuthorizationError,
+    SqlTemplateConflictError,
+    SqlTemplateNotFoundError,
+    SqlTemplateTechnicalError,
+    SqlTemplateValidationError,
 )
 
 
@@ -412,6 +420,27 @@ _SIMPLE_HANDLERS: list[tuple[type[Exception], int, str, str | None]] = [
         "The audit query could not be completed.",
     ),
     (AuditQueryValidationError, 400, "Invalid request", "The audit query could not be validated."),
+    # SQL templates
+    (
+        SqlTemplateAuthorizationError,
+        403,
+        "Access denied",
+        "The requested SQL template action is not permitted.",
+    ),
+    (
+        SqlTemplateNotFoundError,
+        404,
+        "SQL template not found",
+        "The requested SQL template is not available.",
+    ),
+    (SqlTemplateConflictError, 409, "SQL template conflict", None),
+    (SqlTemplateValidationError, 422, "SQL template rejected", None),
+    (
+        SqlTemplateTechnicalError,
+        503,
+        "SQL templates temporarily unavailable",
+        "The SQL template request could not be completed.",
+    ),
     # Scores
     (ScoreNotFoundError, 404, "Score not found", "The requested score is not available."),
     (
@@ -455,6 +484,42 @@ def register_exception_handlers(app: FastAPI) -> None:
 
         app.exception_handler(exc_cls)(
             _make_handler(status, title, fixed_detail),
+        )
+
+    # ── ExecutionGovernanceApprovalRequiredError (machine-readable code) ──
+    @app.exception_handler(ExecutionGovernanceApprovalRequiredError)
+    async def handle_execution_governance_approval_required(
+        request: Request, error: ExecutionGovernanceApprovalRequiredError
+    ) -> JSONResponse:
+        details = {
+            "EXECUTION_MANUAL_START": (
+                "Critical manual execution requires a governance approval request."
+            ),
+            "EXECUTION_CANCEL": (
+                "Critical execution cancellation requires a governance approval request."
+            ),
+            "SCHEDULE_INTERVAL_EXCEPTION": (
+                "Out-of-band schedule intervals require a governance approval request."
+            ),
+        }
+        correlation_id = _correlation_id(error, request)
+        return JSONResponse(
+            status_code=409,
+            media_type="application/problem+json",
+            content={
+                "type": "about:blank",
+                "title": "Governance approval required",
+                "status": 409,
+                "code": "EXECUTION_GOVERNANCE_APPROVAL_REQUIRED",
+                "governance_request_type": error.governance_request_type,
+                "detail": details.get(
+                    error.governance_request_type,
+                    "This execution action requires a governance approval request.",
+                ),
+                "instance": request.url.path,
+                "correlation_id": correlation_id,
+            },
+            headers={"X-Correlation-ID": correlation_id, "Cache-Control": "no-store"},
         )
 
     # ── DataSourceCommandError (uses _command_problem with code lookup) ──
@@ -527,8 +592,15 @@ def register_exception_handlers(app: FastAPI) -> None:
                 detail="The data source request fields are invalid.",
                 correlation_id=request.state.correlation_id,
             )
+        parts: list[str] = []
+        for err in error.errors():
+            loc = err.get("loc", ())
+            field = ".".join(str(segment) for segment in loc if segment != "body")
+            msg = err.get("msg", "invalid value")
+            parts.append(f"{field}: {msg}" if field else str(msg))
+        detail = "; ".join(parts) if parts else "Request validation failed."
         return JSONResponse(
             status_code=422,
-            content={"detail": error.errors()},
+            content={"detail": detail, "errors": error.errors()},
             headers={"X-Correlation-ID": request.state.correlation_id},
         )
